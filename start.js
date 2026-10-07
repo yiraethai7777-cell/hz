@@ -7,8 +7,51 @@
 const { createClient } = require("./dist");
 const { attachHZBot } = require("./hz-bot");
 
+
+// Render Web Service health endpoint
+const http = require("http");
+
+const PORT = Number(process.env.PORT || 10000);
+const HOST = "0.0.0.0";
+
+const healthServer = http.createServer((req, res) => {
+  if (req.url === "/" || req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("HZ BOT OK");
+    return;
+  }
+
+  res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end("Not Found");
+});
+
+healthServer.listen(PORT, HOST, () => {
+  console.log(`[WEB] Health server listening on ${HOST}:${PORT}`);
+});
+
+// Optional periodic self-request.
+// Set KEEP_ALIVE_URL to your Render /health URL.
+const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL;
+
+if (KEEP_ALIVE_URL) {
+  const ping = async () => {
+    try {
+      const response = await fetch(KEEP_ALIVE_URL);
+      console.log(`[KEEP ALIVE] ${response.status}`);
+    } catch (err) {
+      console.error("[KEEP ALIVE ERROR]", err?.message || err);
+    }
+  };
+
+  // First check shortly after startup, then every 14 minutes.
+  setTimeout(ping, 10_000);
+  setInterval(ping, 14 * 60 * 1000);
+} else {
+  console.log("[KEEP ALIVE] KEEP_ALIVE_URL ë¯¸ì¤ì ");
+}
+
 if (!process.env.DATABASE_URL) {
-  console.error("[HZ BOT] DATABASE_URL이 없습니다. PostgreSQL 연결 문자열을 설정해주세요.");
+  console.error("[HZ BOT] DATABASE_URLì´ ììµëë¤. PostgreSQL ì°ê²° ë¬¸ìì´ì ì¤ì í´ì£¼ì¸ì.");
   process.exit(1);
 }
 
@@ -25,10 +68,10 @@ client.onReady(async () => {
   attached = true;
   try {
     const info = await attachHZBot(client);
-    console.log(`[HZ BOT] 준비 완료 / botUserId=${info.botUserId}`);
+    console.log(`[HZ BOT] ì¤ë¹ ìë£ / botUserId=${info.botUserId}`);
   } catch (err) {
     attached = false;
-    console.error("[HZ BOT] 초기화 실패:", err);
+    console.error("[HZ BOT] ì´ê¸°í ì¤í¨:", err);
   }
 });
 
