@@ -457,6 +457,8 @@ CREATE TABLE IF NOT EXISTS hz_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT
 CREATE TABLE IF NOT EXISTS hz_profiles(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,old_name TEXT,new_name TEXT,old_profile_url TEXT,new_profile_url TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS hz_jun(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT,item_name TEXT NOT NULL,value NUMERIC NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS hz_chat_stats(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,chat_count BIGINT NOT NULL DEFAULT 0,first_chat_at TIMESTAMPTZ,last_chat_at TIMESTAMPTZ,PRIMARY KEY(room_id,user_id));
+CREATE TABLE IF NOT EXISTS hz_jun_permissions(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,granted_by TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
+CREATE TABLE IF NOT EXISTS hz_deleted_messages(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,deleter_id TEXT,deleter_name TEXT,message_text TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),meta JSONB NOT NULL DEFAULT '{}'::jsonb);
 CREATE INDEX IF NOT EXISTS hz_events_user_idx ON hz_events(room_id,user_id,id DESC);
 CREATE INDEX IF NOT EXISTS hz_warn_user_idx ON hz_warnings(room_id,target_id,id);
 CREATE INDEX IF NOT EXISTS hz_profile_user_idx ON hz_profiles(room_id,user_id,id DESC);
@@ -597,8 +599,29 @@ function extractProfile(raw){
   walk(raw);return best
 }
 
-function gameHelp(){return "🎮 HZ GAME | 게임 명령어\n게임 명령어를 확인하려면 더보기\n"+MORE+"\n!퀴즈 - 퀴즈 시작\n!정답 (답) - 정답 제출\n!낚시 - 2초간 낚시 후 결과\n!낚시정보 - 낚시 정보\n!인벤 - 잡은 물고기 전체 확인\n!물고기 도감 - 전체 물고기\n!포인트 - 코인 확인\n!내정보 - 내 게임/채팅 정보\n!레벨 - 레벨 확인\n!게임순위 - 포인트 순위\n!채팅순위 - 채팅 횟수 TOP 10\n!상점 - 낚시대 상점\n!낚시대구매 (이름) - 구매\n!낚시장착 (이름) - 장착\n!출석 - 오늘 출석\n!출석확인 @(멘션) 또는 해시 - 출석 확인\n!출석순위 - 오늘 출석 순위\n!준개 (아이템) (값) - 준개 기록 추가\n!준개내역 - 내 준개 기록\n!준개내역삭제 (번호) - 내 기록 삭제\n!전체준개내역 - 전체 기록\n\n🔐 봇 계정 전용\n!게임작동 / !게임중지\n!준개작동 / !준개중지\n!봇작동 - 테러 잠금 해제\n!치트 (코인) @(멘션) 또는 해시"}
-function manageHelp(){return "🛡️ HZ BOT | 관리 명령어\n관리 명령어를 확인하려면 더보기\n"+MORE+"\n!경고 @(멘션) (개수) (이유)\n!경고삭제 @(멘션) (경고 번호)\n!경고내역 @(멘션) 또는 해시\n!입퇴장로그 @(멘션) 또는 해시\n!프로필로그 @(멘션) 또는 해시\n!벤 - 상대 메시지에 답장해서 벤\n!벤 @(멘션) 또는 해시도 가능\n!아이디 @(멘션) - 대상 ID(해시) 확인\n답장 후 !아이디 - 답장 대상 ID(해시) 확인\n\n🤖 자동 관리\n같은 메시지/이모티콘 4회 연속: 자동 경고 1개\n같은 메시지/이모티콘 10회 연속: 자동 벤\n누적 활성 경고 4개: 자동 벤\n부방장 60초 내 7명 강퇴: 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 테러 잠금 해제"}
+
+async function hasJunPermission(c,rid,uid){
+  if(uid===globalBotId)return true;
+  const q=await c.query("SELECT 1 FROM hz_jun_permissions WHERE room_id=$1 AND user_id=$2 LIMIT 1",[rid,uid]);
+  return !!q.rows[0];
+}
+function pickDeleteRoom(evt){
+  return id(evt?.room?.id??evt?.roomId??evt?.chat?.room?.id??evt?.chat?.roomId??evt?.channelId);
+}
+function pickDeleteActor(evt){
+  const a=evt?.actor??evt?.deleter??evt?.sender??evt?.user??evt?.member??null;
+  if(!a)return {id:"",name:""};
+  const uid=id(a.id??a.userId??a.user_id??a.memberId??a.senderId);
+  return {id:uid,name:String(a.name??a.nickname??a.nickName??a.displayName??uid??"")};
+}
+function pickDeletedText(evt){
+  const vals=[evt?.message?.text,evt?.chat?.text,evt?.deletedMessage?.text,evt?.deletedChat?.text,evt?.originalMessage?.text,evt?.originalChat?.text,evt?.text,evt?.content];
+  for(const v of vals)if(typeof v==="string"&&v.trim())return v.trim();
+  return "";
+}
+
+function gameHelp(){return "🎮 HZ GAME | 게임 명령어\n게임 명령어를 확인하려면 더보기\n"+MORE+"\n!퀴즈 - 퀴즈 시작\n!정답 (답) - 정답 제출\n!낚시 - 2초간 낚시 후 결과\n!낚시정보 - 낚시 정보\n!인벤 - 잡은 물고기 전체 확인\n!물고기 도감 - 전체 물고기\n!포인트 - 코인 확인\n!내정보 - 내 게임/채팅 정보\n!레벨 - 레벨 확인\n!게임순위 - 포인트 순위\n!채팅순위 - 채팅 횟수 TOP 10\n!상점 - 낚시대 상점\n!낚시대구매 (이름) - 구매\n!낚시장착 (이름) - 장착\n!출석 - 오늘 출석\n!출석확인 @(멘션) 또는 해시 - 출석 확인\n!출석순위 - 오늘 출석 순위\n!준개 (아이템) (값) - 권한 보유자만 기록 추가\n!준개내역 - 내 준개 기록\n!준개내역삭제 (번호) - 내 기록 삭제\n!전체준개내역 - 전체 기록\n\n🔐 봇 계정 전용\n!게임작동 / !게임중지\n!준개작동 / !준개중지\n!준개권한추가 @(멘션) 또는 해시\n!준개권한삭제 @(멘션) 또는 해시\n!준개권한목록\n!봇작동 - 테러 잠금 해제\n!치트 (코인) @(멘션) 또는 해시"}
+function manageHelp(){return "🛡️ HZ BOT | 관리 명령어\n관리 명령어를 확인하려면 더보기\n"+MORE+"\n!경고 @(멘션) (개수) (이유)\n!경고삭제 @(멘션) (경고 번호)\n!경고내역 @(멘션) 또는 해시\n!입퇴장로그 @(멘션) 또는 해시\n!프로필로그 @(멘션) 또는 해시\n!벤 - 상대 메시지에 답장해서 벤\n!벤 @(멘션) 또는 해시도 가능\n!아이디 @(멘션) - 대상 ID(해시) 확인\n답장 후 !아이디 - 답장 대상 ID(해시) 확인\n\n🤖 자동 관리\n같은 메시지/이모티콘 4회 연속: 자동 경고 1개\n같은 메시지/이모티콘 10회 연속: 자동 벤\n누적 활성 경고 4개: 자동 벤\n메시지 삭제 감지: 삭제자 확인 가능 시 자동 경고 1개\n부방장 60초 내 7명 강퇴: 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 테러 잠금 해제"}
 async function send(chat,rid,text){if(text)await chat.sendText(rid,text)}
 
 async function profileObserve(c,rid,uid,name,url){
@@ -719,6 +742,7 @@ async function handleGame(d,c,msg,isSelf){
   if(text.startsWith("!출석확인")){let t=targetFrom(msg,text);if(!t)return "사용법: !출석확인 @(멘션) 또는 해시";t=await resolveTarget(c,msg.room.id,t);const a=d.attendance[dayK()]||[],i=a.findIndex(x=>x.id===t.id);return i<0?`${t.name||t.id}님은 오늘 출석하지 않았습니다.`:`${a[i].name}님 출석 완료 · ${i+1}등 · ${a[i].time}`}
   m=/^!준개\s+(.+?)\s+([0-9]+(?:\.[0-9]+)?)$/.exec(text);
   if(m){
+    if(!await hasJunPermission(c,msg.room.id,uid))return "⛔ 준개 사용 권한이 없습니다.";
     const item=m[1].trim(),value=Number(m[2]);
     if(!item)return "사용법: !준개 (아이템) (값)";
     if(!Number.isFinite(value)||value<0)return "준개 값은 0 이상의 숫자로 입력해주세요.";
@@ -851,6 +875,29 @@ async function attachHZBot(client){
       flags=await roomFlags(rid);
       if(text==="!명령어"){if(flags.game||flags.jun)await send(chat,rid,gameHelp());if(flags.manage)await send(chat,rid,manageHelp());return}
 
+      if(text==="!준개권한목록"){
+        if(!isSelf)return;
+        const q=await pool.query("SELECT user_id,name FROM hz_jun_permissions WHERE room_id=$1 ORDER BY created_at ASC",[rid]);
+        await send(chat,rid,q.rows.length?"📦 준개 권한 목록\n"+q.rows.map((x,i)=>`${i+1}. ${x.name||x.user_id} (${x.user_id})`).join("\n"):"📦 준개 권한을 가진 사람이 없습니다.");
+        return
+      }
+      if(text.startsWith("!준개권한추가")||text.startsWith("!준개권한삭제")){
+        if(!isSelf)return;
+        const out=await withRoom(rid,rname,async(d,c)=>{
+          let t=await commandTarget(c,rid,msg,text);
+          if(!t)return "사용법: !준개권한추가 @(멘션) 또는 해시\n삭제: !준개권한삭제 @(멘션) 또는 해시";
+          if(text.startsWith("!준개권한추가")){
+            await c.query(`INSERT INTO hz_jun_permissions(room_id,user_id,name,granted_by) VALUES($1,$2,$3,$4)
+              ON CONFLICT(room_id,user_id) DO UPDATE SET name=EXCLUDED.name,granted_by=EXCLUDED.granted_by`,
+              [rid,t.id,t.name||t.id,globalBotId]);
+            return `✅ ${t.name||t.id}님에게 준개 권한을 부여했습니다.`;
+          }
+          await c.query("DELETE FROM hz_jun_permissions WHERE room_id=$1 AND user_id=$2",[rid,t.id]);
+          return `🗑️ ${t.name||t.id}님의 준개 권한을 삭제했습니다.`;
+        });
+        await send(chat,rid,out);return
+      }
+
       if(text.startsWith("!치트")){
         if(!isSelf||!flags.game)return;
         const mm=/^!치트\s+([0-9]+)[\s\S]*$/.exec(text);
@@ -937,6 +984,32 @@ async function attachHZBot(client){
   client.onJoin(memberEvent("join"));
   client.onLeave(memberEvent("leave"));
   client.onKick(memberEvent("kick"));
+
+  if(typeof client.onDelete==="function"){
+    client.onDelete(async (...args)=>{
+      try{
+        const evt=args.length===1?args[0]:args[1];
+        const chat=args.length===1?(client.chat||client):args[0];
+        if(!evt)return;
+        const rid=pickDeleteRoom(evt); if(!rid)return;
+        const flags=await roomFlags(rid); if(!flags.manage||flags.locked)return;
+        const actor=pickDeleteActor(evt), deletedText=pickDeletedText(evt);
+        await pool.query("INSERT INTO hz_deleted_messages(room_id,deleter_id,deleter_name,message_text,meta) VALUES($1,$2,$3,$4,$5::jsonb)",
+          [rid,actor.id||null,actor.name||null,deletedText||null,JSON.stringify({event:"delete"})]);
+        await send(chat,rid,`🗑️ 메시지 삭제 감지\n\n👤 삭제자: ${actor.name||actor.id||"확인 불가"}\n💬 삭제된 내용: ${deletedText||"내용 확인 불가"}\n🕒 시간: ${nowK()}`);
+        if(actor.id&&actor.id!==globalBotId){
+          await pool.query("INSERT INTO hz_warnings(room_id,target_id,target_name,count,reason,issuer_id,issuer_name) VALUES($1,$2,$3,1,$4,$5,$6)",
+            [rid,actor.id,actor.name||actor.id,"메시지 삭제",globalBotId,"HZ BOT"]);
+          const wc=await activeWarningCount(pool,rid,actor.id);
+          await send(chat,rid,`⚠️ ${actor.name||actor.id}님 자동 경고 1개\n이유: 메시지 삭제\n현재 경고: ${wc}/4`);
+          if(wc>=4){
+            try{await globalChat.openChatKick(rid,actor.id);await send(chat,rid,`🚫 ${actor.name||actor.id}님이 경고 ${wc}개에 도달하여 자동 벤 처리되었습니다.`)}
+            catch(e){console.error("[HZ DELETE WARNING BAN]",e);await send(chat,rid,`⚠️ ${actor.name||actor.id}님이 경고 ${wc}개에 도달했지만 자동 벤에 실패했습니다.`)}
+          }
+        }
+      }catch(e){console.error("[HZ DELETE]",e)}
+    });
+  }
   return {botUserId:globalBotId}
 }
 
