@@ -457,6 +457,7 @@ function player(d,uid,name){
   p.rods=Array.isArray(p.rods)?p.rods:["나무"];
   p.pets=p.pets&&typeof p.pets==="object"&&!Array.isArray(p.pets)?p.pets:{};
   p.equippedPet=p.equippedPet||"";p.rodLevels=p.rodLevels||{};p.autoUntil=Number(p.autoUntil)||0;p.luckUntil=Number(p.luckUntil)||0;
+  p.protection=Math.max(0,Number(p.protection)||0);p.protectionDay=p.protectionDay||"";p.protectionBought=Math.max(0,Number(p.protectionBought)||0);p.autoDay=p.autoDay||"";p.autoBought=Math.max(0,Number(p.autoBought)||0);p.rodRestore=p.rodRestore||null;
   return p
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -852,13 +853,13 @@ ${MORE}
 🎣 낚시
 !낚시 - 물고기 낚기
 !낚시정보 - 낚시 정보
-!강화 - 낚시대 강화
+!강화 (횟수) - 낚시대 연속 강화 (최대 100회)\n!보호권구매 (개수) - 개당 10만, 하루 5개\n!보호권 - 보유 보호권 확인
 !인벤 - 보유 물고기
 !물고기 도감 / !물고기도감 - 물고기 도감
 !물고기판매 (이름) (수량/all)
 !물고기판매 all - 전부 판매
 !구매행운 - 행운 효과 구매
-!구매자동 - 자동 낚시 10분 구매
+!구매자동 - 10분 자동 낚시, 하루 3회
 !상점 - 낚시대 상점
 !낚시대구매 (이름)
 !낚시장착 (이름)
@@ -882,7 +883,8 @@ ${MORE}
 !게임작동 / !게임중지
 !퀴즈작동 / !퀴즈중지
 !낚시작동 / !낚시중지
-!치트 (코인) @멘션`;}
+!치트 (코인) @멘션
+!회수 (코인/all) @멘션 - 포인트 회수\n!초기화 / !초기화확인 - 전체 게임 초기화 (최고 관리자)`;}
 
 function junHelp(){return "📦 GL 준개 | 준개 명령어\n"+MORE+"\n!준개 (아이템) (값) - 기록 추가(권한 필요)\n!준개내역 - 내 기록\n!준개내역삭제 (번호) - 기록 삭제\n!전체준개내역 - 전체 기록\n\n🔐 관리자\n!준개작동 - 준개만 켜고 게임 끄기\n!준개중지 - 준개 끄기\n!준개권한추가 @(멘션) 또는 ID\n!준개권한삭제 @(멘션) 또는 ID\n!준개권한목록"}
 function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n멘션 알림 - 멘션된 사람이 채팅하면 알림\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n!벤등록 (사용자 ID) - 재입장 자동 강퇴 등록\n!벤등록해제 (사용자 ID)\n!벤등록목록 - 등록된 ID 확인\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
@@ -1022,24 +1024,57 @@ async function sendFishingCard(chat,roomId,fishName){
 
 function petBonus(p){const pet=PETS.find(x=>x.name===p.equippedPet&&p.pets[x.name]!==undefined);if(!pet)return {luck:0,xp:0,points:0};const level=Number(p.pets[pet.name])||0;return {luck:pet.luck+level*2,xp:pet.xp+level*2,points:pet.points+level*2}}
 function rodLuck(p){const r=RODS.find(x=>x.name===p.rod)||RODS[0],b=petBonus(p);return r.luck*(1+(Number(p.rodLevels[p.rod])||0)*.03)*(1+b.luck/100)*(Date.now()<p.luckUntil?1.5:1)}
-function awardFish(p,now){const b=petBonus(p),luck=rodLuck(p),f=fishPick(luck),size=Math.round((f.min+Math.random()*(f.max-f.min))*10)/10,value=Math.round(fishValue(f,size,luck)*(1+b.points/100)),xp=Math.round(FISHING_XP*(1+b.xp/100));p.inventory.push({name:f.name,tier:f.tier,size,value,at:now,salePending:true});const up=addXp(p,xp);p.lastFish=now;return {f,size,value,xp,up}}
+function awardFish(p,now){const b=petBonus(p),luck=rodLuck(p),f=fishPick(luck),size=Math.round((f.min+Math.random()*(f.max-f.min))*10)/10,value=Math.round(fishValue(f,size,luck)*(1+b.points/100)),xp=Math.round(FISHING_XP*(1+b.xp/100));p.inventory.push({name:f.name,tier:f.tier,size,value,at:now,salePending:true});p.points+=value;const up=addXp(p,xp);p.lastFish=now;return {f,size,value,xp,up}}
 function drawPet(){const total=PETS.reduce((v,p)=>v+p.weight,0);let v=Math.random()*total;for(const pet of PETS){v-=pet.weight;if(v<0)return pet}return PETS[PETS.length-1]}
 function enhancementCost(level,base){return Math.round(base*Math.pow(1.28,level))}
 function enhancementNeed(level){return Math.min(200,1+Math.floor(level/3))}
-async function autoFishTick(){if(!globalChat)return;const rows=await pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'fishEnabled') IS DISTINCT FROM 'false'");for(const row of rows.rows){const rid=row.room_id;try{const results=await withRoom(rid,row.data.name||'',async d=>{if(!d.game||!d.fishEnabled)return [];const out=[],now=Date.now();for(const p of Object.values(d.players)){if(!p.autoUntil||p.autoUntil<=now)continue;if(now-(Number(p.lastFish)||0)<FISHING_COOLDOWN_SECONDS*1000)continue;const r=awardFish(p,now);out.push(`🤖 자동 낚시 | ${p.name}\n🐟 ${r.f.name} (${r.size}cm)\n💰 판매 예상가 ${n(r.value)}코인 · ⭐ +${r.xp} XP`)}return out});for(const line of results)await send(globalChat,rid,line)}catch(e){console.error('[GL AUTO FISH]',rid,e)}}}
+async function autoFishTick(){if(!globalChat)return;const rows=await pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'fishEnabled') IS DISTINCT FROM 'false'");for(const row of rows.rows){const rid=row.room_id;try{const results=await withRoom(rid,row.data.name||'',async d=>{if(!d.game||!d.fishEnabled)return [];const out=[],now=Date.now();for(const p of Object.values(d.players)){if(!p.autoUntil||p.autoUntil<=now)continue;if(now-(Number(p.lastFish)||0)<FISHING_COOLDOWN_SECONDS*1000)continue;const r=awardFish(p,now);out.push(`🤖 자동 낚시 | ${p.name}\n🐟 ${r.f.name} (${r.size}cm)\n💰 낚시 보상 +${n(r.value)}코인 · 판매 가능 · ⭐ +${r.xp} XP`)}return out});for(const line of results)await send(globalChat,rid,line)}catch(e){console.error('[GL AUTO FISH]',rid,e)}}}
 let autoFishTimer=null,autoFishBusy=false;
 async function handleGame(d,c,msg,isSelf){
   const text=String(msg.message?.text??msg.text??"").trim(),uid=id(msg.sender?.id??msg.senderId),name=String(msg.sender?.name||uid),p=player(d,uid,name),now=Date.now();
   if(text==="!명령어")return null;
+  if(p.rodRestore&&now>p.rodRestore.expires){const old=p.rodRestore;p.rodRestore=null;p.rod="나무";p.rods=p.rods.filter(x=>x!==old.rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[old.rod];}
+  if(p.rodRestore&&text!=="네"&&text!=="아니요")return "🛡️ 낚시대 파괴 복구 대기 중입니다. 60초 이내 네 또는 아니요를 입력하세요.";
 
   if((text==="!퀴즈"||text.startsWith("!정답"))&&!d.quizEnabled)return "🧩 이 방은 퀴즈 기능이 꺼져 있습니다.";
   if(text==="!낚시"&&!d.fishEnabled)return "🎣 이 방은 낚시 기능이 꺼져 있습니다.";
   if(text==="!퀴즈"){if(d.quiz&&d.quiz.expiresAt<=now){d.quizCooldownUntil=Math.max(Number(d.quizCooldownUntil)||0,d.quiz.expiresAt+QUIZ_COOLDOWN_SECONDS*1000);d.quiz=null;}if(d.quiz&&d.quiz.expiresAt>now)return `이미 퀴즈가 진행 중입니다!\n\n🧩 ${d.quiz.kind} 퀴즈\nQ. ${d.quiz.question}`;const quizRemain=Math.ceil(((Number(d.quizCooldownUntil)||0)-now)/1000);if(quizRemain>0)return `🧩 다음 퀴즈까지 ${quizRemain}초 남았습니다.`;const {q}=nextQuiz(d);d.quiz={kind:q[0],question:q[1],answers:q[2],expiresAt:now+QUIZ_SECONDS*1000};return `🧩 ${q[0]} 퀴즈\n\nQ. ${q[1]}\n\n⏱ 제한 시간: ${QUIZ_SECONDS}초\n💰 첫 정답자: ${n(QUIZ_REWARD)}코인\n⭐ 경험치: +${QUIZ_XP}\n\n답변: !정답 (답)`}
   let m=/^!정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quizCooldownUntil=Math.max(now,d.quiz.expiresAt)+QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: !정답 (답)";if(!d.quiz.answers.some(a=>norm(a)===norm(m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quizCooldownUntil=now+QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;p.points+=QUIZ_REWARD;p.wins++;const up=addXp(p,QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${n(QUIZ_REWARD)}코인\n⭐ +${QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${n(p.points)}코인`}
-  if(text==="!낚시"){const remain=FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;await send(globalChat,msg.room.id,"🎣 낚시를 시작합니다...\n\n🌊 물결을 살피는 중...\n🎣 찌가 움직이기 시작합니다!");await sleep(FISHING_WAIT_MS);const r=awardFish(p,Date.now());const photoSent=await sendFishingCard(globalChat,msg.room.id,r.f.name);return `🎣 ${name}님의 낚시 결과\n\n🐟 물고기: ${r.f.name} [${r.f.tier}]\n📏 크기: ${r.size}cm\n💰 판매 예상가: ${n(r.value)}코인 (판매 시 지급)\n⭐ 획득 경험치: +${r.xp} XP\n🎣 낚시대: ${p.rod} +${p.rodLevels[p.rod]||0}${r.up?`\n⬆️ 레벨 ${p.level}`:""}${photoSent?"":"\n⚠️ 물고기 사진 전송 실패 (Railway 로그 확인)"}`}
-  if(text==="!강화"){const lv=Number(p.rodLevels[p.rod])||0;if(lv>=30)return "🎣 낚시대 최대 강화(+30)입니다.";const cost=enhancementCost(lv,10000),need=enhancementNeed(lv);if(p.level<need)return `⭐ Lv.${need} 이상 필요합니다.`;if(p.points<cost&&!isSelf)return `💰 강화 비용: ${n(cost)}코인 (부족)`;if(!isSelf)p.points-=cost;p.rodLevels[p.rod]=lv+1;return `🎣 ${p.rod} 낚시대 강화 +${lv+1}/30 완료\n💰 비용 ${n(cost)}코인`}
+  if(text==="!낚시"){const remain=FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;await send(globalChat,msg.room.id,"🎣 낚시를 시작합니다...\n\n🌊 물결을 살피는 중...\n🎣 찌가 움직이기 시작합니다!");await sleep(FISHING_WAIT_MS);const r=awardFish(p,Date.now());const photoSent=await sendFishingCard(globalChat,msg.room.id,r.f.name);return `🎣 ${name}님의 낚시 결과\n\n🐟 물고기: ${r.f.name} [${r.f.tier}]\n📏 크기: ${r.size}cm\n💰 낚시 보상: +${n(r.value)}코인
+💰 판매 예상가: ${n(r.value)}코인\n⭐ 획득 경험치: +${r.xp} XP\n🎣 낚시대: ${p.rod} +${p.rodLevels[p.rod]||0}${r.up?`\n⬆️ 레벨 ${p.level}`:""}${photoSent?"":"\n⚠️ 물고기 사진 전송 실패 (Railway 로그 확인)"}`}
+  if(text==="네"||text==="아니요"){
+    const pending=p.rodRestore;
+    if(!pending)return null;
+    p.rodRestore=null;
+    if(now>pending.expires){p.rod="나무";p.rods=p.rods.filter(x=>x!==pending.rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[pending.rod];return "⏰ 복구 시간이 지나 낚시대가 파괴되었습니다. 나무 낚시대 +0 지급";}
+    if(text==="네"&&p.protection>0){p.protection--;p.rod=pending.rod;p.rodLevels[pending.rod]=pending.level;return `🛡️ 보호권 1개 사용!\n🎣 ${pending.rod} +${pending.level} 복구 완료\n남은 보호권: ${p.protection}개`;}
+    p.rod="나무";p.rods=p.rods.filter(x=>x!==pending.rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[pending.rod];return "💥 낚시대 파괴 확정. 나무 낚시대 +0 지급";
+  }
+  if(text==="!보호권")return `🛡️ 보유 보호권: ${p.protection}개\n오늘 구매: ${p.protectionDay===dayK()?p.protectionBought:0}/5개`;
+  let protectMatch=/^!보호권구매(?:\s+(\S+))?$/.exec(text);
+  if(protectMatch){const qty=protectMatch[1]===undefined?1:Number(protectMatch[1]);if(!Number.isSafeInteger(qty)||qty<1||qty>5)return "🛡️ 구매 수량은 1~5개로 입력하세요.";if(p.protectionDay!==dayK()){p.protectionDay=dayK();p.protectionBought=0;}if(p.protectionBought+qty>5)return `🛡️ 하루 5개까지만 구매할 수 있습니다. 오늘 남은 수량: ${5-p.protectionBought}개`;const cost=qty*100000;if(p.points<cost&&!isSelf)return `💰 ${n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;p.protection+=qty;p.protectionBought+=qty;return `🛡️ 보호권 ${qty}개 구매 완료\n💰 비용 ${n(cost)}코인\n보유 ${p.protection}개 · 오늘 ${p.protectionBought}/5개`;}
+  if(/^!강화(?:\s+\S+)?$/.test(text)){
+    if(p.rodRestore)return "🛡️ 파괴된 낚시대의 복구를 먼저 결정하세요. 네 / 아니요";
+    const countText=text.split(/\s+/)[1]||"1",count=Number(countText);
+    if(!Number.isSafeInteger(count)||count<1||count>100)return "사용법: !강화 또는 !강화 10 / 50 / 100 (최대 100회)";
+    const lines=[],rod=p.rod;let spent=0,success=0,fail=0;
+    for(let i=0;i<count;i++){
+      const lv=Number(p.rodLevels[rod])||0;
+      if(lv>=30){lines.push("최대 강화 +30 도달");break;}
+      const cost=enhancementCost(lv,10000),need=enhancementNeed(lv);
+      if(p.level<need){lines.push(`Lv.${need} 이상 필요`);break;}
+      if(p.points<cost&&!isSelf){lines.push(`코인 부족 (${n(cost)} 필요)`);break;}
+      if(!isSelf)p.points-=cost;spent+=cost;
+      const chance=lv<6?.95:lv<11?.85:lv<16?.70:lv<21?.55:lv<26?.35:.20;
+      const destroy=lv<6?0:lv<11?.01:lv<16?.03:lv<21?.05:lv<26?.10:.15;
+      if(Math.random()<chance){p.rodLevels[rod]=lv+1;success++;lines.push(`${i+1}회: 성공 +${lv+1}`);}
+      else if(Math.random()<destroy){fail++;lines.push(`${i+1}회: 💥 파괴 판정 +${lv}`);if(p.protection>0){p.rodRestore={rod,level:lv,expires:now+60000};lines.push(`🛡️ 보호권 ${p.protection}개 보유\n60초 이내 네 / 아니요 로 복구 결정`);}else{p.rod="나무";p.rods=p.rods.filter(x=>x!==rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[rod];lines.push("보호권 없음 · 나무 낚시대 +0 지급");}break;}
+      else{fail++;lines.push(`${i+1}회: 실패 (+${lv} 유지)`);}
+    }
+    return `🎣 ${rod} 낚시대 강화\n성공 ${success}회 · 실패 ${fail}회\n💰 사용 ${n(spent)}코인\n현재 ${p.rod} +${p.rodLevels[p.rod]||0}\n${MORE}\n${lines.join("\n")}`;
+  }
   if(text==="!구매행운"){if(p.luckUntil>now)return `🍀 행운 효과 종료까지 ${Math.ceil((p.luckUntil-now)/60000)}분 남았습니다.`;if(p.points<40000&&!isSelf)return "💰 40,000코인이 필요합니다.";if(!isSelf)p.points-=40000;p.luckUntil=now+600000;return "🍀 행운 구매 완료! 10분간 낚시 행운 50% 상승"}
-  if(text==="!구매자동"){if(p.points<AUTO_COST&&!isSelf)return "💰 50,000코인이 필요합니다.";if(!isSelf)p.points-=AUTO_COST;p.autoUntil=Math.max(now,p.autoUntil)+AUTO_DURATION;return `🤖 자동 낚시 구매 완료!\n남은 시간: ${Math.ceil((p.autoUntil-now)/60000)}분\n🎣 ${FISHING_COOLDOWN_SECONDS}초마다 자동 낚시`}
+  if(text==="!구매자동"){if(p.autoUntil>now)return `⏳ 자동 낚시가 작동 중입니다. 남은 시간 ${Math.ceil((p.autoUntil-now)/1000)}초`;if(p.autoDay!==dayK()){p.autoDay=dayK();p.autoBought=0;}if(p.autoBought>=3)return "🤖 오늘 자동 낚시 구매 3회를 모두 사용했습니다. 내일 다시 구매하세요.";if(p.points<AUTO_COST&&!isSelf)return "💰 50,000코인이 필요합니다.";if(!isSelf)p.points-=AUTO_COST;p.autoBought++;p.autoUntil=now+AUTO_DURATION;return `🤖 자동 낚시 구매 완료!\n작동 시간: 10분\n오늘 구매 ${p.autoBought}/3회\n🎣 ${FISHING_COOLDOWN_SECONDS}초마다 자동 낚시`;}
   if(text==="!펫뽑기"||/^!펫뽑기\s+(10|50|100)$/.test(text)){const count=Number(text.split(/\s+/)[1]||1),cost=count*PET_COST;if(p.points<cost&&!isSelf)return `💰 ${n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;let dup=0;const results=[];for(let i=0;i<count;i++){const pet=drawPet();if(Object.prototype.hasOwnProperty.call(p.pets,pet.name)){dup++;p.points+=1000;results.push(`${i+1}. ${pet.name} [중복 +1,000]`)}else{p.pets[pet.name]=0;results.push(`${i+1}. ${pet.name} [NEW]`)}}return `🐾 펫 ${count}회 뽑기\n💰 사용 ${n(cost)}코인 · 중복 ${dup}마리 환급 ${n(dup*1000)}코인\n보유 ${Object.keys(p.pets).length}/20종\n${count>1?MORE:""}\n${results.join("\n")}`}
   if(text.startsWith("!펫뽑기"))return "사용법: !펫뽑기 또는 !펫뽑기 10 / 50 / 100";
   if(text==="!펫도감")return `📖 펫 도감 (${Object.keys(p.pets).length}/20)\n${MORE}\n`+PETS.map((x,i)=>`${i+1}. ${Object.prototype.hasOwnProperty.call(p.pets,x.name)?x.name:"???"}`).join("\n");
@@ -1069,17 +1104,17 @@ async function handleGame(d,c,msg,isSelf){
     let total=0,alreadyPaid=0;
     const details=[];
     for(const fish of targets){
-      const value=fish.salePending===true?Math.max(0,Math.floor(Number(fish.value)||0)):0;
-      total+=value;if(fish.salePending!==true)alreadyPaid++;
-      details.push(`${fish.name} ${fish.size}cm → ${n(value)}코인${fish.salePending!==true?" (기존 지급 완료)":""}`);
+      const value=Math.max(0,Math.floor(Number(fish.value)||0));
+      total+=value;
+      details.push(`${fish.name} ${fish.size}cm → ${n(value)}코인`);
     }
     const selected=new Set(targets);
     p.inventory=p.inventory.filter(x=>!selected.has(x));
     p.points+=total;
-    return `🐟 물고기 판매 완료!\n판매 수량: ${targets.length}마리\n💰 판매 금액: +${n(total)}코인\n💵 보유 코인: ${n(p.points)}${alreadyPaid?`\nℹ️ 기존에 낚시 보상을 받은 물고기 ${alreadyPaid}마리는 중복 지급하지 않습니다.`:""}\n${MORE}\n${details.join("\n")}`;
+    return `🐟 물고기 판매 완료!\n판매 수량: ${targets.length}마리\n💰 판매 금액: +${n(total)}코인\n💵 보유 코인: ${n(p.points)}\n${MORE}\n${details.join("\n")}`;
   }
   if(text==="!낚시정보")return `🎣 낚시 정보\n쿨타임 ${FISHING_COOLDOWN_SECONDS}초 · 결과 대기 ${FISHING_WAIT_MS/1000}초\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
-  if(text==="!인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+MORE+"\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${n(x.value)}코인${x.salePending===true?" [판매 대기]":" [기존 지급]"}`).join("\n")}
+  if(text==="!인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+MORE+"\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${n(x.value)}코인`).join("\n")}
   if(text==="!물고기 도감"||text==="!물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 물고기 도감\n"+MORE+"\n"+FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
 
   if(text==="!내정보"){
@@ -1450,6 +1485,18 @@ async function attachHZBot(client){
         await send(chat,rid,out);return;
       }
 
+      if(text==="!초기화"||text==="!초기화확인"){
+        if(!OWNER_IDS.has(uid)){await send(chat,rid,"⛔ 최고 관리자만 게임 초기화를 실행할 수 있습니다. HZ_OWNER_IDS 설정을 확인하세요.");return;}
+        if(text==="!초기화"){
+          await withRoom(rid,rname,async d=>{d.gameResetRequest={uid,expires:Date.now()+60000};});
+          await send(chat,rid,"⚠️ 전체 방의 게임 데이터(코인, 레벨, 물고기, 펫, 강화, 보호권 등)를 초기화합니다.\n채팅순위(hz_chat_stats)와 출석 기록은 유지됩니다.\n60초 이내 !초기화확인 을 입력하세요.");return;
+        }
+        const valid=await withRoom(rid,rname,async d=>{const x=d.gameResetRequest;const ok=x&&x.uid===uid&&x.expires>Date.now();delete d.gameResetRequest;return !!ok;});
+        if(!valid){await send(chat,rid,"⏰ 초기화 요청이 없거나 만료되었습니다. !초기화부터 입력하세요.");return;}
+        await pool.query(`UPDATE hz_rooms SET data=jsonb_set(jsonb_set(jsonb_set(jsonb_set(data,'{players}','{}'::jsonb,true),'{quiz}','null'::jsonb,true),'{quizQueue}','[]'::jsonb,true),'{lastQuiz}','-1'::jsonb,true),updated_at=NOW()`);
+        await send(chat,rid,"✅ 모든 방의 게임 데이터가 초기화되었습니다.\n📊 채팅순위·채팅 횟수·출석 기록은 그대로 유지됩니다.");return;
+      }
+
       const control=["!퀴즈작동","!퀴즈중지","!낚시작동","!낚시중지","!게임작동","!게임중지","!관리작동","!관리중지","!준개작동","!준개중지"];
       if(control.includes(text)){
         if(!isAdmin)return;
@@ -1540,6 +1587,29 @@ async function attachHZBot(client){
           return `💸 송금 완료!\n보낸 사람: ${sender.name}\n받는 사람: ${receiver.name}\n송금액: ${n(amount)}P\n남은 포인트: ${n(sender.points)}P`;
         });
         await send(chat,rid,result);return;
+      }
+
+      if(/^!회수(?:\s|$)/.test(text)){
+        if(!isAdmin||!flags.game)return;
+        const mm=/^!회수\s+(all|[0-9]+)(?:\s|$)/i.exec(text);
+        let t=targetFrom(msg,text);
+        if(!mm||!t){await send(chat,rid,"사용법: !회수 (코인/all) @(멘션) 또는 해시");return;}
+        const all=mm[1].toLowerCase()==="all";
+        const amount=all?null:Number(mm[1]);
+        if(!all&&(!Number.isSafeInteger(amount)||amount<1||amount>1000000000000)){
+          await send(chat,rid,"회수 코인은 1~1,000,000,000,000 범위로 입력해주세요.");return;
+        }
+        const out=await withRoom(rid,rname,async(d,c)=>{
+          t=await resolveTarget(c,rid,t);
+          if(!t||!t.id)return "❌ 회수 대상을 찾을 수 없습니다.";
+          if(t.id===globalBotId)return "❌ 봇 계정의 포인트는 회수할 수 없습니다.";
+          const p=player(d,t.id,t.name||t.id);
+          const balance=Math.max(0,Number(p.points)||0);
+          const taken=all?balance:Math.min(balance,amount);
+          p.points=balance-taken;
+          return `💰 포인트 회수 완료\n👤 대상: ${p.name}\n💸 회수 포인트: ${n(taken)}P\n💰 남은 포인트: ${n(p.points)}P${taken===0?"\nℹ️ 회수할 포인트가 없습니다.":""}`;
+        });
+        await send(chat,rid,out);return;
       }
 
       if(text.startsWith("!치트")){
