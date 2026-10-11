@@ -466,6 +466,17 @@ CREATE TABLE IF NOT EXISTS hz_events(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT N
 CREATE TABLE IF NOT EXISTS hz_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,target_id TEXT NOT NULL,target_name TEXT,count INT NOT NULL,reason TEXT NOT NULL,issuer_id TEXT NOT NULL,issuer_name TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ,deleted_by TEXT);
 CREATE TABLE IF NOT EXISTS hz_profiles(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,old_name TEXT,new_name TEXT,old_profile_url TEXT,new_profile_url TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS hz_jun(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT,item_name TEXT NOT NULL,value NUMERIC NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+CREATE TABLE IF NOT EXISTS hz_attendance(
+  room_id TEXT NOT NULL,
+  day_key TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  display_time TEXT,
+  PRIMARY KEY(room_id,day_key,user_id)
+);
+CREATE INDEX IF NOT EXISTS hz_attendance_rank_idx
+  ON hz_attendance(room_id,day_key,checked_at,user_id);
 CREATE TABLE IF NOT EXISTS hz_chat_stats(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,chat_count BIGINT NOT NULL DEFAULT 0,first_chat_at TIMESTAMPTZ,last_chat_at TIMESTAMPTZ,PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS hz_jun_permissions(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,granted_by TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS hz_message_cache(room_id TEXT NOT NULL,message_id TEXT NOT NULL,message_text TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));
@@ -661,22 +672,53 @@ async function activeWarningCount(c,rid,uid){
 }
 function validOpenProfileLink(v){
   if(typeof v!=="string")return "";
-  try{const u=new URL(v);return u.protocol==="https:"&&(/(^|\.)kakao\.com$/.test(u.hostname)||u.hostname==="open.kakao.com")?v:""}catch(_){return ""}
+  try{
+    const u=new URL(v);
+    if(u.protocol!=="https:")return "";
+    // Do not confuse profile images or room invitations with a personal open-profile URL.
+    if(u.hostname==="open.kakao.com" && /^\/o\/[A-Za-z0-9_-]+\/?$/.test(u.pathname))return v;
+    return "";
+  }catch(_){return ""}
 }
 function findOpenProfileLink(raw){
   let found="";
+  const seen=new Set();
   function walk(v,depth=0){
-    if(!v||depth>6||found)return;
+    if(!v||depth>5||found||typeof v!=="object"||seen.has(v))return;
+    seen.add(v);
     if(Array.isArray(v)){for(const x of v)walk(x,depth+1);return}
-    if(typeof v!=="object")return;
     for(const [k,x] of Object.entries(v)){
-      if(/openProfileUrl|open_profile_url|openLinkUrl|open_link_url|profileLink/i.test(k)){
+      if(/^(openProfileUrl|open_profile_url|openProfileLink|open_profile_link|profileLink|profile_link)$/i.test(k)){
         const link=validOpenProfileLink(x);if(link){found=link;return}
       }
       if(typeof x==="object")walk(x,depth+1)
     }
   }
   walk(raw);return found;
+}
+function profileDiagnostic(msg){
+  // Report field names and link presence only; do not expose raw payloads, auth or other members.
+  const roots=[['sender',msg.sender],['raw.sender',msg.raw?.sender],['raw.chat.sender',msg.raw?.chat?.sender]];
+  const lines=['🔍 내 오픈프로필 진단','실제 수신된 본인 프로필 필드만 확인합니다.'];
+  for(const [label,root] of roots){
+    if(!root||typeof root!=='object'){lines.push(label+': 없음');continue;}
+    const keys=Object.keys(root).filter(k=>/profile|open|link|url|nickname|name/i.test(k)).slice(0,25);
+    const link=findOpenProfileLink(root);
+    lines.push(label+': '+(keys.length?keys.join(', '):'관련 필드 없음'));
+    lines.push('  오픈프로필 링크: '+(link?'확인됨':'없음'));
+  }
+  lines.push('※ 프로필 이미지 URL과 오픈프로필 공유 링크는 다릅니다.');
+  return lines.join('\n');
+}
+async function saveOpenProfileLink(rid,uid,name,source){
+  if(!rid||!uid||!source)return;
+  const link=findOpenProfileLink(source);
+  if(!link)return;
+  await pool.query(`INSERT INTO hz_members(room_id,user_id,name,open_profile_link)
+    VALUES($1,$2,$3,$4)
+    ON CONFLICT(room_id,user_id) DO UPDATE SET
+    open_profile_link=EXCLUDED.open_profile_link,
+    name=COALESCE(NULLIF(EXCLUDED.name,''),hz_members.name)`,[rid,uid,name||uid,link]);
 }
 function extractProfile(raw){
   let best=null;
@@ -738,7 +780,7 @@ async function lookupDeleteCache(rid,mid){
 
 function gameHelp(){return "🎮 GL GAME | 게임 명령어\n"+MORE+"\n!퀴즈 - 퀴즈 시작\n!정답 (답) - 정답 제출\n!낚시 - 낚시\n!낚시정보 - 낚시 정보\n!인벤 - 물고기 인벤토리\n!물고기 도감 - 물고기 종류\n!포인트 - 코인 확인\n!내정보 - 게임 정보\n!레벨 - 레벨 확인\n!게임순위 - 포인트 순위\n!상점 - 낚시대 상점\n!낚시대구매 (이름)\n!낚시장착 (이름)\n\n🔐 관리자: !게임작동 / !게임중지 / !치트"}
 function junHelp(){return "📦 GL 준개 | 준개 명령어\n"+MORE+"\n!준개 (아이템) (값) - 기록 추가(권한 필요)\n!준개내역 - 내 기록\n!준개내역삭제 (번호) - 기록 삭제\n!전체준개내역 - 전체 기록\n\n🔐 관리자\n!준개작동 - 준개만 켜고 게임 끄기\n!준개중지 - 준개 끄기\n!준개권한추가 @(멘션) 또는 ID\n!준개권한삭제 @(멘션) 또는 ID\n!준개권한목록"}
-function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
+function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
 async function send(chat,rid,text){if(text)await chat.sendText(rid,text)}
 
 async function profileObserve(c,rid,uid,name,url){
@@ -887,9 +929,68 @@ async function handleManageStats(d,c,msg){
     const s=await chatInfo(msg.room.id,uid);
     return `💬 ${name}님의 채팅 정보\n\n🏆 채팅 순위: ${s.rank?s.rank+"위":"기록 없음"}\n💬 총 채팅: ${n(s.count)}회\n📅 활동 일수: ${n(s.days)}일\n📊 일평균: ${s.avg.toFixed(1)}회`;
   }
-  if(text==="!출석"){const k=dayK(),a=d.attendance[k]||(d.attendance[k]=[]),i=a.findIndex(x=>x.id===uid);if(i>=0)return `${name}님은 이미 출석했습니다. ${i+1}등`;a.push({id:uid,name,time:nowK()});return `✅ ${name}님 출석 완료!\n오늘 ${a.length}번째입니다.`}
-  if(text==="!출석순위"){const a=d.attendance[dayK()]||[];return "📅 오늘의 출석 순위\n"+(a.length?a.slice(0,10).map((x,i)=>`${i+1}등 ${x.name} · ${x.time}`).join("\n"):"아직 출석자가 없습니다.")}
-  if(text.startsWith("!출석확인")){let t=targetFrom(msg,text);if(!t)return "사용법: !출석확인 @(멘션) 또는 해시";t=await resolveTarget(c,msg.room.id,t);const a=d.attendance[dayK()]||[],i=a.findIndex(x=>x.id===t.id);return i<0?`${t.name||t.id}님은 오늘 출석하지 않았습니다.`:`${a[i].name}님 출석 완료 · ${i+1}등 · ${a[i].time}`}
+  if(text==="!출석" || text==="!출석순위" || text.startsWith("!출석확인")){
+    const today=dayK();
+    // Import legacy JSON attendance once, preserving original order and check-in time.
+    const legacy=Array.isArray(d.attendance?.[today])?d.attendance[today]:[];
+    for(let i=0;i<legacy.length;i++){
+      const old=legacy[i];
+      const oldId=id(old?.id);
+      if(!/^\\d{4,}$/.test(oldId))continue;
+      await c.query(
+        `INSERT INTO hz_attendance(room_id,day_key,user_id,name,checked_at,display_time)
+         VALUES($1,$2,$3,$4,($5::date + ($6::int * interval '1 millisecond')) AT TIME ZONE 'Asia/Seoul',$7)
+         ON CONFLICT(room_id,day_key,user_id) DO NOTHING`,
+        [id(msg.room.id),today,oldId,String(old.name||oldId),today,i,old.time||""]
+      );
+    }
+    // The new table is the source of truth; never rewrite old check-ins.
+    const roomId=id(msg.room.id);
+    if(text==="!출석"){
+      if(!/^\\d{4,}$/.test(uid))return "사용자 ID를 확인할 수 없어 출석할 수 없습니다.";
+      const existing=await c.query(
+        "SELECT name,display_time FROM hz_attendance WHERE room_id=$1 AND day_key=$2 AND user_id=$3",
+        [roomId,today,uid]
+      );
+      if(existing.rows.length){
+        const ranking=await c.query(
+          `SELECT user_id,ROW_NUMBER() OVER(ORDER BY checked_at,user_id) AS place
+           FROM hz_attendance WHERE room_id=$1 AND day_key=$2`,[roomId,today]);
+        const place=ranking.rows.find(x=>x.user_id===uid)?.place;
+        return `${name}님은 오늘 이미 출석했습니다.\\n출석 순위: ${place||"확인 중"}등`;
+      }
+      const time=nowK();
+      await c.query(
+        `INSERT INTO hz_attendance(room_id,day_key,user_id,name,display_time)
+         VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+        [roomId,today,uid,name,time]
+      );
+      const ranking=await c.query(
+        `SELECT user_id,ROW_NUMBER() OVER(ORDER BY checked_at,user_id) AS place
+         FROM hz_attendance WHERE room_id=$1 AND day_key=$2`,[roomId,today]);
+      const place=ranking.rows.find(x=>x.user_id===uid)?.place;
+      return `✅ ${name}님 출석 완료!\\n오늘 ${place}번째입니다.`;
+    }
+    if(text==="!출석순위"){
+      const q=await c.query(
+        `SELECT name,display_time,checked_at FROM hz_attendance
+         WHERE room_id=$1 AND day_key=$2 ORDER BY checked_at,user_id LIMIT 10`,
+        [roomId,today]
+      );
+      return "📅 오늘의 출석 순위\\n"+(q.rows.length
+        ?q.rows.map((x,i)=>`${i+1}등 ${x.name} · ${x.display_time||new Date(x.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`).join("\\n")
+        :"아직 출석자가 없습니다.");
+    }
+    let t=await commandTarget(c,roomId,msg,text);
+    if(!t)return "사용법: !출석확인 @(멘션) 또는 사용자 ID";
+    t=await resolveTarget(c,roomId,t);
+    const q=await c.query(
+      `SELECT user_id,name,display_time,ROW_NUMBER() OVER(ORDER BY checked_at,user_id) AS place
+       FROM hz_attendance WHERE room_id=$1 AND day_key=$2`,[roomId,today]);
+    const found=q.rows.find(x=>x.user_id===t.id);
+    return found?`${found.name}님 출석 완료 · ${found.place}등 · ${found.display_time||"시간 확인 불가"}`
+      :`${t.name||t.id}님은 오늘 출석하지 않았습니다.`;
+  }
   return null;
 }
 
@@ -1046,8 +1147,14 @@ async function attachHZBot(client){
 
       if(!isSelf)await addChatCount(rid,uid,name);
       if(!isSelf){
-        const link=findOpenProfileLink(msg.sender??{});
-        if(link)await pool.query("UPDATE hz_members SET open_profile_link=$3 WHERE room_id=$1 AND user_id=$2",[rid,uid,link]);
+        // Only inspect the sender object; message attachments may describe another person.
+        await saveOpenProfileLink(rid,uid,name,msg.sender);
+        // Some KakaoForge versions expose sender profile fields in raw sender.
+        await saveOpenProfileLink(rid,uid,name,msg.raw?.sender);
+      }
+      if(text==="!프로필진단"){
+        await send(chat,rid,profileDiagnostic(msg));
+        return;
       }
       if(text==="!내아이디"){await send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);return;}
 
@@ -1236,6 +1343,12 @@ async function attachHZBot(client){
           leave_count=hz_members.leave_count+EXCLUDED.leave_count,
           last_seen=NOW()`,
           [rid,uid,name,type==="join"?1:0,(type==="leave"||type==="kick")?1:0]);
+
+        // Collect profile links when the event includes an individual member object.
+        const eventMember=Array.isArray(ev.members)?ev.members[i]:
+          (Array.isArray(ev.member?.members)?ev.member.members[i]:null);
+        if(eventMember && id(eventMember.id??eventMember.userId)===uid)
+          await saveOpenProfileLink(rid,uid,name,eventMember);
 
         await pool.query("INSERT INTO hz_events(room_id,user_id,name,event_type,meta) VALUES($1,$2,$3,$4,$5::jsonb)",
           [rid,uid,name,type,JSON.stringify({actorId:actorId||null,actorName:actorName||null,actorType:Number.isFinite(actorType)?actorType:null})]);
