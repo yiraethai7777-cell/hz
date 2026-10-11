@@ -939,10 +939,26 @@ const FISH_DESCRIPTIONS={
 };
 async function sendFishingCard(chat,roomId,fishName,playerName,size,tier,value,rod){
   let sharp;
-  try{sharp=require("sharp")}catch(_){return false}
+  try{sharp=require("sharp")}catch(e){
+    console.error("[GL FISH SHARP MISSING]",e.message);
+    sharp=null;
+  }
   const fs=require("fs"),path=require("path");
   const filename=path.join(__dirname,"fish-assets",fishName+".png");
-  if(!fs.existsSync(filename))return false;
+  if(!fs.existsSync(filename)){
+    console.error("[GL FISH FILE MISSING]",filename);
+    return false;
+  }
+  console.log("[GL FISH IMAGE]",JSON.stringify({fishName,filename,sendPhoto:typeof chat.sendPhoto,sendImage:typeof chat.sendImage,sharp:!!sharp}));
+  if(typeof chat.sendPhoto!=="function"){
+    console.error("[GL FISH PHOTO API MISSING] KakaoForge chat.sendPhoto is unavailable");
+    return false;
+  }
+  // sharp가 없으면 물고기 원본 PNG 파일을 그대로 전송합니다.
+  if(!sharp){
+    try{await chat.sendPhoto(roomId,filename);console.log("[GL FISH ORIGINAL SENT]",fishName);return true}
+    catch(e){console.error("[GL FISH ORIGINAL SEND FAILED]",e);return false}
+  }
   const esc=x=>String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
   const colors={일반:'#A9C5D7',희귀:'#5DD6E8',영웅:'#B49BFF',전설:'#F3C66C',신화:'#FF8DA5'};
   const accent=colors[tier]||'#5DD6E8';
@@ -1001,12 +1017,27 @@ async function sendFishingCard(chat,roomId,fishName,playerName,size,tier,value,r
     const left=57,top=125;
     png=await sharp(bg).composite([{input:fish,left,top}]).png().toBuffer();
   }catch(e){console.error('[GL FISH CARD RENDER]',e);return false}
+  // KakaoForge 공식 API는 Buffer가 아닌 파일 경로를 받습니다.
+  const os=require("os");
+  const tmpDir=fs.mkdtempSync(path.join(os.tmpdir(),"gl-fish-"));
+  const tmpFile=path.join(tmpDir,"card.png");
   try{
-    // KakaoForge 빌드에 따라 지원 여부/인자 형식이 다를 수 있습니다.
-    if(typeof chat.sendImage==='function'){await chat.sendImage(roomId,png);return true}
-    if(typeof chat.sendPhoto==='function'){await chat.sendPhoto(roomId,png);return true}
-  }catch(e){console.error('[GL FISH CARD SEND]',e)}
-  return false;
+    fs.writeFileSync(tmpFile,png);
+    await chat.sendPhoto(roomId,tmpFile);
+    console.log("[GL FISH CARD SENT]",fishName);
+    return true;
+  }catch(e){
+    console.error("[GL FISH CARD SEND FAILED]",e);
+    // 카드 전송이 실패하면 원본 이미지를 전송해 봅니다.
+    try{
+      await chat.sendPhoto(roomId,filename);
+      console.log("[GL FISH ORIGINAL FALLBACK SENT]",fishName);
+      return true;
+    }catch(e2){console.error("[GL FISH ORIGINAL FALLBACK FAILED]",e2);return false}
+  }finally{
+    try{fs.unlinkSync(tmpFile)}catch(_){}
+    try{fs.rmdirSync(tmpDir)}catch(_){}
+  }
 }
 
 async function handleGame(d,c,msg,isSelf){
