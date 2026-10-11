@@ -495,51 +495,65 @@ function isManagerType(t){return Number(t)===1||Number(t)===4}
 function isOwnerType(t){return Number(t)===1}
 function isSubManagerType(t){return Number(t)===4}
 
+function safeUserId(v){
+  if(typeof v==="string" && /^\d{4,}$/.test(v))return v;
+  if(typeof v==="bigint" && v>0n)return v.toString();
+  if(typeof v==="number" && Number.isSafeInteger(v) && v>=1000)return String(v);
+  return "";
+}
 function rawMentions(msg){
   const out=[],seen=new Set();
-  function walk(v,k=""){
-    if(!v||typeof v!=="object")return;
-    if(Array.isArray(v)){for(const x of v)walk(x,k);return}
-    const looksMention=k.toLowerCase().includes("mention")||("userId" in v)||("user_id" in v)||("memberId" in v);
-    if(looksMention){
-      const u=id(v.userId??v.user_id??v.memberId??v.id);
-      const nm=v.name??v.nickname??v.nickName??v.displayName??v.memberName??v.text??"";
-      if(u&&!seen.has(u)){seen.add(u);out.push({id:u,name:String(nm).replace(/^@/,"")})}
+  const roots=[msg.mentions,msg.message?.mentions,msg.message?.mentionList,
+    msg.raw?.mentions,msg.raw?.chat?.mentions,msg.raw?.chat?.attachment?.mentions];
+  for(const root of roots){
+    let entries=root;
+    if(typeof entries==="string"){try{entries=JSON.parse(entries)}catch(_){continue}}
+    if(!Array.isArray(entries))continue;
+    for(const v of entries){
+      if(!v||typeof v!=="object")continue;
+      const uid=safeUserId(v.userId??v.user_id??v.memberId??v.user?.id);
+      if(uid&&!seen.has(uid)){
+        seen.add(uid);
+        out.push({id:uid,name:String(v.name??v.nickname??v.nickName??v.displayName??"").replace(/^@/,"")});
+      }
     }
-    for(const [a,b] of Object.entries(v))if(typeof b==="object")walk(b,a)
   }
-  walk(msg.raw); walk(msg.attachmentsRaw,"mentions"); walk(msg.message,"mentions");
-  return out
+  return out;
 }
 function targetFrom(msg,text){
+  const explicit=String(text||"").trim().match(/^!\S+\s+(\d{4,})\s*$/);
+  if(explicit)return {id:explicit[1],name:""};
   const ms=rawMentions(msg);
-  if(ms.length)return ms[0];
-  const parts=String(text).trim().split(/\s+/);
-  const candidate=parts.find(x=>/^\d{4,}$/.test(x));
-  return candidate?{id:candidate,name:""}:null
+  return ms.length===1?ms[0]:null;
 }
 async function resolveTarget(c,rid,t){
   if(!t)return null;
-  if(t.name && t.name!==t.id && !/^\d+$/.test(t.name))return t;
-  const q=await c.query("SELECT name FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,t.id]);
-  if(q.rows[0]?.name)return {...t,name:q.rows[0].name};
-  const q2=await c.query("SELECT name FROM hz_chat_stats WHERE room_id=$1 AND user_id=$2",[rid,t.id]);
-  return {...t,name:q2.rows[0]?.name||t.name||t.id}
+  const uid=safeUserId(t.id);
+  if(!uid)return null;
+  const q=await c.query(`SELECT name FROM hz_members WHERE room_id=$1 AND user_id=$2
+    UNION ALL SELECT name FROM hz_chat_stats WHERE room_id=$1 AND user_id=$2 LIMIT 1`,[rid,uid]);
+  return {id:uid,name:q.rows[0]?.name||t.name||uid};
 }
 async function commandTarget(c,rid,msg,text){
-  // 명령문에 보이는 @닉네임을 DB의 실제 user_id와 먼저 연결한다.
-  const m=String(text||"").match(/@([^\s]+)/);
-  if(m){
-    const wanted=m[1].trim();
-    const q=await c.query("SELECT user_id,name FROM hz_members WHERE room_id=$1 AND name=$2 ORDER BY last_seen DESC LIMIT 2",[rid,wanted]);
-    if(q.rows.length===1)return {id:id(q.rows[0].user_id),name:q.rows[0].name};
-    const q2=await c.query("SELECT user_id,name FROM hz_chat_stats WHERE room_id=$1 AND name=$2 ORDER BY last_chat_at DESC LIMIT 2",[rid,wanted]);
-    if(q2.rows.length===1)return {id:id(q2.rows[0].user_id),name:q2.rows[0].name};
+  const raw=String(text||"").trim();
+  const arg=raw.replace(/^!\S+/,"").trim();
+  if(/^\d{4,}$/.test(arg))return resolveTarget(c,rid,{id:arg,name:""});
+  const mentions=rawMentions(msg);
+  if(mentions.length===1){
+    const found=await resolveTarget(c,rid,mentions[0]);
+    if(found)return found;
   }
-  let t=targetFrom(msg,text);
-  return t?await resolveTarget(c,rid,t):null;
+  if(arg.startsWith("@")){
+    const wanted=arg.slice(1).trim();
+    if(!wanted)return null;
+    const q=await c.query(`SELECT DISTINCT user_id,name FROM (
+      SELECT user_id,name FROM hz_members WHERE room_id=$1 AND name=$2
+      UNION ALL SELECT user_id,name FROM hz_chat_stats WHERE room_id=$1 AND name=$2
+    ) matches`,[rid,wanted]);
+    if(q.rows.length===1)return {id:String(q.rows[0].user_id),name:q.rows[0].name};
+  }
+  return null;
 }
-
 
 async function junPermissionTarget(c,rid,msg,argument){
   const value=String(argument||"").trim();
@@ -588,22 +602,19 @@ function deepFindUserId(v, preferReply=false){
 }
 
 function replyTargetFrom(msg){
-  // 답장 메시지 원작성자 필드만 사용. 일반 id는 메시지/로그 ID일 수 있다.
   const candidates=[msg.message?.attachment,msg.message?.reply,msg.message?.quote,
     msg.reply,msg.quote,msg.raw?.attachment,msg.raw?.chat?.attachment,
     msg.raw?.reply,msg.raw?.quote,...(Array.isArray(msg.attachmentsRaw)?msg.attachmentsRaw:[msg.attachmentsRaw])];
   for(let obj of candidates){
     if(!obj)continue;
-    if(typeof obj==="string"){
-      try{obj=JSON.parse(obj)}catch(_){continue}
-    }
+    if(typeof obj==="string"){try{obj=JSON.parse(obj)}catch(_){continue}}
     if(typeof obj!=="object")continue;
     const fields=[obj.src_userId,obj.srcUserId,obj.src_user_id,obj.sourceUserId,
       obj.replyUserId,obj.reply_user_id,obj.replyTo?.sender?.id,
       obj.reply?.sender?.id,obj.quote?.sender?.id,obj.source?.sender?.id];
     for(const value of fields){
-      const uid=id(value);
-      if(/^\d{4,}$/.test(uid))return {id:uid,name:""};
+      const uid=safeUserId(value);
+      if(uid)return {id:uid,name:""};
     }
   }
   return null;
@@ -882,11 +893,11 @@ async function handleManage(d,c,msg,isSelf){
         return `${label}${x.event_type==="kick"&&actor?` | 실행자: ${actor}`:""} | ${new Date(x.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`
       }).join("\n"):"기록 없음")
   }
-  if(text.startsWith("!프로필로그")){if(!t)return "사용법: !프로필로그 @(멘션) 또는 해시";const q=await c.query("SELECT * FROM hz_profiles WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 300",[msg.room.id,t.id]);return `👤 ${t.name||t.id} 프로필 로그\n${MORE}\n`+(q.rows.length?q.rows.map(x=>`${new Date(x.created_at).toLocaleString("ko-KR")}\n닉네임: ${x.old_name||"?"} → ${x.new_name||"?"}\n프로필: ${x.old_profile_url||"확인 불가"} → ${x.new_profile_url||"확인 불가"}`).join("\n────────\n"):"변경 기록 없음")}
+  if(text.startsWith("!프로필로그")){if(!t)return "사용법: !프로필로그 @(멘션) 또는 해시";const current=await c.query("SELECT name,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2",[msg.room.id,t.id]);const q=await c.query("SELECT * FROM hz_profiles WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 300",[msg.room.id,t.id]);return `👤 ${t.name||t.id} 프로필 로그\n현재 닉네임: ${current.rows[0]?.name||t.name||"확인 불가"}\n현재 프로필: ${current.rows[0]?.last_profile_url||"저장된 정보 없음"}\n${MORE}\n`+(q.rows.length?q.rows.map(x=>`${new Date(x.created_at).toLocaleString("ko-KR")}\n닉네임: ${x.old_name||"?"} → ${x.new_name||"?"}\n프로필: ${x.old_profile_url||"확인 불가"} → ${x.new_profile_url||"확인 불가"}`).join("\n────────\n"):"변경 기록 없음")}
   if(text==="!아이디"||text.startsWith("!아이디 ")){
     const it=await idCommandTarget(c,msg.room.id,msg,text);
-    if(!it)return "사용법: !아이디 @(멘션)\n또는 상대 메시지에 답장한 뒤 !아이디";
-    return `🔎 아이디 확인\n👤 ${it.name||it.id}\nHash/ID: ${it.id}`;
+    if(!it)return "❌ 대상의 정확한 ID를 확인하지 못했습니다.\n실제 멘션 또는 답장으로 시도해 주세요.\n채팅 기록에 없는 사용자는 ID를 확인할 수 없을 수 있습니다.";
+    return `🔎 아이디 확인\n${MORE}\n👤 ${it.name||it.id}\n카카오 사용자 ID: ${it.id}`;
   }
   if(/^!벤(?:\s|$)/.test(text)){
     // 명시적 ID/멘션을 우선하고, 답장만 있는 경우 원작성자 ID를 추출한다.
@@ -1204,7 +1215,7 @@ async function attachHZBot(client){
 
         if(type==="leave"){
           const roomName=String(ev.room?.name||f.name||"이 방");
-          const output=f.leaveTemplate?formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):`👋 ${name}님이 퇴장했습니다.\n🕒 ${nowK()}`;
+          const output=(f.leaveTemplate?formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):`👋 ${name}님이 퇴장했습니다.\n🕒 ${nowK()}`)+`\n사용자 ID: ${uid}`;
           await send(globalChat,rid,output);
         }
 
