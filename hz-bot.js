@@ -5,7 +5,7 @@ const { Pool } = require("pg");
 // 사용법: const { attachHZBot } = require("./hz-bot"); await attachHZBot(alreadyConnectedKakaoForgeClient);
 
 const pool = new Pool({connectionString:process.env.DATABASE_URL, ssl: process.env.DATABASE_URL && !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL) ? {rejectUnauthorized:false}:false});
-const QUIZ_REWARD=10000, QUIZ_SECONDS=60, FISHING_COOLDOWN_SECONDS=60, FISHING_WAIT_MS=2000, QUIZ_XP=30, FISHING_XP=20, MAX_LEVEL=200;
+const QUIZ_REWARD=10000, QUIZ_SECONDS=60, FISHING_COOLDOWN_SECONDS=30, QUIZ_COOLDOWN_SECONDS=15, FISHING_WAIT_MS=2000, QUIZ_XP=30, FISHING_XP=20, MAX_LEVEL=200;
 const MORE="\u200b".repeat(500);
 const PROMO_SPAM_WINDOW_MS=10000, PROMO_SPAM_LIMIT=3;
 const RODS=[{name:"나무",price:0,luck:1},{name:"돌",price:20000,luck:1.2},{name:"철",price:100000,luck:1.5},{name:"구름",price:500000,luck:2},{name:"불",price:1500000,luck:3},{name:"우주",price:5000000,luck:5},{name:"천상",price:15000000,luck:8}];
@@ -422,7 +422,7 @@ function norm(s){return String(s||"").toLowerCase().replace(/\s+/g,"").replace(/
 function levelNeed(l){return l>=MAX_LEVEL?0:100+(l-1)*25}
 function addXp(p,x){if(p.level>=MAX_LEVEL)return 0;p.xp+=x;let up=0;while(p.level<MAX_LEVEL&&p.xp>=levelNeed(p.level)){p.xp-=levelNeed(p.level);p.level++;up++}if(p.level>=MAX_LEVEL)p.xp=0;return up}
 function nowK(){return new Date().toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}
-function dayK(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
+function dayK(){const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const x=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${x.year}-${x.month}-${x.day}`}
 function formatMemberTemplate(template, info){
   const values={"(이름)":info.name,"(해시)":info.uid,"(방이름)":info.roomName,"(날짜)":nowK()};
   return String(template).replace(/\(이름\)|\(해시\)|\(방이름\)|\(날짜\)/g, key=>values[key]||"");
@@ -485,6 +485,12 @@ CREATE TABLE IF NOT EXISTS hz_attendance(
 );
 CREATE INDEX IF NOT EXISTS hz_attendance_rank_idx
   ON hz_attendance(room_id,day_key,checked_at,user_id);
+CREATE TABLE IF NOT EXISTS hz_mention_alerts(
+ id BIGSERIAL PRIMARY KEY, room_id TEXT NOT NULL, target_id TEXT NOT NULL,
+ sender_id TEXT NOT NULL, sender_name TEXT NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), notified_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS hz_mention_alerts_pending_idx ON hz_mention_alerts(room_id,target_id,id) WHERE notified_at IS NULL;
 CREATE TABLE IF NOT EXISTS hz_chat_stats(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,chat_count BIGINT NOT NULL DEFAULT 0,first_chat_at TIMESTAMPTZ,last_chat_at TIMESTAMPTZ,PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS hz_jun_permissions(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,granted_by TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS hz_message_cache(room_id TEXT NOT NULL,message_id TEXT NOT NULL,message_text TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));
@@ -590,6 +596,35 @@ async function commandTarget(c,rid,msg,text){
     if(q.rows.length===1)return {id:String(q.rows[0].user_id),name:q.rows[0].name};
   }
   return null;
+}
+
+function senderExactId(msg){
+  const candidates=[msg.sender?.id,msg.sender?.userId,msg.sender?.user_id,msg.senderId,msg.userId,msg.raw?.sender?.id];
+  for(const v of candidates){const x=exactId(v);if(x)return x}
+  return "";
+}
+async function processMentionAlerts(chat,rid,msg,uid,name){
+  if(!uid||uid===globalBotId)return;
+  // 메시지에 실제로 포함된 멘션 정보만 수집한다. 닉네임 텍스트로 추측하지 않는다.
+  const mentions=rawMentions(msg).filter(x=>x.id!==uid&&x.id!==globalBotId);
+  const unique=new Set();
+  for(const m of mentions){
+    if(unique.has(m.id))continue;unique.add(m.id);
+    await pool.query(`INSERT INTO hz_mention_alerts(room_id,target_id,sender_id,sender_name)
+      VALUES($1,$2,$3,$4)`,[rid,m.id,uid,name]);
+  }
+  // 동일 대상의 미전달 알림을 원자적으로 수거한다. 최대 20건씩 처리한다.
+  const pending=await pool.query(`WITH picked AS (
+    SELECT id FROM hz_mention_alerts WHERE room_id=$1 AND target_id=$2
+      AND notified_at IS NULL ORDER BY id LIMIT 20 FOR UPDATE SKIP LOCKED
+  ) UPDATE hz_mention_alerts a SET notified_at=NOW() FROM picked
+    WHERE a.id=picked.id RETURNING a.sender_id,a.sender_name`,[rid,uid]);
+  if(pending.rows.length){
+    const names=[...new Set(pending.rows.map(x=>x.sender_name||x.sender_id))];
+    const who=names.length<=3?names.map(x=>`${x}님`).join(", "):names.slice(0,3).map(x=>`${x}님`).join(", ")+` 외 ${names.length-3}명`;
+    try{await send(chat,rid,`📢 ${name}님, ${who}이 회원님을 멘션했습니다.\n미확인 멘션: ${pending.rows.length}건`)}
+    catch(e){console.error("[GL MENTION NOTIFY]",e)}
+  }
 }
 
 async function junPermissionTarget(c,rid,msg,argument){
@@ -788,7 +823,7 @@ async function lookupDeleteCache(rid,mid){
 
 function gameHelp(){return "🎮 GL GAME | 게임 명령어\n"+MORE+"\n!퀴즈 - 퀴즈 시작\n!정답 (답) - 정답 제출\n!낚시 - 낚시\n!낚시정보 - 낚시 정보\n!인벤 - 물고기 인벤토리\n!물고기 도감 - 물고기 종류\n!포인트 - 코인 확인\n!내정보 - 게임 정보\n!레벨 - 레벨 확인\n!게임순위 - 포인트 순위\n!상점 - 낚시대 상점\n!낚시대구매 (이름)\n!낚시장착 (이름)\n\n🔐 관리자: !게임작동 / !게임중지 / !치트"}
 function junHelp(){return "📦 GL 준개 | 준개 명령어\n"+MORE+"\n!준개 (아이템) (값) - 기록 추가(권한 필요)\n!준개내역 - 내 기록\n!준개내역삭제 (번호) - 기록 삭제\n!전체준개내역 - 전체 기록\n\n🔐 관리자\n!준개작동 - 준개만 켜고 게임 끄기\n!준개중지 - 준개 끄기\n!준개권한추가 @(멘션) 또는 ID\n!준개권한삭제 @(멘션) 또는 ID\n!준개권한목록"}
-function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n!벤등록 (사용자 ID) - 재입장 자동 강퇴 등록\n!벤등록해제 (사용자 ID)\n!벤등록목록 - 등록된 ID 확인\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
+function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n멘션 알림 - 멘션된 사람이 채팅하면 알림\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n!벤등록 (사용자 ID) - 재입장 자동 강퇴 등록\n!벤등록해제 (사용자 ID)\n!벤등록목록 - 등록된 ID 확인\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
 async function send(chat,rid,text){if(text)await chat.sendText(rid,text)}
 
 async function profileObserve(c,rid,uid,name,url){
@@ -887,13 +922,100 @@ async function autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags){
   return false
 }
 
+
+// 깔끔한 낚시 카드: 종류별 그림 + 크기 비율 + 설명 + 보상.
+// 사진 전송 메서드가 없는 KakaoForge 빌드에서는 텍스트 결과를 유지합니다.
+const FISH_DESCRIPTIONS={
+ "멸치":"작은 몸집으로 떼를 지어 헤엄치는 은빛 물고기.","피라미":"맑은 물에서 빠르게 움직이는 작은 민물고기.",
+ "붕어":"잔잔한 물속에서 살아가는 친숙한 민물고기.","고등어":"푸른 등과 은빛 배가 특징인 빠른 바닷물고기.",
+ "잉어":"큰 비늘과 튼튼한 몸을 가진 민물고기.","메기":"긴 수염으로 먹이를 찾는 야행성 물고기.",
+ "무지개송어":"무지갯빛 몸통이 아름다운 차가운 물의 물고기.","연어":"먼 바다를 여행하고 강으로 돌아오는 물고기.",
+ "참돔":"붉은 비늘과 강한 힘을 지닌 바닷물고기.","참치":"거대한 몸으로 바다를 빠르게 누비는 물고기.",
+ "황새치":"길고 날카로운 주둥이로 바다를 가르는 물고기.","월광비늘어":"달빛을 머금은 비늘이 밤바다에서 빛난다.",
+ "수정지느러미어":"수정처럼 투명한 지느러미가 빛을 반사한다.","심해유령어":"어두운 심해에서 희미한 빛을 내며 떠다닌다.",
+ "폭풍가오리":"거대한 지느러미로 거센 해류를 가른다.","황금용어":"황금빛 비늘을 가진 전설 속의 신비한 물고기.",
+ "불사조잉어":"불꽃처럼 빛나는 꼬리를 가진 환상의 잉어.","별바다의 왕어":"별빛을 품고 깊은 바다를 다스린다는 물고기.",
+ "해룡":"바닷속을 유영하는 신화 속의 거대한 용.","레비아탄":"심해의 끝에서 모습을 드러내는 전설의 거수."
+};
+async function sendFishingCard(chat,roomId,fishName,playerName,size,tier,value,rod){
+  let sharp;
+  try{sharp=require("sharp")}catch(_){return false}
+  const fs=require("fs"),path=require("path");
+  const filename=path.join(__dirname,"fish-assets",fishName+".png");
+  if(!fs.existsSync(filename))return false;
+  const esc=x=>String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+  const colors={일반:'#A9C5D7',희귀:'#5DD6E8',영웅:'#B49BFF',전설:'#F3C66C',신화:'#FF8DA5'};
+  const accent=colors[tier]||'#5DD6E8';
+  const name=esc(String(playerName).slice(0,22));
+  const description=FISH_DESCRIPTIONS[fishName]||'아직 알려지지 않은 신비로운 물고기.';
+  // SVG 렌더러에서 지원하지 않는 foreignObject 대신 SVG text/tspan 사용.
+  // 한국어를 이미지 생성 AI가 그리게 하지 않고 정확한 문자열을 렌더링합니다.
+  function wrapKorean(text,maxChars){
+    const chunks=[];let line='';
+    for(const word of String(text).split(/\s+/)){
+      if(line && (line.length+1+word.length)>maxChars){chunks.push(line);line=word}
+      else line+=(line?' ':'')+word;
+    }
+    if(line)chunks.push(line);
+    return chunks.slice(0,5);
+  }
+  const descLines=wrapKorean(description,18).map((line,i)=>
+    `<text x="778" y="${333+i*37}" font-size="22" fill="#F0F7FC">${esc(line)}</text>`
+  ).join('');
+  const fmt=x=>Number(x).toLocaleString('ko-KR');
+  const bg=Buffer.from(`<svg width="1200" height="760" xmlns="http://www.w3.org/2000/svg">
+   <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#102C44"/><stop offset="1" stop-color="#061421"/></linearGradient></defs>
+   <rect width="1200" height="760" fill="url(#bg)"/>
+   <rect x="25" y="25" width="1150" height="710" rx="27" fill="none" stroke="#43667C" stroke-width="2"/>
+   <rect x="42" y="113" width="680" height="435" rx="20" fill="#102F47"/>
+   <rect x="748" y="113" width="410" height="435" rx="20" fill="#0A2135"/>
+   <rect x="42" y="565" width="1116" height="148" rx="20" fill="#0A2135"/>
+   <g font-family="NanumSquare, NanumGothic, sans-serif">
+    <text x="62" y="85" font-size="37" font-weight="bold" fill="#FFFFFF">낚시 성공!</text>
+    <text x="1138" y="83" font-size="21" text-anchor="end" fill="#AAC5D5">${name}님의 낚시 기록</text>
+    <text x="778" y="174" font-size="40" font-weight="bold" fill="#FFFFFF">${esc(fishName)}</text>
+    <text x="778" y="219" font-size="24" font-weight="bold" fill="${accent}">[ ${esc(tier)} ]</text>
+    <path d="M778 242H1120" stroke="#395B72" stroke-width="2"/>
+    <text x="778" y="287" font-size="23" fill="#AFC9D8">물고기 설명</text>
+    ${descLines}
+    <text x="778" y="515" font-size="19" fill="#89A9BD">원본 물고기 이미지를 자르지 않고 표시합니다.</text>
+    <text x="80" y="606" font-size="20" fill="#A9C5D7">크기</text>
+    <text x="80" y="656" font-size="34" font-weight="bold" fill="#FFFFFF">${esc(size)} cm</text>
+    <text x="350" y="606" font-size="20" fill="#A9C5D7">획득 포인트</text>
+    <text x="350" y="656" font-size="32" font-weight="bold" fill="#F3D07D">+${fmt(value)} P</text>
+    <text x="685" y="606" font-size="20" fill="#A9C5D7">경험치</text>
+    <text x="685" y="656" font-size="32" font-weight="bold" fill="#FFFFFF">+${FISHING_XP} XP</text>
+    <text x="905" y="606" font-size="20" fill="#A9C5D7">사용 낚시대</text>
+    <text x="905" y="656" font-size="29" font-weight="bold" fill="#FFFFFF">${esc(rod)} 낚시대</text>
+   </g>
+   <path d="M320 580V692M657 580V692M884 580V692" stroke="#355268" stroke-width="2"/>
+  </svg>`);
+  let png;
+  try{
+    // 기존 종류별 원본 그림의 물고기 부분만 잘라서 크기에 맞게 배치.
+    // 원본 이미지를 자르지 않고 전체를 비율 유지하여 카드에 배치합니다.
+    // 원본에 이미 이름/등급/크기가 포함되어 있어도 모두 보존됩니다.
+    const fish=await sharp(filename)
+      .resize(650,410,{fit:'contain',background:{r:16,g:47,b:71,alpha:1}})
+      .png().toBuffer();
+    const left=57,top=125;
+    png=await sharp(bg).composite([{input:fish,left,top}]).png().toBuffer();
+  }catch(e){console.error('[GL FISH CARD RENDER]',e);return false}
+  try{
+    // KakaoForge 빌드에 따라 지원 여부/인자 형식이 다를 수 있습니다.
+    if(typeof chat.sendImage==='function'){await chat.sendImage(roomId,png);return true}
+    if(typeof chat.sendPhoto==='function'){await chat.sendPhoto(roomId,png);return true}
+  }catch(e){console.error('[GL FISH CARD SEND]',e)}
+  return false;
+}
+
 async function handleGame(d,c,msg,isSelf){
   const text=String(msg.message?.text??msg.text??"").trim(),uid=id(msg.sender?.id??msg.senderId),name=String(msg.sender?.name||uid),p=player(d,uid,name),now=Date.now();
   if(text==="!명령어")return null;
 
-  if(text==="!퀴즈"){if(d.quiz&&d.quiz.expiresAt>now)return `이미 퀴즈가 진행 중입니다!\n\n🧩 ${d.quiz.kind} 퀴즈\nQ. ${d.quiz.question}`;const {q}=nextQuiz(d);d.quiz={kind:q[0],question:q[1],answers:q[2],expiresAt:now+QUIZ_SECONDS*1000};return `🧩 ${q[0]} 퀴즈\n\nQ. ${q[1]}\n\n⏱ 제한 시간: ${QUIZ_SECONDS}초\n💰 첫 정답자: ${n(QUIZ_REWARD)}코인\n⭐ 경험치: +${QUIZ_XP}\n\n답변: !정답 (답)`}
-  let m=/^!정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: !정답 (답)";if(!d.quiz.answers.some(a=>norm(a)===norm(m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quiz=null;p.points+=QUIZ_REWARD;p.wins++;const up=addXp(p,QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${n(QUIZ_REWARD)}코인\n⭐ +${QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${n(p.points)}코인`}
-  if(text==="!낚시"){const remain=FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;p.lastFish=now;const rod=RODS.find(x=>x.name===p.rod)||RODS[0],f=fishPick(rod.luck),size=Math.round((f.min+Math.random()*(f.max-f.min))*10)/10,value=fishValue(f,size,rod.luck);await send(globalChat,msg.room.id,"🎣 낚시를 시작합니다...\n\n🌊 물결을 살피는 중...\n🎣 찌가 움직이기 시작합니다!");await sleep(FISHING_WAIT_MS);p.points+=value;p.inventory.push({name:f.name,tier:f.tier,size,value,at:Date.now()});const up=addXp(p,FISHING_XP);return `🎣 낚시 성공!\n\n🐟 ${f.name} [${f.tier}]\n📏 ${size}cm\n💰 +${n(value)}코인\n⭐ +${FISHING_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}`}
+  if(text==="!퀴즈"){if(d.quiz&&d.quiz.expiresAt<=now){d.quizCooldownUntil=Math.max(Number(d.quizCooldownUntil)||0,d.quiz.expiresAt+QUIZ_COOLDOWN_SECONDS*1000);d.quiz=null;}if(d.quiz&&d.quiz.expiresAt>now)return `이미 퀴즈가 진행 중입니다!\n\n🧩 ${d.quiz.kind} 퀴즈\nQ. ${d.quiz.question}`;const quizRemain=Math.ceil(((Number(d.quizCooldownUntil)||0)-now)/1000);if(quizRemain>0)return `🧩 다음 퀴즈까지 ${quizRemain}초 남았습니다.`;const {q}=nextQuiz(d);d.quiz={kind:q[0],question:q[1],answers:q[2],expiresAt:now+QUIZ_SECONDS*1000};return `🧩 ${q[0]} 퀴즈\n\nQ. ${q[1]}\n\n⏱ 제한 시간: ${QUIZ_SECONDS}초\n💰 첫 정답자: ${n(QUIZ_REWARD)}코인\n⭐ 경험치: +${QUIZ_XP}\n\n답변: !정답 (답)`}
+  let m=/^!정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quizCooldownUntil=Math.max(now,d.quiz.expiresAt)+QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: !정답 (답)";if(!d.quiz.answers.some(a=>norm(a)===norm(m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quizCooldownUntil=now+QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;p.points+=QUIZ_REWARD;p.wins++;const up=addXp(p,QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${n(QUIZ_REWARD)}코인\n⭐ +${QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${n(p.points)}코인`}
+  if(text==="!낚시"){const remain=FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;p.lastFish=now;const rod=RODS.find(x=>x.name===p.rod)||RODS[0],f=fishPick(rod.luck),size=Math.round((f.min+Math.random()*(f.max-f.min))*10)/10,value=fishValue(f,size,rod.luck);await send(globalChat,msg.room.id,"🎣 낚시를 시작합니다...\n\n🌊 물결을 살피는 중...\n🎣 찌가 움직이기 시작합니다!");await sleep(FISHING_WAIT_MS);p.points+=value;p.inventory.push({name:f.name,tier:f.tier,size,value,at:Date.now()});const up=addXp(p,FISHING_XP);await sendFishingCard(globalChat,msg.room.id,f.name,name,size,f.tier,value,p.rod);return `🎣 ${name}님이 ${f.name}(${size}cm)를 낚았습니다!\n💰 +${n(value)}코인 | ⭐ +${FISHING_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}`}
   if(text==="!낚시정보")return `🎣 낚시 정보\n쿨타임 ${FISHING_COOLDOWN_SECONDS}초 · 결과 대기 ${FISHING_WAIT_MS/1000}초\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
   if(text==="!인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${n(x.value)}코인`).join("\n")}
   if(text==="!물고기 도감")return "📖 물고기 도감\n"+FISH_TABLE.map(x=>`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`).join("\n");
@@ -928,7 +1050,7 @@ async function handleGame(d,c,msg,isSelf){
 
 async function handleManageStats(d,c,msg){
   const text=String(msg.message?.text??msg.text??"").trim();
-  const uid=id(msg.sender?.id??msg.senderId),name=String(msg.sender?.name||uid);
+  const uid=senderExactId(msg),name=String(msg.sender?.name||uid);
   if(text==="!채팅순위"){
     const a=await chatRanking(msg.room.id);
     return "💬 채팅 순위 TOP 10\n\n"+(a.length?a.map((x,i)=>`${i+1}위 ${x.name||x.user_id} · ${n(x.chat_count)}회`).join("\n"):"아직 채팅 기록이 없습니다.");
@@ -944,7 +1066,7 @@ async function handleManageStats(d,c,msg){
     for(let i=0;i<legacy.length;i++){
       const old=legacy[i];
       const oldId=id(old?.id);
-      if(!/^\\d{4,}$/.test(oldId))continue;
+      if(!/^\d{4,}$/.test(oldId))continue;
       await c.query(
         `INSERT INTO hz_attendance(room_id,day_key,user_id,name,checked_at,display_time)
          VALUES($1,$2,$3,$4,($5::date + ($6::int * interval '1 millisecond')) AT TIME ZONE 'Asia/Seoul',$7)
@@ -955,7 +1077,7 @@ async function handleManageStats(d,c,msg){
     // The new table is the source of truth; never rewrite old check-ins.
     const roomId=id(msg.room.id);
     if(text==="!출석"){
-      if(!/^\\d{4,}$/.test(uid))return "사용자 ID를 확인할 수 없어 출석할 수 없습니다.";
+      if(!/^\d{4,}$/.test(uid))return "사용자 ID를 확인할 수 없어 출석할 수 없습니다. !내아이디 결과를 확인해 주세요.";
       const existing=await c.query(
         "SELECT name,display_time FROM hz_attendance WHERE room_id=$1 AND day_key=$2 AND user_id=$3",
         [roomId,today,uid]
@@ -965,7 +1087,7 @@ async function handleManageStats(d,c,msg){
           `SELECT user_id,ROW_NUMBER() OVER(ORDER BY checked_at,user_id) AS place
            FROM hz_attendance WHERE room_id=$1 AND day_key=$2`,[roomId,today]);
         const place=ranking.rows.find(x=>x.user_id===uid)?.place;
-        return `${name}님은 오늘 이미 출석했습니다.\\n출석 순위: ${place||"확인 중"}등`;
+        return `${name}님은 오늘 이미 출석했습니다.\n출석 순위: ${place||"확인 중"}등`;
       }
       const time=nowK();
       await c.query(
@@ -977,7 +1099,7 @@ async function handleManageStats(d,c,msg){
         `SELECT user_id,ROW_NUMBER() OVER(ORDER BY checked_at,user_id) AS place
          FROM hz_attendance WHERE room_id=$1 AND day_key=$2`,[roomId,today]);
       const place=ranking.rows.find(x=>x.user_id===uid)?.place;
-      return `✅ ${name}님 출석 완료!\\n오늘 ${place}번째입니다.`;
+      return `✅ ${name}님 출석 완료!\n오늘 ${place}번째입니다.`;
     }
     if(text==="!출석순위"){
       const q=await c.query(
@@ -985,8 +1107,8 @@ async function handleManageStats(d,c,msg){
          WHERE room_id=$1 AND day_key=$2 ORDER BY checked_at,user_id LIMIT 10`,
         [roomId,today]
       );
-      return "📅 오늘의 출석 순위\\n"+(q.rows.length
-        ?q.rows.map((x,i)=>`${i+1}등 ${x.name} · ${x.display_time||new Date(x.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`).join("\\n")
+      return "📅 오늘의 출석 순위\n"+(q.rows.length
+        ?q.rows.map((x,i)=>`${i+1}등 ${x.name} · ${x.display_time||new Date(x.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`).join("\n")
         :"아직 출석자가 없습니다.");
     }
     let t=await commandTarget(c,roomId,msg,text);
@@ -1097,14 +1219,14 @@ async function handleManage(d,c,msg,isSelf){
         pendingManualKicks.delete(key);
         throw e;
       }
-      if(pending.confirmed)return `✅ ${pending.name}님 강퇴 이벤트가 확인되었습니다.`;
+      if(pending.confirmed)return `🚫 벤 완료\n대상: ${pending.name}\n아이디: ${t.id}`;
       pending.timer=setTimeout(async()=>{
         if(pendingManualKicks.get(key)!==pending)return;
         pendingManualKicks.delete(key);
         try{await send(globalChat,id(msg.room.id),`⚠️ ${pending.name}님 강퇴 확인 실패\n강퇴 이벤트가 감지되지 않았습니다. 실제 퇴장 여부와 봇의 방장/부방장 권한을 확인해 주세요.\nRailway 로그의 [GL KICK API] 반환값도 확인해 주세요.`)}
         catch(e){console.error("[GL KICK VERIFY]",e)}
       },12000);
-      return `⏳ ${pending.name}님 강퇴 요청을 전송했습니다.\n실제 강퇴 이벤트를 12초 동안 확인합니다. 아직 성공으로 확정되지 않았습니다.`;
+      return `⏳ ${pending.name}님 벤 요청 중\n아이디: ${t.id}`;
     }catch(e){
       console.error("[GL BAN]",e);
       const reason=String(e?.message||e||"알 수 없는 오류").slice(0,240);
@@ -1178,6 +1300,11 @@ async function attachHZBot(client){
         isSelf=uid===globalBotId,isAdmin=uid===globalBotId||OWNER_IDS.has(uid),text=String(msg.message?.text??msg.text??"").trim(),
         name=String(msg.sender?.name||uid);
 
+      const exactSender=senderExactId(msg);
+      if(exactSender && !isSelf){
+        const mentionFlags=await roomFlags(rid);
+        if(mentionFlags.manage&&!mentionFlags.locked)await processMentionAlerts(chat,rid,msg,exactSender,name);
+      }
       if(!isSelf)await addChatCount(rid,uid,name);
       if(!isSelf){
         // Only inspect the sender object; message attachments may describe another person.
@@ -1398,7 +1525,7 @@ async function attachHZBot(client){
                 const result=await globalChat.openChatKick(rid,uid);
                 console.log("[GL AUTO BAN]",JSON.stringify({roomId:rid,userId:uid,result:result===undefined?"undefined":result}));
                 if(result===false||result?.success===false||result?.ok===false||result?.status==="error")throw new Error("강퇴 API가 실패를 반환했습니다");
-                await send(globalChat,rid,`🚫 재입장 자동 강퇴 요청\n대상: ${name}\n등록된 사용자 ID와 일치하여 강퇴를 요청했습니다. 실제 성공 여부는 강퇴 이벤트로 확인하세요.`);
+                await send(globalChat,rid,`⏳ 자동 벤 요청\n대상: ${name}\n아이디: ${uid}`);
               }catch(e){
                 console.error("[GL AUTO BAN FAILED]",e);
                 await send(globalChat,rid,`⚠️ 재입장 자동 강퇴 실패\n대상: ${name}\n봇의 방장/부방장 권한과 Railway 로그를 확인해 주세요.`);
@@ -1434,9 +1561,13 @@ async function attachHZBot(client){
             pending.confirmed=true;
             if(pending.timer)clearTimeout(pending.timer);
             pendingManualKicks.delete(key);
-            await send(globalChat,rid,`✅ ${pending.name}님 강퇴 이벤트 확인 완료`);
+            await send(globalChat,rid,`🚫 벤 완료\n대상: ${pending.name}\n아이디: ${uid}`);
           }
-          await send(globalChat,rid,`🚨 강퇴 감지\n\n👮 실행자: ${actorName||"알 수 없음"}\n🚫 대상: ${name}\n🕒 시간: ${nowK()}`);
+          if(!pending){
+            const registered=await pool.query("SELECT 1 FROM hz_ban_registry WHERE room_id=$1 AND user_id=$2",[rid,uid]);
+            if(registered.rows.length&&actorId===globalBotId)await send(globalChat,rid,`🚫 자동 벤 완료\n대상: ${name}\n아이디: ${uid}`);
+            else await send(globalChat,rid,`🚨 강퇴 감지\n대상: ${name}\n아이디: ${uid}\n실행자: ${actorName||"알 수 없음"}`);
+          }
 
           if(actorId&&actorId!==globalBotId&&isSubManagerType(actorType)){
             const key=rid+":"+actorId,now=Date.now();
