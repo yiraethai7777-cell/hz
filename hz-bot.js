@@ -937,8 +937,8 @@ const FISH_DESCRIPTIONS={
  "불사조잉어":"불꽃처럼 빛나는 꼬리를 가진 환상의 잉어.","별바다의 왕어":"별빛을 품고 깊은 바다를 다스린다는 물고기.",
  "해룡":"바닷속을 유영하는 신화 속의 거대한 용.","레비아탄":"심해의 끝에서 모습을 드러내는 전설의 거수."
 };
-async function sendFishingCard(chat,roomId,fishName,playerName,size,tier,value,rod){
-  const fs=require("fs"),path=require("path"),os=require("os");
+async function sendFishingCard(chat,roomId,fishName){
+  const fs=require("fs"),path=require("path");
   const filename=path.join(__dirname,"fish-assets",fishName+".png");
   if(!fs.existsSync(filename)){
     console.error("[GL FISH FILE MISSING]",filename);
@@ -948,79 +948,24 @@ async function sendFishingCard(chat,roomId,fishName,playerName,size,tier,value,r
     console.error("[GL FISH PHOTO API MISSING]");
     return false;
   }
-  let sharp;
-  try{sharp=require("sharp")}
-  catch(e){
-    console.error("[GL FISH SHARP MISSING] npm install sharp 를 실행하고 package.json에 의존성을 저장하세요:",e.message);
-    return false;
-  }
-  const esc=x=>String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
-  const colors={일반:'#B6CEDB',희귀:'#6EE7F1',영웅:'#B8A5FF',전설:'#FFD47B',신화:'#FF91AB'};
-  const accent=colors[tier]||'#6EE7F1';
-  const description=FISH_DESCRIPTIONS[fishName]||'아직 알려지지 않은 신비로운 물고기.';
-  const fmt=x=>Number(x).toLocaleString('ko-KR');
-  function wrap(text,max){
-    const lines=[];let line='';
-    for(const word of String(text).split(/\s+/)){
-      if(line&&(line.length+word.length+1)>max){lines.push(line);line=word}
-      else line+=(line?' ':'')+word;
-    }
-    if(line)lines.push(line);
-    return lines.slice(0,4);
-  }
-  const desc=wrap(description,22).map((s,i)=>`<text x="790" y="${345+i*37}" font-size="24" fill="#D9EAF2">${esc(s)}</text>`).join('');
-  const displayName=String(playerName||'낚시꾼').slice(0,20);
-  const svg=Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800">
-  <defs><linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#14364F"/><stop offset="1" stop-color="#061421"/></linearGradient></defs>
-  <rect width="1200" height="800" fill="url(#sea)"/>
-  <rect x="25" y="25" width="1150" height="750" rx="25" fill="none" stroke="#4E7488" stroke-width="2"/>
-  <rect x="45" y="120" width="680" height="435" rx="20" fill="#143449"/>
-  <rect x="745" y="120" width="410" height="435" rx="20" fill="#102B40"/>
-  <rect x="45" y="572" width="1110" height="170" rx="20" fill="#102B40"/>
-  <g font-family="Noto Sans CJK KR,NanumGothic,NanumSquare,UnDotum,sans-serif">
-   <text x="64" y="85" font-size="40" font-weight="bold" fill="#FFFFFF">GL FISHING | 낚시 성공!</text>
-   <text x="1138" y="85" font-size="21" text-anchor="end" fill="#BCD3E0">${esc(displayName)}님의 기록</text>
-   <text x="782" y="192" font-size="45" font-weight="bold" fill="#FFFFFF">${esc(fishName)}</text>
-   <text x="784" y="243" font-size="26" font-weight="bold" fill="${accent}">${esc(tier)} 등급</text>
-   <path d="M780 266H1120" stroke="#486B80" stroke-width="2"/>
-   <text x="784" y="307" font-size="22" fill="#9CBCCB">물고기 설명</text>
-   ${desc}
-   <text x="80" y="620" font-size="21" fill="#9CBCCB">크기</text>
-   <text x="80" y="685" font-size="36" font-weight="bold" fill="#FFFFFF">${esc(size)} cm</text>
-   <text x="337" y="620" font-size="21" fill="#9CBCCB">획득 코인</text>
-   <text x="337" y="685" font-size="34" font-weight="bold" fill="#FFD47B">+${fmt(value)}</text>
-   <text x="655" y="620" font-size="21" fill="#9CBCCB">경험치</text>
-   <text x="655" y="685" font-size="34" font-weight="bold" fill="#FFFFFF">+${FISHING_XP} XP</text>
-   <text x="896" y="620" font-size="21" fill="#9CBCCB">낚시대</text>
-   <text x="896" y="685" font-size="29" font-weight="bold" fill="#FFFFFF">${esc(rod)} 낚시대</text>
-  </g>
-  <path d="M313 594V718M635 594V718M874 594V718" stroke="#395A6F" stroke-width="2"/>
-  </svg>`);
-  let tmpDir=null;
   try{
-    // 사진은 자르지 않고 비율을 유지한 채 왼쪽 영역에 합성합니다.
-    const fish=await sharp(filename).resize(660,415,{fit:'contain',background:'#143449'}).png().toBuffer();
-    const card=await sharp(svg).composite([{input:fish,left:55,top:130}]).png().toBuffer();
-    tmpDir=fs.mkdtempSync(path.join(os.tmpdir(),"gl-fish-"));
-    const out=path.join(tmpDir,"card.png");
-    fs.writeFileSync(out,card);
-    await chat.sendPhoto(roomId,out);
-    console.log("[GL FISH CARD SENT]",fishName,card.length);
+    await chat.sendPhoto(roomId,filename);
+    console.log("[GL FISH ORIGINAL SENT]",fishName);
     return true;
   }catch(e){
-    console.error("[GL FISH CARD FAILED]",e);
+    console.error("[GL FISH ORIGINAL SEND FAILED]",fishName,e);
     return false;
-  }finally{
-    if(tmpDir){try{fs.rmSync(tmpDir,{recursive:true,force:true})}catch(_){}}
   }
 }
+
 async function handleGame(d,c,msg,isSelf){
   const text=String(msg.message?.text??msg.text??"").trim(),uid=id(msg.sender?.id??msg.senderId),name=String(msg.sender?.name||uid),p=player(d,uid,name),now=Date.now();
   if(text==="!명령어")return null;
 
   if(text==="!퀴즈"){if(d.quiz&&d.quiz.expiresAt<=now){d.quizCooldownUntil=Math.max(Number(d.quizCooldownUntil)||0,d.quiz.expiresAt+QUIZ_COOLDOWN_SECONDS*1000);d.quiz=null;}if(d.quiz&&d.quiz.expiresAt>now)return `이미 퀴즈가 진행 중입니다!\n\n🧩 ${d.quiz.kind} 퀴즈\nQ. ${d.quiz.question}`;const quizRemain=Math.ceil(((Number(d.quizCooldownUntil)||0)-now)/1000);if(quizRemain>0)return `🧩 다음 퀴즈까지 ${quizRemain}초 남았습니다.`;const {q}=nextQuiz(d);d.quiz={kind:q[0],question:q[1],answers:q[2],expiresAt:now+QUIZ_SECONDS*1000};return `🧩 ${q[0]} 퀴즈\n\nQ. ${q[1]}\n\n⏱ 제한 시간: ${QUIZ_SECONDS}초\n💰 첫 정답자: ${n(QUIZ_REWARD)}코인\n⭐ 경험치: +${QUIZ_XP}\n\n답변: !정답 (답)`}
   let m=/^!정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quizCooldownUntil=Math.max(now,d.quiz.expiresAt)+QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: !정답 (답)";if(!d.quiz.answers.some(a=>norm(a)===norm(m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quizCooldownUntil=now+QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;p.points+=QUIZ_REWARD;p.wins++;const up=addXp(p,QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${n(QUIZ_REWARD)}코인\n⭐ +${QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${n(p.points)}코인`}
-  if(text==="!낚시"){const remain=FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;p.lastFish=now;const rod=RODS.find(x=>x.name===p.rod)||RODS[0],f=fishPick(rod.luck),size=Math.round((f.min+Math.random()*(f.max-f.min))*10)/10,value=fishValue(f,size,rod.luck);await send(globalChat,msg.room.id,"🎣 낚시를 시작합니다...\n\n🌊 물결을 살피는 중...\n🎣 찌가 움직이기 시작합니다!");await sleep(FISHING_WAIT_MS);p.points+=value;p.inventory.push({name:f.name,tier:f.tier,size,value,at:Date.now()});const up=addXp(p,FISHING_XP);const cardSent=await sendFishingCard(globalChat,msg.room.id,f.name,name,size,f.tier,value,p.rod);if(cardSent)return null;return `🎣 ${name}님이 ${f.name}(${size}cm)를 낚았습니다!\n💰 +${n(value)}코인 | ⭐ +${FISHING_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n⚠️ 카드 이미지 생성 실패: Railway 로그의 [GL FISH] 항목을 확인하세요.`}
+  if(text==="!낚시"){const remain=FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;p.lastFish=now;const rod=RODS.find(x=>x.name===p.rod)||RODS[0],f=fishPick(rod.luck),size=Math.round((f.min+Math.random()*(f.max-f.min))*10)/10,value=fishValue(f,size,rod.luck);await send(globalChat,msg.room.id,"🎣 낚시를 시작합니다...\n\n🌊 물결을 살피는 중...\n🎣 찌가 움직이기 시작합니다!");await sleep(FISHING_WAIT_MS);p.points+=value;p.inventory.push({name:f.name,tier:f.tier,size,value,at:Date.now()});const up=addXp(p,FISHING_XP);const photoSent=await sendFishingCard(globalChat,msg.room.id,f.name);return `🎣 ${name}님의 낚시 결과\n\n🐟 물고기: ${f.name} [${f.tier}]\n📏 크기: ${size}cm\n💰 획득 코인: +${n(value)}코인\n⭐ 획득 경험치: +${FISHING_XP} XP\n🎣 낚시대: ${p.rod}${up?`\n⬆️ 레벨 ${p.level}`:""}${photoSent?"":"\n⚠️ 물고기 사진 전송 실패 (Railway 로그 확인)"}`}
+  
   if(text==="!낚시정보")return `🎣 낚시 정보\n쿨타임 ${FISHING_COOLDOWN_SECONDS}초 · 결과 대기 ${FISHING_WAIT_MS/1000}초\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
   if(text==="!인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${n(x.value)}코인`).join("\n")}
   if(text==="!물고기 도감")return "📖 물고기 도감\n"+FISH_TABLE.map(x=>`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`).join("\n");
