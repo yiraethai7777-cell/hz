@@ -463,6 +463,14 @@ CREATE TABLE IF NOT EXISTS hz_rooms(room_id TEXT PRIMARY KEY,data JSONB NOT NULL
 CREATE TABLE IF NOT EXISTS hz_members(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,join_count INT NOT NULL DEFAULT 0,leave_count INT NOT NULL DEFAULT 0,last_profile_url TEXT,last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
 ALTER TABLE hz_members ADD COLUMN IF NOT EXISTS open_profile_link TEXT;
 CREATE TABLE IF NOT EXISTS hz_events(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,event_type TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),meta JSONB NOT NULL DEFAULT '{}'::jsonb);
+CREATE TABLE IF NOT EXISTS hz_ban_registry(
+ room_id TEXT NOT NULL,
+ user_id TEXT NOT NULL,
+ name TEXT,
+ registered_by TEXT NOT NULL,
+ registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ PRIMARY KEY(room_id,user_id)
+);
 CREATE TABLE IF NOT EXISTS hz_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,target_id TEXT NOT NULL,target_name TEXT,count INT NOT NULL,reason TEXT NOT NULL,issuer_id TEXT NOT NULL,issuer_name TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ,deleted_by TEXT);
 CREATE TABLE IF NOT EXISTS hz_profiles(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,old_name TEXT,new_name TEXT,old_profile_url TEXT,new_profile_url TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS hz_jun(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT,item_name TEXT NOT NULL,value NUMERIC NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -780,7 +788,7 @@ async function lookupDeleteCache(rid,mid){
 
 function gameHelp(){return "🎮 GL GAME | 게임 명령어\n"+MORE+"\n!퀴즈 - 퀴즈 시작\n!정답 (답) - 정답 제출\n!낚시 - 낚시\n!낚시정보 - 낚시 정보\n!인벤 - 물고기 인벤토리\n!물고기 도감 - 물고기 종류\n!포인트 - 코인 확인\n!내정보 - 게임 정보\n!레벨 - 레벨 확인\n!게임순위 - 포인트 순위\n!상점 - 낚시대 상점\n!낚시대구매 (이름)\n!낚시장착 (이름)\n\n🔐 관리자: !게임작동 / !게임중지 / !치트"}
 function junHelp(){return "📦 GL 준개 | 준개 명령어\n"+MORE+"\n!준개 (아이템) (값) - 기록 추가(권한 필요)\n!준개내역 - 내 기록\n!준개내역삭제 (번호) - 기록 삭제\n!전체준개내역 - 전체 기록\n\n🔐 관리자\n!준개작동 - 준개만 켜고 게임 끄기\n!준개중지 - 준개 끄기\n!준개권한추가 @(멘션) 또는 ID\n!준개권한삭제 @(멘션) 또는 ID\n!준개권한목록"}
-function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
+function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n!벤등록 (사용자 ID) - 재입장 자동 강퇴 등록\n!벤등록해제 (사용자 ID)\n!벤등록목록 - 등록된 ID 확인\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
 async function send(chat,rid,text){if(text)await chat.sendText(rid,text)}
 
 async function profileObserve(c,rid,uid,name,url){
@@ -997,6 +1005,31 @@ async function handleManageStats(d,c,msg){
 async function handleManage(d,c,msg,isSelf){
   const text=String(msg.message?.text??msg.text??"").trim(),uid=id(msg.sender?.id??msg.senderId),name=String(msg.sender?.name||uid);
   if(!isManagerType(msg.sender?.type)&&!isSelf)return null;
+  // 이미 나간 사용자는 카카오톡 서버에서 직접 차단할 수 없으므로,
+  // 이 목록은 재입장 이벤트 발생 시 자동 강퇴를 시도하는 용도입니다.
+  if(/^!벤등록(?:\s|$)/.test(text)){
+    const arg=text.replace(/^!벤등록\s*/, "").trim();
+    if(!/^\d{4,}$/.test(arg))return "사용법: !벤등록 (정확한 카카오 사용자 ID)\n※ 이미 나간 사람은 재입장할 때 자동 강퇴를 시도합니다.";
+    if(arg===globalBotId||arg===uid)return "❌ 봇 또는 자기 자신은 등록할 수 없습니다.";
+    const known=await c.query("SELECT name FROM hz_members WHERE room_id=$1 AND user_id=$2",[id(msg.room.id),arg]);
+    const targetName=known.rows[0]?.name||arg;
+    const result=await c.query(`INSERT INTO hz_ban_registry(room_id,user_id,name,registered_by)
+      VALUES($1,$2,$3,$4) ON CONFLICT(room_id,user_id) DO NOTHING RETURNING user_id`,
+      [id(msg.room.id),arg,targetName,uid]);
+    return result.rowCount
+      ? `🚫 재입장 자동 강퇴 등록 완료\n대상: ${targetName}\nID: ${arg}\n※ 카카오톡 자체 재입장 차단이 아니라 입장 감지 후 강퇴를 시도합니다.`
+      : `ℹ️ 이미 등록된 사용자입니다.\nID: ${arg}`;
+  }
+  if(/^!벤등록해제(?:\s|$)/.test(text)){
+    const arg=text.replace(/^!벤등록해제\s*/, "").trim();
+    if(!/^\d{4,}$/.test(arg))return "사용법: !벤등록해제 (사용자 ID)";
+    const result=await c.query("DELETE FROM hz_ban_registry WHERE room_id=$1 AND user_id=$2 RETURNING user_id",[id(msg.room.id),arg]);
+    return result.rowCount?`✅ 자동 강퇴 목록에서 해제했습니다.\nID: ${arg}`:"등록되지 않은 사용자 ID입니다.";
+  }
+  if(text==="!벤등록목록"){
+    const result=await c.query("SELECT user_id,name FROM hz_ban_registry WHERE room_id=$1 ORDER BY registered_at DESC LIMIT 100",[id(msg.room.id)]);
+    return "🚫 재입장 자동 강퇴 목록 (최대 100명)\n"+(result.rows.length?result.rows.map((x,i)=>`${i+1}. ${x.name||x.user_id} · ${x.user_id}`).join("\n"):"등록된 사용자가 없습니다.");
+  }
   let t=await commandTarget(c,msg.room.id,msg,text),m;
 
   m=/^!경고\s+[\s\S]*?\s+(\d+)\s+(.+)$/.exec(text);
@@ -1354,6 +1387,27 @@ async function attachHZBot(client){
           [rid,uid,name,type,JSON.stringify({actorId:actorId||null,actorName:actorName||null,actorType:Number.isFinite(actorType)?actorType:null})]);
 
         if(type==="join"){
+          // DB에 저장된 ID가 일치할 때만 재입장 자동 강퇴 시도.
+          // 부정확한 숫자 ID로 엉뚱한 사용자를 강퇴하지 않도록 검사.
+          const exactJoinId=safeUserId(ids[i]);
+          if(exactJoinId && exactJoinId===uid && uid!==globalBotId){
+            const banned=await pool.query("SELECT name FROM hz_ban_registry WHERE room_id=$1 AND user_id=$2",[rid,uid]);
+            if(banned.rows.length){
+              try{
+                if(!globalChat||typeof globalChat.openChatKick!=="function")throw new Error("openChatKick 기능 없음");
+                const result=await globalChat.openChatKick(rid,uid);
+                console.log("[GL AUTO BAN]",JSON.stringify({roomId:rid,userId:uid,result:result===undefined?"undefined":result}));
+                if(result===false||result?.success===false||result?.ok===false||result?.status==="error")throw new Error("강퇴 API가 실패를 반환했습니다");
+                await send(globalChat,rid,`🚫 재입장 자동 강퇴 요청\n대상: ${name}\n등록된 사용자 ID와 일치하여 강퇴를 요청했습니다. 실제 성공 여부는 강퇴 이벤트로 확인하세요.`);
+              }catch(e){
+                console.error("[GL AUTO BAN FAILED]",e);
+                await send(globalChat,rid,`⚠️ 재입장 자동 강퇴 실패\n대상: ${name}\n봇의 방장/부방장 권한과 Railway 로그를 확인해 주세요.`);
+              }
+              continue;
+            }
+          }else{
+            console.warn("[GL AUTO BAN] 입장 이벤트의 사용자 ID가 안전하지 않아 자동 강퇴를 생략했습니다.");
+          }
           const q=await pool.query("SELECT join_count,leave_count FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
           const joins=Number(q.rows[0]?.join_count||0);
           const leaves=Number(q.rows[0]?.leave_count||0);
