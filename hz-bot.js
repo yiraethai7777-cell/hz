@@ -461,6 +461,7 @@ function fishValue(f,size,luck){return Math.min(1000000,Math.max(1,Math.round(f.
 async function initDb(){await pool.query(`
 CREATE TABLE IF NOT EXISTS hz_rooms(room_id TEXT PRIMARY KEY,data JSONB NOT NULL DEFAULT '{}'::jsonb,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS hz_members(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,join_count INT NOT NULL DEFAULT 0,leave_count INT NOT NULL DEFAULT 0,last_profile_url TEXT,last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
+ALTER TABLE hz_members ADD COLUMN IF NOT EXISTS open_profile_link TEXT;
 CREATE TABLE IF NOT EXISTS hz_events(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,event_type TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),meta JSONB NOT NULL DEFAULT '{}'::jsonb);
 CREATE TABLE IF NOT EXISTS hz_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,target_id TEXT NOT NULL,target_name TEXT,count INT NOT NULL,reason TEXT NOT NULL,issuer_id TEXT NOT NULL,issuer_name TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ,deleted_by TEXT);
 CREATE TABLE IF NOT EXISTS hz_profiles(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,old_name TEXT,new_name TEXT,old_profile_url TEXT,new_profile_url TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -501,23 +502,40 @@ function safeUserId(v){
   if(typeof v==="number" && Number.isSafeInteger(v) && v>=1000)return String(v);
   return "";
 }
+const LosslessJSON = require("lossless-json");
+function parseExactAttachment(raw){
+  if(typeof raw==="string"){
+    try{return LosslessJSON.parse(raw)}catch(_){return null}
+  }
+  return raw&&typeof raw==="object"?raw:null;
+}
+function exactId(v){
+  if(v&&typeof v==="object"&&typeof v.value==="string")return safeUserId(v.value);
+  return safeUserId(v);
+}
+function attachmentRoots(msg){
+  const chatLog=msg.raw?.chatLog??msg.raw?.chatlog??msg.raw?.chat??msg.raw;
+  const raw=[chatLog?.attachment,chatLog?.attachments,chatLog?.extra,
+    msg.raw?.attachment,msg.message?.attachment,...(msg.attachmentsRaw||[])];
+  return raw.map(parseExactAttachment).filter(Boolean);
+}
 function rawMentions(msg){
   const out=[],seen=new Set();
   const roots=[msg.mentions,msg.message?.mentions,msg.message?.mentionList,
-    msg.raw?.mentions,msg.raw?.chat?.mentions,msg.raw?.chat?.attachment?.mentions];
-  for(const root of roots){
-    let entries=root;
-    if(typeof entries==="string"){try{entries=JSON.parse(entries)}catch(_){continue}}
-    if(!Array.isArray(entries))continue;
-    for(const v of entries){
-      if(!v||typeof v!=="object")continue;
-      const uid=safeUserId(v.userId??v.user_id??v.memberId??v.user?.id);
-      if(uid&&!seen.has(uid)){
-        seen.add(uid);
-        out.push({id:uid,name:String(v.name??v.nickname??v.nickName??v.displayName??"").replace(/^@/,"")});
-      }
+    msg.raw?.mentions,msg.raw?.chat?.mentions,...attachmentRoots(msg)];
+  function collect(v,mentionContext=false,depth=0){
+    if(!v||depth>5)return;
+    if(Array.isArray(v)){for(const x of v)collect(x,mentionContext,depth+1);return}
+    if(typeof v!=="object")return;
+    if(mentionContext){
+      const uid=exactId(v.userId??v.user_id??v.memberId??v.user?.id??v.id);
+      if(uid&&!seen.has(uid)){seen.add(uid);out.push({id:uid,name:String(v.name??v.nickname??v.nickName??v.displayName??"").replace(/^@/,"")})}
+    }
+    for(const [key,val] of Object.entries(v)){
+      if(/mention/i.test(key))collect(val,true,depth+1);
     }
   }
+  for(let i=0;i<roots.length;i++)collect(roots[i],i<5);
   return out;
 }
 function targetFrom(msg,text){
@@ -602,19 +620,19 @@ function deepFindUserId(v, preferReply=false){
 }
 
 function replyTargetFrom(msg){
-  const candidates=[msg.message?.attachment,msg.message?.reply,msg.message?.quote,
-    msg.reply,msg.quote,msg.raw?.attachment,msg.raw?.chat?.attachment,
-    msg.raw?.reply,msg.raw?.quote,...(Array.isArray(msg.attachmentsRaw)?msg.attachmentsRaw:[msg.attachmentsRaw])];
-  for(let obj of candidates){
-    if(!obj)continue;
-    if(typeof obj==="string"){try{obj=JSON.parse(obj)}catch(_){continue}}
-    if(typeof obj!=="object")continue;
-    const fields=[obj.src_userId,obj.srcUserId,obj.src_user_id,obj.sourceUserId,
-      obj.replyUserId,obj.reply_user_id,obj.replyTo?.sender?.id,
-      obj.reply?.sender?.id,obj.quote?.sender?.id,obj.source?.sender?.id];
-    for(const value of fields){
-      const uid=safeUserId(value);
+  // 카카오 답장 메시지(type 26)의 src_userId만 원본 작성자로 인정한다.
+  const roots=attachmentRoots(msg);
+  for(const obj of roots){
+    const arr=Array.isArray(obj)?obj:[obj];
+    for(const v of arr){
+      if(!v||typeof v!=="object")continue;
+      const uid=exactId(v.src_userId??v.srcUserId??v.src_user_id);
       if(uid)return {id:uid,name:""};
+      const nested=v.reply??v.quote??v.replyTo;
+      if(nested&&typeof nested==="object"){
+        const nestedId=exactId(nested.src_userId??nested.userId??nested.sender?.id);
+        if(nestedId)return {id:nestedId,name:""};
+      }
     }
   }
   return null;
@@ -640,6 +658,25 @@ async function lastJoinAt(c,rid,uid){
 async function activeWarningCount(c,rid,uid){
   const q=await c.query("SELECT COALESCE(SUM(count),0)::int AS total FROM hz_warnings WHERE room_id=$1 AND target_id=$2 AND deleted_at IS NULL",[rid,uid]);
   return Number(q.rows[0]?.total||0);
+}
+function validOpenProfileLink(v){
+  if(typeof v!=="string")return "";
+  try{const u=new URL(v);return u.protocol==="https:"&&(/(^|\.)kakao\.com$/.test(u.hostname)||u.hostname==="open.kakao.com")?v:""}catch(_){return ""}
+}
+function findOpenProfileLink(raw){
+  let found="";
+  function walk(v,depth=0){
+    if(!v||depth>6||found)return;
+    if(Array.isArray(v)){for(const x of v)walk(x,depth+1);return}
+    if(typeof v!=="object")return;
+    for(const [k,x] of Object.entries(v)){
+      if(/openProfileUrl|open_profile_url|openLinkUrl|open_link_url|profileLink/i.test(k)){
+        const link=validOpenProfileLink(x);if(link){found=link;return}
+      }
+      if(typeof x==="object")walk(x,depth+1)
+    }
+  }
+  walk(raw);return found;
 }
 function extractProfile(raw){
   let best=null;
@@ -893,7 +930,7 @@ async function handleManage(d,c,msg,isSelf){
         return `${label}${x.event_type==="kick"&&actor?` | 실행자: ${actor}`:""} | ${new Date(x.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`
       }).join("\n"):"기록 없음")
   }
-  if(text.startsWith("!프로필로그")){if(!t)return "사용법: !프로필로그 @(멘션) 또는 해시";const current=await c.query("SELECT name,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2",[msg.room.id,t.id]);const q=await c.query("SELECT * FROM hz_profiles WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 300",[msg.room.id,t.id]);return `👤 ${t.name||t.id} 프로필 로그\n현재 닉네임: ${current.rows[0]?.name||t.name||"확인 불가"}\n현재 프로필: ${current.rows[0]?.last_profile_url||"저장된 정보 없음"}\n${MORE}\n`+(q.rows.length?q.rows.map(x=>`${new Date(x.created_at).toLocaleString("ko-KR")}\n닉네임: ${x.old_name||"?"} → ${x.new_name||"?"}\n프로필: ${x.old_profile_url||"확인 불가"} → ${x.new_profile_url||"확인 불가"}`).join("\n────────\n"):"변경 기록 없음")}
+  if(text.startsWith("!프로필로그")){if(!t)return "사용법: !프로필로그 @(멘션) 또는 해시";const current=await c.query("SELECT name,last_profile_url,open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2",[msg.room.id,t.id]);const q=await c.query("SELECT * FROM hz_profiles WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 300",[msg.room.id,t.id]);return `👤 ${t.name||t.id} 프로필 로그\n현재 닉네임: ${current.rows[0]?.name||t.name||"확인 불가"}\n오픈프로필 링크: ${current.rows[0]?.open_profile_link||"확인된 링크 없음"}\n프로필 이미지: ${current.rows[0]?.last_profile_url||"저장된 정보 없음"}\n${MORE}\n`+(q.rows.length?q.rows.map(x=>`${new Date(x.created_at).toLocaleString("ko-KR")}\n닉네임: ${x.old_name||"?"} → ${x.new_name||"?"}\n프로필: ${x.old_profile_url||"확인 불가"} → ${x.new_profile_url||"확인 불가"}`).join("\n────────\n"):"변경 기록 없음")}
   if(text==="!아이디"||text.startsWith("!아이디 ")){
     const it=await idCommandTarget(c,msg.room.id,msg,text);
     if(!it)return "❌ 대상의 정확한 ID를 확인하지 못했습니다.\n실제 멘션 또는 답장으로 시도해 주세요.\n채팅 기록에 없는 사용자는 ID를 확인할 수 없을 수 있습니다.";
@@ -1008,6 +1045,10 @@ async function attachHZBot(client){
         name=String(msg.sender?.name||uid);
 
       if(!isSelf)await addChatCount(rid,uid,name);
+      if(!isSelf){
+        const link=findOpenProfileLink(msg.sender??{});
+        if(link)await pool.query("UPDATE hz_members SET open_profile_link=$3 WHERE room_id=$1 AND user_id=$2",[rid,uid,link]);
+      }
       if(text==="!내아이디"){await send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);return;}
 
       let flags=await roomFlags(rid);
