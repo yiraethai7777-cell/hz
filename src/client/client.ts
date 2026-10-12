@@ -1,4 +1,4 @@
-﻿import { EventEmitter } from 'events';
+import { EventEmitter } from 'events';
 import * as LosslessJSON from 'lossless-json';
 import { Long } from 'bson';
 import { BookingClient } from '../net/booking-client';
@@ -846,7 +846,7 @@ export class KakaoForgeClient extends EventEmitter {
     this._applyChatList(loginRes.body);
 
     // Sync open link list for open chat titles
-    await this._syncOpenLinks();
+    // await this._syncOpenLinks();
 
     // Start keepalive
     this._carriage.startPing(this.pingIntervalMs);
