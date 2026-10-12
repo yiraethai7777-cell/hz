@@ -71,7 +71,7 @@ export class CarriageClient extends EventEmitter {
       }, timeout);
 
       socket.connect(port, host, () => {
-        clearTimeout(timer);
+      clearTimeout(timer);
 
         // Send V2SL handshake (RSA-encrypted AES key)
         const handshake = this._crypto.buildHandshake();
@@ -91,7 +91,13 @@ export class CarriageClient extends EventEmitter {
       socket.on('data', (data) => {
         this._onData(data);
       });
+socket.on('end', () => {
+  console.log('[DEBUG] Carriage: server sent FIN');
+});
 
+socket.on('close', (hadError) => {
+  console.log('[DEBUG] Carriage closed, hadError=' + hadError);
+});
       socket.on('close', () => {
         clearTimeout(timer);
         if (this._socket !== socket) return;
