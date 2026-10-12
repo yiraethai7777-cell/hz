@@ -40,6 +40,14 @@ export class CarriageClient extends EventEmitter {
     this._pingInterval = null;
   }
 
+  private _reportError(err: Error) {
+    if (this.listenerCount('error') > 0) {
+      this.emit('error', err);
+    } else {
+      console.error('[KakaoForge] Connection error:', err);
+    }
+  }
+
   nextPacketId() {
     return ++this._packetIdCounter;
   }
@@ -49,41 +57,53 @@ export class CarriageClient extends EventEmitter {
    */
   connect(host: string, port: number, timeout = 10000, keepAliveMs = 30000): Promise<void> {
     return new Promise((resolve, reject) => {
-      this._socket = new net.Socket();
+      const socket = new net.Socket();
+      this._socket = socket;
       this._socket.setNoDelay(true);
+
       if (keepAliveMs && keepAliveMs > 0) {
         this._socket.setKeepAlive(true, keepAliveMs);
       }
 
       const timer = setTimeout(() => {
-        this._socket.destroy();
+        socket.destroy();
         reject(new Error(`Connection to ${host}:${port} timed out`));
       }, timeout);
 
-      this._socket.connect(port, host, () => {
+      socket.connect(port, host, () => {
         clearTimeout(timer);
 
         // Send V2SL handshake (RSA-encrypted AES key)
         const handshake = this._crypto.buildHandshake();
-        this._socket.write(handshake, (err) => {
+        socket.write(handshake, (err) => {
           if (err) return reject(err);
           this.emit('connected');
           resolve();
         });
       });
 
-      this._socket.on('error', (err) => {
+      socket.on('error', (err) => {
         clearTimeout(timer);
         reject(err);
-        this.emit('error', err);
+        this._reportError(err);
       });
 
-      this._socket.on('data', (data) => {
+      socket.on('data', (data) => {
         this._onData(data);
       });
 
-      this._socket.on('close', () => {
+      socket.on('close', () => {
+        clearTimeout(timer);
+        if (this._socket !== socket) return;
+        this._socket = null;
         this._stopPing();
+
+        for (const [, pending] of this._pendingRequests) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error('Connection closed'));
+        }
+
+        this._pendingRequests.clear();
         this.emit('disconnected');
       });
     });
@@ -107,8 +127,8 @@ export class CarriageClient extends EventEmitter {
       try {
         const decrypted = this._crypto.decrypt(blockBuf);
         this._decryptedBuffer = Buffer.concat([this._decryptedBuffer, decrypted]);
-      } catch (err) {
-        this.emit('error', new Error(`V2SL decrypt failed: ${err.message}`));
+      } catch (err: any) {
+        this._reportError(new Error(`V2SL decrypt failed: ${err.message}`));
         return;
       }
     }
@@ -131,14 +151,15 @@ export class CarriageClient extends EventEmitter {
       try {
         const packet = LocoPacket.fromBuffer(packetBuf);
         this._onPacket(packet);
-      } catch (err) {
-        this.emit('error', err);
+      } catch (err: any) {
+        this._reportError(err);
       }
     }
   }
 
   _onPacket(packet: any) {
     const pending = this._pendingRequests.get(packet.packetId);
+
     if (pending) {
       clearTimeout(pending.timer);
       this._pendingRequests.delete(packet.packetId);
@@ -153,6 +174,10 @@ export class CarriageClient extends EventEmitter {
    * Send a LOCO request and wait for the response.
    */
   request(method: string, body: any = {}, timeout = 10000): Promise<any> {
+    if (!this._socket || this._socket.destroyed) {
+      return Promise.reject(new Error('Not connected'));
+    }
+
     return new Promise((resolve, reject) => {
       const packetId = this.nextPacketId();
       const packet = new LocoPacket(packetId, 0, method, body);
@@ -167,7 +192,14 @@ export class CarriageClient extends EventEmitter {
       }, timeout);
 
       this._pendingRequests.set(packetId, { resolve, reject, timer });
-      this._socket.write(encrypted);
+
+      this._socket!.write(encrypted, (err) => {
+        if (err && this._pendingRequests.has(packetId)) {
+          clearTimeout(timer);
+          this._pendingRequests.delete(packetId);
+          reject(err);
+        }
+      });
     });
   }
 
@@ -178,9 +210,11 @@ export class CarriageClient extends EventEmitter {
     if (!this._socket) {
       return Promise.reject(new Error('Not connected'));
     }
+
     const encrypted = this._crypto.encrypt(data);
+
     return new Promise((resolve, reject) => {
-      this._socket.write(encrypted, (err) => {
+      this._socket!.write(encrypted, (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -241,20 +275,28 @@ export class CarriageClient extends EventEmitter {
     if (opts.msgId !== undefined && opts.msgId !== null && Number(opts.msgId) > 0) {
       body.msgId = toLong(opts.msgId);
     }
+
     if (opts.supplement) body.supplement = opts.supplement;
     if (opts.from) body.from = opts.from;
     if (opts.extra) body.extra = opts.extra;
-    if (opts.threadId !== undefined && opts.threadId !== null) body.threadId = toLong(opts.threadId);
+
+    if (opts.threadId !== undefined && opts.threadId !== null) {
+      body.threadId = toLong(opts.threadId);
+    }
+
     if (opts.featureStat) body.featureStat = opts.featureStat;
 
     const res = await this.request('WRITE', body);
+
     if (typeof res.status === 'number' && res.status !== 0) {
       throw new Error(`WRITE failed: status=${res.status}`);
     }
+
     if (!res.body || !res.body.logId) {
       const preview = res.body ? JSON.stringify(res.body) : '(empty)';
       throw new Error(`WRITE response missing logId: ${preview}`);
     }
+
     return res;
   }
 
@@ -263,14 +305,18 @@ export class CarriageClient extends EventEmitter {
    */
   async deleteMsg(chatId: number | string, logId: number | string) {
     const toLong = toLongValue;
+
     const body = {
       chatId: toLong(chatId),
       logId: toLong(logId),
     };
+
     const res = await this.request('DELETEMSG', body);
+
     if (typeof res.status === 'number' && res.status !== 0) {
       throw new Error(`DELETEMSG failed: status=${res.status}`);
     }
+
     return res;
   }
 
@@ -284,18 +330,23 @@ export class CarriageClient extends EventEmitter {
     opts: { type?: number; extra?: string; supplement?: string } = {}
   ) {
     const toLong = toLongValue;
+
     const body: any = {
       chatId: toLong(chatId),
       logId: toLong(logId),
       msg,
       type: typeof opts.type === 'number' ? opts.type : 1,
     };
+
     if (opts.extra !== undefined) body.extra = opts.extra;
     if (opts.supplement !== undefined) body.supplement = opts.supplement;
+
     const res = await this.request('MODIFYMSG', body);
+
     if (typeof res.status === 'number' && res.status !== 0) {
       throw new Error(`MODIFYMSG failed: status=${res.status}`);
     }
+
     return res;
   }
 
@@ -391,9 +442,11 @@ export class CarriageClient extends EventEmitter {
    */
   async infoLink(linkIds: Array<number | string>) {
     const toLong = toLongValue;
+
     const body = {
       lis: (linkIds || []).map(toLong),
     };
+
     return await this.request('INFOLINK', body);
   }
 
@@ -402,9 +455,11 @@ export class CarriageClient extends EventEmitter {
    */
   async syncLink(lastToken = 0) {
     const toLong = toLongValue;
+
     const body = {
       ltk: toLong(lastToken || 0),
     };
+
     return await this.request('SYNCLINK', body);
   }
 
@@ -414,6 +469,7 @@ export class CarriageClient extends EventEmitter {
   async chatInfo(chatId: number | string) {
     const toLong = toLongValue;
     const body = { chatId: toLong(chatId) };
+
     return await this.request('CHATINFO', body);
   }
 
@@ -422,11 +478,13 @@ export class CarriageClient extends EventEmitter {
    */
   async chatOnRoom({ chatId, token = 0, opt = 0 }: any) {
     const toLong = toLongValue;
+
     const body = {
       chatId: toLong(chatId),
       token: toLong(token || 0),
       opt: toLong(opt || 0),
     };
+
     return await this.request('CHATONROOM', body);
   }
 
@@ -452,16 +510,20 @@ export class CarriageClient extends EventEmitter {
     reported?: boolean;
   }) {
     const toLong = toLongValue;
+
     const body = {
       li: toLong(linkId),
       c: toLong(chatId),
       mid: toLong(memberId),
       r: !!reported,
     };
+
     const res = await this.request('KICKMEM', body);
+
     if (typeof res.status === 'number' && res.status !== 0) {
       throw new Error(`KICKMEM failed: status=${res.status}`);
     }
+
     return res;
   }
 
@@ -484,22 +546,28 @@ export class CarriageClient extends EventEmitter {
     category?: string;
   }) {
     const toLong = toLongValue;
+
     const body: any = {
       li: toLong(linkId),
       c: toLong(chatId),
       mid: toLong(memberId),
       r: !!report,
     };
+
     if (chatLogInfo && String(chatLogInfo).trim()) {
       body.cli = chatLogInfo;
     }
+
     if (category && String(category).trim()) {
       body.cat = category;
     }
+
     const res = await this.request('BLIND', body);
+
     if (typeof res.status === 'number' && res.status !== 0) {
       throw new Error(`BLIND failed: status=${res.status}`);
     }
+
     return res;
   }
 
@@ -508,11 +576,12 @@ export class CarriageClient extends EventEmitter {
    */
   startPing(intervalMs = 60000) {
     this._stopPing();
+
     this._pingInterval = setInterval(async () => {
       try {
         await this.ping();
-      } catch (err) {
-        this.emit('error', new Error(`Ping failed: ${err.message}`));
+      } catch (err: any) {
+        this._reportError(new Error(`Ping failed: ${err.message}`));
       }
     }, intervalMs);
   }
@@ -529,8 +598,10 @@ export class CarriageClient extends EventEmitter {
    */
   end(timeoutMs = 5000): Promise<void> {
     this._stopPing();
+
     const socket = this._socket;
     if (!socket) return Promise.resolve();
+
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         if (this._socket === socket) {
@@ -539,27 +610,34 @@ export class CarriageClient extends EventEmitter {
         }
         resolve();
       }, timeoutMs);
+
       socket.once('close', () => {
         clearTimeout(timer);
+
         if (this._socket === socket) {
           this._socket = null;
         }
+
         resolve();
       });
+
       socket.end();
     });
   }
 
   disconnect() {
     this._stopPing();
+
     if (this._socket) {
       this._socket.destroy();
       this._socket = null;
     }
-    for (const [id, { reject, timer }] of this._pendingRequests) {
+
+    for (const [, { reject, timer }] of this._pendingRequests) {
       clearTimeout(timer);
       reject(new Error('Disconnected'));
     }
+
     this._pendingRequests.clear();
   }
 }
