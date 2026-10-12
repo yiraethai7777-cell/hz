@@ -76,3 +76,12 @@ client.onReady(async () => {
 });
 
 client.on("error", (err) => console.error("[KakaoForge]", err));
+process.on("uncaughtExceptionMonitor", (err) => {
+  console.error("[치명적 오류]", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("[처리되지 않은 Promise 오류]", err);
+  process.exitCode = 1;
+  process.exit(1);
+});
