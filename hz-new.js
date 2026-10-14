@@ -46,7 +46,7 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
-  if (!["!핑", "!명령어", "!출석", "!출석순위"].includes(text)) return;
+  if (!["!핑", "!명령어", "!출석", "!출석순위", "!사진테스트"].includes(text)) return;
 
   const roomId = msg.room?.id;
   if (roomId === undefined || roomId === null) {
@@ -56,6 +56,34 @@ client.onMessage(async (...args) => {
 
   try {
     let reply;
+
+
+    if (text === "!사진테스트") {
+
+
+      await chat.sendPhoto(
+
+
+        roomId,
+
+
+        "https://dummyimage.com/800x400/172033/ffffff.png&text=HZ+STOCK+CHART",
+
+
+        { text: "📈 HZ 주식 그래프 테스트" }
+
+
+      );
+
+
+      console.log("[HZ NEW] 사진 전송 성공");
+
+
+      return;
+
+
+    }
+
 
     if (text === "!핑") {
       reply = "🏓 퐁!";
