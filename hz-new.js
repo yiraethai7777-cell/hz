@@ -20,6 +20,7 @@ client.on("error", (err) => {
 console.log("[HZ NEW] 봇 시작 중...");
 
 client.onMessage(async (msg) => {
+  console.log("[HZ 수신]", JSON.stringify({ text: msg.message?.text, directText: msg.text, roomId: msg.room?.id }));
   const text = String(
     msg.message?.text ?? msg.text ?? ""
   ).trim();
@@ -53,6 +54,7 @@ if (process.env.DATABASE_URL) {
 const { getCommandList } = require("./hz-commands");
 
 client.onMessage(async (msg) => {
+  console.log("[HZ 수신]", JSON.stringify({ text: msg.message?.text, directText: msg.text, roomId: msg.room?.id }));
   const text = String(
     msg.message?.text ?? msg.text ?? ""
   ).trim();
@@ -90,6 +92,7 @@ if (process.env.DATABASE_URL) {
 }
 
 client.onMessage(async (msg) => {
+  console.log("[HZ 수신]", JSON.stringify({ text: msg.message?.text, directText: msg.text, roomId: msg.room?.id }));
   const text = String(
     msg.message?.text ?? msg.text ?? ""
   ).trim();
