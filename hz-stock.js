@@ -152,7 +152,19 @@ async function getStockChart(name, days = 7) {
     </text>
   </svg>`;
 
-  const png = new Resvg(svg).render().asPng();
+  
+  const { PNG } = require("pngjs");
+
+  const originalPng = new Resvg(svg).render().asPng();
+
+  const decoded = PNG.sync.read(originalPng);
+
+  const png = PNG.sync.write(decoded, {
+    colorType: 2,
+    inputColorType: 6,
+    inputHasAlpha: true
+  });
+
 
   const filename =
     "hz-stock-" + stock.symbol.replace(/[^a-zA-Z0-9]/g, "_") +
