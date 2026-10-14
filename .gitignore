@@ -16,3 +16,11 @@ tmp_jadx
 tmp_nodekakao/
 .claude
 examples.js
+auth.json
+.env
+
+auth_base64.txt
+
+test-connection.js
+test-message.js
+test-target.js
