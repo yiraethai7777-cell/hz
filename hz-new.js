@@ -8,6 +8,7 @@ const { isMarketOpen } = require("./hz-market-hours");
 const {
   tradeStock, getHoldings, getTradeHistory
 } = require("./hz-trading");
+const { initCoinExtra, handleCoinCommand } = require("./hz-coin-extra");
 const { initWallet, getBalance } = require("./hz-wallet");
 const { getCommandList } = require("./hz-commands");
 const { searchStocks } = require("./hz-stock-search");
@@ -34,6 +35,8 @@ if (process.env.DATABASE_URL) {
   testConnection().catch((err) => {
     console.error("[HZ DB] 연결 실패:", err);
   });
+
+  initCoinExtra().catch(err => console.error("[HZ 코인] 추가 초기화 실패:", err));
 
   initWallet()
     .then(() => console.log("[HZ 코인] 준비 완료"))
@@ -62,7 +65,7 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
-  if (!["!핑", "!명령어", "!출석", "!출석순위", "!코인"].includes(text) && !text.startsWith("!주식현황 ")
+  if (!/^!(코인|코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text) && !["!핑", "!명령어", "!출석", "!출석순위", "!코인"].includes(text) && !text.startsWith("!주식현황 ")
     && !text.startsWith("!주식구매 ")
     && !text.startsWith("!주식판매 ")
     && text !== "!내주식"
@@ -75,6 +78,7 @@ client.onMessage(async (...args) => {
   }
 
   try {
+    if (await handleCoinCommand({ text, msg, roomId, chat })) return;
 
     if (text === "!코인") {
       const userId = msg.sender?.id;
