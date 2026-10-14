@@ -4,7 +4,7 @@
 const COMMAND_GROUPS = [
   {
     title: "📅 출석 시스템",
-    commands: [
+    commands:[
       ["!출석", "오늘 출석하기"],
       ["!출석순위", "오늘 출석 1~3등 확인"]
     ]
@@ -21,9 +21,7 @@ const COMMAND_GROUPS = [
 function getCommandList() {
   const header =
     "📜 HZ BOT 명령어\n\n" +
-    "━━━━━━━━━━━━━━\n" +
-    "📂 전체 명령어 목록\n" +
-    "아래 더보기를 눌러 확인하세요.";
+    "━━━━━━━━━━━━━━\n";
 
   // 카카오톡 더보기 표시 유도
   const fold = "\u200b".repeat(1000);
