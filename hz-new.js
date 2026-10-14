@@ -46,7 +46,7 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
-  if (!["!핑", "!명령어", "!출석", "!출석순위", "!사진테스트"].includes(text)) return;
+  if (!["!핑", "!명령어", "!출석", "!출석순위"].includes(text) && !text.startsWith("!주식현황 ")) return;
 
   const roomId = msg.room?.id;
   if (roomId === undefined || roomId === null) {
@@ -55,40 +55,64 @@ client.onMessage(async (...args) => {
   }
 
   try {
-    let reply;
 
+    if (text.startsWith("!주식현황 ")) {
+      const args = text.slice("!주식현황 ".length)
+        .trim().split(/\s+/);
 
-    if (text === "!사진테스트") {
+      const name = args[0];
+      const period = args[1];
 
-
-      
-      const fsPhoto = require("fs");
-      const pathPhoto = require("path");
-      const imagePath = "/tmp/hz-stock-test.png";
-
-      const response = await fetch(
-        "https://dummyimage.com/800x400/172033/ffffff.png&text=HZ+STOCK+CHART"
-      );
-
-      if (!response.ok) {
-        throw new Error("이미지 다운로드 실패: " + response.status);
+      if (args.length > 2 ||
+          (period && !["7일", "30일"].includes(period))) {
+        await chat.sendText(
+          roomId,
+          "사용법: !주식현황 삼성전자 [7일 또는 30일]"
+        );
+        return;
       }
 
-      const imageBuffer = Buffer.from(await response.arrayBuffer());
-      fsPhoto.writeFileSync(imagePath, imageBuffer);
+      const days = period === "30일" ? 30 : 7;
+      const fs = require("fs");
+      const { getStockChart } = require("./hz-stock");
 
-      await chat.sendPhoto(roomId, imagePath, {
-        text: "📈 HZ 주식 그래프 테스트"
-      });
+      let result;
 
+      try {
+        result = await getStockChart(name, days);
 
-      console.log("[HZ NEW] 사진 전송 성공");
+        const price = result.price.toLocaleString("ko-KR", {
+          maximumFractionDigits: 2
+        });
 
+        const change =
+          (result.change >= 0 ? "+" : "") +
+          result.change.toFixed(2) + "%";
+
+        const caption =
+          "📈 " + result.name + " 주가 현황\n" +
+          "현재 표시 종가: " + price + " " +
+          result.currency + "\n" +
+          "기간 변동률: " + change + "\n" +
+          "기준: 최근 " + result.days + "거래일 종가";
+
+        await chat.sendPhoto(roomId, result.filePath, {
+          text: caption
+        });
+
+        console.log("[HZ 주식] 그래프 전송 성공:", name);
+      } finally {
+        if (result?.filePath) {
+          try {
+            fs.unlinkSync(result.filePath);
+          } catch (_) {}
+        }
+      }
 
       return;
-
-
     }
+
+    let reply;
 
 
     if (text === "!핑") {
