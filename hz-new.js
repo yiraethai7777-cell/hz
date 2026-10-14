@@ -61,19 +61,25 @@ client.onMessage(async (...args) => {
     if (text === "!사진테스트") {
 
 
-      await chat.sendPhoto(
+      
+      const fsPhoto = require("fs");
+      const pathPhoto = require("path");
+      const imagePath = "/tmp/hz-stock-test.png";
 
-
-        roomId,
-
-
-        "https://dummyimage.com/800x400/172033/ffffff.png&text=HZ+STOCK+CHART",
-
-
-        { text: "📈 HZ 주식 그래프 테스트" }
-
-
+      const response = await fetch(
+        "https://dummyimage.com/800x400/172033/ffffff.png&text=HZ+STOCK+CHART"
       );
+
+      if (!response.ok) {
+        throw new Error("이미지 다운로드 실패: " + response.status);
+      }
+
+      const imageBuffer = Buffer.from(await response.arrayBuffer());
+      fsPhoto.writeFileSync(imagePath, imageBuffer);
+
+      await chat.sendPhoto(roomId, imagePath, {
+        text: "📈 HZ 주식 그래프 테스트"
+      });
 
 
       console.log("[HZ NEW] 사진 전송 성공");
