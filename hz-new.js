@@ -2,7 +2,15 @@
 
 const { createClient } = require("./dist");
 const { testConnection } = require("./hz-db");
+const { initTrading } = require("./hz-trading");
+const { getMarketPrice } = require("./hz-market");
+const { isMarketOpen } = require("./hz-market-hours");
+const {
+  tradeStock, getHoldings, getTradeHistory
+} = require("./hz-trading");
+const { initWallet, getBalance } = require("./hz-wallet");
 const { getCommandList } = require("./hz-commands");
+const { searchStocks } = require("./hz-stock-search");
 const { initAttendance, attend, attendanceRanking } = require("./hz-attendance");
 
 const client = createClient({
@@ -27,6 +35,14 @@ if (process.env.DATABASE_URL) {
     console.error("[HZ DB] 연결 실패:", err);
   });
 
+  initWallet()
+    .then(() => console.log("[HZ 코인] 준비 완료"))
+    .catch(err => console.error("[HZ 코인] 초기화 실패:", err));
+
+  initTrading()
+    .then(() => console.log("[HZ 주식] 준비 완료"))
+    .catch(err => console.error("[HZ 주식] 초기화 실패:", err));
+
   initAttendance()
     .then(() => {
       attendanceReady = true;
@@ -46,7 +62,11 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
-  if (!["!핑", "!명령어", "!출석", "!출석순위"].includes(text) && !text.startsWith("!주식현황 ")) return;
+  if (!["!핑", "!명령어", "!출석", "!출석순위", "!코인"].includes(text) && !text.startsWith("!주식현황 ")
+    && !text.startsWith("!주식구매 ")
+    && !text.startsWith("!주식판매 ")
+    && text !== "!내주식"
+    && text !== "!주식거래내역" && !text.startsWith("!주식검색 ") && text !== "!주식검색") return;
 
   const roomId = msg.room?.id;
   if (roomId === undefined || roomId === null) {
@@ -55,6 +75,155 @@ client.onMessage(async (...args) => {
   }
 
   try {
+
+    if (text === "!코인") {
+      const userId = msg.sender?.id;
+      if (userId === undefined || userId === null) {
+        await chat.sendText(roomId, "사용자 ID를 확인할 수 없습니다.");
+        return;
+      }
+
+      const userName = msg.sender?.name || "알 수 없음";
+      const balance = await getBalance(
+        String(roomId), String(userId), String(userName)
+      );
+
+      await chat.sendText(
+        roomId,
+        "🪙 " + userName + "님의 코인\n" +
+        "잔액: " + balance.toLocaleString("ko-KR") + "코인"
+      );
+      return;
+    }
+
+    if (text === "!주식검색" ||
+        text.startsWith("!주식검색 ")) {
+      const keyword = text.slice("!주식검색".length).trim();
+      const result = await searchStocks(keyword);
+      await chat.sendText(roomId, result);
+      return;
+    }
+
+
+
+    if (text.startsWith("!주식구매 ") ||
+        text.startsWith("!주식판매 ")) {
+
+      const buying = text.startsWith("!주식구매 ");
+      const parts = text.split(/\s+/);
+
+      if (parts.length !== 3) {
+        await chat.sendText(
+          roomId,
+          "사용법: !주식구매 엔비디아 1"
+        );
+        return;
+      }
+
+      const userId = msg.sender?.id;
+      const userName = msg.sender?.name || "알 수 없음";
+
+      if (userId == null) {
+        await chat.sendText(roomId, "사용자 ID가 없습니다.");
+        return;
+      }
+
+      const name = parts[1];
+      const qty = Number(parts[2]);
+
+      if (!Number.isSafeInteger(qty) ||
+          qty < 1 || qty > 100000) {
+        await chat.sendText(
+          roomId, "수량은 1~100,000 사이의 정수여야 합니다."
+        );
+        return;
+      }
+
+      const market = await getMarketPrice(name);
+      const hours = isMarketOpen(market.symbol);
+
+      if (!hours.open) {
+        await chat.sendText(
+          roomId,
+          "🔒 현재 거래할 수 없습니다.\n" +
+          hours.reason
+        );
+        return;
+      }
+
+      const result = await tradeStock({
+        roomId: String(roomId),
+        userId: String(userId),
+        userName,
+        symbol: market.symbol,
+        stockName: name,
+        side: buying ? "BUY" : "SELL",
+        quantity: qty,
+        priceKrw: market.priceKrw
+      });
+
+      await chat.sendText(
+        roomId,
+        (buying ? "🔴 매수 완료" : "🔵 매도 완료") +
+        "\n종목: " + name +
+        "\n수량: " + qty + "주" +
+        "\n1주 가격: " +
+        market.priceKrw.toLocaleString("ko-KR") + "코인" +
+        "\n총 거래금액: " +
+        result.total.toLocaleString("ko-KR") + "코인" +
+        "\n남은 코인: " +
+        result.balance.toLocaleString("ko-KR") + "코인"
+      );
+      return;
+    }
+
+    if (text === "!내주식") {
+      const userId = msg.sender?.id;
+      if (userId == null) return;
+
+      const rows = await getHoldings(
+        String(roomId), String(userId)
+      );
+
+      const reply = rows.length
+        ? "📊 내 보유 주식\n\n" +
+          rows.map((r, i) =>
+            (i + 1) + ". " + r.stock_name +
+            " (" + r.symbol + ")" +
+            "\n보유: " + r.quantity + "주" +
+            "\n매수원금: " +
+            Number(r.total_cost).toLocaleString("ko-KR") +
+            "코인"
+          ).join("\n\n")
+        : "📊 보유한 주식이 없습니다.";
+
+      await chat.sendText(roomId, reply);
+      return;
+    }
+
+    if (text === "!주식거래내역") {
+      const userId = msg.sender?.id;
+      if (userId == null) return;
+
+      const rows = await getTradeHistory(
+        String(roomId), String(userId)
+      );
+
+      const reply = rows.length
+        ? "📜 최근 주식 거래내역\n\n" +
+          rows.map(r =>
+            (r.side === "BUY" ? "🔴 매수" : "🔵 매도") +
+            " | " + r.stock_name +
+            " | " + r.quantity + "주" +
+            " | " +
+            Number(r.total_krw).toLocaleString("ko-KR") +
+            "코인"
+          ).join("\n")
+        : "📜 주식 거래내역이 없습니다.";
+
+      await chat.sendText(roomId, reply);
+      return;
+    }
 
     if (text.startsWith("!주식현황 ")) {
       const args = text.slice("!주식현황 ".length)
@@ -73,43 +242,12 @@ client.onMessage(async (...args) => {
       }
 
       const days = period === "30일" ? 30 : 7;
-      const fs = require("fs");
-      const { getStockChart } = require("./hz-stock");
+      const { getStockText } = require("./hz-stock-text");
 
-      let result;
+      const result = await getStockText(name, days);
+      await chat.sendText(roomId, result);
 
-      try {
-        result = await getStockChart(name, days);
-
-        const price = result.price.toLocaleString("ko-KR", {
-          maximumFractionDigits: 2
-        });
-
-        const change =
-          (result.change >= 0 ? "+" : "") +
-          result.change.toFixed(2) + "%";
-
-        const caption =
-          "📈 " + result.name + " 주가 현황\n" +
-          "현재 표시 종가: " + price + " " +
-          result.currency + "\n" +
-          "기간 변동률: " + change + "\n" +
-          "기준: 최근 " + result.days + "거래일 종가";
-
-        await chat.sendPhoto(roomId, result.filePath, {
-          text: caption,
-          filename: "hz-stock-test.png"
-        });
-
-        console.log("[HZ 주식] 그래프 전송 성공:", name);
-      } finally {
-        if (result?.filePath) {
-          try {
-            fs.unlinkSync(result.filePath);
-          } catch (_) {}
-        }
-      }
-
+      console.log("[HZ 주식] 텍스트 그래프 전송 성공:", name);
       return;
     }
 
