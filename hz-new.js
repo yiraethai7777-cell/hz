@@ -97,7 +97,8 @@ client.onMessage(async (...args) => {
           "기준: 최근 " + result.days + "거래일 종가";
 
         await chat.sendPhoto(roomId, result.filePath, {
-          text: caption
+          text: caption,
+          filename: "hz-stock-test.png"
         });
 
         console.log("[HZ 주식] 그래프 전송 성공:", name);
