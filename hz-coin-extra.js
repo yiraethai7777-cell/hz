@@ -60,6 +60,33 @@ function mentionTarget(msg) {
   if (found.length !== 1) throw new Error("카카오톡에서 한 사람을 실제로 멘션해 주세요. (인식: " + found.length + "명)");
   return found[0];
 }
+async function resolveCoinRecipient(roomId, target) {
+  // A verified mention ID is mandatory; names never determine the recipient.
+  const db = getPool();
+  const fallback = String(target.name || "").trim();
+  const placeholder = !fallback || fallback === "멘션 사용자";
+  if (!placeholder) return target;
+  // Existing wallet names are preferred. Old HZ BOT tables are optional.
+  const queries = [
+    ["SELECT user_name AS name FROM hz_wallets WHERE room_id=$1 AND user_id=$2", [roomId, target.id]],
+    ["SELECT name FROM hz_members WHERE room_id=$1 AND user_id=$2", [roomId, target.id]],
+    ["SELECT name FROM hz_chat_stats WHERE room_id=$1 AND user_id=$2", [roomId, target.id]]
+  ];
+  for (const [sql, params] of queries) {
+    try {
+      const result = await db.query(sql, params);
+      const name = String(result.rows[0]?.name || "").trim();
+      if (name && name !== "멘션 사용자" && name !== "알 수 없음") {
+        return { id: target.id, name };
+      }
+    } catch (e) {
+      // Legacy tables may not exist in the new database.
+      if (e.code !== "42P01" && e.code !== "42703") throw e;
+    }
+  }
+  return target;
+}
+
 function messageKey(msg) {
   const id = msg.id ?? msg.message?.id ?? msg.raw?.chat?.logId ?? msg.raw?.logId ?? msg.logId;
   return id === undefined || id === null || String(id) === "" ? null : String(id);
@@ -138,7 +165,7 @@ async function handleCoinCommand({text,msg,roomId,chat}) {
       const parts = text.split(/\s+/);
       if (parts.length !== 3 || !parts[1].startsWith("@")) throw new Error(`사용법: !코인${grant ? "지급" : "송금"} @멘션 10000`);
       const coins = validAmount(parts[2]);
-      const to = mentionTarget(msg);
+      const to = await resolveCoinRecipient(room, mentionTarget(msg));
       const result = await transfer({roomId:room,from:me,to,coins,kind:grant ? "GRANT" : "TRANSFER",messageId:messageKey(msg)});
       await say(`${grant ? "🎁 코인 지급 완료" : "💸 코인 송금 완료"}\n받는 사람: ${to.name}\n금액: ${fmt(coins)}코인\n받는 사람 잔액: ${fmt(result.recipientBalance)}코인`);
     } else {
