@@ -2,7 +2,7 @@
 
 const { getPool } = require("./hz-db");
 
-const START_COINS = 1000000;
+const START_COINS = 0; // 지갑 생성은 무료. 가입 보상은 hz-members.js에서만 지급.
 
 function amount(value) {
   const n = Number(value);
@@ -20,7 +20,7 @@ async function initWallet() {
       room_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
       user_name TEXT NOT NULL,
-      balance BIGINT NOT NULL DEFAULT 1000000
+      balance BIGINT NOT NULL DEFAULT 0
         CHECK (balance >= 0),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (room_id, user_id)
@@ -39,16 +39,18 @@ async function initWallet() {
     )
   `);
 
+  await db.query("ALTER TABLE hz_wallets ALTER COLUMN balance SET DEFAULT 0");
+  await db.query("ALTER TABLE hz_wallets ADD COLUMN IF NOT EXISTS signup_bonus_eligible BOOLEAN NOT NULL DEFAULT FALSE");
   console.log("[HZ 코인] 테이블 준비 완료");
 }
 
 async function ensureWallet(db, roomId, userId, userName) {
   await db.query(`
     INSERT INTO hz_wallets
-      (room_id, user_id, user_name, balance)
-    VALUES ($1, $2, $3, $4)
+      (room_id, user_id, user_name, balance, signup_bonus_eligible)
+    VALUES ($1, $2, $3, $4, TRUE)
     ON CONFLICT (room_id, user_id)
-    DO UPDATE SET user_name = EXCLUDED.user_name
+    DO UPDATE SET user_name = CASE WHEN EXCLUDED.user_name IN ('멘션 사용자', '알 수 없음', '') THEN hz_wallets.user_name ELSE EXCLUDED.user_name END
   `, [roomId, userId, userName, START_COINS]);
 }
 

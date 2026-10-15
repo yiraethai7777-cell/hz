@@ -10,6 +10,7 @@ const {
 } = require("./hz-trading");
 const { initCoinExtra, handleCoinCommand } = require("./hz-coin-extra");
 const { initWallet, getBalance } = require("./hz-wallet");
+const { initMembers, isMember, joinGame } = require("./hz-members");
 const { getCommandList } = require("./hz-commands");
 const { searchStocks } = require("./hz-stock-search");
 const { initAttendance, attend, attendanceRanking } = require("./hz-attendance");
@@ -42,6 +43,9 @@ if (process.env.DATABASE_URL) {
     .then(() => console.log("[HZ 코인] 준비 완료"))
     .catch(err => console.error("[HZ 코인] 초기화 실패:", err));
 
+  initWallet().then(initMembers).then(() => console.log("[HZ 가입] 준비 완료"))
+    .catch(err => console.error("[HZ 가입] 초기화 실패:",err));
+
   initTrading()
     .then(() => console.log("[HZ 주식] 준비 완료"))
     .catch(err => console.error("[HZ 주식] 초기화 실패:", err));
@@ -65,7 +69,7 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
-  if (!/^!(코인|코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text) && !["!핑", "!명령어", "!출석", "!출석순위", "!코인"].includes(text) && !text.startsWith("!주식현황 ")
+  if (!/^!(코인|코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text) && !["!핑", "!명령어", "!출석", "!출석순위", "!코인", "!게임가입"].includes(text) && !text.startsWith("!주식현황 ")
     && !text.startsWith("!주식구매 ")
     && !text.startsWith("!주식판매 ")
     && text !== "!내주식"
@@ -78,6 +82,18 @@ client.onMessage(async (...args) => {
   }
 
   try {
+    if (text === "!게임가입") {
+      if (msg.sender?.id == null) { await chat.sendText(roomId,"사용자 ID를 확인할 수 없습니다."); return; }
+      await chat.sendText(roomId,await joinGame(roomId,msg.sender.id,msg.sender.name || "알 수 없음"));
+      return;
+    }
+    // 주식 관련 모든 명령어는 가입 후 이용 가능.
+    if (/^!(주식|내주식|주식거래내역)/.test(text)) {
+      if (msg.sender?.id == null || !await isMember(roomId,msg.sender.id)) {
+        await chat.sendText(roomId,"❌ 게임에 가입하지 않았습니다.\n🎮 !게임가입 명령어로 가입해 주세요.");
+        return;
+      }
+    }
     if (await handleCoinCommand({ text, msg, roomId, chat })) return;
 
     if (text === "!코인") {

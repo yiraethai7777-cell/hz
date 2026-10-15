@@ -1,7 +1,8 @@
 "use strict";
 
 const { getPool } = require("./hz-db");
-const { START_COINS } = require("./hz-wallet");
+const { ensureWallet } = require("./hz-wallet");
+const { isMember } = require("./hz-members");
 
 const MAX_QTY = 100000;
 
@@ -74,13 +75,8 @@ async function tradeStock({
   try {
     await db.query("BEGIN");
 
-    await db.query(`
-      INSERT INTO hz_wallets
-        (room_id, user_id, user_name, balance)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (room_id, user_id)
-      DO UPDATE SET user_name = EXCLUDED.user_name
-    `, [roomId, userId, userName, START_COINS]);
+    if (!await isMember(roomId,userId,db)) throw new Error("❌ 게임 가입이 필요합니다. !게임가입을 입력해 주세요.");
+    await ensureWallet(db,roomId,userId,userName);
 
     const wallet = await db.query(`
       SELECT balance FROM hz_wallets
