@@ -14,21 +14,51 @@ function sender(msg) {
   if (id === undefined || id === null) throw new Error("보낸 사람의 ID를 확인할 수 없습니다.");
   return { id: String(id), name: String(msg.sender?.name || "알 수 없음") };
 }
-function mentionTarget(msg) {
-  const candidates = [
-    msg.mentions, msg.message?.mentions, msg.message?.mentionList,
-    msg.raw?.mentions, msg.raw?.chat?.mentions,
-    msg.message?.attachment?.mentions, msg.raw?.chat?.attachment?.mentions
-  ];
-  const list = candidates.find(x => Array.isArray(x) && x.length > 0);
-  if (!list || list.length !== 1) throw new Error("카카오톡에서 한 사람을 실제로 멘션해 주세요.");
-  const m = list[0];
-  if (!m || typeof m !== "object") throw new Error("멘션 대상 정보를 읽을 수 없습니다.");
-  const id = m.userId ?? m.user_id ?? m.user?.id ?? m.member?.id ?? m.accountId ?? m.id;
-  if (id === undefined || id === null || String(id).trim() === "") {
-    throw new Error("멘션 대상의 고유 ID가 없습니다. 송금하지 않았습니다.");
+function safeMentionId(v) {
+  if (typeof v === "string" && /^\d{4,}$/.test(v)) return v;
+  if (typeof v === "bigint" && v > 0n) return v.toString();
+  if (typeof v === "number" && Number.isSafeInteger(v) && v >= 1000) return String(v);
+  return "";
+}
+function exactMentionId(v) {
+  if (v && typeof v === "object" && typeof v.value === "string") return safeMentionId(v.value);
+  return safeMentionId(v);
+}
+function parseMentionAttachment(raw) {
+  if (typeof raw === "string") {
+    try { return require("lossless-json").parse(raw); } catch (_) { return null; }
   }
-  return { id: String(id), name: String(m.name ?? m.nickname ?? m.user?.name ?? "멘션 사용자") };
+  return raw && typeof raw === "object" ? raw : null;
+}
+function mentionAttachmentRoots(msg) {
+  const chatLog = msg.raw?.chatLog ?? msg.raw?.chatlog ?? msg.raw?.chat ?? msg.raw;
+  const raw = [chatLog?.attachment, chatLog?.attachments, chatLog?.extra,
+    msg.raw?.attachment, msg.message?.attachment,
+    ...(Array.isArray(msg.attachmentsRaw) ? msg.attachmentsRaw : [])];
+  return raw.map(parseMentionAttachment).filter(Boolean);
+}
+function mentionTarget(msg) {
+  const found = [], seen = new Set();
+  const roots = [msg.mentions, msg.message?.mentions, msg.message?.mentionList,
+    msg.raw?.mentions, msg.raw?.chat?.mentions, ...mentionAttachmentRoots(msg)];
+  function collect(v, context = false, depth = 0) {
+    if (!v || depth > 5) return;
+    if (Array.isArray(v)) { for (const x of v) collect(x, context, depth + 1); return; }
+    if (typeof v !== "object") return;
+    if (context) {
+      const id = exactMentionId(v.userId ?? v.user_id ?? v.memberId ?? v.user?.id ?? v.id);
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        found.push({ id, name: String(v.name ?? v.nickname ?? v.nickName ?? v.displayName ?? "멘션 사용자").replace(/^@/, "") });
+      }
+    }
+    for (const [key, val] of Object.entries(v)) {
+      if (/mention/i.test(key)) collect(val, true, depth + 1);
+    }
+  }
+  for (let i = 0; i < roots.length; i++) collect(roots[i], i < 5);
+  if (found.length !== 1) throw new Error("카카오톡에서 한 사람을 실제로 멘션해 주세요. (인식: " + found.length + "명)");
+  return found[0];
 }
 function messageKey(msg) {
   const id = msg.id ?? msg.message?.id ?? msg.raw?.chat?.logId ?? msg.raw?.logId ?? msg.logId;
