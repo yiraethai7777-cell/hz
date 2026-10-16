@@ -1,6 +1,7 @@
 "use strict";
 
 const { createClient } = require("./dist");
+const { attachExtraCommands, commandLists } = require("./hz-extra-commands");
 const { testConnection } = require("./hz-db");
 const { initTrading } = require("./hz-trading");
 const { getMarketPrice } = require("./hz-market");
@@ -277,7 +278,7 @@ client.onMessage(async (...args) => {
     if (text === "!핑") {
       reply = "🏓 퐁!";
     } else if (text === "!명령어") {
-      reply = getCommandList();
+      reply = commandLists["기본"];
     } else {
       const userId = msg.sender?.id;
       const userName = msg.sender?.name || "알 수 없음";
@@ -300,5 +301,7 @@ client.onMessage(async (...args) => {
     console.error("[HZ NEW] 명령어 처리 실패:", text, err);
   }
 });
+
+attachExtraCommands(client);
 
 console.log("[HZ NEW] 봇 시작 중...");
