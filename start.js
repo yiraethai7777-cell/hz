@@ -6,6 +6,7 @@
 
 const { createClient } = require("./dist");
 const { attachHZBot } = require("./hz-bot");
+const { attachExtraCommands } = require("./hz-extra-commands");
 
 
 // Render Web Service health endpoint
@@ -67,7 +68,24 @@ client.onReady(async () => {
   if (attached) return;
   attached = true;
   try {
-    const info = await attachHZBot(client);
+    // Suppress only the legacy !명령어 reply so our compact reply is not duplicated.
+    // Other legacy commands remain unchanged.
+    const register = client.onMessage;
+    client.onMessage = function (handler) {
+      return register.call(this, async (...args) => {
+        const msg = args.length === 1 ? args[0] : args[1];
+        const command = String(msg?.message?.text ?? msg?.text ?? "").trim();
+        if (command === "!명령어") return;
+        return handler(...args);
+      });
+    };
+    let info;
+    try {
+      info = await attachHZBot(client);
+    } finally {
+      client.onMessage = register;
+    }
+    await attachExtraCommands(client);
     console.log(`[HZ BOT] ì¤ë¹ ìë£ / botUserId=${info.botUserId}`);
   } catch (err) {
     attached = false;
