@@ -1,0 +1,26 @@
+HZ BOT - 주식시간 + !명령어 전체보기 통합본 (2026-10-16)
+
+파일:
+- hz-extra-commands.js: !주식시간 및 !명령어 접기/상세 설명
+- install-hz-extra.js: ~/hz/start.js 에 새 모듈 등록, 기존 파일 자동 백업
+
+!명령어 기본 표시:
+📜 헤이즈봇 명령어 안내
+[카카오톡 전체보기]
+전체보기: 게임/코인/주식/낚시/펫/퀴즈/출석/통계/관리/준개 설명
+
+주의:
+- hz-bot.js 원본 수정 없음.
+- 기존 !명령어 응답은 start.js에서 등록되는 레거시 핸들러에 한해 차단하여 중복 방지.
+- 카카오톡의 '전체보기' 접힘은 클라이언트/버전에 따라 다를 수 있음.
+- 거래소 공휴일/임시휴장일 판별은 아직 미구현.
+- '추가 개발 예정' 항목은 실제 구현되기 전까지 사용 불가.
+- 실제 카카오톡/운영 PostgreSQL 시험 전; GitHub 배포 전.
+
+설치 (Termux ~/hz):
+1. ZIP 내용을 ~/hz 폴더에 압축 해제
+2. node --check hz-extra-commands.js && node --check install-hz-extra.js
+3. node install-hz-extra.js
+4. node --check start.js
+5. 실제 봇에서 !주식시간 및 !명령어 테스트
+6. 필요 파일만 git add 하여 업로드 (git add . 사용 금지)
