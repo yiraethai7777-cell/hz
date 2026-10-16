@@ -16,6 +16,16 @@ const { getCommandList } = require("./hz-commands");
 const { searchStocks } = require("./hz-stock-search");
 const { initAttendance, attend, attendanceRanking } = require("./hz-attendance");
 
+const glManage = require('./manage');
+const glManageReady = process.env.DATABASE_URL
+  ? glManage.init().then(() => { console.log('[GL 관리] 준비 완료'); return true; })
+      .catch(err => { console.error('[GL 관리] 초기화 실패:', err); return false; })
+  : Promise.resolve(false);
+const glCleanupTimer = setInterval(() => {
+  glManageReady.then(ok => ok && glManage.cleanup().catch(err => console.error('[GL 관리] 정리 오류:', err)));
+}, 60 * 60 * 1000);
+if (typeof glCleanupTimer.unref === 'function') glCleanupTimer.unref();
+
 const client = createClient({
   authPath: process.env.KAKAO_AUTH_PATH || "./auth.json",
   debug: process.env.KAKAO_DEBUG === "1",
@@ -70,6 +80,27 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
+  // GL_MANAGE_V2_START
+  // Management sees all incoming messages, including ordinary chat.
+  // Existing game and stock commands continue through the original handler.
+  const glRoomId = msg.room?.id;
+  if (glRoomId != null && await glManageReady) {
+    try {
+      const handled = await glManage.message({
+        roomId: glRoomId,
+        userId: msg.sender?.id ?? '',
+        userName: msg.sender?.name || '알 수 없음',
+        messageId: msg.id ?? msg.message?.id ?? null,
+        text,
+        send: body => chat.sendText(glRoomId, body)
+        // Kick is deliberately not connected until KakaoForge behavior is verified.
+      });
+      if (handled) return;
+    } catch (err) { console.error('[GL 관리] 메시지 오류:', err); }
+  }
+  // Attendance belongs exclusively to management, not the old game handler.
+  if (/^!출석(?:확인|순위)?(?:\s|$)/.test(text)) return;
+  // GL_MANAGE_V2_END
   if (!/^!(코인|코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text) && !["!핑", "!명령어", "!출석", "!출석순위", "!코인", "!게임가입"].includes(text) && !text.startsWith("!주식현황 ")
     && !text.startsWith("!주식구매 ")
     && !text.startsWith("!주식판매 ")
