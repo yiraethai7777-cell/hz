@@ -19,13 +19,14 @@ async function enabled(room){const r=await getPool().query('SELECT enabled FROM 
 async function admin(room,user){const owner=process.env.GL_OWNER_ID;if(owner && key(user)===owner)return true;const r=await getPool().query('SELECT 1 FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[room,user]);return !!r.rowCount}
 async function warnCount(room,user){const r=await getPool().query('SELECT count(*)::int AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',[room,user]);return r.rows[0].n}
 async function log(room,actor,target,action,detail){await getPool().query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[room,actor,target,action,detail])}
-async function message({roomId,userId,userName,messageId,text,send,kick}){
+// GL_BOT_ONLY_V1
+async function message({roomId,userId,userName,messageId,text,send,kick,isBotAccount=false}){
  const room=key(roomId),user=key(userId),db=getPool(),s=String(text||'').trim();
  if(s==='!내아이디'){await send('🆔 내 아이디: '+user);return true}
  if(s==='!관리명령어'){await send('🛡️ GL봇 관리\n!관리작동 !관리중지 !관리상태\n!출석 !출석순위 !출석확인 [ID]\n!채팅순위 !채팅정보 [ID]\n!경고 ID 개수 사유 !경고내역 ID !경고삭제 ID 번호 !경고초기화 ID !경고순위\n!벤 ID !벤등록 ID !벤등록해제 ID !벤등록목록 !벤기록 [ID]\n!관리자추가 ID !관리자삭제 ID !관리자목록\n!도배감지켜기 !도배감지끄기 !삭제감지켜기 !삭제감지끄기 !관리로그');return true}
  if(s==='!관리상태'){await send('🛡️ 관리: '+(await enabled(room)?'작동':'중지'));return true}
  if(s==='!관리작동'||s==='!관리중지'){
-  if(!await admin(room,user)){await send('⛔ 관리 권한이 없습니다. GL_OWNER_ID 설정 또는 기존 관리자의 권한 부여가 필요합니다.');return true}
+  if(!isBotAccount){await send('⛔ GL봇 계정만 사용할 수 있습니다.');return true}
   await db.query('INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,$2) ON CONFLICT(room_id) DO UPDATE SET enabled=EXCLUDED.enabled',[room,s==='!관리작동']);await send('🛡️ 관리 '+(s==='!관리작동'?'작동':'중지')+' 완료');return true
  }
  if(!await enabled(room))return false;

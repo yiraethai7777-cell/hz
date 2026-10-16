@@ -80,6 +80,15 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
+  // GL_BOT_ONLY_V1: restrict room toggles to authenticated bot account.
+  const glBotId = client.userId ?? client.config?.userId ?? null;
+  const glSenderId = msg.sender?.id ?? null;
+  const glIsBotAccount = glBotId != null && glSenderId != null && String(glBotId) === String(glSenderId);
+  if (text === '!게임작동' || text === '!게임중지') {
+    const glRoom = msg.room?.id;
+    if (glRoom != null) await (args.length === 1 ? (client.chat || client) : args[0]).sendText(glRoom, glIsBotAccount ? '🎮 게임 모듈은 아직 연결되지 않았습니다.' : '⛔ GL봇 계정만 사용할 수 있습니다.');
+    return;
+  }
   // GL_MANAGE_V2_START
   // Management sees all incoming messages, including ordinary chat.
   // Existing game and stock commands continue through the original handler.
@@ -89,6 +98,7 @@ client.onMessage(async (...args) => {
       const handled = await glManage.message({
         roomId: glRoomId,
         userId: msg.sender?.id ?? '',
+        isBotAccount: glIsBotAccount,
         userName: msg.sender?.name || '알 수 없음',
         messageId: msg.id ?? msg.message?.id ?? null,
         text,
