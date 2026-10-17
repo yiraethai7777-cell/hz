@@ -15,6 +15,8 @@ async function routes(req,res,url,b,status){const p=url.pathname,m=req.method,se
  if(p==='/api/promo/logout'&&m==='POST')return accounts.logout(req,res,s);
  if(p==='/api/promo/password'&&m==='POST')return accounts.changePassword(req,res,s,b);
  if(p==='/api/promo/disconnect'&&m==='POST')return service.disconnect(s.user.id);
+ if(p==='/api/promo/message'&&m==='GET')return {message:await service.commonMessage(s.user.id)};
+ if(p==='/api/promo/message'&&m==='POST')return service.setMessage(s.user.id,b.action||'content',b);
  if(p==='/api/promo/rooms'&&m==='GET')return service.rooms(s.user.id);
  if(p==='/api/promo/logs'&&m==='GET'){const room=id(url.searchParams.get('roomId'));const own=await getPool().query('SELECT 1 FROM gl_promo_account_rooms WHERE user_id=$1 AND room_id=$2',[s.user.id,room]);if(!own.rowCount)fail('본인 계정의 방만 조회할 수 있습니다.',403);const r=await getPool().query('SELECT status,created_at FROM gl_promo_account_logs WHERE user_id=$1 AND room_id=$2 ORDER BY id DESC LIMIT 50',[s.user.id,room]);return {logs:r.rows};}
  if(p==='/api/promo/promotion'&&m==='POST')return service.configure(s.user.id,id(b.roomId),b.action,b);
