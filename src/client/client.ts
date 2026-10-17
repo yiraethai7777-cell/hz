@@ -2380,6 +2380,13 @@ export class KakaoForgeClient extends EventEmitter {
     return { ...res.body, chats };
   }
 
+  /** Display-safe snapshot after getChatRooms applies incremental room updates. */
+  getKnownChatRooms() {
+    return [...this._chatRooms.entries()].map(([id, room]) => ({
+      id: String(id), name: String(room.title || room.roomName || '')
+    }));
+  }
+
   /**
    * Sync messages via LOCO (SYNCMSG).
    */
