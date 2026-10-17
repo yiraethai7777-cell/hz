@@ -3,6 +3,7 @@ const http=require('node:http'),fs=require('node:fs/promises'),path=require('nod
 const {routes,status}=require('./routes');
 const assets=new Map([['/',['public-web/index.html','text/html']],['/style.css',['public-web/style.css','text/css']],['/app.js',['public-web/app.js','text/javascript']],['/admin',['admin-web/index.html','text/html']],['/admin/',['admin-web/index.html','text/html']],['/admin/admin.js',['admin-web/admin.js','text/javascript']]]);
 const rate=new Map();
+for(const [route,file,type] of [['/promo','index.html','text/html'],['/promo/','index.html','text/html'],['/promo/style.css','style.css','text/css'],['/promo/app.js','app.js','text/javascript']])assets.set(route,['promo-web/'+file,type]);
 async function body(req){let bytes=0,chunks=[];for await(const chunk of req){bytes+=chunk.length;if(bytes>16384){const e=Error('요청 크기를 초과했습니다.');e.status=413;throw e;}chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{const e=Error('올바른 JSON을 입력해 주세요.');e.status=400;throw e;}}
 function json(res,code,value){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
 async function handler(req,res){
@@ -16,7 +17,7 @@ async function handler(req,res){
    let data={};if(req.method!=='GET'){
     if(!String(req.headers['content-type']||'').startsWith('application/json')){json(res,415,{error:'JSON 요청만 지원합니다.'});return;}
     data=await body(req);
-    if(url.pathname==='/api/login'){
+    if(['/api/login','/api/promo/login','/api/promo/register'].includes(url.pathname)){
      const proto=req.headers['x-forwarded-proto']==='https'?'https':'http';
      if(req.headers.origin!==`${proto}://${req.headers.host}`){json(res,403,{error:'요청 출처를 확인해 주세요.'});return;}
     }
@@ -31,6 +32,7 @@ async function handler(req,res){
 function start({client,ready,port=Number(process.env.PORT||3000),host='0.0.0.0'}={}){
  const server=http.createServer(handler);server.requestTimeout=20000;server.headersTimeout=15000;
  status.chat=client?.chat||client;
+ status.client=client;
  client?.on('ready',()=>{status.connected=true;});client?.on('disconnected',()=>{status.connected=false;});
  client?.on('error',e=>{status.errors.push(new Date().toISOString()+' · '+String(e.code||e.name||'연결 오류').slice(0,80));if(status.errors.length>20)status.errors.shift();});
  Promise.resolve(ready).then(()=>{status.ready=true;}).catch(()=>{status.ready=false;});

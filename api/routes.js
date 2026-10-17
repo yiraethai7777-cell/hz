@@ -24,6 +24,7 @@ async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
  if(p==='/api/public/config'&&method==='GET')return {name:'GL BOT',openchatUrl:publicUrl(),online:status.ready&&status.connected};
  if(!status.ready)fail('봇과 데이터베이스를 준비 중입니다.',503);
+ if(p.startsWith('/api/promo/'))return require('../promotion/portal').routes(req,res,url,body,status);
  if(p==='/api/public/rankings'&&method==='GET')return rankings(url.searchParams.get('kind')||'coin');
  if(p==='/api/public/notices'&&method==='GET'){const r=await getPool().query('SELECT id,title,body,pinned,created_at FROM gl_notices WHERE published ORDER BY pinned DESC,created_at DESC LIMIT 30');return {notices:r.rows};}
  if(p==='/api/login'&&method==='POST')return auth.login(req,res,body);
@@ -31,9 +32,11 @@ async function routes(req,res,url,body){
  if(p==='/api/session'&&method==='GET')return s?{authenticated:true,csrf:s.csrf,user:s.user}:{authenticated:false,configured:auth.config().ready};
  if(!s)fail('관리자 로그인이 필요합니다.',401);
  if(method!=='GET')auth.csrf(req,s);
+ if(p.startsWith('/api/admin/promo-'))return require('../promotion/portal').admin(req,url,body,s);
  if(p==='/api/logout'&&method==='POST')return auth.logout(req,res,s);
  if(p==='/api/admin/overview'&&method==='GET')return overview();
  if(p==='/api/admin/rooms'&&method==='GET'){
+  await require('../promotion/rooms').refresh(status.client).catch(()=>{});
   const r=await getPool().query("SELECT r.room_id,r.data->>'name' AS name,COALESCE((r.data->>'game')::boolean,FALSE) AS game,COALESCE(g.enabled,(r.data->>'manage')::boolean,FALSE) AS manage,COALESCE((r.data->>'quizEnabled')::boolean,TRUE) AS quiz_enabled,COALESCE((r.data->>'fishEnabled')::boolean,TRUE) AS fish_enabled,r.data->'promo' AS promotion FROM hz_rooms r LEFT JOIN gl_manage_rooms g USING(room_id) ORDER BY r.updated_at DESC LIMIT 200");return {rooms:r.rows};
  }
  if(p==='/api/admin/rooms'&&method==='POST'){
