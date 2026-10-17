@@ -14,7 +14,12 @@ test('single registration, both KakaoForge signatures, help and attendance isola
   const game={toggle:async ctx=>games.push(ctx),message:async ctx=>games.push(ctx)};
   attachRouter(client,{game,management:{message:async ctx=>{management.push(ctx);return false;}}});
   const msg=text=>({room:{id:'room'},sender:{id:'1234'},text});
-  await callback(msg('!명령어'));
+  const oldEnv=process.env.DATABASE_URL;
+  process.env.DATABASE_URL='postgres://localhost/test';
+  const pool=getPool(),query=pool.query;
+  pool.query=async()=>({rows:[{game:true,manage:true}]});
+  try {await callback(msg('!명령어'));}
+  finally {pool.query=query;process.env.DATABASE_URL=oldEnv||'';}
   assert.equal(replies.length,1);
   assert.match(replies[0],/\u200b{1200}/);
   assert.equal(games.length,0);
