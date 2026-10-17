@@ -41,15 +41,9 @@ async function attachHZBot(client){
       let flags=await ctx.roomFlags(rid);
       if(text==="!삭메기록켜기"||text==="!삭메기록끄기"){
         if(!isAdmin)return;
-        const enabled=text==="!삭메기록켜기";
-        await ctx.withRoom(rid,rname,async d=>{d.deleteCacheEnabled=enabled});
-        if(!enabled)await ctx.pool.query("DELETE FROM hz_message_cache WHERE room_id=$1",[rid]);
-        await ctx.send(chat,rid,enabled
-          ?"📢 삭제 메시지 기록 안내\n이 방에서 새로 수신한 일반 텍스트 메시지를 최대 24시간 동안 임시 보관하고, 삭제 감지 시 원문 확인에 사용할 수 있습니다. 메시지 ID가 연결되지 않으면 원문을 표시할 수 없습니다."
-          :"🔒 삭제 메시지 원문 임시 기록을 중지하고 기존 임시 기록을 삭제했습니다.");
+        await ctx.send(chat,rid,'🗑️ 삭제 알림은 삭제한 사람만 표시하며 원문은 저장하지 않습니다.');
         return;
       }
-      if(flags.deleteCacheEnabled && !isSelf && !text.startsWith("!"))await ctx.saveDeleteCache(rid,msg,text);
 
       if(text==="!봇작동"){
         if(!isAdmin)return;
@@ -380,21 +374,12 @@ async function attachHZBot(client){
         if(!evt)return;
         const rid=ctx.pickDeleteRoom(evt); if(!rid)return;
         const flags=await ctx.roomFlags(rid); if(!flags.manage||flags.locked)return;
-        const actor=ctx.pickDeleteActor(evt), mid=ctx.deletedMessageId(evt);
-        const deletedText=ctx.pickDeletedText(evt)||(flags.deleteCacheEnabled?await ctx.lookupDeleteCache(rid,mid):"");
+        const actor=ctx.pickDeleteActor(evt);
         await ctx.pool.query("INSERT INTO hz_deleted_messages(room_id,deleter_id,deleter_name,message_text,meta) VALUES($1,$2,$3,$4,$5::jsonb)",
-          [rid,actor.id||null,actor.name||null,deletedText||null,JSON.stringify({event:"delete",matchedById:!!mid&&!!deletedText})]);
-        await ctx.send(chat,rid,`🗑️ 메시지 삭제 감지\n\n👤 삭제자: ${actor.name||actor.id||"확인 불가"}\n💬 삭제된 내용: ${deletedText||"내용 확인 불가"}\n🕒 시간: ${ctx.nowK()}`);
-        if(actor.id&&actor.id!==ctx.globalBotId){
-          await ctx.pool.query("INSERT INTO hz_warnings(room_id,target_id,target_name,count,reason,issuer_id,issuer_name) VALUES($1,$2,$3,1,$4,$5,$6)",
-            [rid,actor.id,actor.name||actor.id,"메시지 삭제",ctx.globalBotId,"GL BOT"]);
-          const wc=await ctx.activeWarningCount(ctx.pool,rid,actor.id);
-          await ctx.send(chat,rid,`⚠️ ${actor.name||actor.id}님 자동 경고 1개\n이유: 메시지 삭제\n현재 경고: ${wc}/4`);
-          if(wc>=4){
-            try{await ctx.globalChat.openChatKick(rid,actor.id);await ctx.send(chat,rid,`🚫 ${actor.name||actor.id}님이 경고 ${wc}개에 도달하여 자동 벤 처리되었습니다.`)}
-            catch(e){console.error("[HZ DELETE WARNING BAN]",e);await ctx.send(chat,rid,`⚠️ ${actor.name||actor.id}님이 경고 ${wc}개에 도달했지만 자동 벤에 실패했습니다.`)}
-          }
-        }
+          [rid,actor.id||null,actor.name||null,null,JSON.stringify({event:"delete"})]);
+        await ctx.send(chat,rid,actor.name||actor.id
+          ?`🗑️ ${actor.name||actor.id}님이 메시지를 삭제했습니다.`
+          :'🗑️ 누군가 메시지를 삭제했습니다.');
       }catch(e){console.error("[HZ DELETE]",e)}
     });
   }
