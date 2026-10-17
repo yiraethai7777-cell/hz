@@ -66,6 +66,7 @@ function httpsPost(host, path, formData, headers = {}): Promise<any> {
       });
     });
 
+    req.setTimeout(15000, () => req.destroy(new Error('Kakao request timed out')));
     req.on('error', reject);
     req.write(bodyStr);
     req.end();
@@ -113,6 +114,7 @@ function httpsPostJson(host, path, jsonData, headers = {}): Promise<any> {
       stream.on('error', reject);
     });
 
+    req.setTimeout(15000, () => req.destroy(new Error('Kakao request timed out')));
     req.on('error', reject);
     req.write(bodyStr);
     req.end();
@@ -157,6 +159,7 @@ function httpsGet(host, path, headers = {}): Promise<any> {
       stream.on('error', reject);
     });
 
+    req.setTimeout(15000, () => req.destroy(new Error('Kakao request timed out')));
     req.on('error', reject);
     req.end();
   });

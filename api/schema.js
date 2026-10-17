@@ -14,5 +14,8 @@ async function init(){await getPool().query(`
  CREATE TABLE IF NOT EXISTS gl_promo_invites(id BIGSERIAL PRIMARY KEY,token_hash TEXT NOT NULL UNIQUE,label TEXT NOT NULL,room_ids JSONB NOT NULL,created_by TEXT NOT NULL,expires_at TIMESTAMPTZ NOT NULL,used_at TIMESTAMPTZ,used_by BIGINT REFERENCES gl_promo_users(id),revoked_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
  ALTER TABLE gl_promotion_logs ADD COLUMN IF NOT EXISTS portal_user_id BIGINT REFERENCES gl_promo_users(id);
  CREATE INDEX IF NOT EXISTS gl_promo_logs_user_time ON gl_promotion_logs(portal_user_id,created_at);
+ CREATE TABLE IF NOT EXISTS gl_promo_kakao(user_id BIGINT PRIMARY KEY REFERENCES gl_promo_users(id),kakao_id TEXT NOT NULL UNIQUE,credential TEXT NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ CREATE TABLE IF NOT EXISTS gl_promo_account_rooms(user_id BIGINT NOT NULL REFERENCES gl_promo_users(id),room_id TEXT NOT NULL,name TEXT NOT NULL DEFAULT '',present BOOLEAN NOT NULL DEFAULT TRUE,promotion JSONB NOT NULL DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,room_id));
+ CREATE TABLE IF NOT EXISTS gl_promo_account_logs(id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES gl_promo_users(id),room_id TEXT NOT NULL,slot TEXT NOT NULL,status TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(user_id,room_id,slot));
  `);}
 module.exports={init};

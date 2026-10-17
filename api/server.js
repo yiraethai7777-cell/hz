@@ -13,11 +13,11 @@ async function handler(req,res){
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/health'){json(res,status.ready?200:503,{ready:status.ready,connected:status.connected});return;}
   if(url.pathname.startsWith('/api/')){
-   const key=req.socket.remoteAddress||'unknown',now=Date.now();let bucket=rate.get(key);if(!bucket||now-bucket.start>60000){bucket={start:now,count:0};rate.set(key,bucket);}if(++bucket.count>180){json(res,429,{error:'잠시 후 다시 시도해 주세요.'});return;}if(rate.size>10000)rate.delete(rate.keys().next().value);
+   const key=req.socket.remoteAddress||'unknown',now=Date.now();let bucket=rate.get(key);if(!bucket||now-bucket.start>60000){bucket={start:now,count:0};rate.set(key,bucket);}if(++bucket.count>(url.pathname==='/api/promo/qr/poll'?3000:600)){json(res,429,{error:'잠시 후 다시 시도해 주세요.'});return;}if(rate.size>10000)rate.delete(rate.keys().next().value);
    let data={};if(req.method!=='GET'){
     if(!String(req.headers['content-type']||'').startsWith('application/json')){json(res,415,{error:'JSON 요청만 지원합니다.'});return;}
     data=await body(req);
-    if(['/api/login','/api/promo/login','/api/promo/register'].includes(url.pathname)){
+    if(['/api/login','/api/promo/login','/api/promo/register'].includes(url.pathname)||url.pathname.startsWith('/api/promo/qr/')){
      const proto=req.headers['x-forwarded-proto']==='https'?'https':'http';
      if(req.headers.origin!==`${proto}://${req.headers.host}`){json(res,403,{error:'요청 출처를 확인해 주세요.'});return;}
     }
@@ -35,7 +35,7 @@ function start({client,ready,port=Number(process.env.PORT||3000),host='0.0.0.0'}
  status.client=client;
  client?.on('ready',()=>{status.connected=true;});client?.on('disconnected',()=>{status.connected=false;});
  client?.on('error',e=>{status.errors.push(new Date().toISOString()+' · '+String(e.code||e.name||'연결 오류').slice(0,80));if(status.errors.length>20)status.errors.shift();});
- Promise.resolve(ready).then(()=>{status.ready=true;}).catch(()=>{status.ready=false;});
+ Promise.resolve(ready).then(async()=>{await require('../promotion/kakao').service().start();status.ready=true;}).catch(()=>{status.ready=false;});
  server.on('error',e=>{console.error('[GL WEB] 서버 오류:',e.code);});server.listen(port,host,()=>console.log('[GL WEB] listening on port '+server.address().port));return server;
 }
 module.exports={handler,start};

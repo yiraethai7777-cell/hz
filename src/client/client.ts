@@ -374,7 +374,7 @@ export class KakaoForgeClient extends EventEmitter {
       const res = await this._carriage.chatInfo(resolvedChatId);
       const info = res?.body?.chatInfo || res?.body?.chat || res?.body?.chatData || res?.body?.chatRoom;
       if (info) {
-        this._updateChatRooms([info]);
+        this._updateChatRooms([{ ...info, chatId: resolvedChatId }]);
       }
     })()
       .catch((err) => {
@@ -840,7 +840,7 @@ export class KakaoForgeClient extends EventEmitter {
     console.log(`[+] LOGINLIST response: status=${loginRes.status}`);
     if (loginRes.status !== 0) {
       console.error('[!] LOGINLIST failed with status:', loginRes.status);
-      console.error('[!] Body:', JSON.stringify(loginRes.body, null, 2));
+      console.error('[!] LOGINLIST rejected; response body omitted');
     }
 
     this._applyChatList(loginRes.body);
@@ -1953,7 +1953,7 @@ export class KakaoForgeClient extends EventEmitter {
       if (!trimmed) return '';
       try {
         const parsed = JSON.parse(trimmed);
-        return parsed?.title || parsed?.name || parsed?.subject || '';
+        return typeof parsed === 'string' ? parsed : (parsed?.title || parsed?.name || parsed?.subject || '');
       } catch {
         return trimmed.length <= 100 ? trimmed : '';
       }
@@ -1969,24 +1969,20 @@ export class KakaoForgeClient extends EventEmitter {
   _extractTitle(chat: any): string {
     if (!chat) return '';
 
-    const direct = chat.title || chat.roomName || chat.name || chat.subject;
-    if (direct) return String(direct);
-
-    const metaTitle = this._extractTitleFromMeta(chat.meta);
-    if (metaTitle) return metaTitle;
-
+    // Only TITLE (3) describes the room. Live/voice metadata also has a title.
     if (Array.isArray(chat.chatMetas)) {
-      const titleMeta = chat.chatMetas.find((meta) => meta?.type === 3);
+      const titleMeta = chat.chatMetas.find((meta) => Number(meta?.type) === 3);
       if (titleMeta) {
         const title = this._extractTitleFromMeta(titleMeta?.content ?? titleMeta);
         if (title) return title;
       }
-      for (const meta of chat.chatMetas) {
-        const title = this._extractTitleFromMeta(meta?.content);
-        if (title) return title;
-      }
     }
-
+    if (Number(chat.meta?.type) === 3) {
+      const title = this._extractTitleFromMeta(chat.meta.content);
+      if (title) return title;
+    }
+    const direct = chat.roomName || chat.chatRoomName || chat.title || chat.name || chat.subject;
+    if (direct) return String(direct);
     return '';
   }
 
@@ -2385,6 +2381,26 @@ export class KakaoForgeClient extends EventEmitter {
     return [...this._chatRooms.entries()].map(([id, room]) => ({
       id: String(id), name: String(room.title || room.roomName || '')
     }));
+  }
+
+  async refreshChatRoomNames() {
+    const keys = [...this._chatRooms.keys()];
+    for (let start = 0; start < keys.length; start += 4) {
+      await Promise.all(keys.slice(start, start + 4).map(async key => {
+        await this._ensureChatInfo(key);
+        let room = this._chatRooms.get(key);
+        if (!room) return;
+        if (room.isOpenChat) {
+          if (!room.openLinkId) await this._ensureOpenChatInfo(key);
+          room = this._chatRooms.get(key);
+          if (room?.openLinkId) {
+            const name = await this._ensureOpenLinkName(room.openLinkId);
+            if (name) this._chatRooms.set(key, { ...room, title: name, roomName: name });
+          }
+        }
+      }));
+    }
+    return this.getKnownChatRooms();
   }
 
   /**
