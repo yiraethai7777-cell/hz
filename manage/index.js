@@ -49,10 +49,9 @@ async function message({roomId,userId,userName,messageId,text,send,kick,isBotAcc
   await setEnabled(room,s==='!관리작동');await send('🛡️ 관리 '+(s==='!관리작동'?'작동':'중지')+' 완료');return true
  }
  if(!await enabled(room))return false;
- // Non-command messages are counted and temporarily retained only when deletion detection is enabled.
+ // Count ordinary messages without retaining their text.
  if(!s.startsWith('!')){
   await db.query(`INSERT INTO gl_manage_chat_counts(room_id,user_id,user_name,count) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET count=gl_manage_chat_counts.count+1,user_name=$3`,[room,user,userName]);
-  if(messageId!=null){const setting=await db.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);if(setting.rows[0]?.deleted_enabled)await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',[room,key(messageId),user,userName,String(text).slice(0,10000)])}
   return false;
  }
  const parts=s.split(/\s+/),cmd=parts[0],target=parts[1];
@@ -82,6 +81,9 @@ async function message({roomId,userId,userName,messageId,text,send,kick,isBotAcc
 }
 async function join({roomId,userId,userName,send,kick}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,joins) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET joins=gl_manage_members.joins+1,user_name=$3',[room,user,userName]);const r=await db.query('SELECT 1 FROM gl_manage_bans WHERE room_id=$1 AND user_id=$2',[room,user]);if(r.rowCount&&kick){try{await kick(user);await log(room,null,user,'KICK','재입장 벤 대상')}catch(e){await log(room,null,user,'KICK_FAILED',e.message)}}const m=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 GL봇 입장 안내\n${userName}님 안녕하세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${m.rows[0].joins}회 / 퇴장 ${m.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
 async function leave({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,leaves) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET leaves=gl_manage_members.leaves+1,user_name=$3',[room,user,userName]);const r=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 GL봇 퇴장 안내\n${userName}님 안녕히 가세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${r.rows[0].joins}회 / 퇴장 ${r.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
-async function deleted({roomId,messageId,send}){const room=key(roomId);if(!await enabled(room)||messageId==null)return;const db=getPool();const r=await db.query('SELECT user_name,user_id,body FROM gl_manage_temp_messages WHERE room_id=$1 AND message_id=$2 AND created_at>NOW()-INTERVAL \'12 hours\'',[room,key(messageId)]);if(!r.rowCount)return;const m=r.rows[0];await send(`🗑️ GL봇 삭제 메시지 감지\n사용자: ${m.user_name} (${m.user_id})\n경고: ${await warnCount(room,m.user_id)}회\n삭제 시각: ${date()}\n\n삭제된 메시지:\n${m.body}`)}
+async function deleted({roomId,userId,userName,send}){
+ if(!await enabled(key(roomId)))return;
+ await send(userName||userId?`🗑️ ${userName||userId}님이 메시지를 삭제했습니다.`:'🗑️ 누군가 메시지를 삭제했습니다.');
+}
 async function cleanup(){await getPool().query("DELETE FROM gl_manage_temp_messages WHERE created_at < NOW()-INTERVAL '12 hours'")}
 module.exports={init,enabled,message,join,leave,deleted,cleanup};
