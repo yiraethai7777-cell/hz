@@ -125,31 +125,7 @@ async function processMentionAlerts(chat,rid,msg,uid,name){
   }
 }
 
-async function junPermissionTarget(c,rid,msg,argument){
-  const value=String(argument||"").trim();
-  const numeric=/^\d{4,}$/.test(value);
-  // 카카오 사용자 ID는 메시지 이벤트의 sender.id와 일치해야 한다.
-  if(numeric){
-    const q=await c.query(`SELECT user_id,name FROM (
-      SELECT user_id,name FROM hz_members WHERE room_id=$1 AND user_id=$2
-      UNION ALL SELECT user_id,name FROM hz_chat_stats WHERE room_id=$1 AND user_id=$2
-      UNION ALL SELECT user_id,name FROM hz_jun_permissions WHERE room_id=$1 AND user_id=$2
-    ) known LIMIT 1`,[rid,value]);
-    if(!q.rows.length)return {error:"❌ 이 방에서 해당 카카오 사용자 ID를 확인할 수 없습니다. 메신저봇R 해시는 사용할 수 없습니다. 대상자가 이 방에서 메시지를 보낸 후 @닉네임으로 다시 시도해 주세요."};
-    return {id:value,name:q.rows[0].name||value};
-  }
-  const nickname=value.replace(/^@/,"");
-  if(!nickname)return {error:"❌ 닉네임을 입력해 주세요."};
-  const q=await c.query(`SELECT DISTINCT user_id,name FROM (
-    SELECT user_id,name FROM hz_members WHERE room_id=$1 AND name=$2
-    UNION ALL SELECT user_id,name FROM hz_chat_stats WHERE room_id=$1 AND name=$2
-    UNION ALL SELECT user_id,name FROM hz_jun_permissions WHERE room_id=$1 AND name=$2
-  ) matches`,[rid,nickname]);
-  const users=new Map(q.rows.map(x=>[String(x.user_id),x]));
-  if(users.size===1){const x=[...users.values()][0];return {id:String(x.user_id),name:x.name||nickname};}
-  if(users.size>1)return {error:"❌ 같은 닉네임을 사용하는 사람이 여러 명입니다. 대상자의 카카오 사용자 ID로 입력해 주세요."};
-  return {error:"❌ 이 방에서 닉네임을 찾지 못했습니다. 대상자가 메시지를 한 번 보낸 후 정확한 @닉네임으로 다시 시도해 주세요."};
-}
+
 
 function deepFindUserId(v, preferReply=false){
   let found="";
@@ -280,11 +256,7 @@ function extractProfile(raw){
   walk(raw);return best
 }
 
-async function hasJunPermission(c,rid,uid){
-  if(uid===ctx.globalBotId)return true;
-  const q=await c.query("SELECT 1 FROM hz_jun_permissions WHERE room_id=$1 AND user_id=$2 LIMIT 1",[rid,uid]);
-  return !!q.rows[0];
-}
+
 
 function pickDeleteRoom(evt){
   return ctx.id(evt?.room?.id??evt?.roomId??evt?.chat?.room?.id??evt?.chat?.roomId??evt?.channelId);
@@ -621,39 +593,7 @@ function promoSlot(now,minutes){
   return Math.floor((seoul-dayStart)/interval)*interval+dayStart-9*3600000;
 }
 
-async function promoTick(){
-  if(ctx.promoTickBusy||!ctx.globalChat)return;
-  ctx.promoTickBusy=true;
-  try{
-    const rooms=await ctx.pool.query("SELECT room_id FROM hz_rooms WHERE (data->'promo'->>'enabled')='true' LIMIT 500");
-    for(const row of rooms.rows){
-      const rid=row.room_id;
-      let message=null;
-      try{
-        message=await ctx.withRoom(rid,"",async d=>{
-          const p=d.promo;
-          if(!p.enabled||d.locked||!p.message)return null;
-          const minutes=Number(p.minutes);
-          if(!Number.isInteger(minutes)||minutes<5||minutes>120){p.enabled=false;return null;}
-          const now=Date.now(),slot=ctx.promoSlot(now,minutes);
-          if(now-slot>=60000||now<slot||Number(p.lastSlot)===slot)return null;
-          p.sentTimes=p.sentTimes.filter(t=>Number.isFinite(t)&&now-t<ctx.PROMO_SPAM_WINDOW_MS);
-          if(p.antiSpam&&p.sentTimes.length>=ctx.PROMO_SPAM_LIMIT-1){
-            p.enabled=false;p.stopReason="10초 안에 홍보가 3회 이상 전송될 위험이 감지됨";
-            return {stopped:true};
-          }
-          p.lastSlot=slot;
-          p.sentTimes.push(now);
-          return {text:p.message};
-        });
-        if(!message)continue;
-        if(message.stopped){await ctx.send(ctx.globalChat,rid,"⚠️ 도배 방지로 자동 홍보가 중지되었습니다. 다시 시작하려면 !홍보시작 (분)");continue;}
-        try{await ctx.send(ctx.globalChat,rid,message.text)}
-        catch(e){console.error("[HZ PROMO SEND]",rid,e);await ctx.withRoom(rid,"",async d=>{d.promo.enabled=false;d.promo.stopReason="전송 오류";});}
-      }catch(e){console.error("[HZ PROMO ROOM]",rid,e)}
-    }
-  }catch(e){console.error("[HZ PROMO TICK]",e)}
-  finally{ctx.promoTickBusy=false;}
-}
-return {formatMemberTemplate,isManagerType,isOwnerType,isSubManagerType,safeUserId,parseExactAttachment,exactId,attachmentRoots,rawMentions,targetFrom,resolveTarget,commandTarget,senderExactId,processMentionAlerts,junPermissionTarget,deepFindUserId,replyTargetFrom,idCommandTarget,lastJoinAt,activeWarningCount,validOpenProfileLink,findOpenProfileLink,profileDiagnostic,saveOpenProfileLink,extractProfile,hasJunPermission,pickDeleteRoom,pickDeleteActor,pickDeletedText,originalMessageId,deletedMessageId,saveDeleteCache,lookupDeleteCache,manageHelp,profileObserve,addChatCount,chatInfo,chatRanking,messageFingerprint,kickMember,autoSpamCheck,handleManageStats,handleManage,promoSlot,promoTick};
+async function promoTick(){if(!ctx.economyEnabled)return;await require("../promotion").tick(ctx.globalChat);}
+
+return {formatMemberTemplate,isManagerType,isOwnerType,isSubManagerType,safeUserId,parseExactAttachment,exactId,attachmentRoots,rawMentions,targetFrom,resolveTarget,commandTarget,senderExactId,processMentionAlerts,deepFindUserId,replyTargetFrom,idCommandTarget,lastJoinAt,activeWarningCount,validOpenProfileLink,findOpenProfileLink,profileDiagnostic,saveOpenProfileLink,extractProfile,pickDeleteRoom,pickDeleteActor,pickDeletedText,originalMessageId,deletedMessageId,saveDeleteCache,lookupDeleteCache,manageHelp,profileObserve,addChatCount,chatInfo,chatRanking,messageFingerprint,kickMember,autoSpamCheck,handleManageStats,handleManage,promoSlot,promoTick};
 };
