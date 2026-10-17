@@ -99,7 +99,7 @@ test('PostgreSQL platform integration: preserve records, economy, trading, games
    const rooms=(await query('SELECT room_id,data FROM hz_rooms ORDER BY room_id')).rows;assert.equal(rooms[0].data.game,true);assert.equal(rooms[1].data.game,true);assert.equal(rooms[1].data.manage,false);
    await game.toggle({roomId:'1',text:'!게임중지',isBotAccount:true,send:async()=>{}});assert.equal((await query('SELECT data FROM hz_rooms WHERE room_id=$1',['2'])).rows[0].data.game,true);
   });
-  await t.test('secure REST API and public consent hide IDs and enforce session plus CSRF',async()=>{
+  await t.test('secure REST API and public consent hide IDs and enforce session plus CSRF',async sub=>{
    const auth=require('../api/auth'),{status}=require('../api/routes');
    process.env.GL_ADMIN_USERNAME='testadmin';process.env.GL_ADMIN_PASSWORD_HASH=auth.hashPassword('isolated-test-password-long');process.env.GL_SESSION_SECRET=crypto.randomBytes(32).toString('hex');
    status.ready=true;status.connected=true;
@@ -124,6 +124,7 @@ test('PostgreSQL platform integration: preserve records, economy, trading, games
    const root=await request('/');assert.equal(root.status,200);assert.ok(root.headers.get('content-security-policy').includes("frame-ancestors 'none'"));assert.equal((await request('/package.json')).status,404);
    const adjust=()=>request('/api/admin/coins',{method:'POST',headers,body:JSON.stringify({roomId:'1',userId:'2001',amount:5,reason:'테스트',confirm:true,operationId:'web-test-op'})});
    assert.equal((await adjust()).status,200);assert.equal((await adjust()).status,400);
+   await require('./promo-scenarios')({t:sub,request,headers,base,query,status});
    await request('/api/logout',{method:'POST',headers,body:'{}'});assert.equal((await request('/api/admin/rooms',{headers:{Cookie:cookie}})).status,401);
   });
  }finally{

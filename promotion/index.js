@@ -2,6 +2,8 @@
 const {getPool}=require('../shared/db');
 const {roomTransaction,audit}=require('../shared/store');
 const MIN_MINUTES=5,MAX_MINUTES=120;
+function nextBoundary(minutes,now=Date.now()){const step=([20,30].includes(Number(minutes))?Number(minutes):20)*60000;return (Math.floor(now/step)+1)*step;}
+function boundaryDue(minutes,now=Date.now()){return now%(Number(minutes)*60000)<60000;}
 function patch(p,action,input={}){
  p=p&&typeof p==='object'?p:{};
  if(action==='content'){const text=String(input.message||'').trim();if(!text||text.length>1000)throw Error('홍보 문구는 1~1,000자로 입력해 주세요.');p.message=text;}
@@ -9,30 +11,30 @@ function patch(p,action,input={}){
   const minutes=Number(input.minutes);if(!Number.isInteger(minutes)||minutes<MIN_MINUTES||minutes>MAX_MINUTES)throw Error('전송 간격은 5~120분입니다.');
   if(!p.message)throw Error('홍보 문구를 먼저 설정해 주세요.');
   if(p.allowed===false)throw Error('허용되지 않은 홍보방입니다. 관리자 화면에서 허용해 주세요.');
-  p.allowed=true;p.minutes=minutes;p.enabled=true;p.lastSlot=Math.floor(Date.now()/(minutes*60000));p.stopReason='';
- }else if(action==='schedule'){
-  const at=new Date(input.scheduledAt).getTime();if(!Number.isFinite(at)||at<=Date.now()||at>Date.now()+30*86400000)throw Error('예약은 현재부터 30일 이내의 미래로 설정해 주세요.');
-  if(!p.message||p.allowed!==true)throw Error('문구를 저장하고 이 방의 홍보를 먼저 허용해 주세요.');p.nextRunAt=at;p.lastSlot=null;p.enabled=true;p.minutes=Number(p.minutes)||20;
+  p.allowed=true;p.minutes=minutes;p.enabled=true;p.clockAligned=[20,30].includes(minutes);p.nextRunAt=null;p.lastSlot=Math.floor(Date.now()/(minutes*60000));p.stopReason='';
  }else if(action==='stop'){p.enabled=false;p.nextRunAt=null;p.stopReason='관리자가 중지';}
  else if(action==='delete'){p.enabled=false;p.message='';p.stopReason='문구 삭제';}
  else if(action==='allow'){p.allowed=input.allowed===true;if(!p.allowed)p.enabled=false;}
  else throw Error('지원하지 않는 홍보 작업입니다.');
  return p;
 }
-async function configure(room,actor,action,input){return roomTransaction(room,async(d,db)=>{d.promo=patch(d.promo,action,input);await audit(db,actor,'PROMOTION_'+action,room,null,{enabled:!!d.promo.enabled,minutes:d.promo.minutes,allowed:d.promo.allowed});return d.promo;});}
+async function configure(room,actor,action,input){return roomTransaction(room,async(d,db)=>{d.promo=patch(d.promo,action,input);if(['content','start','schedule','delete'].includes(action))delete d.promo.portalUserId;await audit(db,actor,'PROMOTION_'+action,room,null,{enabled:!!d.promo.enabled,minutes:d.promo.minutes,allowed:d.promo.allowed});return d.promo;});}
 async function stats(room){const r=await getPool().query("SELECT status,count(*)::int count FROM gl_promotion_logs WHERE room_id=$1 GROUP BY status",[String(room)]);return r.rows;}
-async function deliver(room,chat,immediate=false){
+async function deliver(room,chat,immediate=false,requester=null){
  let content=null,slot=null;
  await roomTransaction(room,async(d,db)=>{
   const p=d.promo||{},now=Date.now();
+  if(requester){await require('./portal').access(db,requester,String(room));if(p.allowed!==true){const e=Error('운영자의 홍보 허용이 필요합니다.');e.status=403;throw e;}}
+  if(p.portalUserId){const owner=await db.query('SELECT id FROM gl_promo_users WHERE id=$1 AND enabled FOR UPDATE',[p.portalUserId]);const access=await db.query('SELECT 1 FROM gl_promo_room_access WHERE user_id=$1 AND room_id=$2',[p.portalUserId,String(room)]);if(!owner.rowCount||!access.rowCount){p.enabled=false;p.nextRunAt=null;p.stopReason='홍보 권한 해제';return;}}
   if(d.locked||(p.allowed!==true&&!p.enabled)||p.allowed===false||!p.message||(!immediate&&!p.enabled))return;
-  if(!immediate&&Number(p.nextRunAt||0)>now)return;
   if(now-Number(p.lastAttempt||0)<MIN_MINUTES*60000)return;
   const minutes=Number(p.minutes||MIN_MINUTES);if(minutes<MIN_MINUTES||minutes>MAX_MINUTES)return;
   const current=Math.floor(now/(minutes*60000));
+  // Only send during the scheduled minute. Reconnects never send missed promotions in a burst.
+  if(!immediate&&(p.clockAligned||[20,30].includes(minutes))&&!boundaryDue(minutes,now))return;
   if(!immediate&&p.lastSlot!=null&&Number(p.lastSlot)===current)return;
   slot=immediate?'manual:'+Math.floor(now/(MIN_MINUTES*60000)):'auto:'+minutes+':'+current;
-  const claimed=await db.query("INSERT INTO gl_promotion_logs(room_id,slot,status) VALUES($1,$2,'PENDING') ON CONFLICT DO NOTHING RETURNING id",[String(room),slot]);
+  const claimed=await db.query("INSERT INTO gl_promotion_logs(room_id,slot,status,portal_user_id) VALUES($1,$2,'PENDING',$3) ON CONFLICT DO NOTHING RETURNING id",[String(room),slot,requester||p.portalUserId||null]);
   if(!claimed.rowCount)return;
   p.lastAttempt=now;p.lastSlot=current;p.nextRunAt=null;d.promo=p;content=p.message;
  });
@@ -56,4 +58,4 @@ async function handleCommand(ctx,client){
   else {const action=command==='!홍보시작'?'start':command==='!홍보중지'?'stop':command==='!홍보삭제'?'delete':'content';await configure(roomId,userId,action,{message:arg,minutes:arg});await send('✅ 홍보 설정을 저장했습니다.');}
  }catch(e){await send('❌ '+e.message);}return true;
 }
-module.exports={patch,configure,stats,deliver,tick,handleCommand,MIN_MINUTES,MAX_MINUTES};
+module.exports={patch,configure,stats,deliver,tick,handleCommand,MIN_MINUTES,MAX_MINUTES,nextBoundary,boundaryDue};
