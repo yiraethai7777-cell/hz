@@ -52,9 +52,10 @@ function validQuantity(value) {
 async function tradeStock({
   roomId, userId, userName,
   symbol, stockName, side,
-  quantity, priceKrw
+  quantity, priceKrw,messageId
 }) {
   const qty = validQuantity(quantity);
+  if(!messageId)throw Error('메시지 고유번호가 없어 거래를 중단했습니다.');
 
   if (!["BUY", "SELL"].includes(side)) {
     throw new Error("거래 종류가 올바르지 않습니다.");
@@ -74,6 +75,8 @@ async function tradeStock({
 
   try {
     await db.query("BEGIN");
+    const claim=await db.query("INSERT INTO hz_coin_operations(room_id,message_id,operation) VALUES($1,$2,'STOCK') ON CONFLICT DO NOTHING RETURNING message_id",[roomId,String(messageId)]);
+    if(!claim.rowCount)throw Error('이미 처리된 주식 주문입니다.');
 
     if (!await isMember(roomId,userId,db)) throw new Error("❌ 게임 가입이 필요합니다. !게임가입을 입력해 주세요.");
     await ensureWallet(db,roomId,userId,userName);
@@ -85,6 +88,7 @@ async function tradeStock({
     `, [roomId, userId]);
 
     const balance = Number(wallet.rows[0].balance);
+    if(!Number.isSafeInteger(balance)||balance+total>Number.MAX_SAFE_INTEGER)throw Error('안전하게 처리할 수 있는 코인 범위를 초과합니다.');
 
     if (side === "BUY") {
       if (balance < total) {

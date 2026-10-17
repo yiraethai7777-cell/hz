@@ -1,0 +1,8 @@
+'use strict';
+function answerMatches(expected,actual){
+ const normalize=s=>String(s).normalize('NFKC').trim().replace(/\s+/g,'').toLowerCase();
+ const a=normalize(expected),b=normalize(actual),numeric=/^[+-]?\d+(?:\.\d+)?$/;
+ if(numeric.test(a))return numeric.test(b)&&Number.isFinite(Number(b))&&Number(a)===Number(b);
+ return a.replace(/[!?~]+$/,'')===b.replace(/[!?~]+$/,'');
+}
+module.exports={answerMatches};
