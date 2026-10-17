@@ -171,12 +171,33 @@ const detailedHelp = [
   "※ 관리자 명령어는 권한과 해당 방의 기능 설정에 따라 작동합니다.",
   "※ '추가 개발 예정' 명령어는 아직 사용할 수 없습니다."
 ].join("\n");
-const commandLists={
-  기본:"📜 헤이즈봇 명령어 안내\n"+FOLD+"\n"+detailedHelp,
-  주식:"📈 주식 명령어\n"+FOLD+"\n"+detailedHelp.split("📈 주식 · 거래\n")[1].split("\n\n🎣")[0],
-  게임:"🎮 게임 명령어\n"+FOLD+"\n"+detailedHelp.split("🎮 게임 · 코인\n")[1].split("\n\n📈")[0],
-  관리:"🛡️ 관리 명령어\n"+FOLD+"\n"+detailedHelp.split("🛡️ 관리 · 보안\n")[1].split("\n\n📦")[0]
+const sections=detailedHelp.split('\n\n');
+const section=title=>sections.find(body=>body.startsWith(title))||'';
+const quizLines=section('🧩').split('\n');
+const gameControls=['!게임작동 / !게임중지 — 게임 켜기·끄기 (봇 계정)',
+  '!퀴즈작동 / !퀴즈중지 — 퀴즈 켜기·끄기 (봇 계정)',
+  '!낚시작동 / !낚시중지 — 낚시 켜기·끄기 (봇 계정)'];
+const bodies={
+  게임:[section('🎮'),section('📈'),section('🎣'),section('🐾'),
+    ['🧩 퀴즈',...quizLines.filter(line=>/^!(퀴즈|정답)/.test(line))].join('\n'),
+    ['🤖 게임 설정',...gameControls].join('\n'),section('📦'),section('🔐')].join('\n\n'),
+  관리:[['📅 출석',...quizLines.filter(line=>/^!출석/.test(line))].join('\n'),section('💬'),
+    section('🛡️').split('\n').filter(line=>!/^!(게임|퀴즈|낚시)(작동|중지)/.test(line)&&!line.startsWith('!삭메기록')).join('\n'),
+    '!관리상태 — 관리 작동 상태 확인\n!관리자추가 ID / !관리자삭제 ID / !관리자목록\n!경고순위 / !경고초기화 ID\n!관리로그 — 관리 기록 조회\n🗑️ 삭제 알림은 삭제한 사람만 표시합니다.'].join('\n\n'),
+  주식:section('📈')
 };
+function formatCommandHelp(flags,group='') {
+  if(group==='기본')group='';
+  if(group&&!Object.hasOwn(bodies,group))return '사용법: !명령어 [게임|관리|주식]';
+  const enabled=group?[group].filter(name=>name==='관리'?flags.manage:flags.game)
+    :['게임','관리'].filter(name=>name==='관리'?flags.manage:flags.game);
+  if(!enabled.length)return group?`이 방의 ${group==='관리'?'관리':'게임'} 기능은 중지되어 있습니다.`
+    :'현재 작동 중인 기능이 없습니다.\n봇 계정에서 !게임작동 또는 !관리작동을 입력해 주세요.';
+  return '📜 헤이즈봇 명령어 안내\n'+FOLD+'\n'+enabled.map(name=>
+    `${name==='관리'?'🛡️':name==='주식'?'📈':'🎮'} ${name} 명령어\n${bodies[name]}`).join('\n\n━━━━━━━━━━━━━━\n\n');
+}
+const commandLists=Object.fromEntries(['기본','게임','관리','주식'].map(group=>
+  [group,formatCommandHelp({game:true,manage:true},group)]));
 async function handleExtraMessage(client, ...args) {
     const msg=args.length===1?args[0]:args[1];
     const chat=args.length===1?(client.chat||client):args[0];
@@ -188,7 +209,12 @@ async function handleExtraMessage(client, ...args) {
       if(text==="!주식시간")result=stockTimeText();
       else {
         const group=text.slice("!명령어".length).trim();
-        result=commandLists[group||"기본"]||"사용법: !명령어 [주식|게임|관리]";
+        const {getPool}=require('./db');
+        const state=await getPool().query(`SELECT
+          COALESCE((SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS game,
+          COALESCE((SELECT enabled FROM gl_manage_rooms WHERE room_id=$1),
+            (SELECT (data->>'manage')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS manage`,[String(msg.room.id)]);
+        result=formatCommandHelp(state.rows[0]||{},group);
       }
       await chat.sendText(msg.room.id,result);
     }catch(e){console.error("[HZ EXTRA]",e);}
@@ -198,4 +224,4 @@ async function attachExtraCommands(client) {
   client.onMessage((...args) => handleExtraMessage(client, ...args));
   console.log("[HZ EXTRA] 주식시간·간결한 명령어 준비 완료");
 }
-module.exports={handleExtraMessage,attachExtraCommands,stockTimeText,sessionInfo,commandLists};
+module.exports={handleExtraMessage,attachExtraCommands,stockTimeText,sessionInfo,commandLists,formatCommandHelp};
