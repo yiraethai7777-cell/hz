@@ -5,7 +5,7 @@ const attempts=new Map();
 const digest=s=>crypto.createHash('sha256').update(String(s)).digest('hex');
 function hashPassword(password,salt=crypto.randomBytes(16).toString('hex')){return salt+':'+crypto.scryptSync(password,salt,64).toString('hex');}
 function equal(a,b){const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);}
-function config(){const secret=process.env.GL_SESSION_SECRET||'',hash=process.env.GL_ADMIN_PASSWORD_HASH||'';return {secret,hash,user:process.env.GL_ADMIN_USERNAME||'admin',ready:secret.length>=32&&/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(hash)};}
+function config(){const secret=process.env.GL_SESSION_SECRET||'',hash=(process.env.GL_ADMIN_PASSWORD_HASH||'').trim();return {secret,hash,user:process.env.GL_ADMIN_USERNAME||'admin',ready:secret.length>=32&&/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(hash)};}
 function limited(key){const now=Date.now(),old=attempts.get(key)||{count:0,until:now+15*60000};if(now>old.until){old.count=0;old.until=now+15*60000;}old.count++;attempts.set(key,old);if(attempts.size>5000)attempts.delete(attempts.keys().next().value);return old.count>5;}
 function cookie(req){const found=String(req.headers.cookie||'').split(';').find(v=>v.trim().startsWith('gl_session='));return found?.trim().slice('gl_session='.length)||'';}
 function sign(id){return crypto.createHmac('sha256',config().secret).update(id).digest('hex');}
