@@ -10,7 +10,7 @@ const { isMember, joinGame } = require("./members");
 const { searchStocks } = require("./stock-search");
 
 
-async function message({text,msg,chat}) {
+async function message({text,msg,chat,isBotAccount=false}) {
   if (!/^!(코인|코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text) && !["!핑", "!명령어", "!출석", "!출석순위", "!코인", "!게임가입"].includes(text) && !text.startsWith("!주식현황 ")
     && !text.startsWith("!주식구매 ")
     && !text.startsWith("!주식판매 ")
@@ -36,7 +36,7 @@ async function message({text,msg,chat}) {
         return;
       }
     }
-    if (await handleCoinCommand({ text, msg, roomId, chat })) return;
+    if (await handleCoinCommand({ text, msg, roomId, chat,isBotAccount })) return;
 
     if (text === "!코인") {
       const userId = msg.sender?.id;
@@ -121,7 +121,8 @@ async function message({text,msg,chat}) {
         stockName: name,
         side: buying ? "BUY" : "SELL",
         quantity: qty,
-        priceKrw: market.priceKrw
+        priceKrw: market.priceKrw,
+        messageId:msg.id??msg.message?.id??msg.raw?.chat?.logId??msg.logId
       });
 
       await chat.sendText(

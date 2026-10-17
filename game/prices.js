@@ -132,8 +132,17 @@ async function getMarketPrice(name) {
   };
 }
 
+async function getQuote(name){
+ const symbol=resolveSymbol(name),data=await yahooChart(symbol),meta=data.meta||{};
+ const price=Number(meta.regularMarketPrice),time=Number(meta.regularMarketTime);
+ if(!Number.isFinite(price)||price<=0||!Number.isFinite(time)||time<=0)throw Error('시세를 확인할 수 없습니다.');
+ return {symbol,price,currency:meta.currency,quotedAt:new Date(time*1000).toISOString(),name:String(name)};
+}
+
 module.exports = {
   resolveSymbol,
   getMarketPrice,
-  getExchangeRate
+  getExchangeRate,getQuote,STOCKS,getSession
 };
+
+async function getSession(symbol){const data=await yahooChart(symbol),meta=data.meta||{},regular=meta.currentTradingPeriod?.regular;const start=Number(regular?.start),end=Number(regular?.end),time=Number(meta.regularMarketTime);if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)throw Error('거래소 일정 미확인');return {start:start*1000,end:end*1000,quoteTime:time*1000};}

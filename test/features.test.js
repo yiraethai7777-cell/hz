@@ -6,7 +6,7 @@ const path=require('node:path');
 const {createRuntime}=require('../shared/runtime');
 
 test('separated game functions preserve player state, pets, quiz and levels',async()=>{
- const runtime=createRuntime({pool:{query:async()=>({rows:[]})}});
+ const runtime=createRuntime({economyEnabled:false,pool:{query:async()=>({rows:[]})}});
  const room=runtime.blankRoom('test');
  const msg={room:{id:'1'},sender:{id:'1001',name:'Alice'},text:'!상점'};
  const db={query:async()=>({rows:[]})};
@@ -34,7 +34,7 @@ test('separated session initializes events, timers and game dispatch without hz-
   return {rows:[],rowCount:0};
  };
  const pool={query,connect:async()=>({query,release(){}})};
- const runtime=createRuntime({pool});
+ const runtime=createRuntime({pool,economyEnabled:false});
  const chat={sendText:async(id,text)=>replies.push(text)};
  const client={userId:'1001',chat,
   onMessage:fn=>handlers.message=fn,onJoin:fn=>handlers.join=fn,
@@ -54,7 +54,7 @@ test('separated session initializes events, timers and game dispatch without hz-
 
 test('management helpers and existing SQL schema survive separation',async()=>{
  const queries=[];
- const runtime=createRuntime({pool:{query:async(sql)=>{queries.push(sql);return {rows:[{total:3}],rowCount:1};}}});
+ const runtime=createRuntime({economyEnabled:false,pool:{query:async(sql)=>{queries.push(sql);return {rows:[{total:3}],rowCount:1};}}});
  assert.equal(await runtime.activeWarningCount(runtime.pool,'room','user'),3);
  assert.match(queries[0],/hz_warnings/);
  assert.equal(runtime.safeUserId('1234567890123456789'),'1234567890123456789');
@@ -65,7 +65,7 @@ test('management helpers and existing SQL schema survive separation',async()=>{
 });
 
 test('every separated feature references an available shared binding',()=>{
- const runtime=createRuntime({pool:{query:async()=>({rows:[]})}});
+ const runtime=createRuntime({economyEnabled:false,pool:{query:async()=>({rows:[]})}});
  for(const file of ['game/features.js','manage/features.js','shared/state.js','shared/session.js']){
   const code=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   for(const match of code.matchAll(/\bctx\.([A-Za-z_$][\w$]*)/g)){
@@ -75,7 +75,7 @@ test('every separated feature references an available shared binding',()=>{
 });
 
 test('fishing is text only with 20 species; old inventory remains saleable',async()=>{
- const runtime=createRuntime({pool:{query:async()=>({rows:[]})}});
+ const runtime=createRuntime({economyEnabled:false,pool:{query:async()=>({rows:[]})}});
  const ctx=Object.fromEntries(Object.getOwnPropertyNames(runtime).map(name=>[name,runtime[name]]));
  Object.assign(ctx,{sleep:async()=>{},globalChat:{sendText:async()=>{},sendImage:async()=>{throw Error('No images allowed');}},send:async()=>{}});
  Object.assign(ctx,require('../game/features')(ctx));
@@ -122,7 +122,7 @@ test('deletion alerts identify the actor only, without content, warnings or kick
  const pool={query:async(sql,params)=>{
   queries.push({sql,params});return {rows:sql.startsWith('SELECT data')?[{data:room}]:[],rowCount:0};
  }};
- const runtime=createRuntime({pool});
+ const runtime=createRuntime({pool,economyEnabled:false});
  const chat={sendText:async(id,text)=>replies.push(text),openChatKick:async()=>{kicks++;}};
  const client={userId:'1001',chat,onMessage:fn=>handlers.message=fn,
   onJoin(){},onLeave(){},onKick(){},onDelete:fn=>handlers.deleted=fn};

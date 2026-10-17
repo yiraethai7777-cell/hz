@@ -24,3 +24,6 @@ auth_base64.txt
 test-connection.js
 test-message.js
 test-target.js
+
+.env.*
+!.env.example

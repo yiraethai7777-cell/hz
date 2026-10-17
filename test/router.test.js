@@ -93,6 +93,6 @@ test('legacy games are captured without overwriting the real listener; stopped m
     await game.message(ctx);assert.equal(marketCalls,0);
     gameOn=true;await game.message(ctx);assert.equal(marketCalls,1);
     ctx.text='!낚시';await game.message(ctx);assert.equal(legacyCalls,1);
-    ctx.text='!게임순위';await game.message(ctx);assert.equal(legacyCalls,2);
+    ctx.text='!펫도감';await game.message(ctx);assert.equal(legacyCalls,2);
   } finally {pool.query=query;legacy.attachModules=attach;market.message=marketMessage;process.env.DATABASE_URL=oldEnv||'';}
 });

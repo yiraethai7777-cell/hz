@@ -12,6 +12,7 @@ function start() {
   const game = createGame(client);
   let resolveReady, rejectReady;
   const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
+  if(process.env.GL_WEB_ENABLED!=='0')require('./api/server').start({client,ready});
   ready.catch(err => console.error('[HZ NEW] 초기화 실패:', err));
   attachRouter(client, { game, management: manage, ready });
   let initializing = false;
@@ -22,6 +23,7 @@ function start() {
       await game.init();
       await manage.init();
       resolveReady();
+      const alerts=setInterval(()=>require('./game/extra').tick(client.chat||client).catch(e=>console.error('[GL 알림]',e.message)),60000);alerts.unref();
       console.log('[HZ NEW] 게임·관리 준비 완료');
     } catch (err) { rejectReady(err); }
   });

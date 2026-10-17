@@ -47,7 +47,7 @@ async function attachHZBot(client){
 
       if(text==="!봇작동"){
         if(!isAdmin)return;
-        const out=await ctx.withRoom(rid,rname,async d=>{d.locked=false;return "✅ 봇 잠금이 해제되었습니다.\n기존 게임·관리·준개 작동 설정은 유지됩니다."});
+        const out=await ctx.withRoom(rid,rname,async d=>{d.locked=false;return "✅ 봇 잠금이 해제되었습니다.\n기존 게임·관리 작동 설정은 유지됩니다."});
         await ctx.send(chat,rid,out);return
       }
 
@@ -68,7 +68,7 @@ async function attachHZBot(client){
         return
       }
 
-      // 홍보 명령어는 게임/준개/관리 활성화 여부와 독립적으로 동작.
+      // 홍보 명령어는 게임/관리 활성화 여부와 독립적으로 동작.
       if(/^!(홍보설정|홍보시작|홍보중지|홍보확인|도배방지|도배방지끄기|도배방지확인)(?:\s|$)/.test(text)){
         if(!isAdmin){await ctx.send(chat,rid,"⛔ 최고 관리자만 홍보 설정을 변경할 수 있습니다.");return;}
         const cmd=text.split(/\s+/)[0], arg=text.slice(cmd.length).trim();
@@ -113,7 +113,7 @@ async function attachHZBot(client){
         await ctx.send(chat,rid,"✅ 모든 방의 게임 데이터가 초기화되었습니다.\n📊 채팅순위·채팅 횟수·출석 기록은 그대로 유지됩니다.");return;
       }
 
-      const control=["!퀴즈작동","!퀴즈중지","!낚시작동","!낚시중지","!게임작동","!게임중지","!관리작동","!관리중지","!준개작동","!준개중지"];
+      const control=["!퀴즈작동","!퀴즈중지","!낚시작동","!낚시중지","!게임작동","!게임중지","!관리작동","!관리중지"];
       if(control.includes(text)){
         if(!isAdmin)return;
         const out=await ctx.withRoom(rid,rname,async d=>{
@@ -125,8 +125,6 @@ async function attachHZBot(client){
           if(text==="!게임중지"){d.game=false;return "⏹️ 게임 기능이 중지되었습니다."}
           if(text==="!관리작동"){d.manage=true;return "🛡️ 관리 기능이 작동되었습니다."}
           if(text==="!관리중지"){d.manage=false;return "🛡️ 관리 기능이 중지되었습니다."}
-           if(text==="!준개작동"){d.jun=true;d.game=false;return "📦 준개 기능이 작동되었습니다.\n🎮 게임 기능은 꺼졌습니다.\n🛡️ 관리 기능 설정은 유지됩니다."}
-           if(text==="!준개중지"){d.jun=false;return "📦 준개 기능이 중지되었습니다."}
         });
         await ctx.send(chat,rid,out);return
       }
@@ -147,39 +145,7 @@ async function attachHZBot(client){
         await ctx.send(chat,rid,content==="기본"?`✅ ${templateCommand[1]} 문구를 기본값으로 되돌렸습니다.`:`✅ ${templateCommand[1]} 문구가 저장되었습니다.\n\n미리보기:\n${ctx.formatMemberTemplate(content,{name:"홍길동",uid:"123456789",roomName:rname||"채팅방"})}`);
         return;
       }
-      if(text==="!명령어"){if(flags.game)await ctx.send(chat,rid,ctx.gameHelp());if(flags.jun)await ctx.send(chat,rid,ctx.junHelp());if(flags.manage)await ctx.send(chat,rid,ctx.manageHelp());if(isAdmin)await ctx.send(chat,rid,"📢 자동 홍보\n!홍보설정 (내용)\n!홍보시작 (분)\n!홍보중지 / !홍보확인\n!도배방지 / !도배방지끄기 / !도배방지확인");return}
-
-      if(text==="!준개권한목록"){
-        if(!isAdmin)return;
-        const q=await ctx.pool.query(`SELECT p.user_id,COALESCE(m.name,cs.name,p.name,p.user_id) AS display_name
-          FROM hz_jun_permissions p
-          LEFT JOIN hz_members m ON m.room_id=p.room_id AND m.user_id=p.user_id
-          LEFT JOIN hz_chat_stats cs ON cs.room_id=p.room_id AND cs.user_id=p.user_id
-          WHERE p.room_id=$1 ORDER BY p.created_at ASC`,[rid]);
-        await ctx.send(chat,rid,q.rows.length?"📦 준개 권한 목록\n"+q.rows.map((x,i)=>`${i+1}. 👤 ${x.display_name}\n   🆔 ${x.user_id}`).join("\n"):"📦 준개 권한을 가진 사람이 없습니다.");
-        return;
-      }
-      if(/^!준개권한(?:추가|삭제)(?:\s|$)/.test(text)){
-        if(!isAdmin)return;
-        const isAdd=text.startsWith("!준개권한추가");
-        const argument=text.replace(/^!준개권한(?:추가|삭제)/,"").trim();
-        if(!argument){await ctx.send(chat,rid,"사용법: !준개권한추가 @닉네임 또는 카카오 사용자 ID\n!준개권한삭제 @닉네임 또는 카카오 사용자 ID");return;}
-        const out=await ctx.withRoom(rid,rname,async(d,c)=>{
-          const t=await ctx.junPermissionTarget(c,rid,msg,argument);
-          if(t.error)return t.error;
-          if(isAdd){
-            await c.query(`INSERT INTO hz_jun_permissions(room_id,user_id,name,granted_by) VALUES($1,$2,$3,$4)
-              ON CONFLICT(room_id,user_id) DO UPDATE SET name=EXCLUDED.name,granted_by=EXCLUDED.granted_by`,
-              [rid,t.id,t.name,ctx.globalBotId]);
-            const check=await c.query("SELECT 1 FROM hz_jun_permissions WHERE room_id=$1 AND user_id=$2",[rid,t.id]);
-            if(!check.rowCount)return "❌ 권한 저장을 확인하지 못했습니다.";
-            return `✅ 준개 권한 추가 완료\n👤 ${t.name}\n🆔 ${t.id}`;
-          }
-          const removed=await c.query("DELETE FROM hz_jun_permissions WHERE room_id=$1 AND user_id=$2 RETURNING user_id",[rid,t.id]);
-          return removed.rowCount?`🗑️ 준개 권한 삭제 완료\n👤 ${t.name}\n🆔 ${t.id}`:"해당 사용자는 준개 권한 목록에 없습니다.";
-        });
-        await ctx.send(chat,rid,out);return;
-      }
+      if(text==="!명령어"){if(flags.game)await ctx.send(chat,rid,ctx.gameHelp());if(flags.manage)await ctx.send(chat,rid,ctx.manageHelp());if(isAdmin)await ctx.send(chat,rid,"📢 자동 홍보\n!홍보설정 (내용)\n!홍보시작 (분)\n!홍보중지 / !홍보확인\n!도배방지 / !도배방지끄기 / !도배방지확인");return}
 
       if(text==="!송금"||text.startsWith("!송금 ")){
         if(!flags.game){await ctx.send(chat,rid,"🎮 이 방은 게임이 꺼져 있습니다.");return;}
@@ -246,12 +212,6 @@ async function attachHZBot(client){
           if(!r)r=await ctx.handleManage(d,c,msg,isAdmin);
         }
         if(r)return r;
-        const isJunCommand=/^!(?:준개(?:\s|내역|내역삭제|$)|전체준개내역)/.test(text);
-        if(isJunCommand){
-          if(!flags.jun)return null;
-          r=await ctx.handleGame(d,c,msg,isSelf);
-          return r;
-        }
         if(flags.game)r=await ctx.handleGame(d,c,msg,isSelf);
         return r
       });

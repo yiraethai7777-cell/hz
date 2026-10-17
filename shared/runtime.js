@@ -1,5 +1,5 @@
 "use strict";
-function createRuntime({pool:suppliedPool}={}) {
+function createRuntime({pool:suppliedPool,economyEnabled=true}={}) {
 const ctx={};
 const {RODS,PETS,FISH_TABLE,QUIZZES}=require('../game/data');
 "use strict";
@@ -38,11 +38,12 @@ let globalClient=null,globalChat=null,globalBotId="";
 const OWNER_IDS = new Set(String(process.env.HZ_OWNER_IDS || process.env.HZ_OWNER_ID || "").split(/[\s,;]+/).map(x => x.trim()).filter(Boolean));
 
 const {n,norm,nowK,dayK,sleep,id,blankRoom,fixRoom,initDb,withRoom,roomFlags,send}=require('./state')(ctx);
-const {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,junHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,handleGame}=require('../game/features')(ctx);
-const {formatMemberTemplate,isManagerType,isOwnerType,isSubManagerType,safeUserId,parseExactAttachment,exactId,attachmentRoots,rawMentions,targetFrom,resolveTarget,commandTarget,senderExactId,processMentionAlerts,junPermissionTarget,deepFindUserId,replyTargetFrom,idCommandTarget,lastJoinAt,activeWarningCount,validOpenProfileLink,findOpenProfileLink,profileDiagnostic,saveOpenProfileLink,extractProfile,hasJunPermission,pickDeleteRoom,pickDeleteActor,pickDeletedText,originalMessageId,deletedMessageId,saveDeleteCache,lookupDeleteCache,manageHelp,profileObserve,addChatCount,chatInfo,chatRanking,messageFingerprint,kickMember,autoSpamCheck,handleManageStats,handleManage,promoSlot,promoTick}=require('../manage/features')(ctx);
+const {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,handleGame}=require('../game/features')(ctx);
+const {formatMemberTemplate,isManagerType,isOwnerType,isSubManagerType,safeUserId,parseExactAttachment,exactId,attachmentRoots,rawMentions,targetFrom,resolveTarget,commandTarget,senderExactId,processMentionAlerts,deepFindUserId,replyTargetFrom,idCommandTarget,lastJoinAt,activeWarningCount,validOpenProfileLink,findOpenProfileLink,profileDiagnostic,saveOpenProfileLink,extractProfile,pickDeleteRoom,pickDeleteActor,pickDeletedText,originalMessageId,deletedMessageId,saveDeleteCache,lookupDeleteCache,manageHelp,profileObserve,addChatCount,chatInfo,chatRanking,messageFingerprint,kickMember,autoSpamCheck,handleManageStats,handleManage,promoSlot,promoTick}=require('../manage/features')(ctx);
 const {attachHZBot}=require('./session')(ctx);
 
 Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
+"economyEnabled":{get:()=>economyEnabled},
 "pool":{get:()=>pool},
 "QUIZ_REWARD":{get:()=>QUIZ_REWARD},
 "QUIZ_SECONDS":{get:()=>QUIZ_SECONDS},
@@ -95,7 +96,6 @@ Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
 "commandTarget":{get:()=>commandTarget},
 "senderExactId":{get:()=>senderExactId},
 "processMentionAlerts":{get:()=>processMentionAlerts},
-"junPermissionTarget":{get:()=>junPermissionTarget},
 "deepFindUserId":{get:()=>deepFindUserId},
 "replyTargetFrom":{get:()=>replyTargetFrom},
 "idCommandTarget":{get:()=>idCommandTarget},
@@ -106,7 +106,6 @@ Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
 "profileDiagnostic":{get:()=>profileDiagnostic},
 "saveOpenProfileLink":{get:()=>saveOpenProfileLink},
 "extractProfile":{get:()=>extractProfile},
-"hasJunPermission":{get:()=>hasJunPermission},
 "pickDeleteRoom":{get:()=>pickDeleteRoom},
 "pickDeleteActor":{get:()=>pickDeleteActor},
 "pickDeletedText":{get:()=>pickDeletedText},
@@ -115,7 +114,6 @@ Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
 "saveDeleteCache":{get:()=>saveDeleteCache},
 "lookupDeleteCache":{get:()=>lookupDeleteCache},
 "gameHelp":{get:()=>gameHelp},
-"junHelp":{get:()=>junHelp},
 "manageHelp":{get:()=>manageHelp},
 "send":{get:()=>send},
 "profileObserve":{get:()=>profileObserve},

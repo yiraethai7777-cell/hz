@@ -121,7 +121,7 @@ async function transfer({ roomId, from, to, coins, kind, messageId }) {
         VALUES($1,$2,'TRANSFER_OUT',$3,$4)`, [roomId,from.id,-coins,`받는 사람: ${to.name} (${to.id})`]);
     }
     const credited = await db.query(`UPDATE hz_wallets SET balance=balance+$3
-      WHERE room_id=$1 AND user_id=$2 AND balance <= 9223372036854775807::bigint-$3 RETURNING balance`, [roomId,to.id,coins]);
+      WHERE room_id=$1 AND user_id=$2 AND balance <= 9007199254740991::bigint-$3 RETURNING balance`, [roomId,to.id,coins]);
     if (!credited.rowCount) throw new Error("받는 사람의 잔액 한도를 초과했습니다.");
     await db.query(`INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
       VALUES($1,$2,$3,$4,$5)`, [roomId,to.id,kind === "GRANT" ? "ADMIN_GRANT" : "TRANSFER_IN",coins,`${kind === "GRANT" ? "관리자" : "보낸 사람"}: ${from.name} (${from.id})`]);
@@ -141,7 +141,7 @@ async function history(roomId, userId) {
     return `${time}\n${r.type} ${sign}${fmt(r.amount)}코인\n${r.detail}`;
   }).join("\n\n");
 }
-async function handleCoinCommand({text,msg,roomId,chat}) {
+async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false}) {
   if (!/^!(코인|코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text)) return false;
   const say = s => chat.sendText(roomId,s);
   try {
@@ -160,11 +160,12 @@ async function handleCoinCommand({text,msg,roomId,chat}) {
       const grant = text.startsWith("!코인지급 ");
       if (grant) {
         const admins = String(process.env.HZ_ADMIN_IDS || "").split(",").map(s=>s.trim()).filter(Boolean);
-        if (!admins.includes(me.id)) throw new Error("관리자만 코인을 지급할 수 있습니다. Railway의 HZ_ADMIN_IDS를 설정해 주세요.");
+        const owners=String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/);
+        if (!isBotAccount&&!admins.includes(me.id)&&!owners.includes(me.id)) throw new Error("관리자만 코인을 지급할 수 있습니다.");
       }
       const parts = text.split(/\s+/);
       if (parts.length !== 3 || !parts[1].startsWith("@")) throw new Error(`사용법: !코인${grant ? "지급" : "송금"} @멘션 10000`);
-      const coins = validAmount(parts[2]);
+      const coins = validAmount(parts[1]);
       const to = await resolveCoinRecipient(room, mentionTarget(msg));
       const result = await transfer({roomId:room,from:me,to,coins,kind:grant ? "GRANT" : "TRANSFER",messageId:messageKey(msg)});
       await say(`${grant ? "🎁 코인 지급 완료" : "💸 코인 송금 완료"}\n받는 사람: ${to.name}\n금액: ${fmt(coins)}코인\n받는 사람 잔액: ${fmt(result.recipientBalance)}코인`);
@@ -177,4 +178,4 @@ async function handleCoinCommand({text,msg,roomId,chat}) {
   }
   return true;
 }
-module.exports = {initCoinExtra,handleCoinCommand};
+module.exports = {initCoinExtra,handleCoinCommand,validAmount,mentionTarget,messageKey,transfer};
