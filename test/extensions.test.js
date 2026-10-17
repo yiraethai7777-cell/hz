@@ -37,3 +37,9 @@ test('promotion scheduling keeps its target and requires an allowed room',()=>{
  const at=Date.now()+60000,p=patch({message:'문구',allowed:true,lastSlot:123},'schedule',{scheduledAt:new Date(at)});assert.equal(p.nextRunAt,at);assert.equal(p.lastSlot,null);assert.equal(p.enabled,true);assert.equal(patch(p,'stop').nextRunAt,null);
 });
 
+
+test('copied password-hash whitespace is normalized without changing passwords or session secrets',()=>{
+ const auth=require('../api/auth'),oldHash=process.env.GL_ADMIN_PASSWORD_HASH,oldSecret=process.env.GL_SESSION_SECRET;
+ try{const hash=auth.hashPassword('  exact password  ');process.env.GL_ADMIN_PASSWORD_HASH=' \n'+hash+'\r\n ';process.env.GL_SESSION_SECRET=' s'.repeat(32);const config=auth.config();assert.equal(config.ready,true);assert.equal(config.hash,hash);assert.equal(config.secret,process.env.GL_SESSION_SECRET);assert.notEqual(auth.hashPassword('exact password',hash.split(':')[0]),hash);}
+ finally{if(oldHash===undefined)delete process.env.GL_ADMIN_PASSWORD_HASH;else process.env.GL_ADMIN_PASSWORD_HASH=oldHash;if(oldSecret===undefined)delete process.env.GL_SESSION_SECRET;else process.env.GL_SESSION_SECRET=oldSecret;}
+});
