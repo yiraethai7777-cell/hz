@@ -19,7 +19,7 @@ async function handle(ctx,client){
    await send(`✅ ${target.name}님 코인 조정 완료\n잔액: ${Number(r.balance).toLocaleString('ko-KR')}코인`);
   }catch(e){await send('❌ '+e.message);}return true;
  }
- if(/^!송금(?:\s|$)/.test(text)){await coin.handleCoinCommand({...ctx,text:text.replace('!송금','!코인송금'),chat:ctx.chat});return true;}
+ if(/^!송금(?:\s|$)/.test(text)){await require('./economy').ensureLinked(String(roomId),String(userId),userName);await coin.handleCoinCommand({...ctx,text:text.replace('!송금','!코인송금'),chat:ctx.chat});return true;}
  if(text==='!게임순위'){await send(await require('./wallet').coinRanking(String(roomId)));return true;}
  if(!/^!(주식시세|주식목록|주식보유순위|주식알림설정|주식알림해제|주식알림상태|내주식)(?:\s|$)/.test(text))return false;
  try{
