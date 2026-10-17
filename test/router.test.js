@@ -29,20 +29,20 @@ test('single registration, both KakaoForge signatures, help and attendance isola
   assert.equal(registrations,1);
 });
 
-test('persistent game toggle requires management only for activation; only bot may toggle', async () => {
+test('game toggles independently of management; only bot may toggle', async () => {
   const oldEnv=process.env.DATABASE_URL;
   process.env.DATABASE_URL='postgres://localhost/test';
   const pool=getPool(),query=pool.query,enabled=manage.enabled;
   const state={game:false,manage:false,players:{alice:{points:777}},quizEnabled:true};
   const statements=[];const replies=[];
   pool.query=async (sql,params)=>{statements.push(sql);state.game=params[1];return {rows:[]};};
-  manage.enabled=async ()=>state.manage;
+  manage.enabled=async ()=>{throw new Error('Game toggle must not query management');};
   const game=createGame({});
   const ctx={roomId:'room',text:'!게임작동',isBotAccount:false,send:async s=>replies.push(s)};
   try {
     await game.toggle(ctx);assert.equal(statements.length,0);
     ctx.isBotAccount=true;
-    await game.toggle(ctx);assert.equal(statements.length,0);
+    await game.toggle(ctx);assert.equal(statements.length,1);assert.equal(state.game,true);
     state.manage=true;await game.toggle(ctx);assert.equal(state.game,true);
     state.manage=false;assert.equal(state.game,true);
     ctx.text='!게임중지';await game.toggle(ctx);assert.equal(state.game,false);
