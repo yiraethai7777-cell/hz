@@ -69,6 +69,7 @@ function stockTimeText(now=new Date()) {
 const FOLD = "\u200b".repeat(1200);
 const detailedHelp = [
   "🎮 게임 · 코인",
+  "!게임상태 / !게임정보 — 방별 게임 상태와 이용 안내",
   "!게임가입 — 게임 가입 및 최초 가입 보상 받기",
   "!코인 — 내 가상 코인 잔액 확인",
   "!코인순위 — 이 채팅방의 코인 보유 순위 확인",
@@ -89,9 +90,11 @@ const detailedHelp = [
   "!주식판매 삼성전자 1 — 보유 주식 1주 매도",
   "!내주식 — 보유 주식·수량·매수원금 확인",
   "!주식거래내역 — 최근 주식 매수·매도 기록 확인",
-  "!주식시세 삼성전자 — 종목의 최근 시세 조회 (추가 개발 예정)",
-  "!주식목록 한국/미국 — 각 시장 시가총액 TOP 20 (추가 개발 예정)",
-  "!주식알림설정 / !주식알림해제 / !주식알림상태 — 장 개폐 알림 (추가 개발 예정)",
+  "!주식시세 삼성전자 — 조회 시각을 포함한 최근 시세",
+  "!주식목록 한국/미국 — 지원 종목 목록 (시가총액 순위 아님)",
+  "!주식보유순위 — 방별 주식 매수원금 순위",
+  "!주식알림설정 종목 금액 이상/이하 — 가격 도달 알림",
+  "!주식알림해제 [번호] / !주식알림상태 — 내 가격 알림 관리",
   "",
   "🎣 낚시 · 상점 · 강화",
   "!낚시 — 물고기 낚기",
@@ -119,6 +122,7 @@ const detailedHelp = [
   "",
   "🧩 퀴즈 · 출석",
   "!퀴즈 — 퀴즈 시작",
+  "!퀴즈정보 / !퀴즈순위 — 400문제 안내와 정답 순위",
   "!정답 (답) — 퀴즈 정답 제출",
   "!출석 — 오늘 출석하기",
   "!출석확인 @닉네임 — 특정 사용자 출석 여부 확인",
@@ -153,15 +157,9 @@ const detailedHelp = [
   "!홍보설정 (내용) — 자동 홍보 문구 저장",
   "!홍보시작 (분) — 지정한 간격으로 자동 홍보 시작",
   "!홍보중지 / !홍보확인 — 자동 홍보 중단·조회",
+  "!홍보수정 내용 / !홍보삭제 — 저장된 문구 수정·삭제",
+  "!홍보즉시 / !홍보통계 — 즉시 전송 및 전송 기록",
   "!도배방지 / !도배방지끄기 / !도배방지확인 — 홍보 도배 방지 설정",
-  "",
-  "📦 준개 기록",
-  "!준개 (아이템) (값) — 개인 준개 기록 저장 (권한 필요)",
-  "!준개내역 — 내 준개 기록 확인",
-  "!준개내역삭제 (번호) — 지정한 내역 삭제",
-  "!전체준개내역 — 전체 준개 기록 확인",
-  "!준개작동 / !준개중지 — 준개 기능 켜기·끄기",
-  "!준개권한추가 / !준개권한삭제 / !준개권한목록 — 사용 권한 관리",
   "",
   "🔐 최고 관리자",
   "!치트 (코인) @멘션 — 게임 코인 지급",
@@ -180,7 +178,7 @@ const gameControls=['!게임작동 / !게임중지 — 게임 켜기·끄기 (�
 const bodies={
   게임:[section('🎮'),section('📈'),section('🎣'),section('🐾'),
     ['🧩 퀴즈',...quizLines.filter(line=>/^!(퀴즈|정답)/.test(line))].join('\n'),
-    ['🤖 게임 설정',...gameControls].join('\n'),section('📦'),section('🔐')].join('\n\n'),
+    ['🤖 게임 설정',...gameControls].join('\n'),'🌐 웹 공개 랭킹\n!랭킹공개 공개용별명 — 별명과 점수 공개 동의\n!랭킹비공개 — 공개 취소',section('🔐')].join('\n\n'),
   관리:[['📅 출석',...quizLines.filter(line=>/^!출석/.test(line))].join('\n'),section('💬'),
     section('🛡️').split('\n').filter(line=>!/^!(게임|퀴즈|낚시)(작동|중지)/.test(line)&&!line.startsWith('!삭메기록')).join('\n'),
     '!관리상태 — 관리 작동 상태 확인\n!관리자추가 ID / !관리자삭제 ID / !관리자목록\n!경고순위 / !경고초기화 ID\n!관리로그 — 관리 기록 조회\n🗑️ 삭제 알림은 삭제한 사람만 표시합니다.'].join('\n\n'),
@@ -206,7 +204,7 @@ async function handleExtraMessage(client, ...args) {
     if(text!=="!주식시간"&&!/^!명령어(?:\s+.*)?$/.test(text))return false;
     try {
       let result;
-      if(text==="!주식시간")result=stockTimeText();
+      if(text==="!주식시간")result=await stockTimeLiveText();
       else {
         const group=text.slice("!명령어".length).trim();
         const {getPool}=require('./db');
@@ -225,3 +223,5 @@ async function attachExtraCommands(client) {
   console.log("[HZ EXTRA] 주식시간·간결한 명령어 준비 완료");
 }
 module.exports={handleExtraMessage,attachExtraCommands,stockTimeText,sessionInfo,commandLists,formatCommandHelp};
+
+async function stockTimeLiveText(){const now=Date.now(),sessions=await Promise.allSettled([require('../game/prices').getSession('005930.KS'),require('../game/prices').getSession('AAPL')]);const lines=['📈 GL BOT | 거래소 일정','한국 09:00~15:30 (서울)','미국 09:30~16:00 (뉴욕, 서머타임 자동 반영)',''];sessions.forEach((r,i)=>{const name=i===0?'🇰🇷 한국':'🇺🇸 미국';if(r.status!=='fulfilled'){lines.push(name+': 일정 조회 실패 · 거래 가능 여부 미확인');return;}const p=r.value,active=p.start<=now&&now<p.end&&now-p.quoteTime<=900000;lines.push(name+': '+(active?'🟢 정규장 거래 가능':'🔴 정규장 거래 불가'), '공급자 일정: '+fmtK(new Date(p.start))+' ~ '+fmtK(new Date(p.end)));});lines.push('','휴장일·임시 일정은 공급자 정규장 구간과 최신 시세로 확인합니다.','조회가 실패하거나 오래된 시세이면 거래를 차단합니다.');return lines.join('\n');}

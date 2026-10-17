@@ -14,13 +14,13 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 function id(v){return v===undefined||v===null?"":String(v)}
 
 function blankRoom(name){
-  return {name:name||"",game:false,quizEnabled:true,fishEnabled:true,manage:false,jun:false,locked:false,players:{},attendance:{},quiz:null,quizQueue:[],lastQuiz:-1}
+  return {name:name||"",game:false,quizEnabled:true,fishEnabled:true,manage:false,locked:false,players:{},attendance:{},quiz:null,quizQueue:[],lastQuiz:-1}
 }
 
 function fixRoom(d,name){
   d=d&&typeof d==="object"?d:ctx.blankRoom(name);
   d.name=name||d.name||"";
-  d.game=!!d.game; d.quizEnabled=d.quizEnabled!==false; d.fishEnabled=d.fishEnabled!==false; d.manage=!!d.manage; d.jun=!!d.jun; d.locked=!!d.locked;
+  d.game=!!d.game; d.quizEnabled=d.quizEnabled!==false; d.fishEnabled=d.fishEnabled!==false; d.manage=!!d.manage; d.locked=!!d.locked;
   d.players=d.players||{}; d.attendance=d.attendance||{};
   d.quizQueue=Array.isArray(d.quizQueue)?d.quizQueue:[];
   d.promo=d.promo&&typeof d.promo==="object"?d.promo:{};
@@ -45,7 +45,6 @@ CREATE TABLE IF NOT EXISTS hz_ban_registry(
 );
 CREATE TABLE IF NOT EXISTS hz_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,target_id TEXT NOT NULL,target_name TEXT,count INT NOT NULL,reason TEXT NOT NULL,issuer_id TEXT NOT NULL,issuer_name TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ,deleted_by TEXT);
 CREATE TABLE IF NOT EXISTS hz_profiles(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,old_name TEXT,new_name TEXT,old_profile_url TEXT,new_profile_url TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
-CREATE TABLE IF NOT EXISTS hz_jun(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT,item_name TEXT NOT NULL,value NUMERIC NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS hz_attendance(
   room_id TEXT NOT NULL,
   day_key TEXT NOT NULL,
@@ -64,14 +63,12 @@ CREATE TABLE IF NOT EXISTS hz_mention_alerts(
 );
 CREATE INDEX IF NOT EXISTS hz_mention_alerts_pending_idx ON hz_mention_alerts(room_id,target_id,id) WHERE notified_at IS NULL;
 CREATE TABLE IF NOT EXISTS hz_chat_stats(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,chat_count BIGINT NOT NULL DEFAULT 0,first_chat_at TIMESTAMPTZ,last_chat_at TIMESTAMPTZ,PRIMARY KEY(room_id,user_id));
-CREATE TABLE IF NOT EXISTS hz_jun_permissions(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,granted_by TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS hz_message_cache(room_id TEXT NOT NULL,message_id TEXT NOT NULL,message_text TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));
 CREATE INDEX IF NOT EXISTS hz_message_cache_created_idx ON hz_message_cache(created_at);
 CREATE TABLE IF NOT EXISTS hz_deleted_messages(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,deleter_id TEXT,deleter_name TEXT,message_text TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),meta JSONB NOT NULL DEFAULT '{}'::jsonb);
 CREATE INDEX IF NOT EXISTS hz_events_user_idx ON hz_events(room_id,user_id,id DESC);
 CREATE INDEX IF NOT EXISTS hz_warn_user_idx ON hz_warnings(room_id,target_id,id);
 CREATE INDEX IF NOT EXISTS hz_profile_user_idx ON hz_profiles(room_id,user_id,id DESC);
-CREATE INDEX IF NOT EXISTS hz_jun_user_idx ON hz_jun(room_id,user_id,id DESC);
 CREATE INDEX IF NOT EXISTS hz_chat_rank_idx ON hz_chat_stats(room_id,chat_count DESC);
 `)}
 
@@ -91,6 +88,10 @@ async function withRoom(rid,rname,fn){
 
 async function roomFlags(rid){const q=await ctx.pool.query("SELECT data FROM hz_rooms WHERE room_id=$1",[rid]);return q.rows[0]?ctx.fixRoom(q.rows[0].data):ctx.blankRoom()}
 
-async function send(chat,rid,text){if(text)await chat.sendText(rid,text)}
+async function send(chat,rid,text){
+ if(!text)return;const source=String(text),pages=[];let rest=source;
+ while(rest.length>4500){let at=rest.lastIndexOf('\n',4400);if(at<200)at=4400;pages.push(rest.slice(0,at));rest=rest.slice(at).replace(/^\n/,'');}pages.push(rest);
+ for(let i=0;i<pages.length;i++)await chat.sendText(rid,(pages.length>1?'['+(i+1)+'/'+pages.length+']\n':'')+pages[i]);
+}
 return {n,norm,nowK,dayK,sleep,id,blankRoom,fixRoom,initDb,withRoom,roomFlags,send};
 };
