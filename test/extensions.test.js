@@ -32,9 +32,11 @@ test('quiz expiry, fish sale and pet equip plus enhancement preserve other recor
  msg.text='!펫장착 최고';assert.match(await runtime.handleGame(room,db,msg,false),/장착 완료/);msg.text='!펫강화';assert.match(await runtime.handleGame(room,db,msg,false),/강화 완료/);assert.equal(p.pets['고양이'],1);
  p.inventory=[{name:'보존물고기',size:1,tier:'일반',value:1234,salePending:true}];const before=p.points;msg.text='!물고기판매 all';assert.match(await runtime.handleGame(room,db,msg,false),/판매 완료/);assert.equal(p.inventory.length,0);assert.equal(p.points,before+1234);assert.equal(p.pets['고양이'],1);
 });
-test('promotion scheduling keeps its target and requires an allowed room',()=>{
- const {patch}=require('../promotion');assert.throws(()=>patch({message:'문구'},'schedule',{scheduledAt:new Date(Date.now()+60000)}),/허용/);
- const at=Date.now()+60000,p=patch({message:'문구',allowed:true,lastSlot:123},'schedule',{scheduledAt:new Date(at)});assert.equal(p.nextRunAt,at);assert.equal(p.lastSlot,null);assert.equal(p.enabled,true);assert.equal(patch(p,'stop').nextRunAt,null);
+test('promotion follows clock boundaries, starts at the next slot and removes scheduled starts',()=>{
+ const {patch,nextBoundary,boundaryDue}=require('../promotion');assert.throws(()=>patch({message:'문구'},'schedule',{}),/지원하지/);
+ for(const [minutes,at,expected]of [[20,'2026-10-18T01:01:00+09:00','2026-10-18T01:20:00+09:00'],[20,'2026-10-18T01:40:00+09:00','2026-10-18T02:00:00+09:00'],[30,'2026-10-18T01:31:00+09:00','2026-10-18T02:00:00+09:00']])assert.equal(nextBoundary(minutes,new Date(at).getTime()),new Date(expected).getTime());
+ assert.equal(boundaryDue(20,new Date('2026-10-18T01:20:45+09:00').getTime()),true);assert.equal(boundaryDue(20,new Date('2026-10-18T01:21:00+09:00').getTime()),false);
+ const p=patch({message:'문구',allowed:true,nextRunAt:9999999999999},'start',{minutes:20});assert.equal(p.nextRunAt,null);assert.equal(p.clockAligned,true);assert.equal(patch(p,'stop').enabled,false);
 });
 
 
