@@ -62,7 +62,7 @@ async function routes(req,res,url,body){
   return {promotion:await promotion.configure(room,s.user,body.action,{message:body.message,minutes:body.minutes,allowed:body.allowed,scheduledAt:body.scheduledAt})};
  }
  if(p==='/api/admin/promotion/logs'&&method==='GET'){
-  const r=await getPool().query('SELECT status,detail,created_at FROM gl_promotion_logs WHERE room_id=$1 ORDER BY id DESC LIMIT 50',[id(url.searchParams.get('roomId'))]);return {logs:r.rows};
+  const r=await getPool().query('SELECT status,detail,created_at FROM gl_promotion_logs WHERE room_id=$1 ORDER BY id DESC LIMIT 50',[id(url.searchParams.get('roomId'))]);return {logs:r.rows,stats:await promotion.stats(id(url.searchParams.get('roomId')))};
  }
  if(p==='/api/admin/notices'&&method==='GET'){const r=await getPool().query('SELECT * FROM gl_notices ORDER BY pinned DESC,id DESC LIMIT 100');return {notices:r.rows};}
  if(p==='/api/admin/notices'&&method==='POST'){
