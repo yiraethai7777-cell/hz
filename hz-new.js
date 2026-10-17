@@ -80,7 +80,7 @@ client.onMessage(async (...args) => {
   if (!msg) return;
 
   const text = String(msg.message?.text ?? msg.text ?? "").trim();
-  // GL_BOT_ONLY_V1: restrict room toggles to authenticated bot account.
+  console.log('[GL 메시지 수신]', text);// GL_BOT_ONLY_V1: restrict room toggles to authenticated bot account.
   const glBotId = client.userId ?? client.config?.userId ?? null;
   const glSenderId = msg.sender?.id ?? null;
   const glIsBotAccount = glBotId != null && glSenderId != null && String(glBotId) === String(glSenderId);
