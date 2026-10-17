@@ -97,3 +97,48 @@ test('fishing is text only with 20 species; old inventory remains saleable',asyn
  assert.match(sale,/판매/);assert.equal(player.points,before+1234);
  assert.ok(!player.inventory.includes(oldFish));
 });
+
+test('help shows only active modules, separated with a single 1200-character fold',()=>{
+ const {formatCommandHelp}=require('../shared/help');
+ const manageOnly=formatCommandHelp({manage:true,game:false});
+ assert.match(manageOnly,/🛡️ 관리 명령어/);assert.match(manageOnly,/!출석/);
+ assert.ok(!manageOnly.includes('!낚시'));assert.ok(!manageOnly.includes('!주식구매'));
+ assert.ok(!manageOnly.includes('🎮 게임 명령어'));
+ const gameOnly=formatCommandHelp({manage:false,game:true});
+ assert.match(gameOnly,/!낚시/);assert.match(gameOnly,/!주식구매/);
+ assert.ok(!gameOnly.includes('!출석'));assert.ok(!gameOnly.includes('!경고'));
+ const both=formatCommandHelp({manage:true,game:true});
+ assert.match(both,/🎮 게임 명령어/);assert.match(both,/🛡️ 관리 명령어/);
+ assert.equal([...both].filter(c=>c==='\u200b').length,1200);
+ assert.match(formatCommandHelp({manage:false,game:false}),/작동 중인 기능이 없습니다/);
+ assert.match(formatCommandHelp({manage:false,game:true},'관리'),/관리 기능은 중지/);
+ assert.ok(!formatCommandHelp({manage:true,game:true},'게임').includes('!경고'));
+ assert.ok(!formatCommandHelp({manage:true,game:true},'관리').includes('!낚시'));
+});
+
+test('deletion alerts identify the actor only, without content, warnings or kicks',async()=>{
+ const room={game:false,manage:true,deleteCacheEnabled:true};
+ const queries=[],replies=[],handlers={};let kicks=0;
+ const pool={query:async(sql,params)=>{
+  queries.push({sql,params});return {rows:sql.startsWith('SELECT data')?[{data:room}]:[],rowCount:0};
+ }};
+ const runtime=createRuntime({pool});
+ const chat={sendText:async(id,text)=>replies.push(text),openChatKick:async()=>{kicks++;}};
+ const client={userId:'1001',chat,onMessage:fn=>handlers.message=fn,
+  onJoin(){},onLeave(){},onKick(){},onDelete:fn=>handlers.deleted=fn};
+ try{
+  await runtime.attachHZBot(client);queries.length=0;
+  await handlers.deleted({room:{id:'1'},actor:{id:'2002',name:'Alice'},message:{text:'PRIVATE ORIGINAL'}});
+  assert.deepEqual(replies,['🗑️ Alice님이 메시지를 삭제했습니다.']);
+  const record=queries.find(q=>q.sql.startsWith('INSERT INTO hz_deleted_messages'));
+  assert.equal(record.params[3],null);
+  assert.ok(!JSON.stringify(queries).includes('PRIVATE ORIGINAL'));
+  assert.ok(!queries.some(q=>q.sql.includes('hz_warnings')||q.sql.includes('hz_message_cache')));
+  assert.equal(kicks,0);
+  await handlers.deleted(chat,{room:{id:'1'},text:'PRIVATE ORIGINAL'});
+  assert.equal(replies.at(-1),'🗑️ 누군가 메시지를 삭제했습니다.');
+  room.manage=false;const count=replies.length;
+  await handlers.deleted({room:{id:'1'},actor:{id:'2002',name:'Alice'}});
+  assert.equal(replies.length,count);
+ }finally{clearInterval(runtime.promoTimer);clearInterval(runtime.autoFishTimer);}
+});
