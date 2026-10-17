@@ -4,9 +4,6 @@
 // KakaoForge authentication/session setup is intentionally kept separate.
 // This launcher uses an existing KakaoForge auth.json produced by your working setup.
 
-const { createClient } = require("./dist");
-const { attachHZBot } = require("./hz-bot");
-const { attachExtraCommands } = require("./hz-extra-commands");
 
 
 // Render Web Service health endpoint
@@ -56,50 +53,4 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const client = createClient({
-  authPath: process.env.KAKAO_AUTH_PATH || "./auth.json",
-  debug: process.env.KAKAO_DEBUG === "1",
-  autoConnect: true,
-  autoReconnect: true,
-});
-
-let attached = false;
-client.onReady(async () => {
-  if (attached) return;
-  attached = true;
-  try {
-    // Suppress only the legacy !명령어 reply so our compact reply is not duplicated.
-    // Other legacy commands remain unchanged.
-    const register = client.onMessage;
-    client.onMessage = function (handler) {
-      return register.call(this, async (...args) => {
-        const msg = args.length === 1 ? args[0] : args[1];
-        const command = String(msg?.message?.text ?? msg?.text ?? "").trim();
-        if (command === "!명령어") return;
-        return handler(...args);
-      });
-    };
-    let info;
-    try {
-      info = await attachHZBot(client);
-    } finally {
-      client.onMessage = register;
-    }
-    await attachExtraCommands(client);
-    console.log(`[HZ BOT] ì¤ë¹ ìë£ / botUserId=${info.botUserId}`);
-  } catch (err) {
-    attached = false;
-    console.error("[HZ BOT] ì´ê¸°í ì¤í¨:", err);
-  }
-});
-
-client.on("error", (err) => console.error("[KakaoForge]", err));
-process.on("uncaughtExceptionMonitor", (err) => {
-  console.error("[치명적 오류]", err);
-});
-
-process.on("unhandledRejection", (err) => {
-  console.error("[처리되지 않은 Promise 오류]", err);
-  process.exitCode = 1;
-  process.exit(1);
-});
+require("./hz-new").start();
