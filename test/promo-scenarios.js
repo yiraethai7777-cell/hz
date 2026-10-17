@@ -1,9 +1,9 @@
 'use strict';
 const assert=require('node:assert/strict');
 module.exports=async({t,request,headers,base,query,status})=>{
- const mod=require('../promotion/kakao'),original=mod.service,messages=[],clients=[],EventEmitter=require('node:events');let nextId='7001';
+ const mod=require('../promotion/kakao'),original=mod.service,messages=[],clients=[],EventEmitter=require('node:events');let nextId='7001',extraRoom=false;
  const provider={generateDeviceUuid:()=>require('node:crypto').randomUUID(),qrGenerate:async()=>({url:'fixture-qr-only',remainingSeconds:180}),qrPollLogin:async()=>({user:{userId:nextId},accessToken:'fixture-secret-'+nextId,refreshToken:'fixture-refresh'}),qrCancel:async()=>{}};
- const service=mod.createService({provider:()=>provider,makeClient:config=>{const c=new EventEmitter();c.userId=config.userId;c.connect=async()=>{};c.disconnect=()=>{c.emit('disconnected');};c.getChatRooms=async()=>{};c.getKnownChatRooms=()=>[{id:'100',name:'본인 공통 방'},{id:config.userId==='7001'?'101':'202',name:'본인 전용 방'}];c.chat={sendText:async(room,message)=>messages.push({sender:c.userId,room,message})};clients.push(c);return c;}});mod.service=()=>service;
+ const service=mod.createService({provider:()=>provider,makeClient:config=>{const c=new EventEmitter();c.userId=config.userId;c.connect=async()=>{};c.disconnect=()=>{c.emit('disconnected');};c.getChatRooms=async()=>{};c.getKnownChatRooms=()=>[...(extraRoom&&config.userId==='7001'?[{id:'303',name:'나중에 추가된 방'}]:[]),{id:'100',name:'본인 공통 방'},{id:config.userId==='7001'?'101':'202',name:'본인 전용 방'}];c.chat={sendText:async(room,message)=>messages.push({sender:c.userId,room,message})};clients.push(c);return c;}});mod.service=()=>service;
  const post=(path,b,h=headers,method='POST')=>request(path,{method,headers:h,body:JSON.stringify(b)}),anon={'Content-Type':'application/json',Origin:base};
  let alice,bob,token;
  async function qrLogin(kakaoId,invite=''){nextId=kakaoId;const start=await post('/api/promo/qr/start',{consent:true,invite},anon);assert.equal(start.status,200);const d=await start.json(),h={...anon,Cookie:start.headers.get('set-cookie').split(';')[0]};assert.ok(d.qr.startsWith('data:image/svg+xml;base64,'));assert.ok(!JSON.stringify(d).includes('fixture-secret'));
@@ -30,6 +30,31 @@ module.exports=async({t,request,headers,base,query,status})=>{
  assert.equal((await post('/api/promo/promotion',{roomId:'100',action:'stop'},{...alice.h,'X-CSRF-Token':''})).status,403);
  assert.equal((await post('/api/promo/promotion',{roomId:'100',action:'start',minutes:25},alice.h)).status,400);
  });
+ await t.test('one account message updates all rooms including future rooms and stays isolated from other users',async()=>{
+ const user=alice.data.user.id;
+ assert.equal((await post('/api/promo/message',{message:'모든 방 공통 홍보'},alice.h)).status,200);
+ assert.equal((await post('/api/promo/message',{message:'권한 없이 변경'},{...alice.h,'X-CSRF-Token':''})).status,403);
+ assert.equal((await post('/api/promo/message',{message:'x'.repeat(1001)},alice.h)).status,400);
+ assert.equal((await post('/api/promo/message',{message:'공통 문구 수정'},alice.h)).status,200);
+ const before=messages.length;
+ const clock=Date.now;Date.now=()=>clock()+600000;try{for(const room of ['100','101'])assert.equal(await service.deliver(user,room,true),true);}finally{Date.now=clock;}
+ assert.deepEqual(messages.slice(before).map(m=>m.message),['공통 문구 수정','공통 문구 수정']);
+ assert.equal((await(await request('/api/promo/message',{headers:bob.h})).json()).message,'B 계정 홍보');
+ extraRoom=true;service.stopUser(user);const listed=await(await request('/api/promo/rooms',{headers:alice.h})).json();assert.ok(listed.rooms.some(r=>r.id==='303'));assert.equal(listed.message,'공통 문구 수정');
+ assert.equal(await service.deliver(user,'303',true),true);assert.equal(messages.at(-1).message,'공통 문구 수정');
+ await require('../api/schema').init();assert.equal(await service.commonMessage(user),'공통 문구 수정');
+ });
+ await t.test('deleting the common message stops all account rooms without changing another account or restoring old text',async()=>{
+ const user=alice.data.user.id;
+ assert.equal((await post('/api/promo/promotion',{roomId:'101',action:'start',minutes:20},alice.h)).status,200);
+ assert.equal((await post('/api/promo/message',{action:'delete'},alice.h)).status,400);
+ assert.equal((await post('/api/promo/message',{action:'delete',confirm:true},alice.h)).status,200);
+ assert.ok((await query('SELECT promotion FROM gl_promo_account_rooms WHERE user_id=$1',[user])).rows.every(r=>r.promotion.enabled===false));
+ assert.equal((await query('SELECT promotion FROM gl_promo_account_rooms WHERE user_id=$1 AND room_id=$2',[bob.data.user.id,'100'])).rows[0].promotion.enabled,true);
+ assert.equal((await post('/api/promo/promotion',{roomId:'101',action:'start',minutes:20},alice.h)).status,400);
+ await require('../api/schema').init();assert.equal(await service.commonMessage(user),'');
+ assert.equal((await post('/api/promo/message',{message:'시간표 검증용 공통 문구'},alice.h)).status,200);
+ });
  await t.test('fixed clock slots persist across reconnect; OFF and duplicate slots stop sending',async()=>{
  const now=Date.now;try{let at=new Date('2027-01-01T01:03:00+09:00').getTime();Date.now=()=>at;
  await service.configure(alice.data.user.id,'100','start',{minutes:30});assert.equal(await service.deliver(alice.data.user.id,'100'),false);
@@ -46,6 +71,12 @@ module.exports=async({t,request,headers,base,query,status})=>{
  const rows=(await query('SELECT promotion FROM gl_promo_account_rooms WHERE user_id=$1',[bob.data.user.id])).rows;assert.ok(rows.every(r=>r.promotion.enabled===false));
  const inv=await invite('취소용');await post('/api/admin/promo-invites',{id:inv.id},headers,'DELETE');assert.equal((await post('/api/promo/qr/start',{consent:true,invite:inv.path.split('invite=')[1]},anon)).status,400);
  for(const route of ['/promo/','/promo/app.js','/promo/style.css'])assert.equal((await request(route)).status,200);
+ });
+ await t.test('legacy migration keeps a single shared text, never chooses between conflicting texts, and preserves original room records',async()=>{
+ for(const [name,texts]of [['migration_same',['기존 공통 문구','기존 공통 문구']],['migration_conflict',['방 A 문구','방 B 문구']]]){const u=(await query("INSERT INTO gl_promo_users(username,password_hash,display_name) VALUES($1,'QR_ONLY',$1) RETURNING id",[name])).rows[0].id;
+ for(let i=0;i<texts.length;i++)await query('INSERT INTO gl_promo_account_rooms(user_id,room_id,promotion) VALUES($1,$2,$3::jsonb)',[u,String(801+i),JSON.stringify({message:texts[i],enabled:true,minutes:20})]);
+ await require('../api/schema').init();assert.equal(await service.commonMessage(u),name==='migration_same'?'기존 공통 문구':'');assert.deepEqual((await query('SELECT promotion FROM gl_promo_account_rooms WHERE user_id=$1 ORDER BY room_id',[u])).rows.map(r=>r.promotion.message),texts);
+ }
  });
  }finally{service.close();mod.service=original;}
 };
