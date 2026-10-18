@@ -91,7 +91,9 @@ async function roomFlags(rid){const q=await ctx.pool.query("SELECT data FROM hz_
 async function send(chat,rid,text){
  if(!text)return;const source=String(text),pages=[];let rest=source;
  while(rest.length>4500){let at=rest.lastIndexOf('\n',4400);if(at<200)at=4400;pages.push(rest.slice(0,at));rest=rest.slice(at).replace(/^\n/,'');}pages.push(rest);
- for(let i=0;i<pages.length;i++)await chat.sendText(rid,(pages.length>1?'['+(i+1)+'/'+pages.length+']\n':'')+pages[i]);
+ const results=[];
+ for(let i=0;i<pages.length;i++)results.push(await chat.sendText(rid,(pages.length>1?'['+(i+1)+'/'+pages.length+']\n':'')+pages[i]));
+ return results;
 }
 return {n,norm,nowK,dayK,sleep,id,blankRoom,fixRoom,initDb,withRoom,roomFlags,send};
 };
