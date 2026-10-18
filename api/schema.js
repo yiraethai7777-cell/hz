@@ -8,6 +8,7 @@ async function init(){await getPool().query(`
  CREATE TABLE IF NOT EXISTS gl_admin_operations(operation_id TEXT PRIMARY KEY,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS gl_stock_alerts(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,symbol TEXT NOT NULL,stock_name TEXT NOT NULL,threshold BIGINT NOT NULL CHECK(threshold>0),direction TEXT NOT NULL CHECK(direction IN ('above','below')),enabled BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS gl_promotion_logs(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,slot TEXT NOT NULL,status TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(room_id,slot));
+ CREATE TABLE IF NOT EXISTS gl_bot_promotion_settings(id INTEGER PRIMARY KEY CHECK(id=1),message TEXT NOT NULL DEFAULT '',updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS gl_promo_users(id BIGSERIAL PRIMARY KEY,username TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,display_name TEXT NOT NULL,enabled BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS gl_promo_sessions(token_hash TEXT PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES gl_promo_users(id),csrf TEXT NOT NULL,expires_at TIMESTAMPTZ NOT NULL);
  CREATE TABLE IF NOT EXISTS gl_promo_room_access(user_id BIGINT NOT NULL REFERENCES gl_promo_users(id),room_id TEXT NOT NULL,PRIMARY KEY(user_id,room_id));
