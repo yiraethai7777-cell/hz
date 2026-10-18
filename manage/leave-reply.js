@@ -14,6 +14,15 @@ async function init(db){await db.query(`CREATE TABLE IF NOT EXISTS gl_leave_repl
 function leaveNotice({name,userId,joins,leaves,time,detail='',profileLink=''}){
  return `👋 ${name}님이 나갔습니다.\n${'\u200b'.repeat(1200)}\n👤 ${name}\n사용자 ID: ${userId}\n🚪 입장 ${joins}회 · 퇴장 ${leaves}회\n🕒 퇴장 시간: ${time}\n🔗 오픈프로필: ${profileLink||'확인된 오픈프로필 링크 없음'}${detail?'\n'+detail:''}\n\n방장·부방장: 이 알림에 답장으로 a를 보내면 벤합니다.`;
 }
+function joinNotice({name,userId,roomName,joins,leaves,time,profileLink='',profileType=0,detail=''}){
+ const clean=String(name).replace(/[\u0002-\u0004]/g,'');
+ const mention=exactId(userId)?`\u0002${userId}\u0003${clean}\u0004`:clean;
+ const reminder=[1,2,4].includes(Number(profileType))?`\n${mention}님, 오픈프로필로 변경해주세요.`:'';
+ return `👋 ${mention}님 안녕하세요!${reminder}\n${'\u200b'.repeat(1200)}\n${roomName}에 오신 걸 환영합니다!\n🚪 입장 ${joins}회 · 퇴장 ${leaves}회\n🕒 입장 시간: ${time}\n사용자 ID: ${userId}\n🔗 오픈프로필: ${profileLink||'확인된 오픈프로필 링크 없음'}${detail?'\n'+detail:''}`;
+}
+function profileNotice(change,time){
+ return `👤 ${change.newName}님이 프로필을 변경했습니다.\n${'\u200b'.repeat(1200)}\n${change.oldName||'확인 불가'} → ${change.newName||'확인 불가'}${change.profileChanged?'\n예전 옾링: '+(change.oldOpenLink||'확인된 링크 없음')+'\n현재 옾링: '+(change.newOpenLink||'확인된 링크 없음'):''}\n시간: ${time}`;
+}
 async function record(db,{roomId,botId,userId,name,result}){
  const target=exactId(userId),bot=exactId(botId);
  if(!target||!bot||target===bot)return;
@@ -63,4 +72,4 @@ async function handle(context,db){
  await db.query(`UPDATE gl_leave_replies SET state='done' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
  await send(`🚫 ${row.target_name}님을 벤했습니다.\n사용자 ID: ${row.target_id}`);return true;
 }
-module.exports={init,leaveNotice,record,replyReference,handle};
+module.exports={init,leaveNotice,joinNotice,profileNotice,record,replyReference,handle};

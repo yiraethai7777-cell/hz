@@ -78,7 +78,7 @@ async function commandTarget(c,rid,msg,text){
   const raw=String(text||"").trim();
   const arg=raw.replace(/^!\S+/,"").trim();
   if(/^\d{4,}$/.test(arg))return ctx.resolveTarget(c,rid,{id:arg,name:""});
-  const mentions=ctx.rawMentions(msg);
+  const mentions=require('./targets').mentions(msg);
   if(mentions.length===1){
     const found=await ctx.resolveTarget(c,rid,mentions[0]);
     if(found)return found;
@@ -92,7 +92,8 @@ async function commandTarget(c,rid,msg,text){
     ) matches`,[rid,wanted]);
     if(q.rows.length===1)return {id:String(q.rows[0].user_id),name:q.rows[0].name};
   }
-  return null;
+  const replied=await require('./targets').resolve({msg,text,roomId:rid,client:ctx.globalClient,db:c});
+  return replied?ctx.resolveTarget(c,rid,replied):null;
 }
 
 function senderExactId(msg){
@@ -238,8 +239,7 @@ async function saveOpenProfileLink(rid,uid,name,source){
   await ctx.pool.query(`INSERT INTO hz_members(room_id,user_id,name,open_profile_link)
     VALUES($1,$2,$3,$4)
     ON CONFLICT(room_id,user_id) DO UPDATE SET
-    open_profile_link=EXCLUDED.open_profile_link,
-    name=COALESCE(NULLIF(EXCLUDED.name,''),hz_members.name)`,[rid,uid,name||uid,link]);
+    open_profile_link=EXCLUDED.open_profile_link`,[rid,uid,name||uid,link]);
 }
 
 function extractProfile(raw){
@@ -300,17 +300,21 @@ async function lookupDeleteCache(rid,mid){
   return q.rows[0]?.message_text||"";
 }
 
-function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+ctx.MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n멘션 알림 - 멘션된 사람이 채팅하면 알림\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
+function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+ctx.MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n멘션 알림 - 멘션된 사람이 채팅하면 알림\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n!내풀 ID/멘션 - 벤 후 바로 해제\n!벤해제 ID/멘션 - 벤 해제\n대상 메시지에 답장·댓글로 !아이디, !벤, !내풀, !벤해제 사용 가능\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임 - 기록된 모든 옾링\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
 
-async function profileObserve(c,rid,uid,name,url){
+async function profileObserve(c,rid,uid,name,url,openLink){
   if(!uid)return;
-  const q=await c.query("SELECT name,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
-  if(!q.rows.length){await c.query("INSERT INTO hz_members(room_id,user_id,name,last_profile_url) VALUES($1,$2,$3,$4)",[rid,uid,name||uid,url||null]);return null}
-  const old=q.rows[0],changed=(name&&old.name&&name!==old.name)||(url&&old.last_profile_url&&url!==old.last_profile_url);
-  await c.query("UPDATE hz_members SET name=COALESCE(NULLIF($3,''),name),last_profile_url=COALESCE(NULLIF($4,''),last_profile_url),last_seen=NOW() WHERE room_id=$1 AND user_id=$2",[rid,uid,name||"",url||""]);
+  const hasLink=openLink!==undefined,link=hasLink?(ctx.validOpenProfileLink(openLink)||''):null;
+  const q=await c.query("SELECT name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
+  if(!q.rows.length){await c.query("INSERT INTO hz_members(room_id,user_id,name,last_profile_url,observed_open_profile_link) VALUES($1,$2,$3,$4,$5)",[rid,uid,name||uid,url||null,link]);return null}
+  const old=q.rows[0],nameChanged=!!(name&&old.name&&name!==old.name),imageChanged=!!(url&&old.last_profile_url&&url!==old.last_profile_url);
+  const linkChanged=hasLink&&old.observed_open_profile_link!=null&&old.observed_open_profile_link!==link;
+  const changed=nameChanged||imageChanged||linkChanged;
+  await c.query("UPDATE hz_members SET name=COALESCE(NULLIF($3,''),name),last_profile_url=COALESCE(NULLIF($4,''),last_profile_url),observed_open_profile_link=CASE WHEN $5::boolean THEN $6::text ELSE observed_open_profile_link END,last_seen=NOW() WHERE room_id=$1 AND user_id=$2",[rid,uid,name||"",url||"",hasLink,link]);
   if(changed){
-    await c.query("INSERT INTO hz_profiles(room_id,user_id,old_name,new_name,old_profile_url,new_profile_url) VALUES($1,$2,$3,$4,$5,$6)",[rid,uid,old.name,name||old.name,old.last_profile_url,url||old.last_profile_url]);
-    return {oldName:old.name,newName:name||old.name,oldUrl:old.last_profile_url,newUrl:url||old.last_profile_url}
+    const nextLink=hasLink?link:old.observed_open_profile_link;
+    await c.query("INSERT INTO hz_profiles(room_id,user_id,old_name,new_name,old_profile_url,new_profile_url,old_open_profile_link,new_open_profile_link) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",[rid,uid,old.name,name||old.name,old.last_profile_url,url||old.last_profile_url,old.observed_open_profile_link,nextLink]);
+    return {oldName:old.name,newName:name||old.name,oldUrl:old.last_profile_url,newUrl:url||old.last_profile_url,oldOpenLink:old.observed_open_profile_link,newOpenLink:nextLink,profileChanged:imageChanged||linkChanged}
   }
   return null
 }
@@ -363,7 +367,7 @@ async function kickMember(msg,targetId){
 }
 
 async function autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags){
-  if(isSelf||!flags.manage||flags.locked||ctx.isOwnerType(msg.sender?.type))return false;
+  if(isSelf||Number(msg.sender?.type)===8||!flags.manage||flags.locked||ctx.isOwnerType(msg.sender?.type))return false;
   const fp=ctx.messageFingerprint(msg,text);
   if(!fp)return false;
   const key=rid+":"+uid,old=ctx.spamState.get(key);
@@ -482,6 +486,7 @@ async function handleManage(d,c,msg,isSelf){
   m=/^!경고\s+[\s\S]*?\s+(\d+)\s+(.+)$/.exec(text);
   if(m){
     if(!t)return "실제 멘션 또는 해시로 대상을 지정해주세요.";
+    if(Number(ctx.globalClient?._resolveMemberType?.(msg.room.id,t.id))===8)return "🤖 오픈채팅봇에는 경고를 주지 않습니다.";
     const cnt=Number(m[1]);if(cnt<1||cnt>100)return "경고 개수는 1~100으로 입력해주세요.";
     if(t.id===ctx.globalBotId)return "봇 계정에는 경고를 줄 수 없습니다.";
     await c.query("INSERT INTO hz_warnings(room_id,target_id,target_name,count,reason,issuer_id,issuer_name) VALUES($1,$2,$3,$4,$5,$6,$7)",[msg.room.id,t.id,t.name||t.id,cnt,m[2],uid,name]);
@@ -511,7 +516,7 @@ async function handleManage(d,c,msg,isSelf){
         return `${label}${x.event_type==="kick"&&actor?` | 실행자: ${actor}`:""} | ${new Date(x.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`
       }).join("\n"):"기록 없음")
   }
-  if(text.startsWith("!프로필로그")){if(!t)return "사용법: !프로필로그 @(멘션) 또는 해시";const current=await c.query("SELECT name,last_profile_url,open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2",[msg.room.id,t.id]);const q=await c.query("SELECT * FROM hz_profiles WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 300",[msg.room.id,t.id]);return `👤 ${t.name||t.id} 프로필 로그\n현재 닉네임: ${current.rows[0]?.name||t.name||"확인 불가"}\n오픈프로필 링크: ${current.rows[0]?.open_profile_link||"확인된 링크 없음"}\n프로필 이미지: ${current.rows[0]?.last_profile_url||"저장된 정보 없음"}\n${ctx.MORE}\n`+(q.rows.length?q.rows.map(x=>`${new Date(x.created_at).toLocaleString("ko-KR")}\n닉네임: ${x.old_name||"?"} → ${x.new_name||"?"}\n프로필: ${x.old_profile_url||"확인 불가"} → ${x.new_profile_url||"확인 불가"}`).join("\n────────\n"):"변경 기록 없음")}
+  if(/^!프로필로그(?:\s|$)/.test(text)){if(!t)return "사용법: !프로필로그 @(실제 멘션), 사용자 ID 또는 대상 메시지에 답장·댓글";return require("./profile-history").message(c,msg.room.id,t);}
   if(text==="!아이디"||text.startsWith("!아이디 ")){
     const it=await ctx.idCommandTarget(c,msg.room.id,msg,text);
     if(!it)return "❌ 대상의 정확한 ID를 확인하지 못했습니다.\n실제 멘션 또는 답장으로 시도해 주세요.\n채팅 기록에 없는 사용자는 ID를 확인할 수 없을 수 있습니다.";
