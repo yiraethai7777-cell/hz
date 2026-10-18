@@ -77,7 +77,7 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
  if(cmd==='!채팅정보'){const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id=$2',[room,target||user]);await send(r.rowCount?`💬 ${r.rows[0].user_name}: ${r.rows[0].count}회`:'기록 없음');return true}
  const privileged=['!경고','!경고삭제','!경고초기화','!벤','!관리자추가','!관리자삭제','!도배감지켜기','!도배감지끄기','!삭제감지켜기','!삭제감지끄기'];
  const isRoomManager=Number(senderType)===1||Number(senderType)===4;
- if(privileged.includes(cmd)&&!isRoomManager&&!await admin(room,user)){await send('⛔ 관리 권한이 없습니다.');return true}
+ if(privileged.includes(cmd)&&!isBotAccount&&!isRoomManager&&!await admin(room,user)){await send('⛔ 관리 권한이 없습니다.');return true}
  if(cmd==='!경고'){
   if(targetRole===8||target===String(botId)){await send('🤖 오픈채팅봇에는 경고를 주지 않습니다.');return true}
   const n=Number(parts[2]),reason=parts.slice(3).join(' ');if(!target||!Number.isInteger(n)||n<1||n>4||!reason){await send('사용법: !경고 사용자ID 1 사유');return true}
@@ -91,7 +91,13 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
  if(cmd==='!벤기록'||cmd==='!관리로그'){const r=await db.query(`SELECT actor_id,target_id,action,detail,created_at FROM gl_manage_actions WHERE room_id=$1 AND ($2::text IS NULL OR target_id=$2) ORDER BY id DESC LIMIT 20`,[room,cmd==='!벤기록'?target||null:null]);await send('📜 관리 기록\n'+r.rows.map(v=>`${v.created_at.toISOString()} ${v.action} ${v.target_id||''} (실행자 ${v.actor_id||'자동'})`).join('\n'));return true}
  if(cmd==='!관리자추가'||cmd==='!관리자삭제'){if(!target)return true;if(cmd==='!관리자추가')await db.query('INSERT INTO gl_manage_admins(room_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[room,target]);else await db.query('DELETE FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[room,target]);await send('관리자 설정 완료');return true}
  if(cmd==='!관리자목록'){const r=await db.query('SELECT user_id FROM gl_manage_admins WHERE room_id=$1',[room]);await send('🛡️ 관리자\n'+r.rows.map(v=>v.user_id).join('\n'));return true}
- const toggles={'!도배감지켜기':['spam_enabled',true],'!도배감지끄기':['spam_enabled',false],'!삭제감지켜기':['deleted_enabled',true],'!삭제감지끄기':['deleted_enabled',false]};if(toggles[cmd]){const [field,value]=toggles[cmd];await db.query(`UPDATE gl_manage_rooms SET ${field}=$2 WHERE room_id=$1`,[room,value]);await send('설정 변경 완료');return true}
+ if(cmd==='!도배감지켜기'||cmd==='!도배감지끄기'){
+  const on=cmd==='!도배감지켜기';
+  await db.query('INSERT INTO gl_manage_rooms(room_id,enabled,spam_enabled) VALUES($1,TRUE,$2) ON CONFLICT(room_id) DO UPDATE SET spam_enabled=EXCLUDED.spam_enabled',[room,on]);
+  require('./spam').reset(room);
+  await send(on?'🛡️ 도배 감지를 켰습니다.\n동일 글·이모티콘 연속 4회 → 경고 1개\n연속 10회 → 벤':'⏹️ 도배 감지를 껐습니다.');return true;
+ }
+ const toggles={'!삭제감지켜기':['deleted_enabled',true],'!삭제감지끄기':['deleted_enabled',false]};if(toggles[cmd]){const [field,value]=toggles[cmd];await db.query(`UPDATE gl_manage_rooms SET ${field}=$2 WHERE room_id=$1`,[room,value]);await send('설정 변경 완료');return true}
  return false;
 }
 async function join({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,joins) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET joins=gl_manage_members.joins+1,user_name=$3',[room,user,userName]);const m=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 GL 입장 안내\n${userName}님 안녕하세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${m.rows[0].joins}회 / 퇴장 ${m.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}

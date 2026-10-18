@@ -344,14 +344,7 @@ async function chatRanking(rid){
   return (await ctx.pool.query("SELECT user_id,name,chat_count FROM hz_chat_stats WHERE room_id=$1 AND user_id<>$2 ORDER BY chat_count DESC,last_chat_at ASC LIMIT 10",[rid,ctx.globalBotId])).rows
 }
 
-function messageFingerprint(msg,text){
-  if(text)return "T:"+ctx.norm(text);
-  try{
-    const m=msg.message??msg.attachmentsRaw??msg.raw;
-    if(m)return "M:"+JSON.stringify(m)
-  }catch(_){}
-  return ""
-}
+function messageFingerprint(msg,text){return require('./spam').fingerprint(msg,text);}
 
 async function kickMember(msg,targetId){
   if(!ctx.globalChat || typeof ctx.globalChat.openChatKick!=="function")
@@ -361,46 +354,12 @@ async function kickMember(msg,targetId){
   const result=await ctx.globalChat.openChatKick(rid,uid);
   // Some implementations resolve a promise without actually removing a member.
   console.log("[GL KICK API]",JSON.stringify({roomId:rid,targetId:uid,result:result===undefined?"undefined":result}));
-  if(result===false || result?.success===false || result?.ok===false || result?.status==="error")
+  if(result===false || result?.success===false || result?.ok===false || result?.status==="error" || (typeof result?.status==="number" && result.status!==0))
     throw new Error("강퇴 API가 실패를 반환했습니다: "+JSON.stringify(result).slice(0,400));
   return result;
 }
 
-async function autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags){
-  if(isSelf||Number(msg.sender?.type)===8||!flags.manage||flags.locked||ctx.isOwnerType(msg.sender?.type))return false;
-  const fp=ctx.messageFingerprint(msg,text);
-  if(!fp)return false;
-  const key=rid+":"+uid,old=ctx.spamState.get(key);
-  const cur=old&&old.fp===fp?{fp,count:old.count+1}:{fp,count:1};
-  ctx.spamState.set(key,cur);
-
-  if(cur.count===4){
-    await ctx.pool.query("INSERT INTO hz_warnings(room_id,target_id,target_name,count,reason,issuer_id,issuer_name) VALUES($1,$2,$3,1,$4,$5,$6)",
-      [rid,uid,name,"동일 메시지/이모티콘 4회 연속 도배",ctx.globalBotId,"GL"]);
-    const wc=await ctx.activeWarningCount(ctx.pool,rid,uid);
-    await ctx.send(chat,rid,`⚠️ ${name}님 자동 경고 1개\n이유: 동일 메시지/이모티콘 4회 연속 도배\n현재 경고: ${wc}/4`);
-    if(wc>=4){
-      try{
-        await ctx.kickMember(msg,uid);
-        await ctx.send(chat,rid,`🚫 ${name}님이 경고 4개에 도달하여 자동 벤 처리되었습니다.`);
-      }catch(e){console.error("[HZ WARNING BAN]",e);await ctx.send(chat,rid,`⚠️ ${name}님이 경고 4개에 도달했지만 자동 벤에 실패했습니다.`)}
-      ctx.spamState.delete(key);
-      return true;
-    }
-  }
-  if(cur.count===10){
-    try{
-      await ctx.kickMember(msg,uid);
-      await ctx.send(chat,rid,`🚫 ${name}님을 자동 벤 처리했습니다.\n이유: 동일 메시지/이모티콘 10회 연속 도배`);
-    }catch(e){
-      console.error("[HZ AUTO BAN]",e);
-      await ctx.send(chat,rid,`⚠️ ${name}님의 10회 연속 도배를 감지했지만 자동 벤에 실패했습니다.`)
-    }
-    ctx.spamState.delete(key);
-    return true
-  }
-  return false
-}
+async function autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags){return require('./spam').check(ctx,msg,chat,rid,uid,name,text,isSelf,flags);}
 
 async function handleManageStats(d,c,msg){
   const text=String(msg.message?.text??msg.text??"").trim();

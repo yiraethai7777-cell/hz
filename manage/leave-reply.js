@@ -21,7 +21,7 @@ function joinNotice({name,userId,roomName,joins,leaves,time,profileLink='',profi
  return `👋 ${mention}님 안녕하세요!${reminder}\n${'\u200b'.repeat(1200)}\n${roomName}에 오신 걸 환영합니다!\n🚪 입장 ${joins}회 · 퇴장 ${leaves}회\n🕒 입장 시간: ${time}\n사용자 ID: ${userId}\n🔗 오픈프로필: ${profileLink||'확인된 오픈프로필 링크 없음'}${detail?'\n'+detail:''}`;
 }
 function profileNotice(change,time){
- return `👤 ${change.newName}님이 프로필을 변경했습니다.\n${'\u200b'.repeat(1200)}\n${change.oldName||'확인 불가'} → ${change.newName||'확인 불가'}${change.profileChanged?'\n예전 옾링: '+(change.oldOpenLink||'확인된 링크 없음')+'\n현재 옾링: '+(change.newOpenLink||'확인된 링크 없음'):''}\n시간: ${time}`;
+  return `👤 ${change.newName}님이 프로필을 변경했습니다.\n${'\u200b'.repeat(1200)}\n${change.oldName||'확인 불가'} → ${change.newName||'확인 불가'}\n예전 옾링: ${change.oldOpenLink||'확인된 링크 없음'}\n현재 옾링: ${change.newOpenLink||'확인된 링크 없음'}\n시간: ${time}`;
 }
 async function record(db,{roomId,botId,userId,name,result}){
  const target=exactId(userId),bot=exactId(botId);
