@@ -20,7 +20,7 @@ async function handleCommand(ctx) {
     const [action, successMessage] = command;
 
     try {
-        const result = await adapter[action](ctx.roomId);
+        const result = await adapter[action](ctx.roomId, ctx.client);
 
         if (result?.ok === true) {
             await ctx.send("🎙️ " + (result.message || successMessage));
