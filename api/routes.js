@@ -35,6 +35,8 @@ async function routes(req,res,url,body){
  if(p.startsWith('/api/admin/promo-'))return require('../promotion/portal').admin(req,url,body,s);
  if(p==='/api/logout'&&method==='POST')return auth.logout(req,res,s);
  if(p==='/api/admin/overview'&&method==='GET')return overview();
+ if(p==='/api/admin/promotion-message'&&method==='GET')return {message:await promotion.commonMessage()||''};
+ if(p==='/api/admin/promotion-message'&&method==='POST')return promotion.setCommonMessage(s.user,body);
  if(p==='/api/admin/rooms'&&method==='GET'){
   await require('../promotion/rooms').refresh(status.client).catch(()=>{});
   const r=await getPool().query("SELECT r.room_id,r.data->>'name' AS name,COALESCE((r.data->>'game')::boolean,FALSE) AS game,COALESCE(g.enabled,(r.data->>'manage')::boolean,FALSE) AS manage,COALESCE((r.data->>'quizEnabled')::boolean,TRUE) AS quiz_enabled,COALESCE((r.data->>'fishEnabled')::boolean,TRUE) AS fish_enabled,r.data->'promo' AS promotion FROM hz_rooms r LEFT JOIN gl_manage_rooms g USING(room_id) ORDER BY r.updated_at DESC LIMIT 200");return {rooms:r.rows};
@@ -58,11 +60,12 @@ async function routes(req,res,url,body){
   return require('../game/admin-coins').adjust({room:id(body.roomId),user:id(body.userId),actor:s.user,amount:Number(body.amount),operationId:body.operationId,reason:String(body.reason||'웹 관리자 조정').slice(0,200)});
  }
  if(p==='/api/admin/promotion'&&method==='POST'){
+  if(body.action==='start'&&![20,30].includes(Number(body.minutes)))fail('20분 또는 30분을 선택해 주세요.');
   const room=id(body.roomId);if(body.action==='immediate'){
    if(body.confirm!==true)fail('즉시 전송을 재확인해 주세요.');if(!status.chat)fail('카카오톡 연결이 필요합니다.',503);
    await audit(getPool(),s.user,'PROMOTION_IMMEDIATE',room,null,{});return {sent:await promotion.deliver(room,status.chat,true)};
   }
-  return {promotion:await promotion.configure(room,s.user,body.action,{message:body.message,minutes:body.minutes,allowed:body.allowed,scheduledAt:body.scheduledAt})};
+  return {promotion:await promotion.configure(room,s.user,body.action,{message:body.message,minutes:body.minutes,allowed:body.allowed,botWeb:true})};
  }
  if(p==='/api/admin/promotion/logs'&&method==='GET'){
   const r=await getPool().query('SELECT status,detail,created_at FROM gl_promotion_logs WHERE room_id=$1 ORDER BY id DESC LIMIT 50',[id(url.searchParams.get('roomId'))]);return {logs:r.rows,stats:await promotion.stats(id(url.searchParams.get('roomId')))};
