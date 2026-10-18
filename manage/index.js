@@ -39,7 +39,7 @@ async function setEnabled(room,value){
 async function warnCount(room,user){const r=await getPool().query('SELECT count(*)::int AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',[room,user]);return r.rows[0].n}
 async function log(room,actor,target,action,detail){await getPool().query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[room,actor,target,action,detail])}
 // GL_BOT_ONLY_V1
-async function message({roomId,userId,userName,messageId,text,send,kick,isBotAccount=false}){
+async function message({roomId,userId,userName,messageId,text,send,kick,isBotAccount=false,senderType}){
  const room=key(roomId),user=key(userId),db=getPool(),s=String(text||'').trim();
  if(s==='!내아이디'){await send('🆔 내 아이디: '+user);return true}
  if(s==='!관리명령어'){await send('🛡️ GL봇 관리\n!관리작동 !관리중지 !관리상태\n!출석 !출석순위 !출석확인 [ID]\n!채팅순위 !채팅정보 [ID]\n!경고 ID 개수 사유 !경고내역 ID !경고삭제 ID 번호 !경고초기화 ID !경고순위\n!벤 ID !벤등록 ID !벤등록해제 ID !벤등록목록 !벤기록 [ID]\n!관리자추가 ID !관리자삭제 ID !관리자목록\n!도배감지켜기 !도배감지끄기 !삭제감지켜기 !삭제감지끄기 !관리로그');return true}
@@ -61,7 +61,8 @@ async function message({roomId,userId,userName,messageId,text,send,kick,isBotAcc
  if(cmd==='!채팅순위'){const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 ORDER BY count DESC LIMIT 10',[room]);await send('💬 채팅 순위\n'+r.rows.map((v,i)=>`${i+1}. ${v.user_name}: ${v.count}회`).join('\n'));return true}
  if(cmd==='!채팅정보'){const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id=$2',[room,target||user]);await send(r.rowCount?`💬 ${r.rows[0].user_name}: ${r.rows[0].count}회`:'기록 없음');return true}
  const privileged=['!경고','!경고삭제','!경고초기화','!벤','!벤등록','!벤등록해제','!관리자추가','!관리자삭제','!도배감지켜기','!도배감지끄기','!삭제감지켜기','!삭제감지끄기'];
- if(privileged.includes(cmd)&&!await admin(room,user)){await send('⛔ 관리 권한이 없습니다.');return true}
+ const isRoomManager=Number(senderType)===1||Number(senderType)===4;
+ if(privileged.includes(cmd)&&!isRoomManager&&!await admin(room,user)){await send('⛔ 관리 권한이 없습니다.');return true}
  if(cmd==='!경고'){
   const n=Number(parts[2]),reason=parts.slice(3).join(' ');if(!target||!Number.isInteger(n)||n<1||n>4||!reason){await send('사용법: !경고 사용자ID 1 사유');return true}
   for(let i=0;i<n;i++)await db.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',[room,target,target,reason,user]);const count=await warnCount(room,target);await send(`⚠️ ${target} 경고 ${count}회`);if(count>=4&&kick){try{await kick(target);await log(room,user,target,'KICK','경고 4회');await send('🚫 경고 4회 자동 강퇴 요청 완료')}catch(e){await send('강퇴 실패: '+e.message)}}return true

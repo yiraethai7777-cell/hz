@@ -6,6 +6,43 @@ const {createGame} = require('../game');
 const {getPool} = require('../shared/db');
 const manage = require('../manage');
 
+test('room owners and managers may kick; ordinary and unknown members remain denied', async () => {
+  const oldEnv=process.env.DATABASE_URL,oldOwner=process.env.GL_OWNER_ID;
+  process.env.DATABASE_URL='postgres://localhost/test';delete process.env.GL_OWNER_ID;
+  const pool=getPool(),query=pool.query;
+  let registered=false,kicks=0;const replies=[];
+  pool.query=async sql=>sql.includes('AS enabled')?{rows:[{enabled:true}]}:
+    sql.includes('FROM gl_manage_admins')?{rows:registered?[{}]:[],rowCount:registered?1:0}:{rows:[],rowCount:1};
+  const ctx={roomId:'room',userId:'1234',text:'!벤 9007199254740993123',
+    send:async s=>replies.push(s),kick:async()=>{kicks++;}};
+  try {
+    for(const type of [1,4]){await manage.message({...ctx,senderType:type});assert.match(replies.at(-1),/강퇴 요청 완료/);}
+    assert.equal(kicks,2);
+    for(const type of [2,undefined,0]){await manage.message({...ctx,senderType:type});assert.match(replies.at(-1),/관리 권한이 없습니다/);}
+    assert.equal(kicks,2);
+    registered=true;await manage.message({...ctx,senderType:2});assert.equal(kicks,3);
+    await manage.message({...ctx,senderType:1,text:'!관리중지'});
+    assert.match(replies.at(-1),/GL봇 계정만/);
+  } finally {pool.query=query;if(oldEnv===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=oldEnv;
+    if(oldOwner===undefined)delete process.env.GL_OWNER_ID;else process.env.GL_OWNER_ID=oldOwner;}
+});
+
+test('router forwards protocol member role and exact departed ID to kick API',async()=>{
+  let callback;const requests=[];
+  const client={userId:'1234',chat:{sendText:async()=>{}},onMessage(fn){callback=fn;},
+    openChatKick:async(...args)=>{requests.push(args);return {status:0};}};
+  let context;
+  attachRouter(client,{game:{},management:{message:async ctx=>{context=ctx;return true;}}});
+  await callback({room:{id:'room'},sender:{id:'5678',type:1},text:'!벤 9007199254740993123'});
+  assert.equal(context.senderType,1);
+  await context.kick('9007199254740993123');
+  assert.deepEqual(requests,[['room','9007199254740993123']]);
+  await assert.rejects(context.kick('1234'),/내보낼 수 없습니다/);
+  await assert.rejects(context.kick('5678'),/내보낼 수 없습니다/);
+  client.openChatKick=async()=>({status:-1});
+  await assert.rejects(context.kick('9007199254740993123'),/요청 실패/);
+});
+
 test('single registration, both KakaoForge signatures, help and attendance isolation', async () => {
   let callback, registrations=0;
   const replies=[],games=[],management=[];
