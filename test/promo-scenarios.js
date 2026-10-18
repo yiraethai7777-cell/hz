@@ -78,5 +78,34 @@ module.exports=async({t,request,headers,base,query,status})=>{
  await require('../api/schema').init();assert.equal(await service.commonMessage(u),name==='migration_same'?'기존 공통 문구':'');assert.deepEqual((await query('SELECT promotion FROM gl_promo_account_rooms WHERE user_id=$1 ORDER BY room_id',[u])).rows.map(r=>r.promotion.message),texts);
  }
  });
+ await t.test('invited web signup and password login keep Kakao connection separate',async()=>{
+ const fixturePassword='fixture-web-password-123';
+ assert.equal((await post('/api/promo/register',{username:'web_new',name:'웹 회원',password:fixturePassword},anon)).status,400);
+ const i=await invite('아이디 가입 테스트'),inviteToken=i.path.split('invite=')[1];
+ assert.equal((await post('/api/promo/register',{invite:inviteToken,username:'web_new',name:'웹 회원',password:'short'},anon)).status,400);
+ const created=await post('/api/promo/register',{invite:inviteToken,username:'web_new',name:'웹 회원',password:fixturePassword},anon);assert.equal(created.status,200);const d=await created.json();assert.equal(d.user.needsPassword,false);const h={...anon,Cookie:created.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':d.csrf};
+ assert.equal((await query('SELECT * FROM gl_promo_kakao WHERE user_id=$1',[d.user.id])).rowCount,0);
+ assert.equal((await post('/api/promo/register',{invite:inviteToken,username:'web_again',name:'중복',password:fixturePassword},anon)).status,400);
+ assert.equal((await post('/api/promo/login',{username:'web_new',password:'wrong'},anon)).status,401);
+ const logged=await post('/api/promo/login',{username:'web_new',password:fixturePassword},anon);assert.equal(logged.status,200);assert.equal((await logged.json()).user.id,d.user.id);
+ assert.equal((await post('/api/promo/setup-login',{username:'not_overwrite',password:fixturePassword},h)).status,409);
+ assert.equal((await post('/api/promo/password',{oldPassword:'wrong',password:'replacement-password-123'},h)).status,403);
+ const stored=(await query('SELECT password_hash FROM gl_promo_users WHERE id=$1',[d.user.id])).rows[0].password_hash;assert.ok(!stored.includes(fixturePassword));
+ });
+ await t.test('existing QR member sets own web login once, preserving linked account, rooms and history',async()=>{
+ const user=alice.data.user.id,fixturePassword='fixture-qr-web-password-123';
+ const snapshot=async()=>({linked:(await query('SELECT * FROM gl_promo_kakao WHERE user_id=$1',[user])).rows,rooms:(await query('SELECT * FROM gl_promo_account_rooms WHERE user_id=$1 ORDER BY room_id',[user])).rows,logs:(await query('SELECT * FROM gl_promo_account_logs WHERE user_id=$1 ORDER BY id',[user])).rows,message:await service.commonMessage(user)});
+ const before=await snapshot();
+ assert.equal((await post('/api/promo/setup-login',{username:'alice_web',password:fixturePassword},anon)).status,401);
+ assert.equal((await post('/api/promo/setup-login',{username:'alice_web',password:fixturePassword},{...alice.h,'X-CSRF-Token':''})).status,403);
+ assert.equal((await post('/api/promo/setup-login',{username:'migration_same',password:fixturePassword},alice.h)).status,400);
+ assert.equal((await query('SELECT password_hash FROM gl_promo_users WHERE id=$1',[user])).rows[0].password_hash,'QR_ONLY');
+ const done=await post('/api/promo/setup-login',{username:'alice_web',password:fixturePassword,id:bob.data.user.id},alice.h);assert.equal(done.status,200);const d=await done.json();assert.equal(d.user.id,user);assert.equal(d.user.needsPassword,false);assert.deepEqual(await snapshot(),before);
+ assert.equal((await request('/api/promo/session',{headers:alice.h})).status,200);assert.equal((await(await request('/api/promo/session',{headers:alice.h})).json()).authenticated,false);
+ const h={...anon,Cookie:done.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':d.csrf};
+ assert.equal((await post('/api/promo/setup-login',{username:'alice_twice',password:fixturePassword},h)).status,409);
+ const login=await post('/api/promo/login',{username:'alice_web',password:fixturePassword},anon);assert.equal(login.status,200);assert.equal((await login.json()).user.id,user);
+ assert.equal((await query('SELECT password_hash FROM gl_promo_users WHERE id=$1',[bob.data.user.id])).rows[0].password_hash,'QR_ONLY');
+ });
  }finally{service.close();mod.service=original;}
 };
