@@ -47,7 +47,7 @@ test('room owners and managers may kick; ordinary and unknown members remain den
     assert.equal(kicks,2);
     registered=true;await manage.message({...ctx,senderType:2});assert.equal(kicks,3);
     await manage.message({...ctx,senderType:1,text:'!관리중지'});
-    assert.match(replies.at(-1),/GL봇 계정만/);
+    assert.match(replies.at(-1),/GL 계정만/);
   } finally {pool.query=query;if(oldEnv===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=oldEnv;
     if(oldOwner===undefined)delete process.env.GL_OWNER_ID;else process.env.GL_OWNER_ID=oldOwner;}
 });
@@ -151,7 +151,7 @@ test('legacy games are captured without overwriting the real listener; stopped m
   try {
     const game=createGame(client);await game.init();
     assert.equal(registrations,0);
-    const ctx={roomId:'room',text:'!코인',msg:{},chat:{},send:async ()=>{}};
+    const ctx={roomId:'room',text:'!코인순위',msg:{},chat:{},send:async ()=>{}};
     await game.message(ctx);assert.equal(marketCalls,0);
     gameOn=true;await game.message(ctx);assert.equal(marketCalls,1);
     ctx.text='!낚시';await game.message(ctx);assert.equal(legacyCalls,1);
