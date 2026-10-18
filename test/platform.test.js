@@ -91,20 +91,31 @@ test('PostgreSQL platform integration: preserve records, economy, trading, games
    const results=await Promise.allSettled([trading.tradeStock({...input,messageId:'race-1'}),trading.tradeStock({...input,messageId:'race-2'})]);
    assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(await wallet.getBalance('1','2003','경합'),300);
   });
-  await t.test('400 quizzes in three categories; first correct answer wins once',async()=>{
-   const questions=require('../game/data').QUIZZES;assert.equal(questions.length,400);assert.deepEqual([...new Set(questions.map(q=>q[0]))].sort(),['넌센스','수학','일반상식'].sort());
+  await t.test('370 quizzes in two categories; plain answers and explicit commands reward the first correct user once',async()=>{
+   const questions=require('../game/data').QUIZZES;assert.equal(questions.length,370);assert.deepEqual([...new Set(questions.map(q=>q[0]))].sort(),['수학','일반상식'].sort());
    const {answerMatches}=require('../game/quiz');assert.equal(answerMatches('-3','3'),false);assert.equal(answerMatches('1.5','15'),false);assert.equal(answerMatches('서울',' 서 울 '),true);
    await runtime.withRoom('1','',async d=>{d.quiz={kind:'수학',answers:['4'],question:'2+2?',expiresAt:Date.now()+60000};});
    const before=await wallet.getBalance('1','2001','신규');
-   for(const [user,key]of [['2001','answer-1'],['2002','answer-2']])await runtime.withRoom('1','',async(d,c)=>runtime.handleGame(d,c,{room:{id:'1'},sender:{id:user,name:user},text:'!정답 4',id:key},false));
+   for(const [user,key,text]of [['2001','answer-1','4'],['2002','answer-2','!정답 4'],['2001','answer-1','4']])await runtime.withRoom('1','',async(d,c)=>runtime.handleGame(d,c,{room:{id:'1'},sender:{id:user,name:user},text,id:key},false));
    assert.equal(await wallet.getBalance('1','2001','신규'),before+10000);
    assert.equal(await wallet.getBalance('1','2002','상대'),1000);
    const r=await query('SELECT data FROM hz_rooms WHERE room_id=$1',['1']);assert.equal(r.rows[0].data.quiz,null);assert.equal(r.rows[0].data.players['2001'].wins,1);
   });
-  await t.test('fishing waits two seconds, persists inventory and logs wallet rewards',async()=>{
-   const started=Date.now();let result;
+  await t.test('net stores ten fish and one wallet reward; duplicate requests cannot consume quota twice',async()=>{
+   const msg={room:{id:'1'},sender:{id:'7010',name:'어망'},text:'!어망',id:'net-transaction'};
+   let result;await runtime.withRoom('1','',async(d,c)=>{result=await runtime.handleGame(d,c,msg,false);});
+   assert.match(result,/오늘 1\/5회/);
+   const before=await wallet.getBalance('1','7010','어망');assert.ok(before>0);
+   await runtime.withRoom('1','',async(d,c)=>runtime.handleGame(d,c,msg,false));
+   const d=(await query('SELECT data FROM hz_rooms WHERE room_id=$1',['1'])).rows[0].data;
+   assert.equal(d.players['7010'].inventory.length,10);assert.equal(d.players['7010'].netUses,1);
+   assert.equal(await wallet.getBalance('1','7010','어망'),before);
+   assert.equal((await query("SELECT * FROM hz_coin_logs WHERE user_id='7010' AND detail='!어망'")).rowCount,1);
+  });
+  await t.test('fishing mentions the player, folds details, persists inventory and logs wallet rewards',async()=>{
+   let result;
    await runtime.withRoom('1','',async(d,c)=>{result=await runtime.handleGame(d,c,{room:{id:'1'},sender:{id:'2001',name:'신규'},text:'!낚시',id:'fish-1'},false);});
-   assert.ok(Date.now()-started>=1900);assert.match(result,/낚시 결과/);assert.ok(!result.includes('사진'));
+   assert.match(result,/\u00022001\u0003신규\u0004님의 낚시 결과/);assert.match(result,/\u200b{1200}/);assert.ok(!result.includes('사진'));
    const r=await query('SELECT data FROM hz_rooms WHERE room_id=$1',['1']);assert.equal(r.rows[0].data.players['2001'].inventory.length,1);
    assert.equal((await query("SELECT * FROM hz_coin_logs WHERE type='GAME_REWARD' AND detail='!낚시'")).rowCount,1);
   });
