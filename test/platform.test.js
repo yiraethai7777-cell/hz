@@ -125,6 +125,7 @@ test('PostgreSQL platform integration: preserve records, economy, trading, games
    const adjust=()=>request('/api/admin/coins',{method:'POST',headers,body:JSON.stringify({roomId:'1',userId:'2001',amount:5,reason:'테스트',confirm:true,operationId:'web-test-op'})});
    assert.equal((await adjust()).status,200);assert.equal((await adjust()).status,400);
    await require('./promo-scenarios')({t:sub,request,headers,base,query,status});
+   await require('./admin-promo-scenarios')({t:sub,request,headers,query});
    await request('/api/logout',{method:'POST',headers,body:'{}'});assert.equal((await request('/api/admin/rooms',{headers:{Cookie:cookie}})).status,401);
   });
  }finally{
