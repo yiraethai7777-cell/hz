@@ -42,7 +42,7 @@ async function log(room,actor,target,action,detail){await getPool().query('INSER
 async function message({roomId,userId,userName,messageId,text,send,kick,unban,resolveTarget,isBotAccount=false,senderType,botId,msg}){
  const room=key(roomId),user=key(userId),db=getPool(),s=String(text||'').trim();
  if(s==='!내아이디'){await send('🆔 내 아이디: '+user);return true}
- if(s==='!관리명령어'){await send('🛡️ GL봇 관리\n!관리작동 !관리중지 !관리상태\n!출석 !출석순위 !출석확인 [ID]\n!채팅순위 !채팅정보 [ID]\n!경고 ID 개수 사유 !경고내역 ID !경고삭제 ID 번호 !경고초기화 ID !경고순위\n!벤 ID !내풀 ID/멘션 !벤해제 ID/멘션 !벤기록 [ID]\n!아이디 / !프로필로그 - ID·멘션·답장·댓글로 대상 지정\n퇴장 알림에 댓글 a - 해당 퇴장자 벤\n!관리자추가 ID !관리자삭제 ID !관리자목록\n!도배감지켜기 !도배감지끄기 !삭제감지켜기 !삭제감지끄기 !관리로그');return true}
+ if(s==='!관리명령어'){await send('🛡️ GL봇 관리\n!관리작동 !관리중지 !관리상태\n!출석 !출석순위 !출석확인 [ID]\n!채팅순위 !채팅순위전체 !채팅정보 [ID]\n!경고 ID 개수 사유 !경고내역 ID !경고삭제 ID 번호 !경고초기화 ID !경고순위\n!벤 ID !내풀 ID/멘션 !벤해제 ID/멘션 !벤기록 [ID]\n!아이디 / !프로필로그 - ID·멘션·답장·댓글로 대상 지정\n퇴장 알림에 댓글 a - 해당 퇴장자 벤\n!관리자추가 ID !관리자삭제 ID !관리자목록\n!도배감지켜기 !도배감지끄기 !삭제감지켜기 !삭제감지끄기 !관리로그');return true}
  if(s==='!관리상태'){await send('🛡️ 관리: '+(await enabled(room)?'작동':'중지'));return true}
  if(s==='!관리작동'||s==='!관리중지'){
   if(!isBotAccount){await send('⛔ GL봇 계정만 사용할 수 있습니다.');return true}
@@ -73,7 +73,7 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
  if(cmd==='!출석'){await send(await attend(room,user,userName));return true}
  if(cmd==='!출석순위'){await send(await attendanceRanking(room));return true}
  if(cmd==='!출석확인'){const t=target||user;const r=await db.query("SELECT attended_at FROM hz_new_attendance WHERE room_id=$1 AND user_id=$2 AND attend_date=(NOW() AT TIME ZONE 'Asia/Seoul')::date",[room,t]);await send(r.rowCount?'✅ 오늘 출석했습니다.':'📌 오늘 출석 기록이 없습니다.');return true}
- if(cmd==='!채팅순위'){const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 ORDER BY count DESC LIMIT 10',[room]);await send('💬 채팅 순위\n'+r.rows.map((v,i)=>`${i+1}. ${v.user_name}: ${v.count}회`).join('\n'));return true}
+ if(cmd==='!채팅순위'||cmd==='!채팅순위전체'){for(const page of await require('./chat-ranking').messages(db,room,cmd==='!채팅순위전체'))await send(page);return true}
  if(cmd==='!채팅정보'){const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id=$2',[room,target||user]);await send(r.rowCount?`💬 ${r.rows[0].user_name}: ${r.rows[0].count}회`:'기록 없음');return true}
  const privileged=['!경고','!경고삭제','!경고초기화','!벤','!관리자추가','!관리자삭제','!도배감지켜기','!도배감지끄기','!삭제감지켜기','!삭제감지끄기'];
  const isRoomManager=Number(senderType)===1||Number(senderType)===4;

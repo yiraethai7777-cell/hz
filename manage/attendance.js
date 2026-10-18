@@ -25,6 +25,14 @@ function previousDate(date) {
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
 }
+function formatAttendance({user,name,date,time,position,days,isNew,reward}){
+ const clean=String(name).replace(/[\u0002-\u0004]/g,'');
+ const mention=`\u0002${user}\u0003${clean}\u0004`;
+ return [isNew?`✅ ${mention}님 출석 완료!`:`📌 ${mention}님, 오늘은 이미 출석했어요.`,
+  '\u200b'.repeat(1200),`📆 출석 날짜: ${date}`,`🕒 출석 시간: ${time}`,
+  `🏆 오늘 ${position}번째 출석`,`🔥 연속 출석: ${days}일`,'',
+  ...(isNew?[`🪙 기본 보상: ${fmt(BASE_REWARD)}코인`,`🎁 연속 보너스: ${fmt(reward-BASE_REWARD)}코인`,`💰 총 획득: ${fmt(reward)}코인`]:['🪙 오늘의 출석 보상은 이미 지급되었습니다.'])].join('\n');
+}
 async function streak(db, roomId, userId, date) {
   const result = await db.query(`
     SELECT attend_date::text AS day FROM hz_new_attendance
@@ -100,23 +108,7 @@ async function attend(roomId, userId, userName) {
     ORDER BY attended_at ASC,user_id ASC
   `, [room, date]);
   const position = ranking.rows.findIndex(row => row.user_id === user);
-  const lines = [
-    `📅 ${isNew ? name : record.user_name}`,
-    "━━━━━━━━━━━━━━",
-    isNew ? "✅ 출석 완료!" : "📌 오늘 이미 출석했습니다!",
-    `📆 출석 날짜: ${date}`,
-    `🕒 출석 시간: ${timeKST(record.attended_at)}`,
-    `🏆 오늘 ${position + 1}번째 출석`,
-    `🔥 연속 출석: ${days}일`
-  ];
-  if (isNew) {
-    lines.push("", `🪙 기본 보상: ${fmt(BASE_REWARD)}코인`,
-      `🎁 연속 보너스: ${fmt(reward - BASE_REWARD)}코인`,
-      `💰 총 획득: ${fmt(reward)}코인`);
-  } else {
-    lines.push("", "🪙 오늘의 출석 보상은 이미 지급되었습니다.");
-  }
-  return lines.join("\n");
+  return formatAttendance({user,name:isNew?name:record.user_name,date,time:timeKST(record.attended_at),position:position+1,days,isNew,reward});
 }
 async function attendanceRanking(roomId) {
   const result = await getPool().query(`
@@ -130,4 +122,4 @@ async function attendanceRanking(roomId) {
     `${medals[i]} ${row.user_name} (${timeKST(row.attended_at)})`
   ).join("\n");
 }
-module.exports = { initAttendance, attend, attendanceRanking };
+module.exports = { initAttendance, attend, attendanceRanking, formatAttendance };
