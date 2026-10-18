@@ -5,6 +5,45 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {createRuntime}=require('../shared/runtime');
 
+test('leave event sends a folded notice with counts and profile, and records its server log ID',async()=>{
+ const handlers={},queries=[],replies=[];
+ const pool={query:async(sql,params)=>{
+  queries.push({sql,params});
+  if(sql.startsWith('SELECT data'))return {rows:[{data:{manage:true,game:false}}]};
+  if(sql.includes('SELECT join_count,leave_count'))return {rows:[{join_count:3,leave_count:2,open_profile_link:null}]};
+  return {rows:[],rowCount:0};
+ }};
+ const runtime=createRuntime({pool,economyEnabled:false});
+ const chat={sendText:async(room,text)=>{replies.push(text);return {body:{logId:'9007199254740993456'}};}};
+ const client={userId:'9999',chat,onMessage(){},onJoin(){},onLeave:fn=>handlers.leave=fn,onKick(){},onDelete(){},
+  getUserOpenProfileLink:async(room,id)=>{assert.equal(id,'9007199254740993123');return 'https://open.kakao.com/o/example';}};
+ try{
+  await runtime.attachHZBot(client);queries.length=0;
+  await handlers.leave({room:{id:'100',name:'테스트방'},members:[{id:'9007199254740993123',name:'Alice'}]});
+  assert.equal(replies.length,1);assert.equal(replies[0].split('\u200b')[0],'👋 Alice님이 나갔습니다.\n');
+  assert.match(replies[0],/입장 3회 · 퇴장 2회/);assert.match(replies[0],/https:\/\/open.kakao.com\/o\/example/);
+  const saved=queries.find(q=>q.sql.includes('INSERT INTO gl_leave_replies'));
+  assert.deepEqual(saved.params,['100','9007199254740993456','9999','9007199254740993123','Alice']);
+ }finally{clearInterval(runtime.promoTimer);clearInterval(runtime.autoFishTimer);}
+});
+
+test('legacy registration commands and rejoin enforcement are retired without deleting records',async()=>{
+ const statements=[];
+ const runtime=createRuntime({economyEnabled:false,pool:{query:async sql=>{statements.push(sql);return {rows:[]};}}});
+ const db={query:async sql=>{statements.push(sql);return {rows:[]};}};
+ const d=runtime.blankRoom('test');
+ for(const text of ['!벤등록 9007199254740993123','!벤등록해제 9007199254740993123','!벤등록목록']){
+  const result=await runtime.handleManage(d,db,{room:{id:'1'},sender:{id:'1001',type:1},text},false);
+  assert.ok(result==null);
+ }
+ assert.doesNotMatch(runtime.manageHelp(),/벤등록/);
+ assert.ok(statements.every(sql=>!sql.includes('hz_ban_registry')&&!/\b(?:INSERT|UPDATE|DELETE)\b/i.test(sql)));
+ const session=fs.readFileSync(path.join(__dirname,'../shared/session.js'),'utf8');
+ assert.doesNotMatch(session,/hz_ban_registry|GL AUTO BAN/);
+ const schema=fs.readFileSync(path.join(__dirname,'../shared/state.js'),'utf8');
+ assert.match(schema,/CREATE TABLE IF NOT EXISTS hz_ban_registry/);
+});
+
 test('separated game functions preserve player state, pets, quiz and levels',async()=>{
  const runtime=createRuntime({economyEnabled:false,pool:{query:async()=>({rows:[]})}});
  const room=runtime.blankRoom('test');

@@ -3,6 +3,7 @@
 module.exports = function createFeatures(ctx) {
 async function attachHZBot(client){
   ctx.globalClient=client;ctx.globalChat=client.chat||client;ctx.globalBotId=ctx.id(client.userId);await ctx.initDb();
+  await require('../manage/leave-reply').init(ctx.pool);
   if(ctx.promoTimer)clearInterval(ctx.promoTimer);
   ctx.promoTimer=setInterval(()=>{ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));},10000);
   if(ctx.promoTimer.unref)ctx.promoTimer.unref();
@@ -251,27 +252,6 @@ async function attachHZBot(client){
           [rid,uid,name,type,JSON.stringify({actorId:actorId||null,actorName:actorName||null,actorType:Number.isFinite(actorType)?actorType:null})]);
 
         if(type==="join"){
-          // DB에 저장된 ID가 일치할 때만 재입장 자동 강퇴 시도.
-          // 부정확한 숫자 ID로 엉뚱한 사용자를 강퇴하지 않도록 검사.
-          const exactJoinId=ctx.safeUserId(ids[i]);
-          if(exactJoinId && exactJoinId===uid && uid!==ctx.globalBotId){
-            const banned=await ctx.pool.query("SELECT name FROM hz_ban_registry WHERE room_id=$1 AND user_id=$2",[rid,uid]);
-            if(banned.rows.length){
-              try{
-                if(!ctx.globalChat||typeof ctx.globalChat.openChatKick!=="function")throw new Error("openChatKick 기능 없음");
-                const result=await ctx.globalChat.openChatKick(rid,uid);
-                console.log("[GL AUTO BAN]",JSON.stringify({roomId:rid,userId:uid,result:result===undefined?"undefined":result}));
-                if(result===false||result?.success===false||result?.ok===false||result?.status==="error")throw new Error("강퇴 API가 실패를 반환했습니다");
-                await ctx.send(ctx.globalChat,rid,`⏳ 자동 벤 요청\n대상: ${name}\n아이디: ${uid}`);
-              }catch(e){
-                console.error("[GL AUTO BAN FAILED]",e);
-                await ctx.send(ctx.globalChat,rid,`⚠️ 재입장 자동 강퇴 실패\n대상: ${name}\n봇의 방장/부방장 권한과 Railway 로그를 확인해 주세요.`);
-              }
-              continue;
-            }
-          }else{
-            console.warn("[GL AUTO BAN] 입장 이벤트의 사용자 ID가 안전하지 않아 자동 강퇴를 생략했습니다.");
-          }
           const q=await ctx.pool.query("SELECT join_count,leave_count FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
           const joins=Number(q.rows[0]?.join_count||0);
           const leaves=Number(q.rows[0]?.leave_count||0);
@@ -287,8 +267,18 @@ async function attachHZBot(client){
 
         if(type==="leave"){
           const roomName=String(ev.room?.name||f.name||"이 방");
-          const output=(f.leaveTemplate?ctx.formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):`👋 ${name}님이 퇴장했습니다.\n🕒 ${ctx.nowK()}`)+`\n사용자 ID: ${uid}`;
-          await ctx.send(ctx.globalChat,rid,output);
+          const counts=await ctx.pool.query('SELECT join_count,leave_count,open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2',[rid,uid]);
+          let profileLink=ctx.validOpenProfileLink(counts.rows[0]?.open_profile_link);
+          if(typeof client.getUserOpenProfileLink==='function'){
+            try{
+              const liveLink=await client.getUserOpenProfileLink(rid,uid);
+              if(liveLink){profileLink=liveLink;await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:liveLink});}
+            }catch(e){console.error('[GL PROFILE LOOKUP]',e.message);}
+          }
+          const leaveReply=require('../manage/leave-reply');
+          const output=leaveReply.leaveNotice({name,userId:uid,joins:Number(counts.rows[0]?.join_count||0),leaves:Number(counts.rows[0]?.leave_count||0),time:ctx.nowK(),profileLink,detail:f.leaveTemplate?ctx.formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):''});
+          const result=await ctx.send(ctx.globalChat,rid,output);
+          await leaveReply.record(ctx.pool,{roomId:rid,botId:ctx.globalBotId,userId:uid,name,result});
         }
 
         if(type==="kick"){
@@ -301,9 +291,7 @@ async function attachHZBot(client){
             await ctx.send(ctx.globalChat,rid,`🚫 벤 완료\n대상: ${pending.name}\n아이디: ${uid}`);
           }
           if(!pending){
-            const registered=await ctx.pool.query("SELECT 1 FROM hz_ban_registry WHERE room_id=$1 AND user_id=$2",[rid,uid]);
-            if(registered.rows.length&&actorId===ctx.globalBotId)await ctx.send(ctx.globalChat,rid,`🚫 자동 벤 완료\n대상: ${name}\n아이디: ${uid}`);
-            else await ctx.send(ctx.globalChat,rid,`🚨 강퇴 감지\n대상: ${name}\n아이디: ${uid}\n실행자: ${actorName||"알 수 없음"}`);
+            await ctx.send(ctx.globalChat,rid,`🚨 강퇴 감지\n대상: ${name}\n아이디: ${uid}\n실행자: ${actorName||"알 수 없음"}`);
           }
 
           if(actorId&&actorId!==ctx.globalBotId&&ctx.isSubManagerType(actorType)){

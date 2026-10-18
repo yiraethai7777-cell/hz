@@ -15,7 +15,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       await ready;
       const context = { roomId, userId: senderId ?? '', userName: msg.sender?.name || '알 수 없음',
         messageId: msg.id ?? msg.message?.id ?? null, text, isBotAccount,
-        senderType: msg.sender?.type,
+        senderType: msg.sender?.type, botId: client.userId, msg,
         kick: async target => {
           const id = String(target);
           if (!/^\d{4,}$/.test(id)) throw new Error('정확한 카카오 사용자 ID를 입력해 주세요.');

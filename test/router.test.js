@@ -6,6 +6,31 @@ const {createGame} = require('../game');
 const {getPool} = require('../shared/db');
 const manage = require('../manage');
 
+test('retired ban registration commands and stored registrations cannot kick on join',async()=>{
+  const oldEnv=process.env.DATABASE_URL;process.env.DATABASE_URL='postgres://localhost/test';
+  const pool=getPool(),query=pool.query;const statements=[],replies=[];let kicks=0;
+  pool.query=async(sql)=>{
+    statements.push(sql);
+    if(sql.includes('AS enabled'))return {rows:[{enabled:true}]};
+    if(sql.includes('SELECT joins,leaves'))return {rows:[{joins:2,leaves:1}]};
+    if(sql.includes('count(*)'))return {rows:[{n:0}]};
+    return {rows:[{user_id:'9007199254740993123'}],rowCount:1};
+  };
+  const ctx={roomId:'room',userId:'5678',userName:'test',senderType:1,
+    send:async s=>replies.push(s),kick:async()=>{kicks++;}};
+  try{
+    for(const text of ['!벤등록 9007199254740993123','!벤등록해제 9007199254740993123','!벤등록목록']){
+      assert.equal(await manage.message({...ctx,text}),false);
+    }
+    await manage.join(ctx);
+    assert.equal(kicks,0);
+    assert.ok(statements.every(sql=>!sql.includes('gl_manage_bans')));
+    await manage.message({...ctx,text:'!관리명령어'});
+    assert.doesNotMatch(replies.at(-1),/벤등록/);
+    assert.match(replies.at(-1),/!벤 ID/);
+  }finally{pool.query=query;if(oldEnv===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=oldEnv;}
+});
+
 test('room owners and managers may kick; ordinary and unknown members remain denied', async () => {
   const oldEnv=process.env.DATABASE_URL,oldOwner=process.env.GL_OWNER_ID;
   process.env.DATABASE_URL='postgres://localhost/test';delete process.env.GL_OWNER_ID;

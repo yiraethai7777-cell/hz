@@ -131,6 +131,7 @@ export class KakaoForgeClient extends EventEmitter {
   _chatListCursor: ChatListCursor;
   _memberNames: MemberNameCache;
   _memberTypes: Map<string, Map<string, number>>;
+  _memberProfileLinkIds: Map<string, string>;
   _memberFetchInFlight: Map<string, Promise<void>>;
   _memberListFetchInFlight: Map<string, Promise<void>>;
   _memberCacheUpdatedAt: Map<string, number>;
@@ -245,6 +246,7 @@ export class KakaoForgeClient extends EventEmitter {
     this._chatListCursor = { lastTokenId: 0, lastChatId: 0 };
     this._memberNames = new Map();
     this._memberTypes = new Map();
+    this._memberProfileLinkIds = new Map();
     this._memberFetchInFlight = new Map();
     this._memberListFetchInFlight = new Map();
     this._memberCacheUpdatedAt = new Map();
@@ -2180,6 +2182,11 @@ export class KakaoForgeClient extends EventEmitter {
     for (const mem of members) {
       const userId = normalizeIdValue(mem?.userId || mem?.id || mem?.memberId || mem?.user_id || 0);
       if (!userId) continue;
+      if (mem?.pli !== undefined) {
+        const profileId = String(normalizeIdValue(mem.pli) || '');
+        if (/^[1-9]\d*$/.test(profileId)) this._memberProfileLinkIds.set(key + ':' + String(userId), profileId);
+        else this._memberProfileLinkIds.delete(key + ':' + String(userId));
+      }
       const name = this._extractMemberName(mem);
       map.set(String(userId), String(name || ''));
       const rawMemberType = mem?.mt ?? mem?.ut ?? mem?.userType ?? mem?.memberType ?? mem?.linkMemberType;
@@ -2205,6 +2212,30 @@ export class KakaoForgeClient extends EventEmitter {
         this._chatRooms.set(key, { ...room, roomName: derived });
       }
     }
+  }
+
+  async getUserOpenProfileLink(chatId: number | string, userId: number | string): Promise<string> {
+    if (!this._carriage) return '';
+    const roomId = this._resolveChatId(chatId), key = String(roomId) + ':' + String(userId);
+    let profileId = this._memberProfileLinkIds.get(key);
+    if (!profileId) {
+      const response = await this._carriage.member(roomId, [userId]);
+      const list = response?.body?.members || response?.body?.memberList || response?.body?.memList || [];
+      const member = list.find((v: any) => String(normalizeIdValue(v.userId ?? v.id ?? v.memberId)) === String(userId));
+      if (member) this._cacheMembers(roomId, [member]);
+      profileId = this._memberProfileLinkIds.get(key);
+    }
+    if (!profileId) return '';
+    const response = await this._carriage.infoLink([profileId]);
+    if (typeof response?.status === 'number' && response.status !== 0) return '';
+    const links = response?.body?.ols || [];
+    const profile = links.find((v: any) => String(normalizeIdValue(v.li)) === profileId);
+    if (!profile || typeof profile.lu !== 'string') return '';
+    try {
+      const url = new URL(profile.lu);
+      return url.protocol === 'https:' && url.hostname === 'open.kakao.com' && /^\/o\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)
+        ? url.href : '';
+    } catch { return ''; }
   }
 
   _cacheMessageSender(chatId: number | string, logId: number | string, sender: MessageEvent['sender']) {
