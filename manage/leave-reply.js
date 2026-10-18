@@ -61,6 +61,6 @@ async function handle(context,db){
   await send('벤 요청 실패: '+e.message);return true;
  }
  await db.query(`UPDATE gl_leave_replies SET state='done' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
- await send(`🚫 벤 요청 완료: ${row.target_name}\n사용자 ID: ${row.target_id}`);return true;
+ await send(`🚫 ${row.target_name}님을 벤했습니다.\n사용자 ID: ${row.target_id}`);return true;
 }
 module.exports={init,leaveNotice,record,replyReference,handle};
