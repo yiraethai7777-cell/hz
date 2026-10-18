@@ -1,6 +1,5 @@
 'use strict';
 const { handleExtraMessage } = require('./help');
-const voice = require('../voice');
 
 function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   client.onMessage(async (...args) => {
@@ -33,7 +32,6 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           return result;
         },
         send: body => chat.sendText(roomId, body) };
-      if (await voice.handleCommand(context)) return;
       
       if (text === '!게임작동' || text === '!게임중지') {
         await game.toggle(context);
