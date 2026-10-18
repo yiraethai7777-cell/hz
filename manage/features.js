@@ -300,7 +300,7 @@ async function lookupDeleteCache(rid,mid){
   return q.rows[0]?.message_text||"";
 }
 
-function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+ctx.MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n멘션 알림 - 멘션된 사람이 채팅하면 알림\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n!벤등록 (사용자 ID) - 재입장 자동 강퇴 등록\n!벤등록해제 (사용자 ID)\n!벤등록목록 - 등록된 ID 확인\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
+function manageHelp(){return "🛡️ GL BOT | 관리 시스템\n📋 관리 명령어는 더보기에서 확인\n"+ctx.MORE+"\n📊 채팅 · 출석\n!채팅순위 - 채팅 TOP 10\n!채팅정보 - 내 채팅 통계\n!출석 - 오늘 출석\n!출석확인 @닉네임 - 출석 여부\n!출석순위 - 출석 순위\n멘션 알림 - 멘션된 사람이 채팅하면 알림\n\n⚠️ 경고 · 제재\n!경고 @닉네임 (개수) (사유)\n!경고삭제 @닉네임 (번호)\n!경고내역 @닉네임\n!벤 @닉네임 또는 카카오 사용자 ID\n\n🚪 입퇴장 관리\n!입퇴장로그 @닉네임\n!입장변경 (내용)\n!퇴장변경 (내용)\n치환: (이름) (해시) (방이름) (날짜)\n\n👤 사용자 · 프로필\n!내아이디 - 내 ID\n!아이디 @닉네임 - 상대 ID\n!프로필로그 @닉네임\n!프로필진단 - 내 오픈프로필 수신 데이터 확인\n\n🗑️ 메시지 관리\n!삭메기록켜기 / !삭메기록끄기\n\n🤖 자동 관리\n동일 메시지 4회 → 경고 1개\n동일 메시지 10회 → 자동 강퇴\n누적 경고 4개 → 자동 강퇴\n메시지 삭제 → 경고 1개\n부방장 60초 내 7명 강퇴 → 봇 잠금\n\n🔐 봇 계정 전용\n!관리작동 / !관리중지\n!봇작동 - 잠금 해제\n\n🛡️ GL BOT | 관리 시스템"}
 
 async function profileObserve(c,rid,uid,name,url){
   if(!uid)return;
@@ -477,31 +477,6 @@ async function handleManageStats(d,c,msg){
 async function handleManage(d,c,msg,isSelf){
   const text=String(msg.message?.text??msg.text??"").trim(),uid=ctx.id(msg.sender?.id??msg.senderId),name=String(msg.sender?.name||uid);
   if(!ctx.isManagerType(msg.sender?.type)&&!isSelf)return null;
-  // 이미 나간 사용자는 카카오톡 서버에서 직접 차단할 수 없으므로,
-  // 이 목록은 재입장 이벤트 발생 시 자동 강퇴를 시도하는 용도입니다.
-  if(/^!벤등록(?:\s|$)/.test(text)){
-    const arg=text.replace(/^!벤등록\s*/, "").trim();
-    if(!/^\d{4,}$/.test(arg))return "사용법: !벤등록 (정확한 카카오 사용자 ID)\n※ 이미 나간 사람은 재입장할 때 자동 강퇴를 시도합니다.";
-    if(arg===ctx.globalBotId||arg===uid)return "❌ 봇 또는 자기 자신은 등록할 수 없습니다.";
-    const known=await c.query("SELECT name FROM hz_members WHERE room_id=$1 AND user_id=$2",[ctx.id(msg.room.id),arg]);
-    const targetName=known.rows[0]?.name||arg;
-    const result=await c.query(`INSERT INTO hz_ban_registry(room_id,user_id,name,registered_by)
-      VALUES($1,$2,$3,$4) ON CONFLICT(room_id,user_id) DO NOTHING RETURNING user_id`,
-      [ctx.id(msg.room.id),arg,targetName,uid]);
-    return result.rowCount
-      ? `🚫 재입장 자동 강퇴 등록 완료\n대상: ${targetName}\nID: ${arg}\n※ 카카오톡 자체 재입장 차단이 아니라 입장 감지 후 강퇴를 시도합니다.`
-      : `ℹ️ 이미 등록된 사용자입니다.\nID: ${arg}`;
-  }
-  if(/^!벤등록해제(?:\s|$)/.test(text)){
-    const arg=text.replace(/^!벤등록해제\s*/, "").trim();
-    if(!/^\d{4,}$/.test(arg))return "사용법: !벤등록해제 (사용자 ID)";
-    const result=await c.query("DELETE FROM hz_ban_registry WHERE room_id=$1 AND user_id=$2 RETURNING user_id",[ctx.id(msg.room.id),arg]);
-    return result.rowCount?`✅ 자동 강퇴 목록에서 해제했습니다.\nID: ${arg}`:"등록되지 않은 사용자 ID입니다.";
-  }
-  if(text==="!벤등록목록"){
-    const result=await c.query("SELECT user_id,name FROM hz_ban_registry WHERE room_id=$1 ORDER BY registered_at DESC LIMIT 100",[ctx.id(msg.room.id)]);
-    return "🚫 재입장 자동 강퇴 목록 (최대 100명)\n"+(result.rows.length?result.rows.map((x,i)=>`${i+1}. ${x.name||x.user_id} · ${x.user_id}`).join("\n"):"등록된 사용자가 없습니다.");
-  }
   let t=await ctx.commandTarget(c,msg.room.id,msg,text),m;
 
   m=/^!경고\s+[\s\S]*?\s+(\d+)\s+(.+)$/.exec(text);
