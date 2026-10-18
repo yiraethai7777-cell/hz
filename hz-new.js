@@ -23,7 +23,6 @@ function start() {
       await game.init();
       await manage.init();
       resolveReady();
-      const alerts=setInterval(()=>require('./game/extra').tick(client.chat||client).catch(e=>console.error('[GL 알림]',e.message)),60000);alerts.unref();
       console.log('[HZ NEW] 게임·관리 준비 완료');
     } catch (err) { rejectReady(err); }
   });
