@@ -45,7 +45,7 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
  if(s==='!관리명령어'){await send(require('../shared/help').formatCommandHelp({manage:true,game:false},'관리'));return true}
  if(s==='!관리상태'){await send('🛡️ 관리: '+(await enabled(room)?'작동':'중지'));return true}
  if(s==='!관리작동'||s==='!관리중지'){
-  if(!isBotAccount){await send('⛔ GL 계정만 사용할 수 있습니다.');return true}
+  if(!isBotAccount){await send('⛔ 봇 최고 관리자 계정만 사용할 수 있습니다.');return true}
   await setEnabled(room,s==='!관리작동');await send('🛡️ 관리 '+(s==='!관리작동'?'작동':'중지')+' 완료');return true
  }
  if(!await enabled(room))return false;
