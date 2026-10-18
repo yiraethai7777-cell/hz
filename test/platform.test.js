@@ -41,6 +41,41 @@ test('PostgreSQL platform integration: preserve records, economy, trading, games
    assert.equal(await wallet.getBalance('1','2001','신규'),99000);assert.equal(await wallet.getBalance('1','2002','상대'),1000);
    for(const amount of [-1,0,'1.5','1e5',1000000001])assert.throws(()=>coin.validAmount(amount));
   });
+  await t.test('coin commands parse spaced nicknames, enforce grant permission, mint for bot and reject duplicates',async()=>{
+   const messages=[],chat={sendText:async(room,text)=>messages.push(text)};
+   await wallet.ensureWallet(pool,'1','7001','송금자');
+   await query('UPDATE hz_wallets SET balance=5000 WHERE room_id=$1 AND user_id=$2',['1','7001']);
+   const msg={id:'cmd-transfer',sender:{id:'7001',name:'송금자'},mentions:[{userId:'9007199254740993123',name:'공백 닉네임'}]};
+   const input={roomId:'1',chat,msg,text:'!코인송금 @공백 닉네임 1000'};
+   assert.equal(await coin.handleCoinCommand(input),true);assert.match(messages.at(-1),/송금 완료/);
+   assert.equal(await wallet.getBalance('1','7001','송금자'),4000);
+   assert.equal(await wallet.getBalance('1','9007199254740993123','공백 닉네임'),1000);
+   await coin.handleCoinCommand(input);assert.match(messages.at(-1),/이미 처리/);
+   await coin.handleCoinCommand({...input,text:'!코인송금 @공백 닉네임 5000',msg:{...msg,id:'insufficient'}});assert.match(messages.at(-1),/코인이 부족/);
+   await wallet.ensureWallet(pool,'1','8001','한도');await query('UPDATE hz_wallets SET balance=9007199254740991 WHERE room_id=$1 AND user_id=$2',['1','8001']);
+   await coin.handleCoinCommand({...input,text:'!코인송금 @한도 1',msg:{...msg,id:'overflow',mentions:[{userId:'8001',name:'한도'}]}});assert.match(messages.at(-1),/잔액 한도/);
+   assert.equal(await wallet.getBalance('1','7001','송금자'),4000);
+   assert.equal(await wallet.getBalance('1','9007199254740993123','공백 닉네임'),1000);
+   await coin.handleCoinCommand({...input,text:'!코인지급 @공백 닉네임 1000',msg:{...msg,id:'denied-grant'}});assert.match(messages.at(-1),/관리자만/);
+   const bot={...msg,id:'bot-transfer',sender:{id:'9999',name:'GL'}};
+   await coin.handleCoinCommand({...input,msg:bot,isBotAccount:true});assert.match(messages.at(-1),/송금 완료/);
+   await coin.handleCoinCommand({...input,text:'!코인지급 @공백 닉네임 2000',msg:{...bot,id:'bot-grant'},isBotAccount:true});assert.match(messages.at(-1),/지급 완료/);
+   assert.equal(await wallet.getBalance('1','9007199254740993123','공백 닉네임'),4000);
+   assert.equal(await wallet.getBalance('1','9999','GL'),0);
+   await coin.handleCoinCommand({...input,text:'!코인송금 @공백 닉네임 -1',msg:{...msg,id:'negative'}});assert.match(messages.at(-1),/1 이상의 정수/);
+   await coin.handleCoinCommand({...input,text:'!코인송금 @송금자 1',msg:{...msg,id:'self',mentions:[{userId:'7001',name:'송금자'}]}});assert.match(messages.at(-1),/자기 자신/);
+   assert.equal(await coin.handleCoinCommand({...input,text:'!코인'}),false);
+  });
+  await t.test('info uses wallet balance and the same chat ranking, and retired commands cannot reach stocks',async()=>{
+   await query("INSERT INTO gl_manage_chat_counts(room_id,user_id,user_name,count) VALUES('1','7001','송금자',5),('1','7002','두번째',10)");
+   const sent=[],ctx={text:'!정보',roomId:'1',userId:'7001',userName:'송금자',send:async text=>sent.push(text)};
+   await require('../game/info').handle(ctx,{getUserOpenProfileLink:async()=> 'https://open.kakao.com/o/known'});
+   assert.match(sent[0],/\u00027001\u0003송금자\u0004님의 프로필 정보/);
+   assert.match(sent[0],/코인 · 4,000/);assert.match(sent[0],/채팅순위 · 2위/);assert.match(sent[0],/채팅량 · 5회/);assert.match(sent[0],/\/o\/known/);
+   assert.equal([...sent[0]].filter(c=>c==='\u200b').length,1200);
+   await require('../game/info').handle({...ctx,userId:'9999',isBotAccount:true},{});assert.match(sent.at(-1),/코인 · ∞/);
+   const game=require('../game').createGame({});for(const text of ['!코인','!레벨','!내정보','!주식시간','!주식구매 삼성전자 1','!내주식','!주식알림설정 삼성전자 1 이상'])await game.message({text,msg:{},send:async()=>assert.fail('retired command responded')});
+  });
   await t.test('stock buy/sell persist holdings; oversell and duplicate orders roll back',async()=>{
    const buy={roomId:'1',userId:'2001',userName:'신규',symbol:'TEST',stockName:'테스트',side:'BUY',quantity:2,priceKrw:100,messageId:'buy-1'};
    await trading.tradeStock(buy);await assert.rejects(()=>trading.tradeStock(buy),/이미 처리/);

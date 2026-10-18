@@ -42,10 +42,10 @@ async function log(room,actor,target,action,detail){await getPool().query('INSER
 async function message({roomId,userId,userName,messageId,text,send,kick,unban,resolveTarget,isBotAccount=false,senderType,botId,msg}){
  const room=key(roomId),user=key(userId),db=getPool(),s=String(text||'').trim();
  if(s==='!내아이디'){await send('🆔 내 아이디: '+user);return true}
- if(s==='!관리명령어'){await send('🛡️ GL봇 관리\n!관리작동 !관리중지 !관리상태\n!출석 !출석순위 !출석확인 [ID]\n!채팅순위 !채팅순위전체 !채팅정보 [ID]\n!경고 ID 개수 사유 !경고내역 ID !경고삭제 ID 번호 !경고초기화 ID !경고순위\n!벤 ID !내풀 ID/멘션 !벤해제 ID/멘션 !벤기록 [ID]\n!아이디 / !프로필로그 - ID·멘션·답장·댓글로 대상 지정\n퇴장 알림에 댓글 a - 해당 퇴장자 벤\n!관리자추가 ID !관리자삭제 ID !관리자목록\n!도배감지켜기 !도배감지끄기 !삭제감지켜기 !삭제감지끄기 !관리로그');return true}
+ if(s==='!관리명령어'){await send(require('../shared/help').formatCommandHelp({manage:true,game:false},'관리'));return true}
  if(s==='!관리상태'){await send('🛡️ 관리: '+(await enabled(room)?'작동':'중지'));return true}
  if(s==='!관리작동'||s==='!관리중지'){
-  if(!isBotAccount){await send('⛔ GL봇 계정만 사용할 수 있습니다.');return true}
+  if(!isBotAccount){await send('⛔ GL 계정만 사용할 수 있습니다.');return true}
   await setEnabled(room,s==='!관리작동');await send('🛡️ 관리 '+(s==='!관리작동'?'작동':'중지')+' 완료');return true
  }
  if(!await enabled(room))return false;
@@ -94,8 +94,8 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
  const toggles={'!도배감지켜기':['spam_enabled',true],'!도배감지끄기':['spam_enabled',false],'!삭제감지켜기':['deleted_enabled',true],'!삭제감지끄기':['deleted_enabled',false]};if(toggles[cmd]){const [field,value]=toggles[cmd];await db.query(`UPDATE gl_manage_rooms SET ${field}=$2 WHERE room_id=$1`,[room,value]);await send('설정 변경 완료');return true}
  return false;
 }
-async function join({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,joins) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET joins=gl_manage_members.joins+1,user_name=$3',[room,user,userName]);const m=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 GL봇 입장 안내\n${userName}님 안녕하세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${m.rows[0].joins}회 / 퇴장 ${m.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
-async function leave({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,leaves) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET leaves=gl_manage_members.leaves+1,user_name=$3',[room,user,userName]);const r=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 GL봇 퇴장 안내\n${userName}님 안녕히 가세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${r.rows[0].joins}회 / 퇴장 ${r.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
+async function join({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,joins) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET joins=gl_manage_members.joins+1,user_name=$3',[room,user,userName]);const m=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 GL 입장 안내\n${userName}님 안녕하세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${m.rows[0].joins}회 / 퇴장 ${m.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
+async function leave({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,leaves) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET leaves=gl_manage_members.leaves+1,user_name=$3',[room,user,userName]);const r=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 GL 퇴장 안내\n${userName}님 안녕히 가세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${r.rows[0].joins}회 / 퇴장 ${r.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
 async function deleted({roomId,userId,userName,send}){
  if(!await enabled(key(roomId)))return;
  await send(userName||userId?`🗑️ ${userName||userId}님이 메시지를 삭제했습니다.`:'🗑️ 누군가 메시지를 삭제했습니다.');

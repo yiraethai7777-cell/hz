@@ -144,9 +144,10 @@ test('help shows only active modules, separated with a single 1200-character fol
  assert.ok(!manageOnly.includes('!낚시'));assert.ok(!manageOnly.includes('!주식구매'));
  assert.ok(!manageOnly.includes('🎮 게임 명령어'));
  const gameOnly=formatCommandHelp({manage:false,game:true});
- assert.match(gameOnly,/!낚시/);assert.match(gameOnly,/!주식구매/);
+ assert.match(gameOnly,/!낚시/);assert.ok(!gameOnly.includes('!주식'));
  assert.ok(!gameOnly.includes('!출석'));assert.ok(!gameOnly.includes('!경고'));
  const both=formatCommandHelp({manage:true,game:true});
+ assert.ok(both.length<4500);assert.doesNotMatch(both,/헤이즈|HZ BOT|!내정보|!레벨|!코인(?:\s|$)|!주식/);
  assert.match(both,/🎮 게임 명령어/);assert.match(both,/🛡️ 관리 명령어/);
  assert.equal([...both].filter(c=>c==='\u200b').length,1200);
  assert.match(formatCommandHelp({manage:false,game:false}),/작동 중인 기능이 없습니다/);

@@ -223,7 +223,7 @@ async function attachHZBot(client){
         return r
       });
       if(out)await ctx.send(chat,rid,out)
-    }catch(e){console.error("[HZ BOT]",e)}
+    }catch(e){console.error("[GL]",e)}
   });
 
   const memberEvent=type=>async ev=>{
