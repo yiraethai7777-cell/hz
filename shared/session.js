@@ -40,6 +40,19 @@ async function attachHZBot(client){
       if(text==="!내아이디"){await ctx.send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);return;}
 
       let flags=await ctx.roomFlags(rid);
+      if(flags.manage&&!flags.locked&&!isSelf&&exactSender){
+        const snapshot=typeof client.getUserProfileSnapshot==='function'?client.getUserProfileSnapshot(rid,uid):null;
+        const received=ctx.extractProfile(msg.sender)||ctx.extractProfile(msg.raw?.sender);
+        let openLink=ctx.findOpenProfileLink(msg.sender)||ctx.findOpenProfileLink(msg.raw?.sender)||undefined;
+        if([1,2,4].includes(snapshot?.profileType))openLink='';
+        else if(snapshot?.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
+          try{const live=await client.getUserOpenProfileLink(rid,uid);if(live)openLink=live;}catch(e){console.error('[GL PROFILE LINK]',e.message);}
+        }
+        await ctx.withRoom(rid,rname,async(d,c)=>{
+          const change=await ctx.profileObserve(c,rid,uid,name,snapshot?.imageUrl||received?.url||'',openLink);
+          if(change)await ctx.send(chat,rid,require('../manage/leave-reply').profileNotice(change,ctx.nowK()));
+        });
+      }
       if(text==="!삭메기록켜기"||text==="!삭메기록끄기"){
         if(!isAdmin)return;
         await ctx.send(chat,rid,'🗑️ 삭제 알림은 삭제한 사람만 표시하며 원문은 저장하지 않습니다.');
@@ -59,13 +72,6 @@ async function attachHZBot(client){
 
       if(!text.startsWith("!")){
         await ctx.autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags);
-        if(flags.manage){
-          const pr=ctx.extractProfile(msg.raw);
-          if(pr)await ctx.withRoom(rid,rname,async(d,c)=>{
-            const ch=await ctx.profileObserve(c,rid,pr.id,pr.name,pr.url);
-            if(ch)await ctx.send(chat,rid,`👤 ${ch.newName}님이 프로필을 변경했습니다.\n${ctx.MORE}\n이전 닉네임: ${ch.oldName||"?"}\n현재 닉네임: ${ch.newName||"?"}\n이전 프로필: ${ch.oldUrl||"확인 불가"}\n현재 프로필: ${ch.newUrl||"확인 불가"}\n시간: ${ctx.nowK()}`)
-          })
-        }
         return
       }
 
@@ -252,16 +258,18 @@ async function attachHZBot(client){
           [rid,uid,name,type,JSON.stringify({actorId:actorId||null,actorName:actorName||null,actorType:Number.isFinite(actorType)?actorType:null})]);
 
         if(type==="join"){
-          const q=await ctx.pool.query("SELECT join_count,leave_count FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
+          const q=await ctx.pool.query("SELECT join_count,leave_count,open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
           const joins=Number(q.rows[0]?.join_count||0);
           const leaves=Number(q.rows[0]?.leave_count||0);
           const roomName=String(ev.room?.name||"이 방");
-          const greeting=joins<=1
-            ? `👋 안녕하세요, ${name}님!\n${roomName}에 오신 걸 환영합니다 🎉\n\n즐겁게 활동해 주세요!`
-            : `👋 다시 오셨네요, ${name}님!\n${roomName}에 오신 걸 환영합니다 🎉\n\n즐겁게 활동해 주세요!`;
-          const output = `${f.joinTemplate
-            ? ctx.formatMemberTemplate(f.joinTemplate, {name, uid, roomName})
-            : greeting}\n\n🕒 입장 시간: ${ctx.nowK()}\n🚪 입장 ${joins}회 · 퇴장 ${leaves}회`;
+          let profileLink=ctx.validOpenProfileLink(q.rows[0]?.open_profile_link);
+          if(typeof client.getUserOpenProfileLink==='function'){
+            try{const live=await client.getUserOpenProfileLink(rid,uid);if(live){profileLink=live;await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:live});}}
+            catch(e){console.error('[GL JOIN PROFILE]',e.message);}
+          }
+          const profileType=typeof client.getUserOpenProfileType==='function'?client.getUserOpenProfileType(rid,uid):0;
+          if([1,2,4].includes(profileType))profileLink='';
+          const output=require('../manage/leave-reply').joinNotice({name,userId:uid,roomName,joins,leaves,time:ctx.nowK(),profileLink,profileType,detail:f.joinTemplate?ctx.formatMemberTemplate(f.joinTemplate,{name,uid,roomName}):''});
           await ctx.send(ctx.globalChat,rid,output)
         }
 

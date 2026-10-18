@@ -34,6 +34,7 @@ async function initDb(){await ctx.pool.query(`
 CREATE TABLE IF NOT EXISTS hz_rooms(room_id TEXT PRIMARY KEY,data JSONB NOT NULL DEFAULT '{}'::jsonb,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS hz_members(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,join_count INT NOT NULL DEFAULT 0,leave_count INT NOT NULL DEFAULT 0,last_profile_url TEXT,last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
 ALTER TABLE hz_members ADD COLUMN IF NOT EXISTS open_profile_link TEXT;
+ALTER TABLE hz_members ADD COLUMN IF NOT EXISTS observed_open_profile_link TEXT;
 CREATE TABLE IF NOT EXISTS hz_events(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,event_type TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),meta JSONB NOT NULL DEFAULT '{}'::jsonb);
 CREATE TABLE IF NOT EXISTS hz_ban_registry(
  room_id TEXT NOT NULL,
@@ -45,6 +46,8 @@ CREATE TABLE IF NOT EXISTS hz_ban_registry(
 );
 CREATE TABLE IF NOT EXISTS hz_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,target_id TEXT NOT NULL,target_name TEXT,count INT NOT NULL,reason TEXT NOT NULL,issuer_id TEXT NOT NULL,issuer_name TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),deleted_at TIMESTAMPTZ,deleted_by TEXT);
 CREATE TABLE IF NOT EXISTS hz_profiles(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,old_name TEXT,new_name TEXT,old_profile_url TEXT,new_profile_url TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ALTER TABLE hz_profiles ADD COLUMN IF NOT EXISTS old_open_profile_link TEXT;
+ALTER TABLE hz_profiles ADD COLUMN IF NOT EXISTS new_open_profile_link TEXT;
 CREATE TABLE IF NOT EXISTS hz_attendance(
   room_id TEXT NOT NULL,
   day_key TEXT NOT NULL,

@@ -1,3 +1,4 @@
+import { Long } from 'bson';
 import {
   type ReactionTypeValue,
   type ReactionOptions,
@@ -19,6 +20,7 @@ import type { KakaoForgeClient } from './client';
  * OpenChat mixin interface - declares methods added to KakaoForgeClient
  */
 export interface OpenChatMixin {
+  openChatUnkick(chatId: number | string, userId: number | string): Promise<any>;
   sendReaction(
     chatId: number | string,
     target: any,
@@ -146,6 +148,26 @@ async function openChatKick(
   });
 }
 
+async function openChatUnkick(this: KakaoForgeClient, chatId: number | string, userId: number | string) {
+  if (!this._carriage) throw new Error('LOCO not connected');
+  const roomId = this._resolveChatId(chatId), id = String(userId);
+  if (!/^\d{4,}$/.test(id)) throw new Error('정확한 사용자 ID가 필요합니다.');
+  let room = this._chatRooms.get(String(roomId));
+  if (!room?.openLinkId) { await this._ensureOpenChatInfo(roomId); room = this._chatRooms.get(String(roomId)); }
+  if (!room?.openLinkId) throw new Error('오픈채팅방 링크 ID를 확인하지 못했습니다.');
+  const li = Long.fromString(String(room.openLinkId)), c = Long.fromString(String(roomId)), kid = Long.fromString(id);
+  const removed = await this._carriage.request('KLDELITEM', { li, c, kid });
+  if (removed.status !== 0) throw new Error('KLDELITEM failed: status=' + removed.status);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const list = await this._carriage.request('KLSYNC', { li });
+    if (list.status !== 0 || !Array.isArray(list.body?.kickMembers)) throw new Error('내보내기 목록 확인 실패');
+    const stillBlocked = list.body.kickMembers.some((v: any) => String(v.userId) === id && (v.c == null || String(v.c) === String(roomId)));
+    if (!stillBlocked) return { success: true, verified: true, userId: id };
+    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  throw new Error('해제 후에도 내보내기 목록에 남아 있습니다.');
+}
+
 async function openChatBlind(
   this: KakaoForgeClient,
   chatId: number | string,
@@ -225,5 +247,6 @@ async function openChatBlind(
 export function applyOpenChatMixin(ClientClass: typeof KakaoForgeClient) {
   ClientClass.prototype.sendReaction = sendReaction;
   ClientClass.prototype.openChatKick = openChatKick;
+  ClientClass.prototype.openChatUnkick = openChatUnkick;
   ClientClass.prototype.openChatBlind = openChatBlind;
 }

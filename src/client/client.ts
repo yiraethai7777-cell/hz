@@ -132,6 +132,9 @@ export class KakaoForgeClient extends EventEmitter {
   _memberNames: MemberNameCache;
   _memberTypes: Map<string, Map<string, number>>;
   _memberProfileLinkIds: Map<string, string>;
+  _memberProfileTypes: Map<string, number>;
+  _memberProfileImages: Map<string, string>;
+  _profileLinkUrls: Map<string, {url: string; checkedAt: number}>;
   _memberFetchInFlight: Map<string, Promise<void>>;
   _memberListFetchInFlight: Map<string, Promise<void>>;
   _memberCacheUpdatedAt: Map<string, number>;
@@ -247,6 +250,9 @@ export class KakaoForgeClient extends EventEmitter {
     this._memberNames = new Map();
     this._memberTypes = new Map();
     this._memberProfileLinkIds = new Map();
+    this._memberProfileTypes = new Map();
+    this._memberProfileImages = new Map();
+    this._profileLinkUrls = new Map();
     this._memberFetchInFlight = new Map();
     this._memberListFetchInFlight = new Map();
     this._memberCacheUpdatedAt = new Map();
@@ -2182,11 +2188,17 @@ export class KakaoForgeClient extends EventEmitter {
     for (const mem of members) {
       const userId = normalizeIdValue(mem?.userId || mem?.id || mem?.memberId || mem?.user_id || 0);
       if (!userId) continue;
+      const profileKey = key + ':' + String(userId);
+      const image = mem?.opi ?? mem?.fpi ?? mem?.pi ?? mem?.originalProfileImageUrl ?? mem?.fullProfileImageUrl ?? mem?.profileImageUrl;
+      if (typeof image === 'string') this._memberProfileImages?.set(profileKey, image);
+      const profileType = safeNumber(mem?.ptp ?? mem?.profileType, NaN);
+      if (Number.isFinite(profileType)) this._memberProfileTypes?.set(profileKey, profileType);
       if (mem?.pli !== undefined) {
         const profileId = String(normalizeIdValue(mem.pli) || '');
         if (/^[1-9]\d*$/.test(profileId)) this._memberProfileLinkIds.set(key + ':' + String(userId), profileId);
         else this._memberProfileLinkIds.delete(key + ':' + String(userId));
       }
+      if ([1, 2, 4].includes(profileType)) this._memberProfileLinkIds.delete(profileKey);
       const name = this._extractMemberName(mem);
       map.set(String(userId), String(name || ''));
       const rawMemberType = mem?.mt ?? mem?.ut ?? mem?.userType ?? mem?.memberType ?? mem?.linkMemberType;
@@ -2214,6 +2226,14 @@ export class KakaoForgeClient extends EventEmitter {
     }
   }
 
+  getUserOpenProfileType(chatId: number | string, userId: number | string): number {
+    return this._memberProfileTypes?.get(String(this._resolveChatId(chatId)) + ':' + String(userId)) ?? 0;
+  }
+  getUserProfileSnapshot(chatId: number | string, userId: number | string) {
+    const roomId=this._resolveChatId(chatId), key=String(roomId)+':'+String(userId);
+    return {name:this._getCachedMemberName(roomId,userId),imageUrl:this._memberProfileImages?.get(key)||'',profileType:this.getUserOpenProfileType(roomId,userId),profileLinkId:this._memberProfileLinkIds.get(key)||''};
+  }
+
   async getUserOpenProfileLink(chatId: number | string, userId: number | string): Promise<string> {
     if (!this._carriage) return '';
     const roomId = this._resolveChatId(chatId), key = String(roomId) + ':' + String(userId);
@@ -2225,7 +2245,9 @@ export class KakaoForgeClient extends EventEmitter {
       if (member) this._cacheMembers(roomId, [member]);
       profileId = this._memberProfileLinkIds.get(key);
     }
-    if (!profileId) return '';
+    if (!profileId || [1, 2, 4].includes(this.getUserOpenProfileType(roomId, userId))) return '';
+    const cachedUrl = this._profileLinkUrls?.get(profileId);
+    if (cachedUrl && Date.now() - cachedUrl.checkedAt < 300000) return cachedUrl.url;
     const response = await this._carriage.infoLink([profileId]);
     if (typeof response?.status === 'number' && response.status !== 0) return '';
     const links = response?.body?.ols || [];
@@ -2233,8 +2255,9 @@ export class KakaoForgeClient extends EventEmitter {
     if (!profile || typeof profile.lu !== 'string') return '';
     try {
       const url = new URL(profile.lu);
-      return url.protocol === 'https:' && url.hostname === 'open.kakao.com' && /^\/o\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)
-        ? url.href : '';
+      const valid = url.protocol === 'https:' && url.hostname === 'open.kakao.com' && /^\/o\/[A-Za-z0-9_-]+\/?$/.test(url.pathname) ? url.href : '';
+      if (valid) this._profileLinkUrls?.set(profileId,{url:valid,checkedAt:Date.now()});
+      return valid;
     } catch { return ''; }
   }
 
