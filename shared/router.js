@@ -14,7 +14,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       senderId != null && String(client.userId) === String(senderId);
     try {
       await ready;
-      const context = { roomId, userId: senderId ?? '', userName: msg.sender?.name || '알 수 없음',
+      const context = { client, roomId, userId: senderId ?? '', userName: msg.sender?.name || '알 수 없음',
         messageId: msg.id ?? msg.message?.id ?? null, text, isBotAccount,
         senderType: msg.sender?.type, botId: client.userId, msg,
         resolveTarget: () => require('../manage/targets').resolve({msg,text,roomId,client,db:require('./db').getPool()}),
