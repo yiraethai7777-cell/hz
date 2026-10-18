@@ -13,6 +13,7 @@ async function routes(req,res,url,b,status){const p=url.pathname,m=req.method,se
  if(p==='/api/promo/session'&&m==='GET')return s?accounts.response(s):{authenticated:false};
  if(!s)fail('홍보 계정으로 로그인해 주세요.',401);if(m!=='GET')accounts.csrf(req,s);
  if(p==='/api/promo/logout'&&m==='POST')return accounts.logout(req,res,s);
+ if(p==='/api/promo/setup-login'&&m==='POST')return accounts.setupLogin(req,res,s,b);
  if(p==='/api/promo/password'&&m==='POST')return accounts.changePassword(req,res,s,b);
  if(p==='/api/promo/disconnect'&&m==='POST')return service.disconnect(s.user.id);
  if(p==='/api/promo/message'&&m==='GET')return {message:await service.commonMessage(s.user.id)};
