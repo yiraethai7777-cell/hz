@@ -14,6 +14,10 @@ test('leave notice folds details and shows profile URL without changing exact ID
  assert.equal(feature.replyReference(msg(),'9999'),log);
  assert.equal(feature.replyReference(msg('8888'),'9999'),null);
  assert.equal(feature.replyReference({message:{type:1},attachmentsRaw:msg().attachmentsRaw},'9999'),null);
+ for(const field of ['threadId','tid','thread']){
+  assert.equal(feature.replyReference({message:{type:1},raw:{chatLog:{[field]:log}}},'9999'),log);
+ }
+ assert.equal(feature.replyReference({message:{type:1},text:'a'},'9999'),null);
 });
 
 test('reply ban survives restart, enforces room and role, retries errors and claims each notice once',async()=>{
@@ -31,7 +35,9 @@ test('reply ban survives restart, enforces room and role, retries errors and cla
   await feature.handle({...context,kick:async()=>{throw Error('server refused')}},db);
   assert.match(replies.at(-1),/server refused/);
   const restarted=require('../manage/leave-reply');
-  await Promise.all([restarted.handle({...context,senderType:4},db),restarted.handle(context,db)]);
+  const comment={message:{type:1},raw:{chatLog:{threadId:log}}};
+  assert.equal(await restarted.handle({...context,msg:comment,roomId:'200'},db),false);
+  await Promise.all([restarted.handle({...context,senderType:4,msg:comment},db),restarted.handle(context,db)]);
   assert.equal(calls,1);
   await restarted.handle(context,db);assert.equal(calls,1);assert.match(replies.at(-1),/이미 벤 요청/);
   assert.equal((await db.query('SELECT state FROM gl_leave_replies')).rows[0].state,'done');
