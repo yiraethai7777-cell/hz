@@ -72,6 +72,13 @@ async function attachHZBot(client){
 
       if(!text.startsWith("!")){
         await ctx.autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags);
+        if(flags.game&&flags.quizEnabled&&require('../game/quiz').plainAnswer(flags.quiz,text)){
+          const out=await ctx.withRoom(rid,rname,async(d,c)=>{
+            if(!d.game||!d.quizEnabled||d.locked)return null;
+            return ctx.handleGame(d,c,msg,isSelf);
+          });
+          if(out)await ctx.send(chat,rid,out);
+        }
         return
       }
 
@@ -152,7 +159,7 @@ async function attachHZBot(client){
         await ctx.send(chat,rid,content==="기본"?`✅ ${templateCommand[1]} 문구를 기본값으로 되돌렸습니다.`:`✅ ${templateCommand[1]} 문구가 저장되었습니다.\n\n미리보기:\n${ctx.formatMemberTemplate(content,{name:"홍길동",uid:"123456789",roomName:rname||"채팅방"})}`);
         return;
       }
-      if(text==="!명령어"){if(flags.game)await ctx.send(chat,rid,ctx.gameHelp());if(flags.manage)await ctx.send(chat,rid,ctx.manageHelp());if(isAdmin)await ctx.send(chat,rid,"📢 자동 홍보\n!홍보설정 (내용)\n!홍보시작 (분)\n!홍보중지 / !홍보확인\n!도배방지 / !도배방지끄기 / !도배방지확인");return}
+      if(text==="!명령어"){await ctx.send(chat,rid,require('./help').formatCommandHelp(flags));return}
 
       if(text==="!송금"||text.startsWith("!송금 ")){
         if(!flags.game){await ctx.send(chat,rid,"🎮 이 방은 게임이 꺼져 있습니다.");return;}

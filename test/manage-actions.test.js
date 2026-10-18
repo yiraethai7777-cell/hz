@@ -71,7 +71,7 @@ test('nickname and profile changes preserve old open links and use a folded plai
   assert.equal(await runtime.profileObserve(pool,'100',uid,'Old','https://images/old','https://open.kakao.com/o/old'),null);
   const nameChange=await runtime.profileObserve(pool,'100',uid,'New','https://images/old','https://open.kakao.com/o/old');
   assert.equal(nameChange.profileChanged,false);
-  const named=notice.profileNotice(nameChange,'오늘');assert.match(named,/Old → New/);assert.doesNotMatch(named,/###|예전 옾링/);assert.match(named,/\u200b{1200}/);
+  const named=notice.profileNotice(nameChange,'오늘');assert.match(named,/Old → New/);assert.doesNotMatch(named,/###/);assert.match(named,/현재 옾링: https:\/\/open.kakao.com\/o\/old/);assert.match(named,/\u200b{1200}/);
   const profileChange=await runtime.profileObserve(pool,'100',uid,'New','https://images/new','https://open.kakao.com/o/new');
   const changed=notice.profileNotice(profileChange,'오늘');
   assert.match(changed,/New → New/);assert.match(changed,/예전 옾링: https:\/\/open.kakao.com\/o\/old/);assert.match(changed,/현재 옾링: https:\/\/open.kakao.com\/o\/new/);

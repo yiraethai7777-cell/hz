@@ -22,6 +22,7 @@ function start() {
     try {
       await game.init();
       await manage.init();
+      require('./shared/runtime').startProfileWatch(client);
       resolveReady();
       console.log('[HZ NEW] 게임·관리 준비 완료');
     } catch (err) { rejectReady(err); }
