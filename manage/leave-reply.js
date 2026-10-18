@@ -25,8 +25,13 @@ async function record(db,{roomId,botId,userId,name,result}){
  }
 }
 function replyReference(msg,botId){
- if(Number(msg?.message?.type??msg?.type)!==26)return null;
+ if(!msg)return null;
  const raw=msg.raw?.chatLog??msg.raw?.chatlog??msg.raw?.chat??msg.raw;
+ // Kakao comments are ordinary text messages with a thread root, not type-26 quotes.
+ // The root is accepted only if the database maps it to this bot's leave notice in this room.
+ const thread=exactId(raw?.threadId??raw?.tid??raw?.thread??msg.raw?.threadId??msg.message?.threadId??msg.threadId);
+ if(thread)return thread;
+ if(Number(msg?.message?.type??msg?.type)!==26)return null;
  const roots=[...(msg.attachmentsRaw||[]),msg.message?.attachment,raw?.attachment,raw?.extra];
  for(let root of roots){
   if(typeof root==='string'){try{root=LosslessJSON.parse(root)}catch{continue;}}
