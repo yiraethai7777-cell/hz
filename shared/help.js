@@ -73,7 +73,7 @@ function formatCommandHelp(flags,requested='') {
  if(groupName&&!Object.hasOwn(bodies,groupName))return '사용법: !명령어 [게임|관리]';
  const enabled=(groupName?[groupName]:['게임','관리']).filter(n=>n==='관리'?flags.manage:flags.game);
  if(!enabled.length)return groupName?`이 방의 ${groupName} 기능은 중지되어 있습니다.`:'현재 작동 중인 기능이 없습니다.\n봇 계정에서 !게임작동 또는 !관리작동을 입력해 주세요.';
- return '📜 GL 명령어 안내\n'+FOLD+'\n'+
+ return 'NEXUS 명령어 안내\n'+FOLD+'\n'+
   '작동 중인 기능 · '+enabled.join(' + ')+'\n!명령어 게임 / !명령어 관리로 따로 보기\n'+
   '대상 = ID·실제 멘션·답장·댓글 (명령별 지원)\n권한이 필요한 명령은 방장·부방장 또는 지정 관리자만 사용\n\n'+
   enabled.map(n=>(n==='관리'?'🛡️':'🎮')+' '+n+' 명령어\n━━━━━━━━━━━━━━\n'+bodies[n]).join('\n\n━━━━━━━━━━━━━━\n\n');
