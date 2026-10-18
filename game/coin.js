@@ -66,7 +66,7 @@ async function resolveCoinRecipient(roomId, target) {
   const fallback = String(target.name || "").trim();
   const placeholder = !fallback || fallback === "멘션 사용자";
   if (!placeholder) return target;
-  // Existing wallet names are preferred. Old HZ BOT tables are optional.
+  // Existing wallet names are preferred. Old GL tables are optional.
   const queries = [
     ["SELECT user_name AS name FROM hz_wallets WHERE room_id=$1 AND user_id=$2", [roomId, target.id]],
     ["SELECT name FROM hz_members WHERE room_id=$1 AND user_id=$2", [roomId, target.id]],
@@ -99,7 +99,9 @@ async function initCoinExtra() {
   )`);
   console.log("[HZ 코인] 송금 중복 방지 테이블 준비 완료");
 }
-async function transfer({ roomId, from, to, coins, kind, messageId }) {
+async function transfer({ roomId, from, to, coins, kind, messageId, unlimited = false }) {
+  coins = validAmount(coins);
+  if (!['TRANSFER','GRANT'].includes(kind)) throw new Error('올바르지 않은 거래 종류입니다.');
   if (!messageId) throw new Error("메시지 고유번호를 확인할 수 없어 안전하게 거래를 중단했습니다.");
   if (from.id === to.id) throw new Error("자기 자신에게 송금하거나 지급할 수 없습니다.");
   const db = await getPool().connect();
@@ -113,7 +115,7 @@ async function transfer({ roomId, from, to, coins, kind, messageId }) {
     for (const u of users) await ensureWallet(db, roomId, u.id, u.name);
     for (const u of users) await db.query(`SELECT balance FROM hz_wallets
       WHERE room_id=$1 AND user_id=$2 FOR UPDATE`, [roomId,u.id]);
-    if (kind === "TRANSFER") {
+    if (kind === "TRANSFER" && !unlimited) {
       const debited = await db.query(`UPDATE hz_wallets SET balance=balance-$3
         WHERE room_id=$1 AND user_id=$2 AND balance >= $3 RETURNING balance`, [roomId,from.id,coins]);
       if (!debited.rowCount) throw new Error("코인이 부족합니다.");
@@ -142,15 +144,12 @@ async function history(roomId, userId) {
   }).join("\n\n");
 }
 async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false}) {
-  if (!/^!(코인|코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text)) return false;
+  if (!/^!(코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text)) return false;
   const say = s => chat.sendText(roomId,s);
   try {
     const me = sender(msg);
     const room = String(roomId);
-    if (text === "!코인") {
-      const bal = await getBalance(room,me.id,me.name);
-      await say(`🪙 ${me.name}님의 코인\n잔액: ${fmt(bal)}코인`);
-    } else if (text === "!코인순위") {
+    if (text === "!코인순위") {
       await say(await coinRanking(room));
     } else if (text === "!코인내역") {
       await say(await history(room,me.id));
@@ -163,14 +162,15 @@ async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false}) {
         const owners=String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/);
         if (!isBotAccount&&!admins.includes(me.id)&&!owners.includes(me.id)) throw new Error("관리자만 코인을 지급할 수 있습니다.");
       }
-      const parts = text.split(/\s+/);
-      if (parts.length !== 3 || !parts[1].startsWith("@")) throw new Error(`사용법: !코인${grant ? "지급" : "송금"} @멘션 10000`);
-      const coins = validAmount(parts[1]);
+      const match = /^!코인(?:송금|지급)\s+@.+\s+(\S+)$/.exec(text);
+      if (!match) throw new Error(`사용법: !코인${grant ? "지급" : "송금"} @멘션 10000`);
+      const coins = validAmount(match[1]);
       const to = await resolveCoinRecipient(room, mentionTarget(msg));
-      const result = await transfer({roomId:room,from:me,to,coins,kind:grant ? "GRANT" : "TRANSFER",messageId:messageKey(msg)});
+      await require('./economy').ensureLinked(room,to.id,to.name);
+      const result = await transfer({roomId:room,from:me,to,coins,kind:grant ? "GRANT" : "TRANSFER",messageId:messageKey(msg),unlimited:isBotAccount});
       await say(`${grant ? "🎁 코인 지급 완료" : "💸 코인 송금 완료"}\n받는 사람: ${to.name}\n금액: ${fmt(coins)}코인\n받는 사람 잔액: ${fmt(result.recipientBalance)}코인`);
     } else {
-      await say("사용법: !코인 / !코인순위 / !코인내역 / !코인송금 @멘션 금액 / !코인지급 @멘션 금액");
+      await say("사용법: !정보 / !코인순위 / !코인내역 / !코인송금 @멘션 금액 / !코인지급 @멘션 금액");
     }
   } catch (e) {
     console.error("[HZ 코인]",e);

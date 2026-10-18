@@ -46,52 +46,7 @@ function fishPick(luck){
 
 function fishValue(f,size,luck){return Math.min(1000000,Math.max(1,Math.round(f.base*(.65+.7*(size-f.min)/Math.max(1,f.max-f.min))*Math.min(1.5,Math.sqrt(luck)))))}
 
-function gameHelp(){return `🎮 GL BOT | 명령어 안내
-${ctx.MORE}
-
-🧩 퀴즈
-!퀴즈 - 퀴즈 시작
-!정답 (답) - 정답 제출
-
-🎣 낚시
-!낚시 - 물고기 낚기
-!낚시정보 - 낚시 정보
-!강화 (횟수) - 낚시대 연속 강화 (최대 100회)\n!보호권구매 (개수) - 개당 10만, 하루 5개\n!보호권 - 보유 보호권 확인
-!인벤 - 보유 물고기
-!물고기 도감 / !물고기도감 - 물고기 도감
-!물고기판매 (이름) (수량/all)
-!물고기판매 all - 전부 판매
-!구매행운 - 행운 효과 구매
-!구매자동 - 10분 자동 낚시, 하루 3회
-!상점 - 낚시대 상점
-!낚시대구매 (이름)
-!낚시장착 (이름)
-
-🐾 펫
-!펫뽑기 / !펫뽑기 10/50/100
-!펫인벤 - 보유 펫
-!펫도감 - 전체 펫 도감
-!펫기능 (이름) - 펫 능력치
-!펫장착 (이름/최고)
-!펫강화 - 장착 펫 강화
-
-💰 포인트 · 성장
-!포인트 - 보유 포인트
-!송금 @멘션 (포인트) - 포인트 보내기
-!내정보 - 게임 정보
-!레벨 - 레벨 확인
-!게임순위 - 포인트 순위
-
-🔐 게임 관리자
-!게임작동 / !게임중지
-!퀴즈작동 / !퀴즈중지
-!낚시작동 / !낚시중지
-!치트 (코인) @멘션
-!회수 (코인/all) @멘션 - 포인트 회수\n!초기화 / !초기화확인 - 전체 게임 초기화 (최고 관리자)`;}
-
-
-
-
+function gameHelp(){return require('../shared/help').formatCommandHelp({game:true,manage:false},'게임');}
 
 function petBonus(p){const pet=ctx.PETS.find(x=>x.name===p.equippedPet&&p.pets[x.name]!==undefined);if(!pet)return {luck:0,xp:0,points:0};const level=Number(p.pets[pet.name])||0;return {luck:pet.luck+level*2,xp:pet.xp+level*2,points:pet.points+level*2}}
 
@@ -203,12 +158,8 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==="!인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+ctx.MORE+"\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${ctx.n(x.value)}코인`).join("\n")}
   if(text==="!물고기 도감"||text==="!물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 물고기 도감\n"+ctx.MORE+"\n"+ctx.FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
 
-  if(text==="!내정보"){
-    if(isSelf)return `🤖 HZ BOT\n💰 코인: ∞\n⭐ Lv.${p.level}`;
-    return `👤 ${name}님의 게임 정보\n\n💰 ${ctx.n(p.points)}코인\n⭐ Lv.${p.level} (${p.xp}/${ctx.levelNeed(p.level)} XP)\n🧩 정답 ${p.wins}회\n🐟 ${p.inventory.length}마리`
-  }
-  if(text==="!포인트")return isSelf?"🤖 HZ BOT\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
-  if(text==="!레벨"||text==="!퀴즈점수")return `⭐ GL LEVEL\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
+  if(text==="!포인트")return isSelf?"🤖 GL\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
+  if(text==="!퀴즈점수")return `⭐ GL LEVEL\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
 
   if(text==="!게임순위"||text==="!퀴즈순위"){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>b.points-a.points).slice(0,10);return "🏆 게임 순위\n"+(a.length?a.map((x,i)=>`${i+1}등 ${x.name} · ${ctx.n(x.points)}코인`).join("\n"):"아직 기록이 없습니다.")}
   if(text==="!상점")return "🛒 낚시대 상점\n"+ctx.RODS.map(x=>`${x.name} 낚시대 · ${ctx.n(x.price)}코인${p.rods.includes(x.name)?" [보유]":""}`).join("\n");
