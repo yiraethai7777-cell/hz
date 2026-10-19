@@ -83,7 +83,7 @@ async function attachHZBot(client){
       }
 
       // 홍보 명령어는 게임/관리 활성화 여부와 독립적으로 동작.
-      if(/^#(홍보설정|홍보시작|홍보중지|홍보확인|도배방지|도배방지끄기|도배방지확인)(?:\s|$)/.test(text)){
+      if(false){
         if(!isAdmin){await ctx.send(chat,rid,"⛔ 최고 관리자만 홍보 설정을 변경할 수 있습니다.");return;}
         const cmd=text.split(/\s+/)[0], arg=text.slice(cmd.length).trim();
         const out=await ctx.withRoom(rid,rname,async d=>{
