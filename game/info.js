@@ -5,31 +5,34 @@ const fmt=n=>Number(n||0).toLocaleString('ko-KR');
 function format({id,name,bot,player={},balance=0,chat,link}) {
  const mention=`\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;
  const n=Math.max(1,Math.min(200,Number(player.level)||1));
- const fields=[
+ 
+const fields = [
   '┏━━━━━━━━━━━━━━━━━━━━━━',
-  '┃ NEXUS · 프로필 정보',
+  '┃ NEXUS | USER PROFILE',
   '┣━━━━━━━━━━━━━━━━━━━━━━',
-  `┃ ⭐ 레벨 · ${n} / 200`,
-  `┃ 💰 코인 · ${bot?'∞':fmt(balance)}`,
-  `┃ 🆔 아이디 · ${id}`,
-  `┃ 🏆 채팅순위 · ${chat?.rank?fmt(chat.rank)+'위':'기록 없음'}`,
-  `┃ 💬 채팅량 · ${fmt(chat?.count)}회`,
+  `┃ [ LV ] 레벨 · ${n} / 200`,
+  `┃ [ COIN ] 코인 · ${bot ? '∞' : fmt(balance)}`,
+  `┃ [ ID ] 아이디 · ${id}`,
+  `┃ [ RANK ] 채팅 순위 · ${chat?.rank ? fmt(chat.rank) + '위' : '기록 없음'}`,
+  `┃ [ CHAT ] 채팅량 · ${fmt(chat?.count)}회`,
   '┣━━━━━━━━━━━━━━━━━━━━━━',
-  '┃ 🎮 게임 기록',
-  `┃ · 경험치 ${fmt(player.xp)} / ${n>=200?0:100+(n-1)*25}`,
-  `┃ · 퀴즈 정답 ${fmt(player.wins)}회`,
-  `┃ · 보유 물고기 ${fmt(player.inventory?.length)}마리`,
-  `┃ · 낚시대 ${player.rod||'나무'} +${fmt(player.rodLevels?.[player.rod])}`,
-  `┃ · 보유 펫 ${fmt(Object.keys(player.pets||{}).length)}종`,
+  '┃ [ GAME ] 게임 기록',
+  '┃',
+  `┃ [ EXP ] 경험치 · ${fmt(player.xp)} / ${n >= 200 ? 0 : 100 + (n - 1) * 25}`,
+  `┃ [ QUIZ ] 퀴즈 정답 · ${fmt(player.wins)}회`,
+  `┃ [ FISH ] 물고기 · ${fmt(player.inventory?.length)}마리`,
+  `┃ [ ROD ] 낚시대 · ${player.rod || '나무'} +${fmt(player.rodLevels?.[player.rod])}`,
+  `┃ [ PET ] 보유 펫 · ${fmt(Object.keys(player.pets || {}).length)}종`,
   '┣━━━━━━━━━━━━━━━━━━━━━━',
-  '┃ 🔗 오픈프로필',
-  `┃ ${link||'확인된 오픈프로필 링크 없음'}`,
+  '┃ [ LINK ] 오픈프로필',
+  `┃ ${link || '확인된 오픈프로필 링크 없음'}`,
   '┗━━━━━━━━━━━━━━━━━━━━━━'
- ];
- return `👤 ${mention}님의 프로필 정보\n${FOLD}\n${fields.join('\n')}`;
+];
+
+ return `${mention}님의 프로필 정보\n${FOLD}\n${fields.join('\n')}`;
 }
 async function handle(ctx,client) {
- if(ctx.text!=='!정보')return false;
+ if(ctx.text!=='#정보')return false;
  const id=String(ctx.userId??ctx.msg?.sender?.id??'');
  if(!/^\d+$/.test(id)){await ctx.send('사용자 ID를 확인할 수 없습니다.');return true;}
  const db=getPool(),room=String(ctx.roomId),name=ctx.userName||ctx.msg?.sender?.name||id;
