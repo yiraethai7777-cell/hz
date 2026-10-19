@@ -70,9 +70,45 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
    target=who.id;
   }
  }
- if(cmd==='#출석'){await send(await attend(room,user,userName));return true}
- if(cmd==='#출석순위'){await send(await attendanceRanking(room));return true}
- if(cmd==='#출석확인'){const t=target||user;const r=await db.query("SELECT attended_at FROM hz_new_attendance WHERE room_id=$1 AND user_id=$2 AND attend_date=(NOW() AT TIME ZONE 'Asia/Seoul')::date",[room,t]);await send(r.rowCount?'✅ 오늘 출석했습니다.':'📌 오늘 출석 기록이 없습니다.');return true}
+ 
+if (cmd === '#출석') {
+  // 기존 출석 처리 및 코인 지급
+  const result = await attend(room, user, userName);
+
+  // 신규 출석인 경우 이미지 먼저 전송
+  if (result.startsWith('✅ ')) {
+    await require('./attendance-image/automatic')
+      .sendAttendanceImage(client, {
+        roomId: room,
+        userId: user,
+        send
+      });
+  }
+
+  // 이미지 전송 후 기존 출석 메시지 전송
+  await send(result);
+  return true;
+}
+
+if (cmd === '#출석순위') {
+  await send(await attendanceRanking(room));
+  return true;
+}
+
+if (cmd === '#출석확인') {
+  const t = target || user;
+  const r = await db.query(
+    "SELECT attended_at FROM hz_new_attendance WHERE room_id=$1 AND user_id=$2 AND attend_date=(NOW() AT TIME ZONE 'Asia/Seoul')::date",
+    [room, t]
+  );
+  await send(
+    r.rowCount
+      ? '✅ 오늘 출석했습니다.'
+      : '📌 오늘 출석 기록이 없습니다.'
+  );
+  return true;
+}
+
  if(cmd==='#채팅순위'||cmd==='#채팅순위전체'){for(const page of await require('./chat-ranking').messages(db,room,cmd==='#채팅순위전체'))await send(page);return true}
  if(cmd==='#채팅정보'){const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id=$2',[room,target||user]);await send(r.rowCount?`💬 ${r.rows[0].user_name}: ${r.rows[0].count}회`:'기록 없음');return true}
  const privileged=['#경고','#경고삭제','#경고초기화','#벤','#관리자추가','#관리자삭제','#도배감지켜기','#도배감지끄기','#삭제감지켜기','#삭제감지끄기'];
