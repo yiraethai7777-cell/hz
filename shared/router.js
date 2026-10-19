@@ -25,14 +25,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             throw new Error('봇 또는 명령 실행자 본인은 내보낼 수 없습니다.');
           if (typeof client.openChatKick !== 'function') throw new Error('내보내기 API를 사용할 수 없습니다.');
           const result = await client.openChatKick(roomId, id);
-          console.log('[GL KICK API]', JSON.stringify({ roomId: String(roomId), targetId: id, result }));
+          console.log('[NEXUS KICK API]', JSON.stringify({ roomId: String(roomId), targetId: id, result }));
           if (result === false || result?.success === false || result?.ok === false ||
               result?.status === 'error' || (typeof result?.status === 'number' && result.status !== 0))
             throw new Error('내보내기 요청 실패: ' + JSON.stringify(result));
           return result;
         },
         send: body => chat.sendText(roomId, body) };
-      
       if (text === '!게임작동' || text === '!게임중지') {
         await game.toggle(context);
         return;

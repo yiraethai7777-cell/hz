@@ -1,5 +1,6 @@
 'use strict';
 const FOLD='\u200b'.repeat(1200);
+const LINKS='🌐 웹사이트: https://hz-production-d530.up.railway.app/\n👤 개발자 오픈프로필: https://open.kakao.com/o/sOmp64Si\n';
 const group=(title,lines)=>title+'\n'+lines.map(s=>'  └─ '+s).join('\n');
 const bodies={
  게임:[
@@ -23,6 +24,12 @@ const bodies={
    '!펫뽑기 [10/50/100] — 펫 뽑기',
    '!펫인벤 / !펫도감 / !펫기능 이름',
    '!펫장착 이름 또는 최고 / !펫강화']),
+  group('🌾 농장',[
+   '!농장 / !농장정보 — 내 농장·성장·씨앗 확인',
+   '!농장확장 — 코인으로 한 단계 확장 · 최대 8×8',
+   '!씨앗구매 이름 수량 / !심기 번호 작물이름',
+   '!수확 번호 / !전체수확 — 성숙 작물 수확·코인 지급',
+   '!상점 — 낚시대·씨앗 통합 상점']),
   group('🧩 퀴즈',[
    '!퀴즈 — 시작 · 답만 입력하면 정답 인식',
    '!정답 답 — 명령어로도 정답 제출 가능',
@@ -70,10 +77,10 @@ const bodies={
 };
 function formatCommandHelp(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
- if(groupName&&!Object.hasOwn(bodies,groupName))return '사용법: !명령어 [게임|관리]';
+ if(groupName&&!Object.hasOwn(bodies,groupName))return LINKS+'사용법: !명령어 [게임|관리]';
  const enabled=(groupName?[groupName]:['게임','관리']).filter(n=>n==='관리'?flags.manage:flags.game);
- if(!enabled.length)return groupName?`이 방의 ${groupName} 기능은 중지되어 있습니다.`:'현재 작동 중인 기능이 없습니다.\n봇 계정에서 !게임작동 또는 !관리작동을 입력해 주세요.';
- return 'NEXUS 명령어 안내\n'+FOLD+'\n'+
+ if(!enabled.length)return LINKS+(groupName?`이 방의 ${groupName} 기능은 중지되어 있습니다.`:'현재 작동 중인 기능이 없습니다.\n봇 계정에서 !게임작동 또는 !관리작동을 입력해 주세요.');
+ return LINKS+'📜 NEXUS 명령어 안내\n'+FOLD+'\n'+
   '작동 중인 기능 · '+enabled.join(' + ')+'\n!명령어 게임 / !명령어 관리로 따로 보기\n'+
   '대상 = ID·실제 멘션·답장·댓글 (명령별 지원)\n권한이 필요한 명령은 방장·부방장 또는 지정 관리자만 사용\n\n'+
   enabled.map(n=>(n==='관리'?'🛡️':'🎮')+' '+n+' 명령어\n━━━━━━━━━━━━━━\n'+bodies[n]).join('\n\n━━━━━━━━━━━━━━\n\n');
