@@ -60,6 +60,10 @@ CREATE TABLE IF NOT EXISTS gl_manage_chat_counts(room_id TEXT NOT NULL,user_id T
 CREATE TABLE IF NOT EXISTS gl_manage_temp_messages(room_id TEXT NOT NULL,message_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,body TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));
 CREATE INDEX IF NOT EXISTS gl_temp_expiry ON gl_manage_temp_messages(created_at);
 CREATE TABLE IF NOT EXISTS gl_manage_actions(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,actor_id TEXT,target_id TEXT,action TEXT NOT NULL,detail TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());`);
+ await db.query(`
+  ALTER TABLE gl_manage_members
+  ADD COLUMN IF NOT EXISTS last_joined_at TIMESTAMPTZ;
+`);
  // Existing NEXUS settings take precedence. Only synchronize the management flag;
  // legacy game state and all stored records remain intact.
  await db.query(`INSERT INTO hz_rooms(room_id,data)
