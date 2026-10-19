@@ -11,9 +11,57 @@ async function init(db){await db.query(`CREATE TABLE IF NOT EXISTS gl_leave_repl
  room_id TEXT NOT NULL,log_id TEXT NOT NULL,bot_id TEXT NOT NULL,target_id TEXT NOT NULL,
  target_name TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  PRIMARY KEY(room_id,log_id))`);}
-function leaveNotice({name,userId,joins,leaves,time,detail='',profileLink=''}){
- return `👋 ${name}님이 나갔습니다.\n${'\u200b'.repeat(1200)}\n👤 ${name}\n사용자 ID: ${userId}\n🚪 입장 ${joins}회 · 퇴장 ${leaves}회\n🕒 퇴장 시간: ${time}\n🔗 오픈프로필: ${profileLink||'확인된 오픈프로필 링크 없음'}${detail?'\n'+detail:''}\n\n방장·부방장: 이 알림에 답장으로 a를 보내면 벤합니다.`;
+
+function leaveNotice({
+  name,
+  userId,
+  joins,
+  leaves,
+  time,
+  detail = '',
+  profileLink = '',
+  profileType = '확인 불가',
+  profileImage = '',
+  joinedAt = null,
+  stay = '확인 불가',
+  bans = 0
+}) {
+  const clean = String(name).replace(/[\u0002-\u0004]/g, '');
+  const mention = exactId(userId)
+    ? `\u0002${userId}\u0003${clean}\u0004`
+    : `@${clean}`;
+
+  return (
+    `${mention} 님이 채팅방에서 퇴장하셨습니다.` +
+    '\u200b'.repeat(1200) +
+    `\n\nNEXUS  /  MEMBER LEFT` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n\n01  MEMBER PROFILE` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n닉네임      ${mention}` +
+    `\n유저 ID     ${userId}` +
+    `\n프로필      ${profileType}` +
+    `\n프사 URL    ${profileImage || '확인 불가'}` +
+    `\n\n02  SESSION HISTORY` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n입장 시각   ${joinedAt || '확인 불가'}` +
+    `\n퇴장 시각   ${time}` +
+    `\n체류 시간   ${stay}` +
+    `\n\n03  ACTIVITY RECORD` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n누적 입장   ${joins}회` +
+    `\n누적 퇴장   ${leaves}회` +
+    `\n강퇴 기록   ${bans}회` +
+    `\n\n04  ADMIN CONTROL` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n해당 메시지에 답장으로 'a' 입력 시` +
+    `\n대상 사용자 강퇴 기능이 실행됩니다.` +
+    `\n\n실행 권한   방장 · 부방장` +
+    `\n\n━━━━━━━━━━━━━━━━━━━━` +
+    `\nNEXUS  ·  AUTOMATED SYSTEM`
+  );
 }
+
 function joinNotice({name,userId,roomName,joins,leaves,time,profileLink='',profileType=0,detail=''}){
  const clean=String(name).replace(/[\u0002-\u0004]/g,'');
  const mention=exactId(userId)?`\u0002${userId}\u0003${clean}\u0004`:clean;
