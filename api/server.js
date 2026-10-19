@@ -2,6 +2,7 @@
 const http=require('node:http'),fs=require('node:fs/promises'),path=require('node:path');
 const {routes,status}=require('./routes');
 const assets=new Map([['/',['public-web/index.html','text/html']],['/style.css',['public-web/style.css','text/css']],['/app.js',['public-web/app.js','text/javascript']],['/admin',['admin-web/index.html','text/html']],['/admin/',['admin-web/index.html','text/html']],['/admin/admin.js',['admin-web/admin.js','text/javascript']]]);
+assets.set('/nexus-logo.png',['public-web/nexus-logo.png','image/png']);
 const rate=new Map();
 for(const [route,file,type] of [['/promo','index.html','text/html'],['/promo/','index.html','text/html'],['/promo/style.css','style.css','text/css'],['/promo/app.js','app.js','text/javascript']])assets.set(route,['promo-web/'+file,type]);
 async function body(req){let bytes=0,chunks=[];for await(const chunk of req){bytes+=chunk.length;if(bytes>16384){const e=Error('요청 크기를 초과했습니다.');e.status=413;throw e;}chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{const e=Error('올바른 JSON을 입력해 주세요.');e.status=400;throw e;}}
@@ -26,8 +27,8 @@ async function handler(req,res){
   }
   if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);res.end();return;}
   const asset=assets.get(url.pathname);if(!asset){res.writeHead(404);res.end('Not Found');return;}
-  const file=await fs.readFile(path.join(__dirname,'..',asset[0]));res.writeHead(200,{'Content-Type':asset[1]+'; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:file);
- }catch(e){const code=e.status|| (e.code?503:400);if(e.code)console.error('[GL WEB]',e.code);json(res,code,{error:e.code?'데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.':e.message||'요청 실패'});}
+  const file=await fs.readFile(path.join(__dirname,'..',asset[0]));res.writeHead(200,{'Content-Type':asset[1]+(asset[1].startsWith('text/')?'; charset=utf-8':''),'Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:file);
+ }catch(e){const code=e.status|| (e.code?503:400);if(e.code)console.error('[NEXUS WEB]',e.code);json(res,code,{error:e.code?'데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.':e.message||'요청 실패'});}
 }
 function start({client,ready,port=Number(process.env.PORT||3000),host='0.0.0.0'}={}){
  const server=http.createServer(handler);server.requestTimeout=20000;server.headersTimeout=15000;
@@ -36,6 +37,6 @@ function start({client,ready,port=Number(process.env.PORT||3000),host='0.0.0.0'}
  client?.on('ready',()=>{status.connected=true;});client?.on('disconnected',()=>{status.connected=false;});
  client?.on('error',e=>{status.errors.push(new Date().toISOString()+' · '+String(e.code||e.name||'연결 오류').slice(0,80));if(status.errors.length>20)status.errors.shift();});
  Promise.resolve(ready).then(async()=>{await require('../promotion/kakao').service().start();status.ready=true;}).catch(()=>{status.ready=false;});
- server.on('error',e=>{console.error('[GL WEB] 서버 오류:',e.code);});server.listen(port,host,()=>console.log('[GL WEB] listening on port '+server.address().port));return server;
+ server.on('error',e=>{console.error('[NEXUS WEB] 서버 오류:',e.code);});server.listen(port,host,()=>console.log('[NEXUS WEB] listening on port '+server.address().port));return server;
 }
 module.exports={handler,start};

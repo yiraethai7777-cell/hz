@@ -22,7 +22,7 @@ async function overview(){
 }
 async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
- if(p==='/api/public/config'&&method==='GET')return {name:'GL BOT',openchatUrl:publicUrl(),online:status.ready&&status.connected};
+ if(p==='/api/public/config'&&method==='GET')return {name:'NEXUS BOT',openchatUrl:publicUrl(),online:status.ready&&status.connected};
  if(!status.ready)fail('봇과 데이터베이스를 준비 중입니다.',503);
  if(p.startsWith('/api/promo/'))return require('../promotion/portal').routes(req,res,url,body,status);
  if(p==='/api/public/rankings'&&method==='GET')return rankings(url.searchParams.get('kind')||'coin');
