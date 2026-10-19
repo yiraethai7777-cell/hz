@@ -56,11 +56,11 @@ test('silent profile refresh records nickname, photo and open-link changes witho
  }finally{await storage.close();}
 });
 require('ts-node/register/transpile-only');
-test('profile refresh obtains exact live member IDs and profile details from server, ignoring stale cache',async()=>{
+test('profile refresh obtains exact live profiles from paged server member list without bulk MEMBER requests',async()=>{
  const {KakaoForgeClient}=require('../src/client/client'),client=Object.create(KakaoForgeClient.prototype),id='9007199254740993123',requests=[];
  client._resolveChatId=x=>x;client._cacheMembers=(room,members)=>{assert.equal(String(members[0].userId),id);};
  client.getUserProfileSnapshot=()=>({name:'새 프로필',imageUrl:'new-image',profileType:16,profileLinkId:'22'});client._getCachedMemberType=()=>0;
- client._carriage={memList:async()=>({status:0,body:{members:[{userId:id}]}}),member:async(room,ids)=>{requests.push(ids);return {status:0,body:{members:[{userId:id}]}};}};
- const members=await client.refreshMemberProfiles('100');assert.equal(members[0].id,id);assert.equal(members[0].name,'새 프로필');assert.deepEqual(requests,[[id]]);
- client._carriage.member=async()=>({status:-1});await assert.rejects(client.refreshMemberProfiles('100'),/MEMBER failed/);
+ client._carriage={memList:async()=>{requests.push('MEMLIST');return {status:0,body:{members:[{userId:id}]}};},member:async()=>assert.fail('No bulk MEMBER requests')};
+ const members=await client.refreshMemberProfiles('100');assert.equal(members[0].id,id);assert.equal(members[0].name,'새 프로필');assert.deepEqual(requests,['MEMLIST']);
+ client._carriage.memList=async()=>({status:-1});await assert.rejects(client.refreshMemberProfiles('100'),/MEMLIST failed/);
 });
