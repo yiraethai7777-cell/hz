@@ -41,8 +41,8 @@ function createFarm({pool,now=Date.now}){
   const room=String(ctx.roomId),user=String(ctx.userId),name=String(ctx.userName||user);
   if(!/^\d+$/.test(room)||!/^\d+$/.test(user))fail('채팅방과 사용자 ID를 확인할 수 없습니다.');
   const readonly=['#농장','#농장정보'].includes(cmd);
-  if(!['!농장','!농장정보','!농장확장','!씨앗구매','!심기','!수확','!전체수확'].includes(cmd))fail('지원하지 않는 농장 명령어입니다.');
-  if(['!농장','!농장정보','!농장확장','!전체수확'].includes(cmd)&&parts.length!==1)fail('사용법: '+cmd);
+if(!['#농장','#농장정보','#농장확장','#씨앗구매','#심기','#수확','#전체수확'].includes(cmd))fail('지원하지 않는 농장 명령어입니다.');
+if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&parts.length!==1)fail('사용법: '+cmd);
   if(!readonly&&ctx.messageId==null)fail('메시지 고유번호를 확인할 수 없어 처리를 중단했습니다.');
   const db=await pool.connect();
   try{
@@ -61,30 +61,30 @@ function createFarm({pool,now=Date.now}){
    const f=(await db.query('SELECT level,seeds,plots FROM gl_farms WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user])).rows[0];
    f.seeds={...f.seeds};f.plots={...f.plots};const size=f.level+2,time=now();let delta=0,result='';
    function spend(cost){if(!ctx.isBotAccount&&balance<cost)fail(`코인이 부족합니다. 필요 ${fmt(cost)}코인 · 보유 ${fmt(balance)}코인`);if(!ctx.isBotAccount)delta-=cost;}
-   if(cmd==='!농장')result=formatFarm(f,{id:user,name},time);
-   if(cmd==='!농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\nNEXUS | FARM\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n!농장확장으로 한 단계씩 확장합니다.`;
-   if(cmd==='!씨앗구매'){
-    if(parts.length!==3)fail('사용법: !씨앗구매 이름 수량');
+   if(cmd==='#농장')result=formatFarm(f,{id:user,name},time);
+   if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\nNEXUS | FARM\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n#농장확장으로 한 단계씩 확장합니다.`;
+   if(cmd==='#씨앗구매'){
+    if(parts.length!==3)fail('사용법: #씨앗구매 이름 수량');
     const c=crop(parts[1]),quantity=integer(parts[2],'수량'),cost=c.price*quantity,total=(f.seeds[c.name]||0)+quantity;
     if(!Number.isSafeInteger(cost)||!Number.isSafeInteger(total))fail('구매 수량이 너무 큽니다.');
     spend(cost);f.seeds[c.name]=total;result=`🌱 ${c.name} 씨앗 ${fmt(quantity)}개를 구매했습니다.\n사용 코인: ${fmt(cost)}코인\n보유 씨앗: ${fmt(total)}개`;
    }
    if(cmd==='!심기'){
-    if(parts.length!==3)fail('사용법: !심기 번호 작물이름');const key=cell(parts[1],size),c=crop(parts[2]);
-    if(f.plots[key])fail('이미 작물이 있는 칸입니다.');if(!(f.seeds[c.name]>0))fail('해당 씨앗이 부족합니다. !씨앗구매로 구매해 주세요.');
+    if(parts.length!==3)fail('사용법: #심기 번호 작물이름');const key=cell(parts[1],size),c=crop(parts[2]);
+    if(f.plots[key])fail('이미 작물이 있는 칸입니다.');if(!(f.seeds[c.name]>0))fail('해당 씨앗이 부족합니다. #씨앗구매로 구매해 주세요.');
     f.seeds[c.name]--;f.plots[key]={crop:c.name,plantedAt:time};result=`🌱 ${parts[1]}번 칸에 ${c.name} 씨앗을 심었습니다.\n${c.minutes}분 뒤 수확할 수 있습니다.`;
    }
-   if(cmd==='!수확'||cmd==='!전체수확'){
-    if(cmd==='!수확'&&parts.length!==2)fail('사용법: !수확 번호');
-    const keys=cmd==='!수확'?[cell(parts[1],size)]:Object.keys(f.plots);let count=0,coins=0;const harvested=[];
-    for(const key of keys){const planted=f.plots[key];if(!planted){if(cmd==='!수확')fail('빈 땅입니다.');continue;}
+   if(cmd==='#수확'||cmd==='#전체수확'){
+    if(cmd==='#수확'&&parts.length!==2)fail('사용법: #수확 번호');
+    const keys=cmd==='#수확'?[cell(parts[1],size)]:Object.keys(f.plots);let count=0,coins=0;const harvested=[];
+    for(const key of keys){const planted=f.plots[key];if(!planted){if(cmd==='#수확')fail('빈 땅입니다.');continue;}
      const c=crop(planted.crop),remaining=planted.plantedAt+c.minutes*60000-time;
-     if(remaining>0){if(cmd==='!수확')fail('아직 성장 중입니다. 남은 시간: '+Math.ceil(remaining/1000)+'초');continue;}
+     if(remaining>0){if(cmd==='#수확')fail('아직 성장 중입니다. 남은 시간: '+Math.ceil(remaining/1000)+'초');continue;}
      count++;coins+=c.sale;delete f.plots[key];harvested.push(`${c.emoji} ${c.name} · ${fmt(c.sale)}코인`);
     }
     delta+=coins;result=count?`🌾 ${mention(user,name)}님이 작물 ${count}개를 수확했습니다.\n${FOLD}\n${harvested.join('\n')}\n\n💰 총 획득: ${fmt(coins)}코인`:'🌱 아직 수확 가능한 작물이 없습니다.';
    }
-   if(cmd==='!농장확장'){
+   if(cmd==='#농장확장'){
     if(f.level>=6)fail('이미 최대 크기 8×8 농장입니다.');const cost=EXPANSIONS[f.level];spend(cost);f.level++;
     result=`🌾 농장을 Lv.${f.level} · ${f.level+2}×${f.level+2}로 확장했습니다.\n사용 코인: ${fmt(cost)}코인\n기존 작물은 같은 위치에 유지됩니다.`;
    }
