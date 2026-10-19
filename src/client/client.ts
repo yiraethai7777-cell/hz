@@ -2228,36 +2228,24 @@ export class KakaoForgeClient extends EventEmitter {
 
   async refreshMemberProfiles(chatId: number | string) {
     if (!this._carriage) throw new Error('LOCO not connected');
-    const roomId = this._resolveChatId(chatId), ids = new Set<string>();
-    let token: number | string = 0;
-    for (let page = 0; page < 30; page++) {
-      const response = await this._carriage.memList({chatId:roomId,token,excludeMe:false});
-      if (typeof response?.status === 'number' && response.status !== 0) throw new Error('Profile MEMLIST failed');
-      const body = response?.body || {}, members = body.members || body.memberList || body.memList || [];
-      if (!Array.isArray(members)) throw new Error('Invalid profile member list');
-      for (const member of members) {
-        const id = String(normalizeIdValue(member.userId ?? member.id ?? member.memberId) || '');
-        if (/^[1-9]\d*$/.test(id)) ids.add(id);
+    const roomId=this._resolveChatId(chatId), ids=new Set<string>();
+    let token: number | string=0;
+    for(let page=0;page<30;page++) {
+      const response=await this._carriage.memList({chatId:roomId,token,excludeMe:false});
+      if(typeof response?.status==='number'&&response.status!==0)throw new Error('Profile MEMLIST failed');
+      const body=response?.body||{}, members=body.members||body.memberList||body.memList||[];
+      if(!Array.isArray(members))throw new Error('Invalid profile member list');
+      this._cacheMembers(roomId,members);
+      for(const member of members) {
+        const id=String(normalizeIdValue(member.userId??member.id??member.memberId)||'');
+        if(/^[1-9]\d*$/.test(id))ids.add(id);
       }
-      const next = String(normalizeIdValue(body.token ?? body.nextToken ?? body.memberToken ?? 0) || '');
-      if (!next || next === '0' || next === String(token)) break;
-      token = next;
+      const next=String(normalizeIdValue(body.token??body.nextToken??body.memberToken??0)||'');
+      if(!next||next==='0'||next===String(token))break;
+      token=next;
+      await new Promise(resolve=>setTimeout(resolve,250));
     }
-    const result: Array<{id:string;name:string;imageUrl:string;profileType:number;profileLinkId:string;type:number|null}> = [];
-    const users = [...ids];
-    for (let i = 0; i < users.length; i += 50) {
-      const requested = users.slice(i,i+50), response = await this._carriage.member(roomId,requested);
-      if (typeof response?.status === 'number' && response.status !== 0) throw new Error('Profile MEMBER failed');
-      const members = response?.body?.members || response?.body?.memberList || response?.body?.memList || [];
-      if (!Array.isArray(members)) throw new Error('Invalid profile details');
-      const matching = members.filter((member:any)=>requested.includes(String(normalizeIdValue(member.userId ?? member.id ?? member.memberId))));
-      this._cacheMembers(roomId,matching);
-      for (const member of matching) {
-        const id = String(normalizeIdValue(member.userId ?? member.id ?? member.memberId));
-        result.push({id,...this.getUserProfileSnapshot(roomId,id),type:this._getCachedMemberType(roomId,id)});
-      }
-    }
-    return result;
+    return [...ids].map(id=>({id,...this.getUserProfileSnapshot(roomId,id),type:this._getCachedMemberType(roomId,id)}));
   }
 
   getUserOpenProfileType(chatId: number | string, userId: number | string): number {
