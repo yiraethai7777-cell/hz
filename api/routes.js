@@ -35,6 +35,7 @@ async function routes(req,res,url,body){
  if(p.startsWith('/api/admin/promo-'))return require('../promotion/portal').admin(req,url,body,s);
  if(p==='/api/logout'&&method==='POST')return auth.logout(req,res,s);
  if(p==='/api/admin/overview'&&method==='GET')return overview();
+ if(p==='/api/admin/attendance-image-test'&&method==='POST')return require('../manage/attendance-image/preview').sendTest(status.client,body);
  if(p==='/api/admin/promotion-message'&&method==='GET')return {message:await promotion.commonMessage()||''};
  if(p==='/api/admin/promotion-message'&&method==='POST')return promotion.setCommonMessage(s.user,body);
  if(p==='/api/admin/rooms'&&method==='GET'){
