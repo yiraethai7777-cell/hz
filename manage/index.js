@@ -39,7 +39,7 @@ async function setEnabled(room,value){
 async function warnCount(room,user){const r=await getPool().query('SELECT count(*)::int AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',[room,user]);return r.rows[0].n}
 async function log(room,actor,target,action,detail){await getPool().query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[room,actor,target,action,detail])}
 // GL_BOT_ONLY_V1
-async function message({roomId,userId,userName,messageId,text,send,kick,unban,resolveTarget,isBotAccount=false,senderType,botId,msg}){
+async function message({client,roomId,userId,userName,messageId,text,send,kick,unban,resolveTarget,isBotAccount=false,senderType,botId,msg}){
  const room=key(roomId),user=key(userId),db=getPool(),s=String(text||'').trim();
  if(s==='#내아이디'){await send('🆔 내 아이디: '+user);return true}
  if(s==='#관리명령어'){await send(require('../shared/help').formatCommandHelp({manage:true,game:false},'관리'));return true}
@@ -72,20 +72,25 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
  }
  
 if (cmd === '#출석') {
-  // 기존 출석 처리 및 코인 지급
   const result = await attend(room, user, userName);
 
-  // 신규 출석인 경우 이미지 먼저 전송
   if (result.startsWith('✅ ')) {
-    await require('./attendance-image/automatic')
-      .sendAttendanceImage(client, {
-        roomId: room,
-        userId: user,
-        send
-      });
+    try {
+      await Promise.race([
+        require('./attendance-image/automatic').sendAttendanceImage(client, {
+          roomId: room,
+          userId: user,
+          send
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('attendance image timeout')), 8000)
+        )
+      ]);
+    } catch (e) {
+      console.error('[ATTENDANCE IMAGE TIMEOUT OR FAIL]', e);
+    }
   }
 
-  // 이미지 전송 후 기존 출석 메시지 전송
   await send(result);
   return true;
 }
