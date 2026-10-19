@@ -32,6 +32,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           return result;
         },
         send: body => chat.sendText(roomId, body) };
+      if (text === "!테스트") {
+        await require("../manage/attendance-image/command")
+          .handleTest(client, context);
+        return;
+      }
       if (text === '#게임작동' || text === '#게임중지') {
         await game.toggle(context);
         return;
