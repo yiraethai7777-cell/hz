@@ -33,11 +33,11 @@ async function attachHZBot(client){
         // Some KakaoForge versions expose sender profile fields in raw sender.
         await ctx.saveOpenProfileLink(rid,uid,name,msg.raw?.sender);
       }
-      if(text==="!프로필진단"){
+      if(text==="#프로필진단"){
         await ctx.send(chat,rid,ctx.profileDiagnostic(msg));
         return;
       }
-      if(text==="!내아이디"){await ctx.send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);return;}
+      if(text==="#내아이디"){await ctx.send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);return;}
 
       let flags=await ctx.roomFlags(rid);
       if(flags.manage&&!flags.locked&&!isSelf&&exactSender){
@@ -53,24 +53,24 @@ async function attachHZBot(client){
           if(change)await ctx.send(chat,rid,require('../manage/leave-reply').profileNotice(change,ctx.nowK()));
         });
       }
-      if(text==="!삭메기록켜기"||text==="!삭메기록끄기"){
+      if(text==="#삭메기록켜기"||text==="#삭메기록끄기"){
         if(!isAdmin)return;
         await ctx.send(chat,rid,'🗑️ 삭제 알림은 삭제한 사람만 표시하며 원문은 저장하지 않습니다.');
         return;
       }
 
-      if(text==="!봇작동"){
+      if(text==="#봇작동"){
         if(!isAdmin)return;
         const out=await ctx.withRoom(rid,rname,async d=>{d.locked=false;return "✅ 봇 잠금이 해제되었습니다.\n기존 게임·관리 작동 설정은 유지됩니다."});
         await ctx.send(chat,rid,out);return
       }
 
       if(flags.locked){
-        if(isAdmin&&text==="!관리중지")return;
+        if(isAdmin&&text==="#관리중지")return;
         return
       }
 
-      if(!text.startsWith("!")){
+      if(!text.startsWith("#")){
         await ctx.autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags);
         if(flags.game&&flags.quizEnabled&&require('../game/quiz').plainAnswer(flags.quiz,text)){
           const out=await ctx.withRoom(rid,rname,async(d,c)=>{
@@ -83,21 +83,21 @@ async function attachHZBot(client){
       }
 
       // 홍보 명령어는 게임/관리 활성화 여부와 독립적으로 동작.
-      if(/^!(홍보설정|홍보시작|홍보중지|홍보확인|도배방지|도배방지끄기|도배방지확인)(?:\s|$)/.test(text)){
+      if(/^#(홍보설정|홍보시작|홍보중지|홍보확인|도배방지|도배방지끄기|도배방지확인)(?:\s|$)/.test(text)){
         if(!isAdmin){await ctx.send(chat,rid,"⛔ 최고 관리자만 홍보 설정을 변경할 수 있습니다.");return;}
         const cmd=text.split(/\s+/)[0], arg=text.slice(cmd.length).trim();
         const out=await ctx.withRoom(rid,rname,async d=>{
           const p=d.promo;
-          if(cmd==="!홍보설정"){
-            if(!arg)return "사용법: !홍보설정 (홍보할 문구)";
+          if(cmd==="#홍보설정"){
+            if(!arg)return "사용법: #홍보설정 (홍보할 문구)";
             if(arg.length>1000)return "홍보 문구는 1,000자 이하로 설정해 주세요.";
             p.message=arg;return "✅ 홍보 문구가 저장되었습니다.\n"+arg;
           }
-          if(cmd==="!홍보시작"){
-            if(!/^\d+$/.test(arg))return "사용법: !홍보시작 (분)\n예: !홍보시작 20";
+          if(cmd==="#홍보시작"){
+            if(!/^\d+$/.test(arg))return "사용법: #홍보시작 (분)\n예: #홍보시작 20";
             const m=Number(arg);
             if(!Number.isInteger(m)||m<5||m>120)return "홍보 간격은 5~120분으로 설정해 주세요.";
-            if(!p.message)return "먼저 !홍보설정 (내용)으로 홍보 문구를 저장해 주세요.";
+            if(!p.message)return "먼저 #홍보설정 (내용)으로 홍보 문구를 저장해 주세요.";
             p.minutes=m;p.enabled=true;p.stopReason="";
             p.sentTimes=[];
             // 이전 스케줄의 기록을 초기화하되 같은 슬롯 재전송은 방지.
@@ -106,45 +106,45 @@ async function attachHZBot(client){
             const next=slot+m*60000;
             return `📢 자동 홍보 시작\n간격: ${m}분\n다음 홍보: ${new Date(next).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}\n도배 방지: ${p.antiSpam?"켜짐":"꺼짐"}`;
           }
-          if(cmd==="!홍보중지"){p.enabled=false;p.stopReason="관리자가 중지";return "⏹️ 이 방의 자동 홍보가 중지되었습니다.";}
-          if(cmd==="!도배방지"){p.antiSpam=true;return "🛡️ 홍보 도배 방지가 켜졌습니다. 10초 이내 3회 전송을 방지합니다.";}
-          if(cmd==="!도배방지끄기"){p.antiSpam=false;return "⚠️ 홍보 도배 방지가 꺼졌습니다.";}
-          if(cmd==="!도배방지확인")return `🛡️ 홍보 도배 방지: ${p.antiSpam?"켜짐":"꺼짐"}\n기준: 10초 이내 3회 전송`;
+          if(cmd==="#홍보중지"){p.enabled=false;p.stopReason="관리자가 중지";return "⏹️ 이 방의 자동 홍보가 중지되었습니다.";}
+          if(cmd==="#도배방지"){p.antiSpam=true;return "🛡️ 홍보 도배 방지가 켜졌습니다. 10초 이내 3회 전송을 방지합니다.";}
+          if(cmd==="#도배방지끄기"){p.antiSpam=false;return "⚠️ 홍보 도배 방지가 꺼졌습니다.";}
+          if(cmd==="#도배방지확인")return `🛡️ 홍보 도배 방지: ${p.antiSpam?"켜짐":"꺼짐"}\n기준: 10초 이내 3회 전송`;
           return `📢 홍보 상태: ${p.enabled?"작동 중":"중지"}\n간격: ${p.minutes||"미설정"}분\n문구: ${p.message||"미설정"}\n도배 방지: ${p.antiSpam?"켜짐":"꺼짐"}${p.stopReason?"\n최근 중지 사유: "+p.stopReason:""}`;
         });
         await ctx.send(chat,rid,out);return;
       }
 
-      if(text==="!초기화"||text==="!초기화확인"){
+      if(text==="#초기화"||text==="#초기화확인"){
         if(!ctx.OWNER_IDS.has(uid)){await ctx.send(chat,rid,"⛔ 최고 관리자만 게임 초기화를 실행할 수 있습니다. HZ_OWNER_IDS 설정을 확인하세요.");return;}
-        if(text==="!초기화"){
+        if(text==="#초기화"){
           await ctx.withRoom(rid,rname,async d=>{d.gameResetRequest={uid,expires:Date.now()+60000};});
-          await ctx.send(chat,rid,"⚠️ 전체 방의 게임 데이터(코인, 레벨, 물고기, 펫, 강화, 보호권 등)를 초기화합니다.\n채팅순위(hz_chat_stats)와 출석 기록은 유지됩니다.\n60초 이내 !초기화확인 을 입력하세요.");return;
+          await ctx.send(chat,rid,"⚠️ 전체 방의 게임 데이터(코인, 레벨, 물고기, 펫, 강화, 보호권 등)를 초기화합니다.\n채팅순위(hz_chat_stats)와 출석 기록은 유지됩니다.\n60초 이내 #초기화확인 을 입력하세요.");return;
         }
         const valid=await ctx.withRoom(rid,rname,async d=>{const x=d.gameResetRequest;const ok=x&&x.uid===uid&&x.expires>Date.now();delete d.gameResetRequest;return !!ok;});
-        if(!valid){await ctx.send(chat,rid,"⏰ 초기화 요청이 없거나 만료되었습니다. !초기화부터 입력하세요.");return;}
+        if(!valid){await ctx.send(chat,rid,"⏰ 초기화 요청이 없거나 만료되었습니다. #초기화부터 입력하세요.");return;}
         await ctx.pool.query(`UPDATE hz_rooms SET data=jsonb_set(jsonb_set(jsonb_set(jsonb_set(data,'{players}','{}'::jsonb,true),'{quiz}','null'::jsonb,true),'{quizQueue}','[]'::jsonb,true),'{lastQuiz}','-1'::jsonb,true),updated_at=NOW()`);
         await ctx.send(chat,rid,"✅ 모든 방의 게임 데이터가 초기화되었습니다.\n📊 채팅순위·채팅 횟수·출석 기록은 그대로 유지됩니다.");return;
       }
 
-      const control=["!퀴즈작동","!퀴즈중지","!낚시작동","!낚시중지","!게임작동","!게임중지","!관리작동","!관리중지"];
+      const control=["#퀴즈작동","#퀴즈중지","#낚시작동","#낚시중지","#게임작동","#게임중지","#관리작동","#관리중지"];
       if(control.includes(text)){
         if(!isAdmin)return;
         const out=await ctx.withRoom(rid,rname,async d=>{
-          if(text==="!퀴즈작동"){d.quizEnabled=true;return "🧩 퀴즈 ON"}
-          if(text==="!퀴즈중지"){d.quizEnabled=false;d.quiz=null;return "🧩 퀴즈 OFF"}
-          if(text==="!낚시작동"){d.fishEnabled=true;return "🎣 낚시 ON"}
-          if(text==="!낚시중지"){d.fishEnabled=false;return "🎣 낚시 OFF"}
-          if(text==="!게임작동"){d.game=true;return "🎮 게임 기능이 작동되었습니다."}
-          if(text==="!게임중지"){d.game=false;return "⏹️ 게임 기능이 중지되었습니다."}
-          if(text==="!관리작동"){d.manage=true;return "🛡️ 관리 기능이 작동되었습니다."}
-          if(text==="!관리중지"){d.manage=false;return "🛡️ 관리 기능이 중지되었습니다."}
+          if(text==="#퀴즈작동"){d.quizEnabled=true;return "🧩 퀴즈 ON"}
+          if(text==="#퀴즈중지"){d.quizEnabled=false;d.quiz=null;return "🧩 퀴즈 OFF"}
+          if(text==="#낚시작동"){d.fishEnabled=true;return "🎣 낚시 ON"}
+          if(text==="#낚시중지"){d.fishEnabled=false;return "🎣 낚시 OFF"}
+          if(text==="#게임작동"){d.game=true;return "🎮 게임 기능이 작동되었습니다."}
+          if(text==="#게임중지"){d.game=false;return "⏹️ 게임 기능이 중지되었습니다."}
+          if(text==="#관리작동"){d.manage=true;return "🛡️ 관리 기능이 작동되었습니다."}
+          if(text==="#관리중지"){d.manage=false;return "🛡️ 관리 기능이 중지되었습니다."}
         });
         await ctx.send(chat,rid,out);return
       }
 
       flags=await ctx.roomFlags(rid);
-      const templateCommand=/^!(입장변경|퇴장변경)(?:\s|$)/.exec(text);
+      const templateCommand=/^#(입장변경|퇴장변경)(?:\s|$)/.exec(text);
       if(templateCommand){
         if(!isAdmin&&!ctx.isOwnerType(msg.sender?.type)){
           await ctx.send(chat,rid,"⛔ 방장 또는 봇 계정만 변경할 수 있습니다.");return;
@@ -152,20 +152,20 @@ async function attachHZBot(client){
         const field=templateCommand[1]==="입장변경"?"joinTemplate":"leaveTemplate";
         const content=text.slice(templateCommand[0].length).trim();
         if(!content){
-          await ctx.send(chat,rid,`사용법: !${templateCommand[1]} (내용)\n사용 가능: (이름) (해시) (방이름) (날짜)\n기본 문구로 되돌리려면: !${templateCommand[1]} 기본`);return;
+          await ctx.send(chat,rid,`사용법: #${templateCommand[1]} (내용)\n사용 가능: (이름) (해시) (방이름) (날짜)\n기본 문구로 되돌리려면: #${templateCommand[1]} 기본`);return;
         }
         if(content.length>2000){await ctx.send(chat,rid,"문구는 2,000자 이하로 입력해 주세요.");return;}
         await ctx.withRoom(rid,rname,async d=>{d[field]=content==="기본"?null:content;});
         await ctx.send(chat,rid,content==="기본"?`✅ ${templateCommand[1]} 문구를 기본값으로 되돌렸습니다.`:`✅ ${templateCommand[1]} 문구가 저장되었습니다.\n\n미리보기:\n${ctx.formatMemberTemplate(content,{name:"홍길동",uid:"123456789",roomName:rname||"채팅방"})}`);
         return;
       }
-      if(text==="!명령어"){await ctx.send(chat,rid,require('./help').formatCommandHelp(flags));return}
+      if(text==="#명령어"){await ctx.send(chat,rid,require('./help').formatCommandHelp(flags));return}
 
-      if(text==="!송금"||text.startsWith("!송금 ")){
+      if(text==="#송금"||text.startsWith("#송금 ")){
         if(!flags.game){await ctx.send(chat,rid,"🎮 이 방은 게임이 꺼져 있습니다.");return;}
         if(isSelf){return;}
-        const match=/^!송금\s+(.+?)\s+([0-9]+)$/.exec(text);
-        if(!match){await ctx.send(chat,rid,"사용법: !송금 @멘션 (포인트)\n예: !송금 @홍길동 10000");return;}
+        const match=/^#송금\s+(.+?)\s+([0-9]+)$/.exec(text);
+        if(!match){await ctx.send(chat,rid,"사용법: #송금 @멘션 (포인트)\n예: #송금 @홍길동 10000");return;}
         const amount=Number(match[2]);
         if(!Number.isSafeInteger(amount)||amount<1||amount>1000000000000){await ctx.send(chat,rid,"❌ 송금 금액은 1~1조 포인트의 정수여야 합니다.");return;}
         const result=await ctx.withRoom(rid,rname,async(d,c)=>{
@@ -185,11 +185,11 @@ async function attachHZBot(client){
         await ctx.send(chat,rid,result);return;
       }
 
-      if(/^!회수(?:\s|$)/.test(text)){
+      if(/^#회수(?:\s|$)/.test(text)){
         if(!isAdmin||!flags.game)return;
-        const mm=/^!회수\s+(all|[0-9]+)(?:\s|$)/i.exec(text);
+        const mm=/^#회수\s+(all|[0-9]+)(?:\s|$)/i.exec(text);
         let t=ctx.targetFrom(msg,text);
-        if(!mm||!t){await ctx.send(chat,rid,"사용법: !회수 (코인/all) @(멘션) 또는 해시");return;}
+        if(!mm||!t){await ctx.send(chat,rid,"사용법: #회수 (코인/all) @(멘션) 또는 해시");return;}
         const all=mm[1].toLowerCase()==="all";
         const amount=all?null:Number(mm[1]);
         if(!all&&(!Number.isSafeInteger(amount)||amount<1||amount>1000000000000)){
@@ -208,11 +208,11 @@ async function attachHZBot(client){
         await ctx.send(chat,rid,out);return;
       }
 
-      if(text.startsWith("!치트")){
+      if(text.startsWith("#치트")){
         if(!isAdmin||!flags.game)return;
-        const mm=/^!치트\s+([0-9]+)[\s\S]*$/.exec(text);
+        const mm=/^#치트\s+([0-9]+)[\s\S]*$/.exec(text);
         let t=ctx.targetFrom(msg,text);
-        if(!mm||!t){await ctx.send(chat,rid,"사용법: !치트 (코인) @(멘션) 또는 해시");return}
+        if(!mm||!t){await ctx.send(chat,rid,"사용법: #치트 (코인) @(멘션) 또는 해시");return}
         const amount=Number(mm[1]);
         if(!Number.isSafeInteger(amount)||amount<1||amount>1000000000000){await ctx.send(chat,rid,"지급 코인은 1~1,000,000,000,000 범위로 입력해주세요.");return}
         const out=await ctx.withRoom(rid,rname,async(d,c)=>{t=await ctx.resolveTarget(c,rid,t);const p=ctx.player(d,t.id,t.name||t.id);p.points+=amount;return `💰 치트 지급 완료\n👤 ${p.name}\n💵 +${ctx.n(amount)}코인\n💰 현재 ${ctx.n(p.points)}코인\n🤖 봇 잔액: ∞`});
@@ -316,7 +316,7 @@ async function attachHZBot(client){
             if(arr.length>=7){
               await ctx.withRoom(rid,ev.room?.name||"",async d=>{d.locked=true;d.game=false;d.manage=false});
               ctx.kickBurst.delete(key);
-              await ctx.send(ctx.globalChat,rid,`🚨 테러 방어 작동\n\n${actorName}님이 60초 안에 7명을 강퇴했습니다.\n봇 기능을 잠갔습니다.\n\n🤖 봇 계정에서 !봇작동 입력 시 다시 작동합니다.`);
+              await ctx.send(ctx.globalChat,rid,`🚨 테러 방어 작동\n\n${actorName}님이 60초 안에 7명을 강퇴했습니다.\n봇 기능을 잠갔습니다.\n\n🤖 봇 계정에서 #봇작동 입력 시 다시 작동합니다.`);
               return
             }
           }
