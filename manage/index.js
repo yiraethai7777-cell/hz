@@ -4,6 +4,51 @@ const {initAttendance,attend,attendanceRanking}=require('./attendance');
 const MORE='\u200b'.repeat(500);
 const date=()=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',timeStyle:'medium'}).format(new Date());
 const key=v=>String(v);
+function formatKST(value){
+  const d = value ? new Date(value) : new Date();
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+
+  const get = type => parts.find(v => v.type === type)?.value || '';
+  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
+}
+
+function formatStayDuration(start, end){
+  if(!start || !end) return '확인 불가';
+
+  const diff = new Date(end).getTime() - new Date(start).getTime();
+  if(!Number.isFinite(diff) || diff < 0) return '확인 불가';
+
+  let sec = Math.floor(diff / 1000);
+
+  const day = Math.floor(sec / 86400);
+  sec %= 86400;
+  const hour = Math.floor(sec / 3600);
+  sec %= 3600;
+  const min = Math.floor(sec / 60);
+
+  const out = [];
+  if(day) out.push(`${day}일`);
+  if(hour) out.push(`${hour}시간`);
+  if(min) out.push(`${min}분`);
+
+  return out.length ? out.join(' ') : '1분 미만';
+}
+
+async function kickCount(room, user){
+  const r = await getPool().query(
+    "SELECT count(*)::int AS n FROM gl_manage_actions WHERE room_id=$1 AND target_id=$2 AND action='KICK'",
+    [room, user]
+  );
+  return r.rows[0]?.n || 0;
+}
 async function init(){await initAttendance();const db=getPool();await require('./leave-reply').init(db);await db.query(`
 CREATE TABLE IF NOT EXISTS gl_manage_rooms(room_id TEXT PRIMARY KEY,enabled BOOLEAN NOT NULL DEFAULT FALSE,spam_enabled BOOLEAN NOT NULL DEFAULT TRUE,deleted_enabled BOOLEAN NOT NULL DEFAULT FALSE);
 CREATE TABLE IF NOT EXISTS gl_manage_admins(room_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(room_id,user_id));
