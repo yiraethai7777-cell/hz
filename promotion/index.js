@@ -50,7 +50,7 @@ let ticking=false;
 async function tick(chat){if(!chat||ticking)return;ticking=true;try{const r=await getPool().query("SELECT room_id FROM hz_rooms WHERE data->'promo'->>'enabled'='true' ORDER BY room_id LIMIT 500");for(const row of r.rows)await deliver(row.room_id,chat);}finally{ticking=false;}}
 async function handleCommand(ctx,client){
  const {text,roomId,userId,send}=ctx;
- if(!/^!(?:홍보설정|홍보수정|홍보시작|홍보중지|홍보확인|홍보삭제|홍보즉시|홍보통계)(?:\s|$)/.test(text))return false;
+ return false;
  const owners=String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/);
  const admins=await getPool().query('SELECT 1 FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[String(roomId),String(userId)]);
  if(!ctx.isBotAccount&&!owners.includes(String(userId))&&!admins.rowCount){await send('⛔ 홍보 관리 권한이 없습니다.');return true;}
