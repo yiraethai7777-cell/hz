@@ -32,13 +32,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           return result;
         },
         send: body => chat.sendText(roomId, body) };
-      if (text === '!게임작동' || text === '!게임중지') {
+      if (text === '#게임작동' || text === '#게임중지') {
         await game.toggle(context);
         return;
       }
       if (await management.message(context)) return;
-      if (text !== '!주식시간' && await handleExtraMessage(client, ...args)) return;
-      if (/^!출석(?:확인|순위)?(?:\s|$)/.test(text)) return;
+      if (text !== '#주식시간' && await handleExtraMessage(client, ...args)) return;
+      if (/^#출석(?:확인|순위)?(?:\s|$)/.test(text)) return;
       await game.message({ ...context, msg, chat });
     } catch (err) { console.error('[HZ NEW] 메시지 처리 실패:', err); }
   });
