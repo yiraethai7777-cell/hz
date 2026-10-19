@@ -237,15 +237,29 @@ async function attachHZBot(client){
     try{
       const rid=ctx.id(ev.room?.id);if(!rid)return;
       const f=await ctx.roomFlags(rid);if(!f.manage||f.locked)return;
-
       const ids=ev.member?.ids||ev.members?.map(x=>x.id)||[];
       const names=ev.member?.names||ev.members?.map(x=>x.name)||[];
       const actorId=ctx.id(ev.actor?.id??ev.actor?.userId??ev.actor?.memberId);
       const actorName=String((ev.actor?.name??ev.actor?.nickname??ev.actor?.nickName??actorId)||"알 수 없음");
       const actorType=Number(ev.actor?.type);
 
+      const formatKST=value=>{
+        if(!value)return '확인 불가';
+        const date=new Date(value);
+        if(!Number.isFinite(date.getTime()))return '확인 불가';
+        return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(date);
+      };
+      const stayTime=(start,end)=>{
+        if(!start||!end)return '확인 불가';
+        const sec=Math.floor((new Date(end)-new Date(start))/1000);
+        if(!Number.isFinite(sec)||sec<0)return '확인 불가';
+        const days=Math.floor(sec/86400),hours=Math.floor((sec%86400)/3600),mins=Math.floor((sec%3600)/60);
+        return [days?`${days}일`:'',hours?`${hours}시간`:'',mins?`${mins}분`:''].filter(Boolean).join(' ')||'1분 미만';
+      };
+
       for(let i=0;i<ids.length;i++){
         const uid=ctx.id(ids[i]),name=String(names[i]||uid);
+        if(!uid)continue;
         await ctx.pool.query(`INSERT INTO hz_members(room_id,user_id,name,join_count,leave_count)
           VALUES($1,$2,$3,$4,$5)
           ON CONFLICT(room_id,user_id) DO UPDATE SET
@@ -255,45 +269,60 @@ async function attachHZBot(client){
           last_seen=NOW()`,
           [rid,uid,name,type==="join"?1:0,(type==="leave"||type==="kick")?1:0]);
 
-        // Collect profile links when the event includes an individual member object.
         const eventMember=Array.isArray(ev.members)?ev.members[i]:
           (Array.isArray(ev.member?.members)?ev.member.members[i]:null);
         if(eventMember && ctx.id(eventMember.id??eventMember.userId)===uid)
           await ctx.saveOpenProfileLink(rid,uid,name,eventMember);
 
+        const eventTime=new Date();
         await ctx.pool.query("INSERT INTO hz_events(room_id,user_id,name,event_type,meta) VALUES($1,$2,$3,$4,$5::jsonb)",
           [rid,uid,name,type,JSON.stringify({actorId:actorId||null,actorName:actorName||null,actorType:Number.isFinite(actorType)?actorType:null})]);
 
-        if(type==="join"){
-          const q=await ctx.pool.query("SELECT join_count,leave_count,open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
-          const joins=Number(q.rows[0]?.join_count||0);
-          const leaves=Number(q.rows[0]?.leave_count||0);
-          const roomName=String(ev.room?.name||"이 방");
-          let profileLink=ctx.validOpenProfileLink(q.rows[0]?.open_profile_link);
-          if(typeof client.getUserOpenProfileLink==='function'){
-            try{const live=await client.getUserOpenProfileLink(rid,uid);if(live){profileLink=live;await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:live});}}
-            catch(e){console.error('[NEXUS JOIN PROFILE]',e.message);}
-          }
-          const profileType=typeof client.getUserOpenProfileType==='function'?client.getUserOpenProfileType(rid,uid):0;
-          if([1,2,4].includes(profileType))profileLink='';
-          const output=require('../manage/leave-reply').joinNotice({name,userId:uid,roomName,joins,leaves,time:ctx.nowK(),profileLink,profileType,detail:f.joinTemplate?ctx.formatMemberTemplate(f.joinTemplate,{name,uid,roomName}):''});
-          await ctx.send(ctx.globalChat,rid,output)
-        }
-
-        if(type==="leave"){
-          const roomName=String(ev.room?.name||f.name||"이 방");
-          const counts=await ctx.pool.query('SELECT join_count,leave_count,open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2',[rid,uid]);
-          let profileLink=ctx.validOpenProfileLink(counts.rows[0]?.open_profile_link);
+        if(type==="join"||type==="leave"){
+          const roomName=String(ev.room?.name||f.name||'이 방');
+          const q=await ctx.pool.query('SELECT join_count,leave_count,open_profile_link,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2',[rid,uid]);
+          const data=q.rows[0]||{},joins=Number(data.join_count||0),leaves=Number(data.leave_count||0);
+          const kickResult=await ctx.pool.query("SELECT COUNT(*)::integer AS count FROM hz_events WHERE room_id=$1 AND user_id=$2 AND event_type='kick'",[rid,uid]);
+          const bans=Number(kickResult.rows[0]?.count||0);
+          let profileLink=ctx.validOpenProfileLink(data.open_profile_link);
           if(typeof client.getUserOpenProfileLink==='function'){
             try{
-              const liveLink=await client.getUserOpenProfileLink(rid,uid);
-              if(liveLink){profileLink=liveLink;await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:liveLink});}
-            }catch(e){console.error('[NEXUS PROFILE LOOKUP]',e.message);}
+              const live=await client.getUserOpenProfileLink(rid,uid);
+              if(live){profileLink=ctx.validOpenProfileLink(live);await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:live});}
+            }catch(e){console.error('[NEXUS MEMBER PROFILE]',e.message);}
           }
+          let snapshot=null;
+          if(typeof client.getUserProfileSnapshot==='function'){
+            try{snapshot=client.getUserProfileSnapshot(rid,uid);}catch(e){console.error('[NEXUS PROFILE SNAPSHOT]',e.message);}
+          }
+          let profileType=snapshot?.profileType;
+          if(profileType==null&&typeof client.getUserOpenProfileType==='function'){
+            try{profileType=client.getUserOpenProfileType(rid,uid);}catch(e){console.error('[NEXUS PROFILE TYPE]',e.message);}
+          }
+          let profileName='확인 불가';
+          if([1,2,4].includes(Number(profileType))){profileName='기본프로필';profileLink='';}
+          else if(profileType!=null&&Number(profileType)!==0)profileName='오픈프로필';
+          else if(profileLink)profileName='오픈프로필';
+          const extracted=eventMember?ctx.extractProfile(eventMember):null;
+          const imageUrl=snapshot?.imageUrl||extracted?.url||data.last_profile_url||'';
+          const profileImage=typeof imageUrl==='string'&&/^https?:\/\//i.test(imageUrl)?imageUrl:'';
+          const detail=type==='join'
+            ?(f.joinTemplate?ctx.formatMemberTemplate(f.joinTemplate,{name,uid,roomName}):'')
+            :(f.leaveTemplate?ctx.formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):'');
           const leaveReply=require('../manage/leave-reply');
-          const output=leaveReply.leaveNotice({name,userId:uid,joins:Number(counts.rows[0]?.join_count||0),leaves:Number(counts.rows[0]?.leave_count||0),time:ctx.nowK(),profileLink,detail:f.leaveTemplate?ctx.formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):''});
-          const result=await ctx.send(ctx.globalChat,rid,output);
-          await leaveReply.record(ctx.pool,{roomId:rid,botId:ctx.globalBotId,userId:uid,name,result});
+
+          if(type==='join'){
+            // joinNotice currently expects KakaoForge's numeric profile type.
+            const output=leaveReply.joinNotice({name,userId:uid,roomName,joins,leaves,time:formatKST(eventTime),profileLink,profileType,profileImage,bans,detail});
+            await ctx.send(ctx.globalChat,rid,output);
+          }
+          if(type==='leave'){
+            const lastJoin=await ctx.pool.query("SELECT created_at FROM hz_events WHERE room_id=$1 AND user_id=$2 AND event_type='join' ORDER BY id DESC LIMIT 1",[rid,uid]);
+            const joinedAt=lastJoin.rows[0]?.created_at||null;
+            const output=leaveReply.leaveNotice({name,userId:uid,joins,leaves,time:formatKST(eventTime),joinedAt:joinedAt?formatKST(joinedAt):null,stay:stayTime(joinedAt,eventTime),profileLink,profileType:profileName,profileImage,bans,detail});
+            const result=await ctx.send(ctx.globalChat,rid,output);
+            await leaveReply.record(ctx.pool,{roomId:rid,botId:ctx.globalBotId,userId:uid,name,result});
+          }
         }
 
         if(type==="kick"){
