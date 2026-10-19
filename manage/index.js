@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS gl_manage_chat_counts(room_id TEXT NOT NULL,user_id T
 CREATE TABLE IF NOT EXISTS gl_manage_temp_messages(room_id TEXT NOT NULL,message_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,body TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));
 CREATE INDEX IF NOT EXISTS gl_temp_expiry ON gl_manage_temp_messages(created_at);
 CREATE TABLE IF NOT EXISTS gl_manage_actions(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,actor_id TEXT,target_id TEXT,action TEXT NOT NULL,detail TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());`);
- // Existing GL settings take precedence. Only synchronize the management flag;
+ // Existing NEXUS settings take precedence. Only synchronize the management flag;
  // legacy game state and all stored records remain intact.
  await db.query(`INSERT INTO hz_rooms(room_id,data)
  SELECT room_id,jsonb_build_object('manage',enabled) FROM gl_manage_rooms
@@ -45,7 +45,7 @@ async function message({roomId,userId,userName,messageId,text,send,kick,unban,re
  if(s==='!관리명령어'){await send(require('../shared/help').formatCommandHelp({manage:true,game:false},'관리'));return true}
  if(s==='!관리상태'){await send('🛡️ 관리: '+(await enabled(room)?'작동':'중지'));return true}
  if(s==='!관리작동'||s==='!관리중지'){
-  if(!isBotAccount){await send('⛔ 봇 최고 관리자 계정만 사용할 수 있습니다.');return true}
+  if(!isBotAccount){await send('⛔ NEXUS 계정만 사용할 수 있습니다.');return true}
   await setEnabled(room,s==='!관리작동');await send('🛡️ 관리 '+(s==='!관리작동'?'작동':'중지')+' 완료');return true
  }
  if(!await enabled(room))return false;
