@@ -37,7 +37,7 @@ function mentions(msg){
  return [...found.values()];
 }
 async function resolve({msg,text,roomId,client,db}){
- const arg=String(text||'').trim().replace(/^!\S+\s*/, '').split(/\s+/)[0];
+ const arg=String(text||'').trim().replace(/^#\S+\s*/, '').split(/\s+/)[0];
  let target=exact(arg)?{id:exact(arg),name:''}:null;
  const tagged=mentions(msg);
  if(!target&&tagged.length>1)return null;
