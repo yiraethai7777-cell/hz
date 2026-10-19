@@ -44,7 +44,7 @@ function createGame(client) {
       // Retired commands must not mutate games or historical records.
       if (/^!(?:준개|전체준개)/.test(text)) return;
       if (/^!(?:주식|내주식)/.test(text) || ['!코인','!레벨','!내정보'].includes(text)) return;
-      if (text==='!정보') {if(await require('./info').handle(context,client))return;}
+      if (text==='#정보') {if(await require('./info').handle(context,client))return;}
       if(await require('../promotion').handleCommand(context,client))return;
       if(await require('./privacy').command(context))return;
       if (controls.test(text) && !isBotAccount) {
