@@ -476,7 +476,7 @@ async function handleManage(d,c,msg,isSelf){
       }).join("\n"):"기록 없음")
   }
   if(/^#프로필로그(?:\s|$)/.test(text)){if(!t)return "사용법: #프로필로그 @(실제 멘션), 사용자 ID 또는 대상 메시지에 답장·댓글";return require("./profile-history").message(c,msg.room.id,t);}
-  if(text==="#아이디"||text.startsWith("!아이디 ")){
+  if(text==="#아이디"||text.startsWith("#아이디 ")){
     const it=await ctx.idCommandTarget(c,msg.room.id,msg,text);
     if(!it)return "❌ 대상의 정확한 ID를 확인하지 못했습니다.\n실제 멘션 또는 답장으로 시도해 주세요.\n채팅 기록에 없는 사용자는 ID를 확인할 수 없을 수 있습니다.";
     return `🔎 아이디 확인\n${ctx.MORE}\n👤 ${it.name||it.id}\n카카오 사용자 ID: ${it.id}`;
