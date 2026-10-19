@@ -148,7 +148,7 @@ async function getStockChart(name, days = 7) {
     ${labels}
 
     <text x="75" y="530" fill="#94a3b8" font-size="19">
-      HZ BOT | Last ${prices.length} trading sessions
+      NEXUS | Last ${prices.length} trading sessions
     </text>
   </svg>`;
 
