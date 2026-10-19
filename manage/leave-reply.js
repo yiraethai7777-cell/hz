@@ -62,12 +62,47 @@ function leaveNotice({
   );
 }
 
-function joinNotice({name,userId,roomName,joins,leaves,time,profileLink='',profileType=0,detail=''}){
- const clean=String(name).replace(/[\u0002-\u0004]/g,'');
- const mention=exactId(userId)?`\u0002${userId}\u0003${clean}\u0004`:clean;
- const reminder=[1,2,4].includes(Number(profileType))?`\n${mention}님, 오픈프로필로 변경해주세요.`:'';
- return `👋 ${mention}님 안녕하세요!${reminder}\n${'\u200b'.repeat(1200)}\n${roomName}에 오신 걸 환영합니다!\n🚪 입장 ${joins}회 · 퇴장 ${leaves}회\n🕒 입장 시간: ${time}\n사용자 ID: ${userId}\n🔗 오픈프로필: ${profileLink||'확인된 오픈프로필 링크 없음'}${detail?'\n'+detail:''}`;
+
+function joinNotice({
+  name, userId, roomName, joins, leaves, time,
+  profileLink = '', profileType = 0,
+  profileImage = '', bans = 0, detail = ''
+}) {
+  const clean = String(name).replace(/[\u0002-\u0004]/g, '');
+  const mention = exactId(userId)
+    ? `\u0002${userId}\u0003${clean}\u0004`
+    : `@${clean}`;
+
+  const typeName = [1, 2, 4].includes(Number(profileType))
+    ? '기본프로필'
+    : Number(profileType) === 0
+      ? (profileLink ? '오픈프로필' : '확인 불가')
+      : '오픈프로필';
+
+  return (
+    `${mention} 님이 채팅방에 입장하셨습니다.\n` +
+    '\u200b'.repeat(1200) +
+    `\nNEXUS  /  MEMBER JOINED` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n\n01  MEMBER PROFILE` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n닉네임      ${mention}` +
+    `\n유저 ID     ${userId}` +
+    `\n프로필      ${typeName}` +
+    `\n프사 URL    ${profileImage || '확인 불가'}` +
+    `\n\n02  SESSION HISTORY` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n입장 시각   ${time}` +
+    `\n\n03  ACTIVITY RECORD` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n누적 입장   ${joins}회` +
+    `\n누적 퇴장   ${leaves}회` +
+    `\n강퇴 기록   ${bans}회` +
+    `\n\n━━━━━━━━━━━━━━━━━━━━` +
+    `\nNEXUS  ·  AUTOMATED SYSTEM`
+  );
 }
+
 function profileNotice(change,time){
   return `👤 ${change.newName}님이 프로필을 변경했습니다.\n${'\u200b'.repeat(1200)}\n${change.oldName||'확인 불가'} → ${change.newName||'확인 불가'}\n예전 옾링: ${change.oldOpenLink||'확인된 링크 없음'}\n현재 옾링: ${change.newOpenLink||'확인된 링크 없음'}\n시간: ${time}`;
 }
