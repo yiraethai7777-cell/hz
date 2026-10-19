@@ -199,8 +199,128 @@ if (cmd === '#출석확인') {
  const toggles={'#삭제감지켜기':['deleted_enabled',true],'#삭제감지끄기':['deleted_enabled',false]};if(toggles[cmd]){const [field,value]=toggles[cmd];await db.query(`UPDATE gl_manage_rooms SET ${field}=$2 WHERE room_id=$1`,[room,value]);await send('설정 변경 완료');return true}
  return false;
 }
-async function join({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,joins) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET joins=gl_manage_members.joins+1,user_name=$3',[room,user,userName]);const m=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 NEXUS 입장 안내\n${userName}님 안녕하세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${m.rows[0].joins}회 / 퇴장 ${m.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
-async function leave({roomId,userId,userName,send}){const room=key(roomId),user=key(userId);if(!await enabled(room))return;const db=getPool();await db.query('INSERT INTO gl_manage_members(room_id,user_id,user_name,leaves) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET leaves=gl_manage_members.leaves+1,user_name=$3',[room,user,userName]);const r=await db.query('SELECT joins,leaves FROM gl_manage_members WHERE room_id=$1 AND user_id=$2',[room,user]);await send(`👋 NEXUS 퇴장 안내\n${userName}님 안녕히 가세요!\n${MORE}\n🆔 ID: ${user}\n입장 ${r.rows[0].joins}회 / 퇴장 ${r.rows[0].leaves}회\n경고 ${await warnCount(room,user)}회`)}
+
+async function join({roomId,userId,userName,send}){
+  const room = key(roomId);
+  const user = key(userId);
+
+  if (!await enabled(room)) return;
+
+  const db = getPool();
+
+  await db.query(`
+    INSERT INTO gl_manage_members
+      (room_id,user_id,user_name,joins,leaves,last_joined_at)
+    VALUES ($1,$2,$3,1,0,NOW())
+    ON CONFLICT (room_id,user_id)
+    DO UPDATE SET
+      joins = gl_manage_members.joins + 1,
+      user_name = $3,
+      last_joined_at = NOW()
+  `, [room,user,userName]);
+
+  const m = await db.query(
+    `SELECT joins,leaves,last_joined_at
+     FROM gl_manage_members
+     WHERE room_id=$1 AND user_id=$2`,
+    [room,user]
+  );
+
+  const joins = m.rows[0].joins;
+  const leaves = m.rows[0].leaves;
+  const joinedAt = m.rows[0].last_joined_at;
+  const bans = await kickCount(room,user);
+
+  await send(
+    `@${userName} 님이 채팅방에 입장하셨습니다.` +
+    MORE +
+    `\n\nNEXUS / MEMBER JOINED` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n\n01  MEMBER PROFILE` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n닉네임     ${userName}` +
+    `\n유저 ID    ${user}` +
+    `\n프로필     확인 불가` +
+    `\n프사 URL   확인 불가` +
+    `\n입장 시각  ${formatKST(joinedAt)}` +
+    `\n\n02  ACTIVITY RECORD` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n누적 입장   ${joins}회` +
+    `\n누적 퇴장   ${leaves}회` +
+    `\n강퇴 기록   ${bans}회` +
+    `\n\n━━━━━━━━━━━━━━━━━━━━` +
+    `\nNEXUS · AUTOMATED SYSTEM`
+  );
+}
+
+
+async function leave({roomId,userId,userName,send}){
+  const room = key(roomId);
+  const user = key(userId);
+
+  if (!await enabled(room)) return;
+
+  const db = getPool();
+
+  const before = await db.query(
+    `SELECT joins,leaves,last_joined_at
+     FROM gl_manage_members
+     WHERE room_id=$1 AND user_id=$2`,
+    [room,user]
+  );
+
+  const lastJoinedAt = before.rows[0]?.last_joined_at || null;
+
+  await db.query(`
+    INSERT INTO gl_manage_members
+      (room_id,user_id,user_name,joins,leaves)
+    VALUES ($1,$2,$3,0,1)
+    ON CONFLICT (room_id,user_id)
+    DO UPDATE SET
+      leaves = gl_manage_members.leaves + 1,
+      user_name = $3,
+      last_joined_at = NULL
+  `,[room,user,userName]);
+
+  const after = await db.query(
+    `SELECT joins,leaves
+     FROM gl_manage_members
+     WHERE room_id=$1 AND user_id=$2`,
+    [room,user]
+  );
+
+  const joins = after.rows[0].joins;
+  const leaves = after.rows[0].leaves;
+  const leftAt = new Date();
+  const stay = formatStayDuration(lastJoinedAt,leftAt);
+  const bans = await kickCount(room,user);
+
+  await send(
+    `@${userName} 님이 채팅방에서 퇴장하셨습니다.` +
+    MORE +
+    `\n\nNEXUS / MEMBER LEFT` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n\n01  MEMBER PROFILE` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n닉네임     ${userName}` +
+    `\n유저 ID    ${user}` +
+    `\n프로필     확인 불가` +
+    `\n프사 URL   확인 불가` +
+    `\n\n02  SESSION HISTORY` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n입장 시각  ${lastJoinedAt ? formatKST(lastJoinedAt) : '확인 불가'}` +
+    `\n퇴장 시각  ${formatKST(leftAt)}` +
+    `\n체류 시간  ${stay}` +
+    `\n\n03  ACTIVITY RECORD` +
+    `\n━━━━━━━━━━━━━━━━━━━━` +
+    `\n누적 입장   ${joins}회` +
+    `\n누적 퇴장   ${leaves}회` +
+    `\n강퇴 기록   ${bans}회` +
+    `\n\n━━━━━━━━━━━━━━━━━━━━` +
+    `\nNEXUS · AUTOMATED SYSTEM`
+  );
+}
+
 async function deleted({roomId,userId,userName,send}){
  if(!await enabled(key(roomId)))return;
  await send(userName||userId?`🗑️ ${userName||userId}님이 메시지를 삭제했습니다.`:'🗑️ 누군가 메시지를 삭제했습니다.');
