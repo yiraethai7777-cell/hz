@@ -3,6 +3,11 @@ const $=s=>document.querySelector(s);let csrf='',rooms=[],selected=null;
 function feedback(text,error=false,target='#feedback'){const el=$(target);el.textContent=text;el.classList.toggle('error',error);}
 async function api(path,method='GET',data){const response=await fetch(path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(method!=='GET'?{'X-CSRF-Token':csrf}:{})},body:data===undefined?undefined:JSON.stringify(data)});const result=await response.json();if(!response.ok){if(response.status===401&&path!=='/api/login'){$('#login-view').hidden=false;$('#admin-view').hidden=true;}throw Error(result.error||'요청 실패');}return result;}
 const format=n=>Number(n||0).toLocaleString('ko-KR');
+$('#attendance-image-test')?.addEventListener('click',async e=>{
+ const b=e.currentTarget;b.disabled=true;feedback('테스트 방에 출석 이미지 한 장을 전송하고 있습니다.');
+ try{const result=await api('/api/admin/attendance-image-test','POST',{confirm:true});if(result.confirmed!==true)throw Error('전송 완료를 확인하지 못했습니다. 테스트방을 확인해 주세요.');feedback('테스트 방에 이미지 한 장을 전송했습니다. 실제 출석·코인 기록은 변경하지 않았습니다.');}
+ catch(err){feedback(err.message,true);}finally{b.disabled=false;}
+});
 function cell(row,text){const td=document.createElement('td');td.textContent=text;row.append(td);return td;}
 function button(text,fn){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=text;b.addEventListener('click',()=>task(fn));return b;}
 async function task(run){try{await run();}catch(e){feedback(e.message,true);}}
