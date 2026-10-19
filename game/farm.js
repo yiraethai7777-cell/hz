@@ -69,7 +69,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     if(!Number.isSafeInteger(cost)||!Number.isSafeInteger(total))fail('구매 수량이 너무 큽니다.');
     spend(cost);f.seeds[c.name]=total;result=`🌱 ${c.name} 씨앗 ${fmt(quantity)}개를 구매했습니다.\n사용 코인: ${fmt(cost)}코인\n보유 씨앗: ${fmt(total)}개`;
    }
-   if(cmd==='!심기'){
+   if(cmd==='#심기'){
     if(parts.length!==3)fail('사용법: #심기 번호 작물이름');const key=cell(parts[1],size),c=crop(parts[2]);
     if(f.plots[key])fail('이미 작물이 있는 칸입니다.');if(!(f.seeds[c.name]>0))fail('해당 씨앗이 부족합니다. #씨앗구매로 구매해 주세요.');
     f.seeds[c.name]--;f.plots[key]={crop:c.name,plantedAt:time};result=`🌱 ${parts[1]}번 칸에 ${c.name} 씨앗을 심었습니다.\n${c.minutes}분 뒤 수확할 수 있습니다.`;
@@ -105,7 +105,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
 let instance;const service=()=>instance ||= createFarm({pool:getPool()});
 async function init(){await service().init();}
 async function handle(ctx){
- if(!/^!(?:농장|농장정보|농장확장|상점|씨앗구매|심기|수확|전체수확)(?:\s|$)/.test(ctx.text))return false;
+ if(!/^#(?:농장|농장정보|농장확장|상점|씨앗구매|심기|수확|전체수확)(?:\s|$)/.test(ctx.text))return false;
  try{await ctx.send(await service().run({...ctx,messageId:ctx.messageId??require('./coin').messageKey(ctx.msg||{})}));}
  catch(e){if(!e.userFacing)console.error('[NEXUS FARM]',e.message);await ctx.send('❌ '+(e.userFacing?e.message:'농장 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.'));}
  return true;
