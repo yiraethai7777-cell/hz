@@ -7,7 +7,7 @@ function format({id,name,bot,player={},balance=0,chat,link}) {
  const n=Math.max(1,Math.min(200,Number(player.level)||1));
  const fields=[
   '┏━━━━━━━━━━━━━━━━━━━━━━',
-  '┃ 프로필 정보',
+  '┃ NEXUS · 프로필 정보',
   '┣━━━━━━━━━━━━━━━━━━━━━━',
   `┃ ⭐ 레벨 · ${n} / 200`,
   `┃ 💰 코인 · ${bot?'∞':fmt(balance)}`,

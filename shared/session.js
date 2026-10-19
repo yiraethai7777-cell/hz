@@ -8,7 +8,7 @@ async function attachHZBot(client){
   ctx.promoTimer=setInterval(()=>{ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));},10000);
   if(ctx.promoTimer.unref)ctx.promoTimer.unref();
   ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));
-  if(ctx.autoFishTimer)clearInterval(ctx.autoFishTimer);ctx.autoFishTimer=setInterval(async()=>{if(ctx.autoFishBusy)return;ctx.autoFishBusy=true;try{await ctx.autoFishTick()}catch(e){console.error("[GL AUTO TICK]",e)}finally{ctx.autoFishBusy=false}},10000);if(ctx.autoFishTimer.unref)ctx.autoFishTimer.unref();
+  if(ctx.autoFishTimer)clearInterval(ctx.autoFishTimer);ctx.autoFishTimer=setInterval(async()=>{if(ctx.autoFishBusy)return;ctx.autoFishBusy=true;try{await ctx.autoFishTick()}catch(e){console.error("[NEXUS AUTO TICK]",e)}finally{ctx.autoFishBusy=false}},10000);if(ctx.autoFishTimer.unref)ctx.autoFishTimer.unref();
 
   client.onMessage(async (...args)=>{
     try{
@@ -46,7 +46,7 @@ async function attachHZBot(client){
         let openLink=ctx.findOpenProfileLink(msg.sender)||ctx.findOpenProfileLink(msg.raw?.sender)||undefined;
         if([1,2,4].includes(snapshot?.profileType))openLink='';
         else if(snapshot?.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
-          try{const live=await client.getUserOpenProfileLink(rid,uid);if(live)openLink=live;}catch(e){console.error('[GL PROFILE LINK]',e.message);}
+          try{const live=await client.getUserOpenProfileLink(rid,uid);if(live)openLink=live;}catch(e){console.error('[NEXUS PROFILE LINK]',e.message);}
         }
         await ctx.withRoom(rid,rname,async(d,c)=>{
           const change=await ctx.profileObserve(c,rid,uid,name,snapshot?.imageUrl||received?.url||'',openLink);
@@ -230,7 +230,7 @@ async function attachHZBot(client){
         return r
       });
       if(out)await ctx.send(chat,rid,out)
-    }catch(e){console.error("[GL]",e)}
+    }catch(e){console.error("[NEXUS]",e)}
   });
 
   const memberEvent=type=>async ev=>{
@@ -272,7 +272,7 @@ async function attachHZBot(client){
           let profileLink=ctx.validOpenProfileLink(q.rows[0]?.open_profile_link);
           if(typeof client.getUserOpenProfileLink==='function'){
             try{const live=await client.getUserOpenProfileLink(rid,uid);if(live){profileLink=live;await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:live});}}
-            catch(e){console.error('[GL JOIN PROFILE]',e.message);}
+            catch(e){console.error('[NEXUS JOIN PROFILE]',e.message);}
           }
           const profileType=typeof client.getUserOpenProfileType==='function'?client.getUserOpenProfileType(rid,uid):0;
           if([1,2,4].includes(profileType))profileLink='';
@@ -288,7 +288,7 @@ async function attachHZBot(client){
             try{
               const liveLink=await client.getUserOpenProfileLink(rid,uid);
               if(liveLink){profileLink=liveLink;await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:liveLink});}
-            }catch(e){console.error('[GL PROFILE LOOKUP]',e.message);}
+            }catch(e){console.error('[NEXUS PROFILE LOOKUP]',e.message);}
           }
           const leaveReply=require('../manage/leave-reply');
           const output=leaveReply.leaveNotice({name,userId:uid,joins:Number(counts.rows[0]?.join_count||0),leaves:Number(counts.rows[0]?.leave_count||0),time:ctx.nowK(),profileLink,detail:f.leaveTemplate?ctx.formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):''});

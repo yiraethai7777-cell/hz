@@ -43,7 +43,7 @@ async function check(ctx,msg,chat,rid,uid,name,text,isSelf,flags){
    await ctx.kickMember(msg,user);
    await ctx.pool.query("INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,'AUTO_BAN',$4)",[room,String(ctx.globalBotId),user,'동일 글·이모티콘 10회 연속 도배']);
    await ctx.send(chat,room,`🚫 ${name}님을 벤했습니다.\n이유: 동일 글·이모티콘 10회 연속 도배`);
-  }catch(e){await ctx.send(chat,room,`⚠️ ${name}님의 10회 연속 도배를 감지했지만 벤에 실패했습니다.\n봇의 방장·부방장 권한을 확인해 주세요.`);console.error('[GL AUTO BAN]',e.message);}
+  }catch(e){await ctx.send(chat,room,`⚠️ ${name}님의 10회 연속 도배를 감지했지만 벤에 실패했습니다.\n봇의 방장·부방장 권한을 확인해 주세요.`);console.error('[NEXUS AUTO BAN]',e.message);}
   ctx.spamState.delete(key);return true;
  }
  return false;

@@ -1,10 +1,12 @@
 'use strict';
 const {profileNotice}=require('./leave-reply');
-function createWatcher(ctx,client){
- let busy=false,timer,cursor=0,verified=false;
+function createWatcher(ctx,client,{now=Date.now}={}){
+ let busy=false,timer,cursor=0,verified=false,resumeAt=0;
+ // Give the main chat connection time to recover before any background requests.
+ client.on?.('disconnected',()=>{resumeAt=now()+600000;console.warn('[NEXUS PROFILE WATCH] paused for 10 minutes after disconnect');});
  const profileIds=new Map(),retryAt=new Map();
  async function tick(){
-  if(busy||typeof client.refreshMemberProfiles!=='function')return;
+  if(busy||now()<resumeAt||client.connected===false||typeof client.refreshMemberProfiles!=='function')return;
   busy=true;
   try{
    const joined=typeof client.getKnownChatRooms==='function'?new Set(client.getKnownChatRooms().map(r=>String(r.id))):null;
@@ -45,12 +47,12 @@ function createWatcher(ctx,client){
       return result;
      });
      for(const change of changes)await ctx.send(ctx.globalChat,room,profileNotice(change,ctx.nowK()));
-     if(!verified){console.log('[GL PROFILE WATCH] live member refresh verified');verified=true;}
-    }catch(e){console.error('[GL PROFILE WATCH]',String(room),e.message);}
+     if(!verified){console.log('[NEXUS PROFILE WATCH] live member refresh verified');verified=true;}
+    }catch(e){console.error('[NEXUS PROFILE WATCH]',String(room),e.message);}
    }
   }finally{busy=false;}
  }
- function start(){if(timer)return;timer=setInterval(()=>tick().catch(e=>console.error('[GL PROFILE WATCH]',e.message)),15000);timer.unref?.();}
+ function start(){if(timer)return;timer=setInterval(()=>tick().catch(e=>console.error('[NEXUS PROFILE WATCH]',e.message)),15000);timer.unref?.();}
  function stop(){if(timer)clearInterval(timer);timer=null;}
  return {tick,start,stop};
 }
