@@ -304,13 +304,54 @@ function manageHelp(){return require('../shared/help').formatCommandHelp({manage
 
 async function profileObserve(c,rid,uid,name,url,openLink){
   if(!uid)return;
-  const hasLink=openLink!==undefined,link=hasLink?(ctx.validOpenProfileLink(openLink)||''):null;
+  
+const validLink = openLink !== undefined
+  ? ctx.validOpenProfileLink(openLink)
+  : null;
+
+const hasLink = typeof validLink === 'string' && validLink.length > 0;
+const link = hasLink ? validLink : null;
+
   const q=await c.query("SELECT name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2",[rid,uid]);
   if(!q.rows.length){await c.query("INSERT INTO hz_members(room_id,user_id,name,last_profile_url,observed_open_profile_link) VALUES($1,$2,$3,$4,$5)",[rid,uid,name||uid,url||null,link]);return null}
-  const old=q.rows[0],nameChanged=!!(name&&old.name&&name!==old.name),imageChanged=!!(url&&old.last_profile_url&&url!==old.last_profile_url);
-  const linkChanged=hasLink&&old.observed_open_profile_link!=null&&old.observed_open_profile_link!==link;
-  const changed=nameChanged||imageChanged||linkChanged;
-  await c.query("UPDATE hz_members SET name=COALESCE(NULLIF($3,''),name),last_profile_url=COALESCE(NULLIF($4,''),last_profile_url),observed_open_profile_link=CASE WHEN $5::boolean THEN $6::text ELSE observed_open_profile_link END,last_seen=NOW() WHERE room_id=$1 AND user_id=$2",[rid,uid,name||"",url||"",hasLink,link]);
+  
+  const old = q.rows[0];
+
+  const nameChanged = Boolean(
+    name && old.name && name !== old.name
+  );
+
+  function normalizeProfileUrl(value) {
+    if (!value || typeof value !== 'string') return '';
+
+    try {
+      const parsed = new URL(value);
+      return parsed.origin + parsed.pathname;
+    } catch {
+      return value.trim();
+    }
+  }
+
+  const imageChanged = Boolean(
+    url &&
+    old.last_profile_url &&
+    normalizeProfileUrl(url) !==
+      normalizeProfileUrl(old.last_profile_url)
+  );
+
+  const linkChanged = Boolean(
+    hasLink &&
+    old.observed_open_profile_link &&
+    old.observed_open_profile_link !== link
+  );
+
+  const changed = nameChanged || imageChanged || linkChanged;
+
+  await c.query(
+    "UPDATE hz_members SET name=COALESCE(NULLIF($3,''),name),last_profile_url=COALESCE(NULLIF($4,''),last_profile_url),observed_open_profile_link=CASE WHEN $5::boolean THEN $6::text ELSE observed_open_profile_link END,last_seen=NOW() WHERE room_id=$1 AND user_id=$2",
+    [rid,uid,name||"",url||"",hasLink,link]
+  );
+
   if(changed){
     const nextLink=hasLink?link:old.observed_open_profile_link;
     await c.query("INSERT INTO hz_profiles(room_id,user_id,old_name,new_name,old_profile_url,new_profile_url,old_open_profile_link,new_open_profile_link) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",[rid,uid,old.name,name||old.name,old.last_profile_url,url||old.last_profile_url,old.observed_open_profile_link,nextLink]);
