@@ -71,29 +71,38 @@ async function message({client,roomId,userId,userName,messageId,text,send,kick,u
   }
  }
  
+
 if (cmd === '#출석') {
+  console.log('[ATTENDANCE DEBUG] 명령어 진입');
+
   const result = await attend(room, user, userName);
+
+  console.log('[ATTENDANCE DEBUG] 출석 처리 완료', {
+    isNew: result.startsWith('✅ '),
+    clientAvailable: typeof client !== 'undefined'
+  });
 
   if (result.startsWith('✅ ')) {
     try {
-      await Promise.race([
-        require('./attendance-image/automatic').sendAttendanceImage(client, {
+      console.log('[ATTENDANCE DEBUG] 이미지 전송 시작');
+
+      await require('./attendance-image/automatic')
+        .sendAttendanceImage(client, {
           roomId: room,
           userId: user,
           send
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('attendance image timeout')), 8000)
-        )
-      ]);
-    } catch (e) {
-      console.error('[ATTENDANCE IMAGE TIMEOUT OR FAIL]', e);
+        });
+
+      console.log('[ATTENDANCE DEBUG] 이미지 처리 종료');
+    } catch (error) {
+      console.error('[ATTENDANCE DEBUG] 오류:', error);
     }
   }
 
   await send(result);
   return true;
 }
+
 
 if (cmd === '#출석순위') {
   await send(await attendanceRanking(room));
