@@ -47,7 +47,7 @@ test('room owners and managers may kick; ordinary and unknown members remain den
     assert.equal(kicks,2);
     registered=true;await manage.message({...ctx,senderType:2});assert.equal(kicks,3);
     await manage.message({...ctx,senderType:1,text:'!관리중지'});
-    assert.match(replies.at(-1),/GL 계정만/);
+    assert.match(replies.at(-1),/NEXUS 계정만/);
   } finally {pool.query=query;if(oldEnv===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=oldEnv;
     if(oldOwner===undefined)delete process.env.GL_OWNER_ID;else process.env.GL_OWNER_ID=oldOwner;}
 });

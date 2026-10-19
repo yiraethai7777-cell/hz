@@ -56,6 +56,13 @@ test('silent profile refresh records nickname, photo and open-link changes witho
  }finally{await storage.close();}
 });
 require('ts-node/register/transpile-only');
+test('background profile refresh pauses while disconnected and during recovery',async()=>{
+ const client=new(require('node:events').EventEmitter)();let calls=0,clock=0;
+ client.connected=false;client.getKnownChatRooms=()=>[];client.refreshMemberProfiles=async()=>[];
+ const watcher=require('../manage/profile-watch').createWatcher({pool:{query:async()=>{calls++;return {rows:[]};}}},client,{now:()=>clock});
+ await watcher.tick();assert.equal(calls,0);client.connected=true;client.emit('disconnected');
+ await watcher.tick();assert.equal(calls,0);clock=600001;await watcher.tick();assert.equal(calls,1);
+});
 test('profile refresh obtains exact live profiles from paged server member list without bulk MEMBER requests',async()=>{
  const {KakaoForgeClient}=require('../src/client/client'),client=Object.create(KakaoForgeClient.prototype),id='9007199254740993123',requests=[];
  client._resolveChatId=x=>x;client._cacheMembers=(room,members)=>{assert.equal(String(members[0].userId),id);};

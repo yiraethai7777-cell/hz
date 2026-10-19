@@ -39,7 +39,7 @@ test('legacy registration commands and rejoin enforcement are retired without de
  assert.doesNotMatch(runtime.manageHelp(),/벤등록/);
  assert.ok(statements.every(sql=>!sql.includes('hz_ban_registry')&&!/\b(?:INSERT|UPDATE|DELETE)\b/i.test(sql)));
  const session=fs.readFileSync(path.join(__dirname,'../shared/session.js'),'utf8');
- assert.doesNotMatch(session,/hz_ban_registry|GL AUTO BAN/);
+ assert.doesNotMatch(session,/hz_ban_registry|NEXUS AUTO BAN/);
  const schema=fs.readFileSync(path.join(__dirname,'../shared/state.js'),'utf8');
  assert.match(schema,/CREATE TABLE IF NOT EXISTS hz_ban_registry/);
 });
@@ -147,7 +147,9 @@ test('help shows only active modules, separated with a single 1200-character fol
  assert.match(gameOnly,/!낚시/);assert.ok(!gameOnly.includes('!주식'));
  assert.ok(!gameOnly.includes('!출석'));assert.ok(!gameOnly.includes('!경고'));
  const both=formatCommandHelp({manage:true,game:true});
- assert.ok(both.length<4500);assert.doesNotMatch(both,/헤이즈|HZ BOT|!내정보|!레벨|!코인(?:\s|$)|!주식/);
+ assert.ok(both.length<5000);assert.doesNotMatch(both,/헤이즈|\bGL\b|!내정보|!레벨|!코인(?:\s|$)|!주식/);
+ const visible=both.split('\u200b'.repeat(1200))[0];
+ assert.ok(visible.startsWith('🌐 웹사이트: https://hz-production-d530.up.railway.app/\n👤 개발자 오픈프로필: https://open.kakao.com/o/sOmp64Si\n📜 NEXUS 명령어 안내'));
  assert.match(both,/🎮 게임 명령어/);assert.match(both,/🛡️ 관리 명령어/);
  assert.equal([...both].filter(c=>c==='\u200b').length,1200);
  assert.match(formatCommandHelp({manage:false,game:false}),/작동 중인 기능이 없습니다/);
