@@ -59,7 +59,7 @@ function rawMentions(msg){
 }
 
 function targetFrom(msg,text){
-  const explicit=String(text||"").trim().match(/^!\S+\s+(\d{4,})\s*$/);
+  const explicit=String(text||"").trim().match(/^#\S+\s+(\d{4,})\s*$/);
   if(explicit)return {id:explicit[1],name:""};
   const ms=ctx.rawMentions(msg);
   return ms.length===1?ms[0]:null;
@@ -76,7 +76,7 @@ async function resolveTarget(c,rid,t){
 
 async function commandTarget(c,rid,msg,text){
   const raw=String(text||"").trim();
-  const arg=raw.replace(/^!\S+/,"").trim();
+  const arg=raw.replace(/^#\S+/,"").trim();
   if(/^\d{4,}$/.test(arg))return ctx.resolveTarget(c,rid,{id:arg,name:""});
   const mentions=require('./targets').mentions(msg);
   if(mentions.length===1){
@@ -364,15 +364,15 @@ async function autoSpamCheck(msg,chat,rid,uid,name,text,isSelf,flags){return req
 async function handleManageStats(d,c,msg){
   const text=String(msg.message?.text??msg.text??"").trim();
   const uid=ctx.senderExactId(msg),name=String(msg.sender?.name||uid);
-  if(text==="!채팅순위"){
+  if(text==="#채팅순위"){
     const a=await ctx.chatRanking(msg.room.id);
     return "💬 채팅 순위 TOP 10\n\n"+(a.length?a.map((x,i)=>`${i+1}위 ${x.name||x.user_id} · ${ctx.n(x.chat_count)}회`).join("\n"):"아직 채팅 기록이 없습니다.");
   }
-  if(text==="!채팅정보"){
+  if(text==="#채팅정보"){
     const s=await ctx.chatInfo(msg.room.id,uid);
     return `💬 ${name}님의 채팅 정보\n\n🏆 채팅 순위: ${s.rank?s.rank+"위":"기록 없음"}\n💬 총 채팅: ${ctx.n(s.count)}회\n📅 활동 일수: ${ctx.n(s.days)}일\n📊 일평균: ${s.avg.toFixed(1)}회`;
   }
-  if(text==="!출석" || text==="!출석순위" || text.startsWith("!출석확인")){
+  if(text==="#출석" || text==="#출석순위" || text.startsWith("#출석확인")){
     const today=ctx.dayK();
     // Import legacy JSON attendance once, preserving original order and check-in time.
     const legacy=Array.isArray(d.attendance?.[today])?d.attendance[today]:[];
@@ -389,8 +389,8 @@ async function handleManageStats(d,c,msg){
     }
     // The new table is the source of truth; never rewrite old check-ins.
     const roomId=ctx.id(msg.room.id);
-    if(text==="!출석"){
-      if(!/^\d{4,}$/.test(uid))return "사용자 ID를 확인할 수 없어 출석할 수 없습니다. !내아이디 결과를 확인해 주세요.";
+    if(text==="#출석"){
+      if(!/^\d{4,}$/.test(uid))return "사용자 ID를 확인할 수 없어 출석할 수 없습니다. #내아이디 결과를 확인해 주세요.";
       const existing=await c.query(
         "SELECT name,display_time FROM hz_attendance WHERE room_id=$1 AND day_key=$2 AND user_id=$3",
         [roomId,today,uid]
@@ -414,7 +414,7 @@ async function handleManageStats(d,c,msg){
       const place=ranking.rows.find(x=>x.user_id===uid)?.place;
       return `✅ ${name}님 출석 완료!\n오늘 ${place}번째입니다.`;
     }
-    if(text==="!출석순위"){
+    if(text==="#출석순위"){
       const q=await c.query(
         `SELECT name,display_time,checked_at FROM hz_attendance
          WHERE room_id=$1 AND day_key=$2 ORDER BY checked_at,user_id LIMIT 10`,
@@ -425,7 +425,7 @@ async function handleManageStats(d,c,msg){
         :"아직 출석자가 없습니다.");
     }
     let t=await ctx.commandTarget(c,roomId,msg,text);
-    if(!t)return "사용법: !출석확인 @(멘션) 또는 사용자 ID";
+    if(!t)return "사용법: #출석확인 @(멘션) 또는 사용자 ID";
     t=await ctx.resolveTarget(c,roomId,t);
     const q=await c.query(
       `SELECT user_id,name,display_time,ROW_NUMBER() OVER(ORDER BY checked_at,user_id) AS place
@@ -442,7 +442,7 @@ async function handleManage(d,c,msg,isSelf){
   if(!ctx.isManagerType(msg.sender?.type)&&!isSelf)return null;
   let t=await ctx.commandTarget(c,msg.room.id,msg,text),m;
 
-  m=/^!경고\s+[\s\S]*?\s+(\d+)\s+(.+)$/.exec(text);
+  m=/^#경고\s+[\s\S]*?\s+(\d+)\s+(.+)$/.exec(text);
   if(m){
     if(!t)return "실제 멘션 또는 해시로 대상을 지정해주세요.";
     if(Number(ctx.globalClient?._resolveMemberType?.(msg.room.id,t.id))===8)return "🤖 오픈채팅봇에는 경고를 주지 않습니다.";
@@ -458,11 +458,11 @@ async function handleManage(d,c,msg,isSelf){
     }
     return `⚠️ ${t.name||t.id}님에게 경고 ${cnt}개 지급\n이유: ${m[2]}\n현재 경고: ${wc}/4`;
   }
-  m=/^!경고삭제\s+[\s\S]*?\s+(\d+)\s*$/.exec(text);
+  m=/^#경고삭제\s+[\s\S]*?\s+(\d+)\s*$/.exec(text);
   if(m){if(!t)return "실제 멘션 또는 해시로 대상을 지정해주세요.";const q=await c.query("SELECT id FROM hz_warnings WHERE room_id=$1 AND target_id=$2 AND deleted_at IS NULL ORDER BY id ASC",[msg.room.id,t.id]),i=Number(m[1])-1;if(i<0||i>=q.rows.length)return "해당 경고 번호가 없습니다.";await c.query("UPDATE hz_warnings SET deleted_at=NOW(),deleted_by=$2 WHERE id=$1",[q.rows[i].id,uid]);return `🗑️ ${t.name||t.id}님의 ${m[1]}번째 경고 기록을 삭제했습니다.`}
-  if(text.startsWith("!경고내역")){if(!t)return "사용법: !경고내역 @(멘션) 또는 해시";const q=await c.query("SELECT count,reason,issuer_name,created_at FROM hz_warnings WHERE room_id=$1 AND target_id=$2 AND deleted_at IS NULL ORDER BY id ASC",[msg.room.id,t.id]),sum=q.rows.reduce((s,x)=>s+x.count,0);return `⚠️ ${t.name||t.id} 경고: 총 ${sum}개\n${ctx.MORE}\n`+(q.rows.length?q.rows.map((x,i)=>`#${i+1} +${x.count} | ${x.reason} | ${x.issuer_name||"?"} | ${new Date(x.created_at).toLocaleString("ko-KR")}`).join("\n"):"경고 기록 없음")}
-  if(text.startsWith("!입퇴장로그")){
-    if(!t)return "사용법: !입퇴장로그 @(멘션) 또는 해시";
+  if(text.startsWith("#경고내역")){if(!t)return "사용법: #경고내역 @(멘션) 또는 해시";const q=await c.query("SELECT count,reason,issuer_name,created_at FROM hz_warnings WHERE room_id=$1 AND target_id=$2 AND deleted_at IS NULL ORDER BY id ASC",[msg.room.id,t.id]),sum=q.rows.reduce((s,x)=>s+x.count,0);return `⚠️ ${t.name||t.id} 경고: 총 ${sum}개\n${ctx.MORE}\n`+(q.rows.length?q.rows.map((x,i)=>`#${i+1} +${x.count} | ${x.reason} | ${x.issuer_name||"?"} | ${new Date(x.created_at).toLocaleString("ko-KR")}`).join("\n"):"경고 기록 없음")}
+  if(text.startsWith("#입퇴장로그")){
+    if(!t)return "사용법: #입퇴장로그 @(멘션) 또는 해시";
     const a=await c.query("SELECT join_count,leave_count,name FROM hz_members WHERE room_id=$1 AND user_id=$2",[msg.room.id,t.id]);
     const q=await c.query("SELECT event_type,created_at,name,meta FROM hz_events WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 500",[msg.room.id,t.id]);
     const r=a.rows[0]||{join_count:0,leave_count:0,name:t.name};
@@ -475,19 +475,19 @@ async function handleManage(d,c,msg,isSelf){
         return `${label}${x.event_type==="kick"&&actor?` | 실행자: ${actor}`:""} | ${new Date(x.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`
       }).join("\n"):"기록 없음")
   }
-  if(/^!프로필로그(?:\s|$)/.test(text)){if(!t)return "사용법: !프로필로그 @(실제 멘션), 사용자 ID 또는 대상 메시지에 답장·댓글";return require("./profile-history").message(c,msg.room.id,t);}
-  if(text==="!아이디"||text.startsWith("!아이디 ")){
+  if(/^#프로필로그(?:\s|$)/.test(text)){if(!t)return "사용법: #프로필로그 @(실제 멘션), 사용자 ID 또는 대상 메시지에 답장·댓글";return require("./profile-history").message(c,msg.room.id,t);}
+  if(text==="#아이디"||text.startsWith("!아이디 ")){
     const it=await ctx.idCommandTarget(c,msg.room.id,msg,text);
     if(!it)return "❌ 대상의 정확한 ID를 확인하지 못했습니다.\n실제 멘션 또는 답장으로 시도해 주세요.\n채팅 기록에 없는 사용자는 ID를 확인할 수 없을 수 있습니다.";
     return `🔎 아이디 확인\n${ctx.MORE}\n👤 ${it.name||it.id}\n카카오 사용자 ID: ${it.id}`;
   }
-  if(/^!벤(?:\s|$)/.test(text)){
+  if(/^#벤(?:\s|$)/.test(text)){
     // 명시적 ID/멘션을 우선하고, 답장만 있는 경우 원작성자 ID를 추출한다.
     if(!t){
       const replyBan=ctx.replyTargetFrom(msg);
       if(replyBan)t=await ctx.resolveTarget(c,msg.room.id,replyBan);
     }
-    if(!t)return "❌ 강퇴 대상을 확인하지 못했습니다.\n사용법: !벤 @닉네임 또는 !벤 (카카오 사용자 ID)\n답장 대상 ID가 확인되지 않으면 강퇴하지 않습니다.";
+    if(!t)return "❌ 강퇴 대상을 확인하지 못했습니다.\n사용법: #벤 @닉네임 또는 #벤 (카카오 사용자 ID)\n답장 대상 ID가 확인되지 않으면 강퇴하지 않습니다.";
     if(!/^\d{4,}$/.test(String(t.id)))return "❌ 올바른 카카오 사용자 ID가 아닙니다.";
     if(t.id===ctx.globalBotId)return "봇 계정은 벤할 수 없습니다.";
     if(t.id===uid)return "자기 자신은 벤할 수 없습니다.";
