@@ -80,16 +80,169 @@ async function handleGameCore(d,c,msg,isSelf){
   if(d.quiz?.kind==='넌센스')d.quiz=null;
   if(require('./quiz').plainAnswer(d.quiz,text))text='#정답 '+text;
   if(text==="#명령어")return null;
-  if(text==='#퀴즈정보')return `🧠 NEXUS QUIZ\n문제 ${ctx.QUIZZES.length}개 · 일반상식/수학\n제한 ${ctx.QUIZ_SECONDS}초 · 보상 ${ctx.n(ctx.QUIZ_REWARD)}코인 · +${ctx.QUIZ_XP} XP\n퀴즈: ${d.quizEnabled?'작동':'중지'}\n${d.quiz?`진행: ${d.quiz.kind} · 남은 시간 ${Math.max(0,Math.ceil((d.quiz.expiresAt-now)/1000))}초`:'진행 중인 문제 없음'}`;
-  if(text==='#퀴즈순위'){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>(b.wins||0)-(a.wins||0)).slice(0,10);return '🧠 퀴즈 정답 순위\n'+a.map((x,i)=>`${i+1}. ${x.name}: ${x.wins||0}회`).join('\n');}
+  
+   if(text==='#퀴즈정보'){
+     return `[ # ] NEXUS QUIZ\n`+
+       `━━━━━━━━━━━━━━━━━━━━\n`+
+       `[ QUIZ INFORMATION ]\n\n`+
+       `문제 수    | ${ctx.QUIZZES.length}개\n`+
+       `출제 분야  | 일반상식 · 수학\n`+
+       `제한 시간  | ${ctx.QUIZ_SECONDS}초\n`+
+       `정답 보상  | ${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
+       `경험치     | +${ctx.QUIZ_XP} XP\n`+
+       `작동 상태  | ${d.quizEnabled?'ON':'OFF'}\n`+
+       `진행 상태  | ${d.quiz?'진행 중':'대기 중'}\n`+
+       `━━━━━━━━━━━━━━━━━━━━\n`+
+       `NEXUS · QUIZ SYSTEM`;
+   }
+
+   if(text==='#퀴즈순위'){
+     const ranking=Object.values(d.players)
+       .filter(x=>x.id!==ctx.globalBotId)
+       .sort((a,b)=>(b.wins||0)-(a.wins||0))
+       .slice(0,10);
+
+     return `[ # ] NEXUS QUIZ RANKING\n`+
+       `━━━━━━━━━━━━━━━━━━━━\n`+
+       (ranking.length
+         ?ranking.map((x,i)=>
+           `[ ${i+1} ] ${x.name} | ${x.wins||0}회`
+         ).join('\n')
+         :'아직 기록이 없습니다.')+
+       `\n━━━━━━━━━━━━━━━━━━━━`;
+   }
+
   const blockedFishing=/^#(?:어망|낚시|낚시정보|인벤|물고기도감|물고기|물고기판매|상점|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동)(?:\s|$)/.test(text)||text==='네'||text==='아니요';
   if(blockedFishing&&!d.fishEnabled)return '🎣 이 방은 낚시 기능이 꺼져 있습니다.';
   if(p.rodRestore&&now>p.rodRestore.expires){const old=p.rodRestore;p.rodRestore=null;p.rod="나무";p.rods=p.rods.filter(x=>x!==old.rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[old.rod];}
   if(p.rodRestore&&text!=="네"&&text!=="아니요")return "🛡️ 낚시대 파괴 복구 대기 중입니다. 60초 이내 네 또는 아니요를 입력하세요.";
 
-  if((text==="#퀴즈"||text.startsWith("#정답"))&&!d.quizEnabled)return "🧩 이 방은 퀴즈 기능이 꺼져 있습니다.";
-  if(text==="#낚시"&&!d.fishEnabled)return "🎣 이 방은 낚시 기능이 꺼져 있습니다.";
-  if(text==="#퀴즈"){if(d.quiz&&d.quiz.expiresAt<=now){d.quizCooldownUntil=Math.max(Number(d.quizCooldownUntil)||0,d.quiz.expiresAt+ctx.QUIZ_COOLDOWN_SECONDS*1000);d.quiz=null;}if(d.quiz&&d.quiz.expiresAt>now)return `이미 퀴즈가 진행 중입니다!\n\n🧩 ${d.quiz.kind} 퀴즈\nQ. ${d.quiz.question}`;const quizRemain=Math.ceil(((Number(d.quizCooldownUntil)||0)-now)/1000);if(quizRemain>0)return `🧩 다음 퀴즈까지 ${quizRemain}초 남았습니다.`;const {q}=ctx.nextQuiz(d);d.quiz={kind:q[0],question:q[1],answers:q[2],expiresAt:now+ctx.QUIZ_SECONDS*1000};return `🧩 ${q[0]} 퀴즈\n\nQ. ${q[1]}\n\n⏱ 제한 시간: ${ctx.QUIZ_SECONDS}초\n💰 첫 정답자: ${ctx.n(ctx.QUIZ_REWARD)}코인\n⭐ 경험치: +${ctx.QUIZ_XP}\n\n답변: 정답만 채팅에 입력하세요. (#정답 답도 가능)`}
+  
+   if((text==="#퀴즈"||text.startsWith("#정답"))&&!d.quizEnabled)
+     return '[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
+
+   if(text==="#낚시"&&!d.fishEnabled)
+     return "🎣 이 방은 낚시 기능이 꺼져 있습니다.";
+
+   if(text==="#퀴즈"){
+     if(d.quiz&&d.quiz.expiresAt<=now){
+       d.quizCooldownUntil=Math.max(
+         Number(d.quizCooldownUntil)||0,
+         d.quiz.expiresAt+ctx.QUIZ_COOLDOWN_SECONDS*1000
+       );
+       d.quiz=null;
+     }
+
+     if(d.quiz&&d.quiz.expiresAt>now){
+       return `[ # ] NEXUS QUIZ\n\n`+
+         `[ ${d.quiz.kind} ]\n\n`+
+         `Q. ${d.quiz.question}\n`+
+         `${'\u200b'.repeat(1200)}`+
+         `\n━━━━━━━━━━━━━━━━━━━━\n`+
+         `[ QUIZ STATUS ]\n`+
+         `이미 진행 중인 문제입니다.\n`+
+         `남은 시간 | ${Math.ceil((d.quiz.expiresAt-now)/1000)}초`;
+     }
+
+     const remain=Math.ceil(
+       ((Number(d.quizCooldownUntil)||0)-now)/1000
+     );
+
+     if(remain>0)
+       return `[ ! ] 다음 퀴즈까지 ${remain}초 남았습니다.`;
+
+     const {q}=ctx.nextQuiz(d);
+
+     d.quiz={
+       kind:q[0],
+       question:q[1],
+       answers:q[2],
+       expiresAt:now+ctx.QUIZ_SECONDS*1000
+     };
+
+     return `[ # ] NEXUS QUIZ\n\n`+
+       `[ ${q[0]} ]\n\n`+
+       `Q. ${q[1]}\n`+
+       `${'\u200b'.repeat(1200)}`+
+       `\n━━━━━━━━━━━━━━━━━━━━\n`+
+       `[ QUIZ INFORMATION ]\n\n`+
+       `제한 시간  | ${ctx.QUIZ_SECONDS}초\n`+
+       `정답 보상  | ${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
+       `경험치     | +${ctx.QUIZ_XP} XP\n\n`+
+       `[ ANSWER GUIDE ]\n\n`+
+       `정답을 채팅에 입력하세요.\n`+
+       `첫 번째 정답자에게 보상이 지급됩니다.\n`+
+       `#정답 (답) 명령어도 사용 가능합니다.\n\n`+
+       `━━━━━━━━━━━━━━━━━━━━\n`+
+       `NEXUS · QUIZ SYSTEM`;
+   }
+
+   const m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);
+
+   if(m){
+     if(!d.quiz)
+       return '[ ! ] 현재 진행 중인 퀴즈가 없습니다.';
+
+     if(now>=d.quiz.expiresAt){
+       const answer=d.quiz.answers[0];
+
+       d.quizCooldownUntil=Math.max(
+         now,d.quiz.expiresAt
+       )+ctx.QUIZ_COOLDOWN_SECONDS*1000;
+
+       d.quiz=null;
+
+       return `[ ! ] 퀴즈 제한 시간이 종료되었습니다.\n`+
+         `${'\u200b'.repeat(1200)}`+
+         `\n━━━━━━━━━━━━━━━━━━━━\n`+
+         `[ QUIZ TIMEOUT ]\n\n`+
+         `정답 | ${answer}\n\n`+
+         `━━━━━━━━━━━━━━━━━━━━\n`+
+         `NEXUS · QUIZ SYSTEM`;
+     }
+
+     if(!m[1])
+       return '[ ! ] 사용법: #정답 (답)';
+
+     if(!d.quiz.answers.some(a=>
+       require('./quiz').answerMatches(a,m[1])
+     )){
+       return '[ X ] 오답입니다.';
+     }
+
+     const answer=d.quiz.answers[0];
+
+     d.quizCooldownUntil=
+       now+ctx.QUIZ_COOLDOWN_SECONDS*1000;
+
+     d.quiz=null;
+
+     p.points+=ctx.QUIZ_REWARD;
+     p.wins++;
+
+     const up=ctx.addXp(p,ctx.QUIZ_XP);
+
+     const cleanName=name.replace(/[\u0000-\u001f]/g,'');
+     const mention=/^\d+$/.test(String(uid))
+       ?`\u0002${uid}\u0003${cleanName}\u0004`
+       :`@${cleanName}`;
+
+     return `[ ✓ ] ${mention} 님이 정답을 맞혔습니다.\n`+
+       `${'\u200b'.repeat(1200)}`+
+       `\n━━━━━━━━━━━━━━━━━━━━\n`+
+       `[ QUIZ RESULT ]\n\n`+
+       `정답        | ${answer}\n`+
+       `획득 코인   | +${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
+       `획득 경험치 | +${ctx.QUIZ_XP} XP\n\n`+
+       `[ PLAYER STATUS ]\n\n`+
+       `현재 레벨   | Lv.${p.level}\n`+
+       `보유 코인   | ${ctx.n(p.points)}코인\n`+
+       `누적 정답   | ${p.wins}회\n`+
+       `${up?`\n[ LEVEL UP ] Lv.${p.level}\n`:''}`+
+       `\n━━━━━━━━━━━━━━━━━━━━\n`+
+       `NEXUS · QUIZ SYSTEM`;
+   }
+
   let m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quizCooldownUntil=Math.max(now,d.quiz.expiresAt)+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: #정답 (답)";if(!d.quiz.answers.some(a=>require("./quiz").answerMatches(a,m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quizCooldownUntil=now+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;p.points+=ctx.QUIZ_REWARD;p.wins++;const up=ctx.addXp(p,ctx.QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${ctx.n(ctx.QUIZ_REWARD)}코인\n⭐ +${ctx.QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${ctx.n(p.points)}코인`}
   if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
   if(text==="#낚시"){
