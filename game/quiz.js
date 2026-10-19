@@ -7,7 +7,7 @@ function answerMatches(expected,actual){
 }
 function plainAnswer(quiz,text,now=Date.now()){
  const value=String(text||'').trim();
- return !!(value&&!value.startsWith('!')&&quiz&&quiz.kind!=='넌센스'&&now<quiz.expiresAt&&
+ return !!(value&&!value.startsWith('#')&&quiz&&quiz.kind!=='넌센스'&&now<quiz.expiresAt&&
   Array.isArray(quiz.answers)&&quiz.answers.some(answer=>answerMatches(answer,value)));
 }
 module.exports={answerMatches,plainAnswer};
