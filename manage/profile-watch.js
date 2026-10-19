@@ -1,23 +1,36 @@
 'use strict';
 const {profileNotice}=require('./leave-reply');
 function createWatcher(ctx,client){
- let busy=false,timer;
+ let busy=false,timer,cursor=0,verified=false;
+ const profileIds=new Map(),retryAt=new Map();
  async function tick(){
   if(busy||typeof client.refreshMemberProfiles!=='function')return;
   busy=true;
   try{
    const joined=typeof client.getKnownChatRooms==='function'?new Set(client.getKnownChatRooms().map(r=>String(r.id))):null;
    const rooms=await ctx.pool.query("SELECT room_id FROM hz_rooms WHERE data->>'manage'='true' AND COALESCE(data->>'locked','false')<>'true' ORDER BY room_id");
-   for(const {room_id:room} of rooms.rows){
-    if(joined&&!joined.has(String(room)))continue;
+   const eligible=rooms.rows.filter(r=>!joined||joined.has(String(r.room_id)));
+   if(!eligible.length)return;
+   const selected=eligible[cursor++%eligible.length];
+   for(const {room_id:room} of [selected]){
     try{
      const members=await client.refreshMemberProfiles(room),observations=[];
+     const saved=await ctx.pool.query('SELECT user_id,name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1',[room]);
+     const previous=new Map(saved.rows.map(m=>[String(m.user_id),m]));let lookups=0;
      for(const member of members){
       if(member.id===String(ctx.globalBotId)||Number(member.type)===8||!member.name)continue;
       let link;
-      if([1,2,4].includes(member.profileType))link='';
+      const key=String(room)+':'+member.id,old=previous.get(member.id);
+      if([1,2,4].includes(member.profileType)){link='';profileIds.delete(key);}
       else if(member.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
-       try{const live=await client.getUserOpenProfileLink(room,member.id);if(live)link=ctx.validOpenProfileLink(live)||undefined;}catch{}
+       const needs=profileIds.get(key)!==member.profileLinkId||!old?.observed_open_profile_link||old.name!==member.name||old.last_profile_url!==member.imageUrl;
+       if(!needs)link=old.observed_open_profile_link;
+       else if(lookups<5&&Date.now()>=(retryAt.get(key)||0)){
+        lookups++;
+        try{const live=await client.getUserOpenProfileLink(room,member.id);link=ctx.validOpenProfileLink(live)||undefined;}catch{}
+        if(link){profileIds.set(key,member.profileLinkId);retryAt.delete(key);}else retryAt.set(key,Date.now()+300000);
+        await new Promise(resolve=>setTimeout(resolve,200));
+       }
       }
       observations.push({...member,link});
      }
@@ -32,11 +45,12 @@ function createWatcher(ctx,client){
       return result;
      });
      for(const change of changes)await ctx.send(ctx.globalChat,room,profileNotice(change,ctx.nowK()));
+     if(!verified){console.log('[GL PROFILE WATCH] live member refresh verified');verified=true;}
     }catch(e){console.error('[GL PROFILE WATCH]',String(room),e.message);}
    }
   }finally{busy=false;}
  }
- function start(){if(timer)return;timer=setInterval(()=>tick().catch(e=>console.error('[GL PROFILE WATCH]',e.message)),60000);timer.unref?.();tick().catch(e=>console.error('[GL PROFILE WATCH]',e.message));}
+ function start(){if(timer)return;timer=setInterval(()=>tick().catch(e=>console.error('[GL PROFILE WATCH]',e.message)),15000);timer.unref?.();}
  function stop(){if(timer)clearInterval(timer);timer=null;}
  return {tick,start,stop};
 }
