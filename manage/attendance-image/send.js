@@ -11,7 +11,12 @@ async function sendPng(client,roomId,buffer,{tempRoot=os.tmpdir()}={}){
  try{
   const file=path.join(folder,'attendance.png');await fs.writeFile(file,buffer,{flag:'wx',mode:0o600});
   // The existing KakaoForge path implementation waits for the LOCO COMPLETE packet.
-  const result=await client.sendPhoto(room,file,{text:CAPTION});
+  const result = await client.sendPhoto(room, file, {
+  filename: "attendance.png",
+  mime: "image/png",
+  width: 1448,
+  height: 1086
+});
   if(!result?.complete||(typeof result.complete.status==='number'&&result.complete.status!==0))throw Error('사진 전송 완료를 확인하지 못했습니다. 테스트방을 확인해 주세요.');
   return {confirmed:true};
  }finally{await fs.rm(folder,{recursive:true,force:true});}
