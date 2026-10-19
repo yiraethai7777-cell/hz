@@ -69,7 +69,7 @@ async function handleGame(d,c,msg,isSelf){
  const text=String(msg.message?.text??msg.text??'').trim();
  const userId=ctx.id(msg.sender?.id??msg.senderId);
  const restoring=['네','아니요'].includes(text)&&d.players?.[userId]?.rodRestore;
- if(!text.startsWith('!')&&!restoring&&(!d.game||!d.quizEnabled||d.locked||!require('./quiz').plainAnswer(d.quiz,text)))return null;
+ if(!text.startsWith('#')&&!restoring&&(!d.game||!d.quizEnabled||d.locked||!require('./quiz').plainAnswer(d.quiz,text)))return null;
  if(!ctx.economyEnabled)return handleGameCore(d,c,msg,isSelf);
  const user=ctx.id(msg.sender?.id??msg.senderId),p=ctx.player(d,user,msg.sender?.name||user);
  return require('./economy').withPlayer({db:c,room:ctx.id(msg.room.id),user,p,msg,botId:ctx.globalBotId,run:()=>handleGameCore(d,c,msg,isSelf)});
@@ -78,21 +78,21 @@ async function handleGameCore(d,c,msg,isSelf){
   let text=String(msg.message?.text??msg.text??'').trim();
   const uid=ctx.id(msg.sender?.id??msg.senderId),name=String(msg.sender?.name||uid),p=ctx.player(d,uid,name),now=Date.now();
   if(d.quiz?.kind==='넌센스')d.quiz=null;
-  if(require('./quiz').plainAnswer(d.quiz,text))text='!정답 '+text;
-  if(text==="!명령어")return null;
-  if(text==='!퀴즈정보')return `🧠 NEXUS QUIZ\n문제 ${ctx.QUIZZES.length}개 · 일반상식/수학\n제한 ${ctx.QUIZ_SECONDS}초 · 보상 ${ctx.n(ctx.QUIZ_REWARD)}코인 · +${ctx.QUIZ_XP} XP\n퀴즈: ${d.quizEnabled?'작동':'중지'}\n${d.quiz?`진행: ${d.quiz.kind} · 남은 시간 ${Math.max(0,Math.ceil((d.quiz.expiresAt-now)/1000))}초`:'진행 중인 문제 없음'}`;
-  if(text==='!퀴즈순위'){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>(b.wins||0)-(a.wins||0)).slice(0,10);return '🧠 퀴즈 정답 순위\n'+a.map((x,i)=>`${i+1}. ${x.name}: ${x.wins||0}회`).join('\n');}
-  const blockedFishing=/^!(?:어망|낚시|낚시정보|인벤|물고기도감|물고기|물고기판매|상점|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동)(?:\s|$)/.test(text)||text==='네'||text==='아니요';
+  if(require('./quiz').plainAnswer(d.quiz,text))text='#정답 '+text;
+  if(text==="#명령어")return null;
+  if(text==='#퀴즈정보')return `🧠 NEXUS QUIZ\n문제 ${ctx.QUIZZES.length}개 · 일반상식/수학\n제한 ${ctx.QUIZ_SECONDS}초 · 보상 ${ctx.n(ctx.QUIZ_REWARD)}코인 · +${ctx.QUIZ_XP} XP\n퀴즈: ${d.quizEnabled?'작동':'중지'}\n${d.quiz?`진행: ${d.quiz.kind} · 남은 시간 ${Math.max(0,Math.ceil((d.quiz.expiresAt-now)/1000))}초`:'진행 중인 문제 없음'}`;
+  if(text==='#퀴즈순위'){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>(b.wins||0)-(a.wins||0)).slice(0,10);return '🧠 퀴즈 정답 순위\n'+a.map((x,i)=>`${i+1}. ${x.name}: ${x.wins||0}회`).join('\n');}
+  const blockedFishing=/^#(?:어망|낚시|낚시정보|인벤|물고기도감|물고기|물고기판매|상점|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동)(?:\s|$)/.test(text)||text==='네'||text==='아니요';
   if(blockedFishing&&!d.fishEnabled)return '🎣 이 방은 낚시 기능이 꺼져 있습니다.';
   if(p.rodRestore&&now>p.rodRestore.expires){const old=p.rodRestore;p.rodRestore=null;p.rod="나무";p.rods=p.rods.filter(x=>x!==old.rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[old.rod];}
   if(p.rodRestore&&text!=="네"&&text!=="아니요")return "🛡️ 낚시대 파괴 복구 대기 중입니다. 60초 이내 네 또는 아니요를 입력하세요.";
 
-  if((text==="!퀴즈"||text.startsWith("!정답"))&&!d.quizEnabled)return "🧩 이 방은 퀴즈 기능이 꺼져 있습니다.";
-  if(text==="!낚시"&&!d.fishEnabled)return "🎣 이 방은 낚시 기능이 꺼져 있습니다.";
-  if(text==="!퀴즈"){if(d.quiz&&d.quiz.expiresAt<=now){d.quizCooldownUntil=Math.max(Number(d.quizCooldownUntil)||0,d.quiz.expiresAt+ctx.QUIZ_COOLDOWN_SECONDS*1000);d.quiz=null;}if(d.quiz&&d.quiz.expiresAt>now)return `이미 퀴즈가 진행 중입니다!\n\n🧩 ${d.quiz.kind} 퀴즈\nQ. ${d.quiz.question}`;const quizRemain=Math.ceil(((Number(d.quizCooldownUntil)||0)-now)/1000);if(quizRemain>0)return `🧩 다음 퀴즈까지 ${quizRemain}초 남았습니다.`;const {q}=ctx.nextQuiz(d);d.quiz={kind:q[0],question:q[1],answers:q[2],expiresAt:now+ctx.QUIZ_SECONDS*1000};return `🧩 ${q[0]} 퀴즈\n\nQ. ${q[1]}\n\n⏱ 제한 시간: ${ctx.QUIZ_SECONDS}초\n💰 첫 정답자: ${ctx.n(ctx.QUIZ_REWARD)}코인\n⭐ 경험치: +${ctx.QUIZ_XP}\n\n답변: 정답만 채팅에 입력하세요. (!정답 답도 가능)`}
-  let m=/^!정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quizCooldownUntil=Math.max(now,d.quiz.expiresAt)+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: !정답 (답)";if(!d.quiz.answers.some(a=>require("./quiz").answerMatches(a,m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quizCooldownUntil=now+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;p.points+=ctx.QUIZ_REWARD;p.wins++;const up=ctx.addXp(p,ctx.QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${ctx.n(ctx.QUIZ_REWARD)}코인\n⭐ +${ctx.QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${ctx.n(p.points)}코인`}
-  if(text==='!어망')return require('./net').catchNet(ctx,p,msg);
-  if(text==="!낚시"){
+  if((text==="#퀴즈"||text.startsWith("#정답"))&&!d.quizEnabled)return "🧩 이 방은 퀴즈 기능이 꺼져 있습니다.";
+  if(text==="#낚시"&&!d.fishEnabled)return "🎣 이 방은 낚시 기능이 꺼져 있습니다.";
+  if(text==="#퀴즈"){if(d.quiz&&d.quiz.expiresAt<=now){d.quizCooldownUntil=Math.max(Number(d.quizCooldownUntil)||0,d.quiz.expiresAt+ctx.QUIZ_COOLDOWN_SECONDS*1000);d.quiz=null;}if(d.quiz&&d.quiz.expiresAt>now)return `이미 퀴즈가 진행 중입니다!\n\n🧩 ${d.quiz.kind} 퀴즈\nQ. ${d.quiz.question}`;const quizRemain=Math.ceil(((Number(d.quizCooldownUntil)||0)-now)/1000);if(quizRemain>0)return `🧩 다음 퀴즈까지 ${quizRemain}초 남았습니다.`;const {q}=ctx.nextQuiz(d);d.quiz={kind:q[0],question:q[1],answers:q[2],expiresAt:now+ctx.QUIZ_SECONDS*1000};return `🧩 ${q[0]} 퀴즈\n\nQ. ${q[1]}\n\n⏱ 제한 시간: ${ctx.QUIZ_SECONDS}초\n💰 첫 정답자: ${ctx.n(ctx.QUIZ_REWARD)}코인\n⭐ 경험치: +${ctx.QUIZ_XP}\n\n답변: 정답만 채팅에 입력하세요. (#정답 답도 가능)`}
+  let m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quizCooldownUntil=Math.max(now,d.quiz.expiresAt)+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: #정답 (답)";if(!d.quiz.answers.some(a=>require("./quiz").answerMatches(a,m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quizCooldownUntil=now+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;p.points+=ctx.QUIZ_REWARD;p.wins++;const up=ctx.addXp(p,ctx.QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${ctx.n(ctx.QUIZ_REWARD)}코인\n⭐ +${ctx.QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${ctx.n(p.points)}코인`}
+  if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
+  if(text==="#낚시"){
     const remain=ctx.FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);
     if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;
     const r=ctx.awardFish(p,Date.now());
@@ -110,13 +110,13 @@ async function handleGameCore(d,c,msg,isSelf){
     if(text==="네"&&p.protection>0){p.protection--;p.rod=pending.rod;p.rodLevels[pending.rod]=pending.level;return `🛡️ 보호권 1개 사용!\n🎣 ${pending.rod} +${pending.level} 복구 완료\n남은 보호권: ${p.protection}개`;}
     p.rod="나무";p.rods=p.rods.filter(x=>x!==pending.rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[pending.rod];return "💥 낚시대 파괴 확정. 나무 낚시대 +0 지급";
   }
-  if(text==="!보호권")return `🛡️ 보유 보호권: ${p.protection}개\n오늘 구매: ${p.protectionDay===ctx.dayK()?p.protectionBought:0}/5개`;
-  let protectMatch=/^!보호권구매(?:\s+(\S+))?$/.exec(text);
+  if(text==="#보호권")return `🛡️ 보유 보호권: ${p.protection}개\n오늘 구매: ${p.protectionDay===ctx.dayK()?p.protectionBought:0}/5개`;
+  let protectMatch=/^#보호권구매(?:\s+(\S+))?$/.exec(text);
   if(protectMatch){const qty=protectMatch[1]===undefined?1:Number(protectMatch[1]);if(!Number.isSafeInteger(qty)||qty<1||qty>5)return "🛡️ 구매 수량은 1~5개로 입력하세요.";if(p.protectionDay!==ctx.dayK()){p.protectionDay=ctx.dayK();p.protectionBought=0;}if(p.protectionBought+qty>5)return `🛡️ 하루 5개까지만 구매할 수 있습니다. 오늘 남은 수량: ${5-p.protectionBought}개`;const cost=qty*100000;if(p.points<cost&&!isSelf)return `💰 ${ctx.n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;p.protection+=qty;p.protectionBought+=qty;return `🛡️ 보호권 ${qty}개 구매 완료\n💰 비용 ${ctx.n(cost)}코인\n보유 ${p.protection}개 · 오늘 ${p.protectionBought}/5개`;}
-  if(/^!강화(?:\s+\S+)?$/.test(text)){
+  if(/^#강화(?:\s+\S+)?$/.test(text)){
     if(p.rodRestore)return "🛡️ 파괴된 낚시대의 복구를 먼저 결정하세요. 네 / 아니요";
     const countText=text.split(/\s+/)[1]||"1",count=Number(countText);
-    if(!Number.isSafeInteger(count)||count<1||count>100)return "사용법: !강화 또는 !강화 10 / 50 / 100 (최대 100회)";
+    if(!Number.isSafeInteger(count)||count<1||count>100)return "사용법: #강화 또는 #강화 10 / 50 / 100 (최대 100회)";
     const lines=[],rod=p.rod;let spent=0,success=0,fail=0;
     for(let i=0;i<count;i++){
       const lv=Number(p.rodLevels[rod])||0;
@@ -133,22 +133,22 @@ async function handleGameCore(d,c,msg,isSelf){
     }
     return `🎣 ${rod} 낚시대 강화\n성공 ${success}회 · 실패 ${fail}회\n💰 사용 ${ctx.n(spent)}코인\n현재 ${p.rod} +${p.rodLevels[p.rod]||0}\n${ctx.MORE}\n${lines.join("\n")}`;
   }
-  if(text==="!구매행운"){if(p.luckUntil>now)return `🍀 행운 효과 종료까지 ${Math.ceil((p.luckUntil-now)/60000)}분 남았습니다.`;if(p.points<40000&&!isSelf)return "💰 40,000코인이 필요합니다.";if(!isSelf)p.points-=40000;p.luckUntil=now+600000;return "🍀 행운 구매 완료! 10분간 낚시 행운 50% 상승"}
-  if(text==="!구매자동"){if(p.autoUntil>now)return `⏳ 자동 낚시가 작동 중입니다. 남은 시간 ${Math.ceil((p.autoUntil-now)/1000)}초`;if(p.autoDay!==ctx.dayK()){p.autoDay=ctx.dayK();p.autoBought=0;}if(p.autoBought>=3)return "🤖 오늘 자동 낚시 구매 3회를 모두 사용했습니다. 내일 다시 구매하세요.";if(p.points<ctx.AUTO_COST&&!isSelf)return "💰 50,000코인이 필요합니다.";if(!isSelf)p.points-=ctx.AUTO_COST;p.autoBought++;p.autoUntil=now+ctx.AUTO_DURATION;return `🤖 자동 낚시 구매 완료!\n작동 시간: 10분\n오늘 구매 ${p.autoBought}/3회\n🎣 ${ctx.FISHING_COOLDOWN_SECONDS}초마다 자동 낚시`;}
-  if(text==="!펫뽑기"||/^!펫뽑기\s+(10|50|100)$/.test(text)){const count=Number(text.split(/\s+/)[1]||1),cost=count*ctx.PET_COST;if(p.points<cost&&!isSelf)return `💰 ${ctx.n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;let dup=0;const results=[];for(let i=0;i<count;i++){const pet=ctx.drawPet();if(Object.prototype.hasOwnProperty.call(p.pets,pet.name)){dup++;p.points+=1000;results.push(`${i+1}. ${pet.name} [중복 +1,000]`)}else{p.pets[pet.name]=0;results.push(`${i+1}. ${pet.name} [NEW]`)}}return `🐾 펫 ${count}회 뽑기\n💰 사용 ${ctx.n(cost)}코인 · 중복 ${dup}마리 환급 ${ctx.n(dup*1000)}코인\n보유 ${Object.keys(p.pets).length}/20종\n${count>1?ctx.MORE:""}\n${results.join("\n")}`}
-  if(text.startsWith("!펫뽑기"))return "사용법: !펫뽑기 또는 !펫뽑기 10 / 50 / 100";
-  if(text==="!펫도감")return `📖 펫 도감 (${Object.keys(p.pets).length}/20)\n${ctx.MORE}\n`+ctx.PETS.map((x,i)=>`${i+1}. ${Object.prototype.hasOwnProperty.call(p.pets,x.name)?x.name:"???"}`).join("\n");
-  if(text==="!펫인벤")return `🐾 펫 인벤 (${Object.keys(p.pets).length}/20)\n장착: ${p.equippedPet||"없음"}\n${ctx.MORE}\n`+(Object.keys(p.pets).length?Object.entries(p.pets).map(([x,lv],i)=>`${i+1}. ${x} +${lv}${p.equippedPet===x?" [장착]":""}`).join("\n"):"보유한 펫이 없습니다.");
-  let pm=/^!펫기능\s+(.+)$/.exec(text);if(pm){const pet=ctx.PETS.find(x=>x.name===pm[1].trim());if(!pet)return "없는 펫입니다.";const level=p.pets[pet.name]||0,owned=Object.prototype.hasOwnProperty.call(p.pets,pet.name);return `🐾 ${pet.name}\n뽑기 가중치: ${pet.weight} (전체 가중치 중 비율 ${(pet.weight/ctx.PETS.reduce((v,x)=>v+x.weight,0)*100).toFixed(4)}%)\n🍀 행운 +${pet.luck+(owned?level*2:0)}%\n⭐ 경험치 +${pet.xp+(owned?level*2:0)}%\n💰 포인트 +${pet.points+(owned?level*2:0)}%\n강화: +${owned?level:0}/20`}
-  pm=/^!펫장착\s+(.+)$/.exec(text);if(pm){let pet=pm[1].trim();if(pet==="최고"){const choices=ctx.PETS.filter(x=>Object.prototype.hasOwnProperty.call(p.pets,x.name));choices.sort((a,b)=>(b.luck+b.xp+b.points+6*p.pets[b.name])-(a.luck+a.xp+a.points+6*p.pets[a.name]));pet=choices[0]?.name||""}if(!Object.prototype.hasOwnProperty.call(p.pets,pet))return "보유한 펫이 없습니다.";p.equippedPet=pet;return `🐾 ${pet} +${p.pets[pet]} 장착 완료!`}
-  if(text==="!펫강화"){if(!p.equippedPet)return "먼저 !펫장착 (이름)으로 펫을 장착하세요.";const lv=p.pets[p.equippedPet]||0;if(lv>=20)return "🐾 최대 강화(+20)입니다.";const cost=ctx.enhancementCost(lv,15000),need=ctx.enhancementNeed(lv);if(p.level<need)return `⭐ Lv.${need} 이상 필요합니다.`;if(p.points<cost&&!isSelf)return `💰 ${ctx.n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;p.pets[p.equippedPet]=lv+1;return `🐾 ${p.equippedPet} +${lv+1}/20 강화 완료!\n💰 비용 ${ctx.n(cost)}코인`}
-  if(text==="!물고기판매"||text.startsWith("!물고기판매 ")){
+  if(text==="#구매행운"){if(p.luckUntil>now)return `🍀 행운 효과 종료까지 ${Math.ceil((p.luckUntil-now)/60000)}분 남았습니다.`;if(p.points<40000&&!isSelf)return "💰 40,000코인이 필요합니다.";if(!isSelf)p.points-=40000;p.luckUntil=now+600000;return "🍀 행운 구매 완료! 10분간 낚시 행운 50% 상승"}
+  if(text==="#구매자동"){if(p.autoUntil>now)return `⏳ 자동 낚시가 작동 중입니다. 남은 시간 ${Math.ceil((p.autoUntil-now)/1000)}초`;if(p.autoDay!==ctx.dayK()){p.autoDay=ctx.dayK();p.autoBought=0;}if(p.autoBought>=3)return "🤖 오늘 자동 낚시 구매 3회를 모두 사용했습니다. 내일 다시 구매하세요.";if(p.points<ctx.AUTO_COST&&!isSelf)return "💰 50,000코인이 필요합니다.";if(!isSelf)p.points-=ctx.AUTO_COST;p.autoBought++;p.autoUntil=now+ctx.AUTO_DURATION;return `🤖 자동 낚시 구매 완료!\n작동 시간: 10분\n오늘 구매 ${p.autoBought}/3회\n🎣 ${ctx.FISHING_COOLDOWN_SECONDS}초마다 자동 낚시`;}
+  if(text==="#펫뽑기"||/^#펫뽑기\s+(10|50|100)$/.test(text)){const count=Number(text.split(/\s+/)[1]||1),cost=count*ctx.PET_COST;if(p.points<cost&&!isSelf)return `💰 ${ctx.n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;let dup=0;const results=[];for(let i=0;i<count;i++){const pet=ctx.drawPet();if(Object.prototype.hasOwnProperty.call(p.pets,pet.name)){dup++;p.points+=1000;results.push(`${i+1}. ${pet.name} [중복 +1,000]`)}else{p.pets[pet.name]=0;results.push(`${i+1}. ${pet.name} [NEW]`)}}return `🐾 펫 ${count}회 뽑기\n💰 사용 ${ctx.n(cost)}코인 · 중복 ${dup}마리 환급 ${ctx.n(dup*1000)}코인\n보유 ${Object.keys(p.pets).length}/20종\n${count>1?ctx.MORE:""}\n${results.join("\n")}`}
+  if(text.startsWith("#펫뽑기"))return "사용법: #펫뽑기 또는 #펫뽑기 10 / 50 / 100";
+  if(text==="#펫도감")return `📖 펫 도감 (${Object.keys(p.pets).length}/20)\n${ctx.MORE}\n`+ctx.PETS.map((x,i)=>`${i+1}. ${Object.prototype.hasOwnProperty.call(p.pets,x.name)?x.name:"???"}`).join("\n");
+  if(text==="#펫인벤")return `🐾 펫 인벤 (${Object.keys(p.pets).length}/20)\n장착: ${p.equippedPet||"없음"}\n${ctx.MORE}\n`+(Object.keys(p.pets).length?Object.entries(p.pets).map(([x,lv],i)=>`${i+1}. ${x} +${lv}${p.equippedPet===x?" [장착]":""}`).join("\n"):"보유한 펫이 없습니다.");
+  let pm=/^#펫기능\s+(.+)$/.exec(text);if(pm){const pet=ctx.PETS.find(x=>x.name===pm[1].trim());if(!pet)return "없는 펫입니다.";const level=p.pets[pet.name]||0,owned=Object.prototype.hasOwnProperty.call(p.pets,pet.name);return `🐾 ${pet.name}\n뽑기 가중치: ${pet.weight} (전체 가중치 중 비율 ${(pet.weight/ctx.PETS.reduce((v,x)=>v+x.weight,0)*100).toFixed(4)}%)\n🍀 행운 +${pet.luck+(owned?level*2:0)}%\n⭐ 경험치 +${pet.xp+(owned?level*2:0)}%\n💰 포인트 +${pet.points+(owned?level*2:0)}%\n강화: +${owned?level:0}/20`}
+  pm=/^#펫장착\s+(.+)$/.exec(text);if(pm){let pet=pm[1].trim();if(pet==="최고"){const choices=ctx.PETS.filter(x=>Object.prototype.hasOwnProperty.call(p.pets,x.name));choices.sort((a,b)=>(b.luck+b.xp+b.points+6*p.pets[b.name])-(a.luck+a.xp+a.points+6*p.pets[a.name]));pet=choices[0]?.name||""}if(!Object.prototype.hasOwnProperty.call(p.pets,pet))return "보유한 펫이 없습니다.";p.equippedPet=pet;return `🐾 ${pet} +${p.pets[pet]} 장착 완료!`}
+  if(text==="#펫강화"){if(!p.equippedPet)return "먼저 #펫장착 (이름)으로 펫을 장착하세요.";const lv=p.pets[p.equippedPet]||0;if(lv>=20)return "🐾 최대 강화(+20)입니다.";const cost=ctx.enhancementCost(lv,15000),need=ctx.enhancementNeed(lv);if(p.level<need)return `⭐ Lv.${need} 이상 필요합니다.`;if(p.points<cost&&!isSelf)return `💰 ${ctx.n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;p.pets[p.equippedPet]=lv+1;return `🐾 ${p.equippedPet} +${lv+1}/20 강화 완료!\n💰 비용 ${ctx.n(cost)}코인`}
+  if(text==="#물고기판매"||text.startsWith("#물고기판매 ")){
     const args=text.trim().split(/\s+/).slice(1);
-    if(!args.length)return "사용법: !물고기판매 (이름) (수량/all) 또는 !물고기판매 all";
+    if(!args.length)return "사용법: #물고기판매 (이름) (수량/all) 또는 #물고기판매 all";
     let targets=[];
     if(args.length===1&&args[0].toLowerCase()==="all")targets=p.inventory.slice();
     else {
-      if(args.length<2)return "사용법: !물고기판매 (이름) (수량/all)";
+      if(args.length<2)return "사용법: #물고기판매 (이름) (수량/all)";
       const qtyText=args[args.length-1],fishName=args.slice(0,-1).join(" ");
       const matched=p.inventory.filter(x=>x.name===fishName);
       if(!matched.length)return `🐟 ${fishName}을(를) 보유하지 않았습니다.`;
@@ -173,18 +173,18 @@ async function handleGameCore(d,c,msg,isSelf){
     p.points+=total;
     return `🐟 물고기 판매 완료!\n판매 수량: ${targets.length}마리\n💰 판매 금액: +${ctx.n(total)}코인\n💵 보유 코인: ${ctx.n(p.points)}\n${ctx.MORE}\n${details.join("\n")}`;
   }
-  if(text==="!낚시정보")return `🎣 낚시 정보\n쿨타임 ${ctx.FISHING_COOLDOWN_SECONDS}초 · 결과 즉시 표시\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
-  if(text==="!인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+ctx.MORE+"\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${ctx.n(x.value)}코인`).join("\n")}
-  if(text==="!물고기 도감"||text==="!물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 물고기 도감\n"+ctx.MORE+"\n"+ctx.FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
+  if(text==="#낚시정보")return `🎣 낚시 정보\n쿨타임 ${ctx.FISHING_COOLDOWN_SECONDS}초 · 결과 즉시 표시\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
+  if(text==="#인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+ctx.MORE+"\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${ctx.n(x.value)}코인`).join("\n")}
+  if(text==="#물고기 도감"||text==="#물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 물고기 도감\n"+ctx.MORE+"\n"+ctx.FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
 
-  if(text==="!포인트")return isSelf?"🤖 NEXUS\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
-  if(text==="!퀴즈점수")return `⭐ NEXUS LEVEL\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
+  if(text==="#포인트")return isSelf?"🤖 NEXUS\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
+  if(text==="#퀴즈점수")return `⭐ NEXUS LEVEL\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
 
-  if(text==="!게임순위"||text==="!퀴즈순위"){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>b.points-a.points).slice(0,10);return "🏆 게임 순위\n"+(a.length?a.map((x,i)=>`${i+1}등 ${x.name} · ${ctx.n(x.points)}코인`).join("\n"):"아직 기록이 없습니다.")}
-  if(text==="!상점")return "🛒 낚시대 상점\n"+ctx.RODS.map(x=>`${x.name} 낚시대 · ${ctx.n(x.price)}코인${p.rods.includes(x.name)?" [보유]":""}`).join("\n");
+  if(text==="#게임순위"||text==="#퀴즈순위"){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>b.points-a.points).slice(0,10);return "🏆 게임 순위\n"+(a.length?a.map((x,i)=>`${i+1}등 ${x.name} · ${ctx.n(x.points)}코인`).join("\n"):"아직 기록이 없습니다.")}
+  if(text==="#상점")return "🛒 낚시대 상점\n"+ctx.RODS.map(x=>`${x.name} 낚시대 · ${ctx.n(x.price)}코인${p.rods.includes(x.name)?" [보유]":""}`).join("\n");
 
-  m=/^!낚시대구매\s+(.+)$/.exec(text);if(m){const r=ctx.RODS.find(x=>x.name===m[1].trim());if(!r)return "존재하지 않는 낚시대입니다.";if(p.rods.includes(r.name))return "이미 보유한 낚시대입니다.";if(p.points<r.price&&!isSelf)return "코인이 부족합니다.";if(!isSelf)p.points-=r.price;p.rods.push(r.name);return `✅ ${r.name} 낚시대를 구매했습니다.`}
-  m=/^!낚시장착\s+(.+)$/.exec(text);if(m){const x=m[1].trim();if(!p.rods.includes(x))return "보유하지 않은 낚시대입니다.";p.rod=x;return `🎣 ${x} 낚시대를 장착했습니다.`}
+  m=/^#낚시대구매\s+(.+)$/.exec(text);if(m){const r=ctx.RODS.find(x=>x.name===m[1].trim());if(!r)return "존재하지 않는 낚시대입니다.";if(p.rods.includes(r.name))return "이미 보유한 낚시대입니다.";if(p.points<r.price&&!isSelf)return "코인이 부족합니다.";if(!isSelf)p.points-=r.price;p.rods.push(r.name);return `✅ ${r.name} 낚시대를 구매했습니다.`}
+  m=/^#낚시장착\s+(.+)$/.exec(text);if(m){const x=m[1].trim();if(!p.rods.includes(x))return "보유하지 않은 낚시대입니다.";p.rod=x;return `🎣 ${x} 낚시대를 장착했습니다.`}
   return null
 }
 return {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,handleGame};
