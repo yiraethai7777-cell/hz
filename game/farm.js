@@ -70,26 +70,58 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     spend(cost);f.seeds[c.name]=total;result=`🌱 ${c.name} 씨앗 ${fmt(quantity)}개를 구매했습니다.\n사용 코인: ${fmt(cost)}코인\n보유 씨앗: ${fmt(total)}개`;
    }
    
+   
    if(cmd==='#심기'){
     if(parts.length<3)
-      fail('사용법: #심기 번호 [번호...] 작물이름');
+      fail('사용법: #심기 번호 [번호...] 작물이름 또는 #심기 all 작물이름');
 
     const c=crop(parts[parts.length-1]);
-    const numbers=parts.slice(1,-1);
-    const keys=numbers.map(n=>cell(n,size));
+    const isAll=parts[1].toLowerCase()==='all';
 
-    if(new Set(keys).size!==keys.length)
-      fail('같은 칸 번호를 중복 입력할 수 없습니다.');
+    let numbers;
+    let keys;
 
-    for(let i=0;i<keys.length;i++){
-      if(f.plots[keys[i]])
-        fail(`${numbers[i]}번 칸에는 이미 작물이 있습니다.`);
+    if(isAll){
+      if(parts.length!==3)
+        fail('사용법: #심기 all 작물이름');
+
+      numbers=[];
+      keys=[];
+
+      for(let n=1;n<=size*size;n++){
+        const key=cell(n,size);
+        if(!f.plots[key]){
+          numbers.push(String(n));
+          keys.push(key);
+        }
+      }
+
+      if(!keys.length)
+        fail('농장에 빈칸이 없습니다.');
+    }else{
+      numbers=parts.slice(1,-1);
+      keys=numbers.map(n=>cell(n,size));
+
+      if(new Set(keys).size!==keys.length)
+        fail('같은 칸 번호를 중복 입력할 수 없습니다.');
+
+      for(let i=0;i<keys.length;i++){
+        if(f.plots[keys[i]])
+          fail(`${numbers[i]}번 칸에는 이미 작물이 있습니다.`);
+      }
     }
 
     const owned=Number(f.seeds[c.name]||0);
 
-    if(owned<keys.length)
+    if(!Number.isSafeInteger(owned)||owned<=0)
+      fail(`${c.name} 씨앗이 없습니다. #씨앗구매로 구매해 주세요.`);
+
+    if(isAll){
+      keys=keys.slice(0,owned);
+      numbers=numbers.slice(0,owned);
+    }else if(owned<keys.length){
       fail(`${c.name} 씨앗이 부족합니다.\n필요: ${keys.length}개\n보유: ${fmt(owned)}개`);
+    }
 
     for(const key of keys){
       f.plots[key]={crop:c.name,plantedAt:time};
@@ -97,16 +129,17 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
 
     f.seeds[c.name]=owned-keys.length;
 
-    result=`🌱 NEXUS | PLANTING\n`+
-      `━━━━━━━━━━━━━━\n`+
-      `작물: ${c.emoji} ${c.name}\n`+
-      `심은 위치: ${numbers.join(', ')}번\n`+
-      `심은 수량: ${keys.length}개\n`+
-      `남은 씨앗: ${fmt(f.seeds[c.name])}개\n`+
-      `성장 시간: ${c.minutes}분\n`+
-      `━━━━━━━━━━━━━━\n`+
-      `✅ 씨앗 심기가 완료되었습니다.`;
+    result=`[ ✓ ] NEXUS | PLANTING\n`+
+      `━━━━━━━━━━━━━━━━━━━━\n`+
+      `작물       | ${c.name}\n`+
+      `심은 위치  | ${numbers.join(', ')}번\n`+
+      `심은 수량  | ${keys.length}개\n`+
+      `남은 씨앗  | ${fmt(f.seeds[c.name])}개\n`+
+      `성장 시간  | ${c.minutes}분\n`+
+      `━━━━━━━━━━━━━━━━━━━━\n`+
+      `씨앗 심기가 완료되었습니다.`;
    }
+
 
    if(cmd==='#수확'||cmd==='#전체수확'){
     if(cmd==='#수확'&&parts.length!==2)fail('사용법: #수확 번호');
