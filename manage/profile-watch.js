@@ -13,8 +13,18 @@ function createWatcher(ctx,client,{now=Date.now}={}){
    const rooms=await ctx.pool.query("SELECT room_id FROM hz_rooms WHERE data->>'manage'='true' AND COALESCE(data->>'locked','false')<>'true' ORDER BY room_id");
    const eligible=rooms.rows.filter(r=>!joined||joined.has(String(r.room_id)));
    if(!eligible.length)return;
-   const selected=eligible[cursor++%eligible.length];
-   for(const {room_id:room} of [selected]){
+   
+    // 한 번에 최대 2개 방을 순서대로 검사
+    const count = Math.min(2, eligible.length);
+    const selected = [];
+
+    for (let i = 0; i < count; i++) {
+      selected.push(eligible[cursor % eligible.length]);
+      cursor++;
+    }
+
+    for (const {room_id:room} of selected) {
+
     try{
      const members=await client.refreshMemberProfiles(room),observations=[];
      const saved=await ctx.pool.query('SELECT user_id,name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1',[room]);
