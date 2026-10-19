@@ -144,33 +144,33 @@ async function history(roomId, userId) {
   }).join("\n\n");
 }
 async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false}) {
-  if (!/^!(코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text)) return false;
+  if (!/^#(코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text)) return false;
   const say = s => chat.sendText(roomId,s);
   try {
     const me = sender(msg);
     const room = String(roomId);
-    if (text === "!코인순위") {
+    if (text === "#코인순위") {
       await say(await coinRanking(room));
-    } else if (text === "!코인내역") {
+    } else if (text === "#코인내역") {
       await say(await history(room,me.id));
-    } else if (text === "!코인아이디") {
+    } else if (text === "#코인아이디") {
       await say(`🔑 내 사용자 ID: ${me.id}\n관리자 설정용으로만 사용하고 공개 공유는 피하세요.`);
-    } else if (text.startsWith("!코인송금 ") || text.startsWith("!코인지급 ")) {
-      const grant = text.startsWith("!코인지급 ");
+    } else if (text.startsWith("#코인송금 ") || text.startsWith("#코인지급 ")) {
+      const grant = text.startsWith("#코인지급 ");
       if (grant) {
         const admins = String(process.env.HZ_ADMIN_IDS || "").split(",").map(s=>s.trim()).filter(Boolean);
         const owners=String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/);
         if (!isBotAccount&&!admins.includes(me.id)&&!owners.includes(me.id)) throw new Error("관리자만 코인을 지급할 수 있습니다.");
       }
-      const match = /^!코인(?:송금|지급)\s+@.+\s+(\S+)$/.exec(text);
-      if (!match) throw new Error(`사용법: !코인${grant ? "지급" : "송금"} @멘션 10000`);
+      const match = /^#코인(?:송금|지급)\s+@.+\s+(\S+)$/.exec(text);
+      if (!match) throw new Error(`사용법: #코인${grant ? "지급" : "송금"} @멘션 10000`);
       const coins = validAmount(match[1]);
       const to = await resolveCoinRecipient(room, mentionTarget(msg));
       await require('./economy').ensureLinked(room,to.id,to.name);
       const result = await transfer({roomId:room,from:me,to,coins,kind:grant ? "GRANT" : "TRANSFER",messageId:messageKey(msg),unlimited:isBotAccount});
       await say(`${grant ? "🎁 코인 지급 완료" : "💸 코인 송금 완료"}\n받는 사람: ${to.name}\n금액: ${fmt(coins)}코인\n받는 사람 잔액: ${fmt(result.recipientBalance)}코인`);
     } else {
-      await say("사용법: !정보 / !코인순위 / !코인내역 / !코인송금 @멘션 금액 / !코인지급 @멘션 금액");
+      await say("사용법: #정보 / #코인순위 / #코인내역 / #코인송금 @멘션 금액 / #코인지급 @멘션 금액");
     }
   } catch (e) {
     console.error("[HZ 코인]",e);
