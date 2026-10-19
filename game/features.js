@@ -242,8 +242,7 @@ async function handleGameCore(d,c,msg,isSelf){
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
        `NEXUS · QUIZ SYSTEM`;
    }
-
-  let m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);if(m){if(!d.quiz)return "진행 중인 퀴즈가 없습니다.";if(now>=d.quiz.expiresAt){const a=d.quiz.answers[0];d.quizCooldownUntil=Math.max(now,d.quiz.expiresAt)+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;return `⏰ 시간이 지났습니다.\n정답: ${a}`}if(!m[1])return "사용법: #정답 (답)";if(!d.quiz.answers.some(a=>require("./quiz").answerMatches(a,m[1])))return "❌ 오답입니다.";const a=d.quiz.answers[0];d.quizCooldownUntil=now+ctx.QUIZ_COOLDOWN_SECONDS*1000;d.quiz=null;p.points+=ctx.QUIZ_REWARD;p.wins++;const up=ctx.addXp(p,ctx.QUIZ_XP);return `🎉 ${name}님 정답!\n정답: ${a}\n💰 +${ctx.n(ctx.QUIZ_REWARD)}코인\n⭐ +${ctx.QUIZ_XP} XP${up?`\n⬆️ 레벨 ${p.level}`:""}\n보유: ${ctx.n(p.points)}코인`}
+  
   if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
   if(text==="#낚시"){
     const remain=ctx.FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);
