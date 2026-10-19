@@ -9,7 +9,7 @@ async function message({ text, msg, chat, isBotAccount = false }) {
     const roomId = msg.room?.id;
     if (roomId == null) return;
 
-    if (text === '!게임가입') {
+    if (text === '#게임가입') {
         if (msg.sender?.id == null) {
             await chat.sendText(
                 roomId,
@@ -37,7 +37,7 @@ async function message({ text, msg, chat, isBotAccount = false }) {
         isBotAccount
     })) return;
 
-    if (text === '!핑') {
+    if (text === '#핑') {
         // 1. 서버 이벤트 루프 처리 지연 측정
         const serverStart = performance.now();
 
