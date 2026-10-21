@@ -1,5 +1,6 @@
 'use strict';
 const { handleExtraMessage } = require('./help');
+const { handleModeration } = require('./moderation');
 
 function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   client.onMessage(async (...args) => {
@@ -13,6 +14,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       senderId != null && String(client.userId) === String(senderId);
     try {
       await ready;
+
+      if (await handleModeration(chat, msg, client)) return;
+      
       const context = {
   client,
   roomId,
