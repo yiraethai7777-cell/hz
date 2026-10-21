@@ -1,4 +1,3 @@
-
 const fs = require("node:fs");
 const path = require("node:path");
 const MemberType = {
@@ -196,8 +195,15 @@ async function handleCommand(chat, msg, room) {
 }
 
 async function handleModeration(chat, msg, client) {
-  if (!msg.room?.isOpenChat) return false;
-  if (String(msg.sender?.id) === String(client.userId)) return false;
+  if (msg?.room?.id == null || msg.room.isOpenChat === false) return false;
+
+  const senderId = msg.sender?.id ?? msg.senderId;
+  if (
+    client?.userId != null &&
+    String(client.userId) !== '0' &&
+    senderId != null &&
+    String(senderId) === String(client.userId)
+  ) return false;
 
   const roomId = msg.room.id;
   const room = roomSettings(roomId);
