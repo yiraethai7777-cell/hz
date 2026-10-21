@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS hz_rooms(room_id TEXT PRIMARY KEY,data JSONB NOT NULL
 CREATE TABLE IF NOT EXISTS hz_members(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,join_count INT NOT NULL DEFAULT 0,leave_count INT NOT NULL DEFAULT 0,last_profile_url TEXT,last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
 ALTER TABLE hz_members ADD COLUMN IF NOT EXISTS open_profile_link TEXT;
 ALTER TABLE hz_members ADD COLUMN IF NOT EXISTS observed_open_profile_link TEXT;
+ALTER TABLE hz_members ADD COLUMN IF NOT EXISTS observed_profile_name TEXT;
 CREATE TABLE IF NOT EXISTS hz_events(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,event_type TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),meta JSONB NOT NULL DEFAULT '{}'::jsonb);
 CREATE TABLE IF NOT EXISTS hz_ban_registry(
  room_id TEXT NOT NULL,
@@ -48,6 +49,15 @@ CREATE TABLE IF NOT EXISTS hz_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT
 CREATE TABLE IF NOT EXISTS hz_profiles(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,old_name TEXT,new_name TEXT,old_profile_url TEXT,new_profile_url TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 ALTER TABLE hz_profiles ADD COLUMN IF NOT EXISTS old_open_profile_link TEXT;
 ALTER TABLE hz_profiles ADD COLUMN IF NOT EXISTS new_open_profile_link TEXT;
+CREATE TABLE IF NOT EXISTS hz_profile_outbox(
+ profile_id BIGINT PRIMARY KEY REFERENCES hz_profiles(id),room_id TEXT NOT NULL,bot_id TEXT NOT NULL,
+ client_msg_id INTEGER NOT NULL,body TEXT NOT NULL CHECK(length(body)<=4500),
+ state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','sending','sent','uncertain')),
+ claim_token TEXT,attempts INTEGER NOT NULL DEFAULT 0,retry_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ claimed_at TIMESTAMPTZ,sent_at TIMESTAMPTZ,log_id TEXT,last_error TEXT,
+ UNIQUE(room_id,bot_id,client_msg_id)
+);
+CREATE INDEX IF NOT EXISTS hz_profile_outbox_pending_idx ON hz_profile_outbox(room_id,profile_id) WHERE state='pending';
 CREATE TABLE IF NOT EXISTS hz_attendance(
   room_id TEXT NOT NULL,
   day_key TEXT NOT NULL,

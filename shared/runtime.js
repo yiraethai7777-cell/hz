@@ -152,5 +152,12 @@ return ctx;
 let runtime;
 async function attachModules(client){runtime ||= createRuntime();return runtime.attachHZBot(client);}
 let profileWatcher;
-function startProfileWatch(client){if(!runtime)return;profileWatcher ||= require('../manage/profile-watch').createWatcher(runtime,client);profileWatcher.start();}
+function startProfileWatch(client){
+ console.log('[NEXUS PROFILE WATCH] runtime start requested',JSON.stringify({runtimeReady:!!runtime,refreshSupported:typeof client?.refreshMemberProfiles==='function'}));
+ if(!runtime)throw new Error('Profile watcher runtime is not initialized');
+ if(profileWatcher && profileWatcher.client!==client){profileWatcher.stop();profileWatcher=null;}
+ profileWatcher ||= Object.assign(require('../manage/profile-watch').createWatcher(runtime,client),{client});
+ profileWatcher.start();
+ return profileWatcher;
+}
 module.exports={attachModules,createRuntime,startProfileWatch};

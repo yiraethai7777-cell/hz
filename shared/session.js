@@ -16,6 +16,8 @@ async function attachHZBot(client){
       const chat=args.length===1?(client.chat||client):args[0];
       if(!msg?.room?.id)return;
       ctx.globalChat=chat;
+      try{await require('../manage/profile-delivery').confirm(ctx.pool,ctx.globalBotId,msg);}
+      catch(e){console.error('[NEXUS PROFILE WATCH] notification echo confirmation failed',e.message);}
 
       const rid=ctx.id(msg.room.id),rname=msg.room.name||"",uid=ctx.id(msg.sender?.id??msg.senderId),
         isSelf=uid===ctx.globalBotId,isAdmin=uid===ctx.globalBotId||ctx.OWNER_IDS.has(uid),text=String(msg.message?.text??msg.text??"").trim(),
@@ -49,9 +51,9 @@ async function attachHZBot(client){
           try{const live=await client.getUserOpenProfileLink(rid,uid);if(live)openLink=live;}catch(e){console.error('[NEXUS PROFILE LINK]',e.message);}
         }
         await ctx.withRoom(rid,rname,async(d,c)=>{
-          const change=await ctx.profileObserve(c,rid,uid,name,snapshot?.imageUrl||received?.url||'',openLink);
-          if(change)await ctx.send(chat,rid,require('../manage/leave-reply').profileNotice(change,ctx.nowK()));
+          if(d.manage&&!d.locked)await ctx.profileObserve(c,rid,uid,name,snapshot?.imageUrl||received?.url||'',openLink);
         });
+        await require('../manage/profile-delivery').drain(ctx,rid);
       }
       if(text==="#삭메기록켜기"||text==="#삭메기록끄기"){
         if(!isAdmin)return;

@@ -2230,18 +2230,22 @@ export class KakaoForgeClient extends EventEmitter {
     if (!this._carriage) throw new Error('LOCO not connected');
     const roomId=this._resolveChatId(chatId), ids=new Set<string>();
     let token: number | string=0;
+    const seenTokens=new Set<string>();
     for(let page=0;page<30;page++) {
       const response=await this._carriage.memList({chatId:roomId,token,excludeMe:false});
       if(typeof response?.status==='number'&&response.status!==0)throw new Error('Profile MEMLIST failed');
-      const body=response?.body||{}, members=body.members||body.memberList||body.memList||[];
+      const body=response?.body||{}, members=body.members??body.memberList??body.memList;
       if(!Array.isArray(members))throw new Error('Invalid profile member list');
       this._cacheMembers(roomId,members);
       for(const member of members) {
-        const id=String(normalizeIdValue(member.userId??member.id??member.memberId)||'');
+        const id=String(normalizeIdValue(member.userId??member.id??member.memberId??member.user_id)||'');
         if(/^[1-9]\d*$/.test(id))ids.add(id);
       }
       const next=String(normalizeIdValue(body.token??body.nextToken??body.memberToken??0)||'');
       if(!next||next==='0'||next===String(token))break;
+      if(seenTokens.has(next))throw new Error('Profile MEMLIST pagination repeated token');
+      if(page===29)throw new Error('Profile MEMLIST pagination limit exceeded');
+      seenTokens.add(next);
       token=next;
       await new Promise(resolve=>setTimeout(resolve,250));
     }
@@ -2448,6 +2452,7 @@ export class KakaoForgeClient extends EventEmitter {
       lastChatId: this._chatListCursor.lastChatId || 0,
     });
 
+    if(typeof res?.status==='number'&&res.status!==0)throw new Error('Profile room list failed: status='+res.status);
     const chats = this._applyChatList(res.body);
     return { ...res.body, chats };
   }
