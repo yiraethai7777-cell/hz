@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS hz_mention_alerts(
  sender_id TEXT NOT NULL, sender_name TEXT NOT NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), notified_at TIMESTAMPTZ
 );
+ALTER TABLE hz_mention_alerts ADD COLUMN IF NOT EXISTS source_message_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS hz_mention_alerts_message_unique
+ ON hz_mention_alerts(room_id,target_id,source_message_id)
+ WHERE source_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS hz_mention_alerts_pending_idx ON hz_mention_alerts(room_id,target_id,id) WHERE notified_at IS NULL;
 CREATE TABLE IF NOT EXISTS hz_chat_stats(room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT,chat_count BIGINT NOT NULL DEFAULT 0,first_chat_at TIMESTAMPTZ,last_chat_at TIMESTAMPTZ,PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS hz_message_cache(room_id TEXT NOT NULL,message_id TEXT NOT NULL,message_text TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));

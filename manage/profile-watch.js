@@ -56,7 +56,10 @@ function createWatcher(ctx,client,{now=Date.now}={}){
       }
       return result;
      });
-     for(const change of changes)await ctx.send(ctx.globalChat,room,profileNotice(change,ctx.nowK()));
+     const flags=await ctx.roomFlags(room);
+     if(require('./alerts').alertsEnabled(flags,'profileAlertsEnabled')){
+      for(const change of changes)await ctx.send(ctx.globalChat,room,profileNotice(change,ctx.nowK()));
+     }
      if(!verified){console.log('[NEXUS PROFILE WATCH] live member refresh verified');verified=true;}
     }catch(e){console.error('[NEXUS PROFILE WATCH]',String(room),e.message);}
    }
