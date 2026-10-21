@@ -17,15 +17,18 @@ function start() {
   attachRouter(client, { game, management: manage, ready });
   let initializing = false;
   client.onReady(async () => {
+    console.log('[NEXUS PROFILE WATCH] client ready', JSON.stringify({initializing,refreshSupported:typeof client.refreshMemberProfiles==='function'}));
     if (initializing) return;
     initializing = true;
     try {
       await game.init();
+      console.log('[NEXUS PROFILE WATCH] runtime initialization completed');
       await manage.init();
+      console.log('[NEXUS PROFILE WATCH] management initialization completed');
       require('./shared/runtime').startProfileWatch(client);
       resolveReady();
       console.log('[HZ NEW] 게임·관리 준비 완료');
-    } catch (err) { rejectReady(err); }
+    } catch (err) { console.error('[NEXUS PROFILE WATCH] initialization failed',err.message);rejectReady(err); }
   });
   client.on('error', err => console.error('[HZ NEW] 연결 오류:', err));
   const timer = setInterval(() => ready.then(() => manage.cleanup()).catch(err =>
