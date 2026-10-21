@@ -24,7 +24,7 @@ async function attachHZBot(client){
       const exactSender=ctx.senderExactId(msg);
       if(exactSender && !isSelf){
         const mentionFlags=await ctx.roomFlags(rid);
-        if(mentionFlags.manage&&!mentionFlags.locked)await ctx.processMentionAlerts(chat,rid,msg,exactSender,name);
+        // Mention alerts are handled once by the main shared/router listener.
       }
       if(!isSelf)await ctx.addChatCount(rid,uid,name);
       if(!isSelf){
