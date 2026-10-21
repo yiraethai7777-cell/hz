@@ -1,6 +1,7 @@
 'use strict';
 const { handleExtraMessage } = require('./help');
 const { handleModeration } = require('./moderation');
+const alerts = require('../manage/alerts');
 
 function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   client.onMessage(async (...args) => {
@@ -45,6 +46,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   },
   send: body => chat.sendText(roomId, body)
 };
+      if (await alerts.handleAlertCommand(context)) return;
+      await alerts.processMentionAlerts(context);
       if (text === "!테스트") {
         await require("../manage/attendance-image/command")
           .handleTest(client, context);
