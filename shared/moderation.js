@@ -1,7 +1,13 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { MemberType } = require("kakaoforge");
+const MemberType = {
+  OpenChat: {
+    Owner: 1,
+    Member: 2,
+    Manager: 4
+  }
+};
 
 const FILE = path.join(__dirname, "banned-words.json");
 const db = fs.existsSync(FILE)
