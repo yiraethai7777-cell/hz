@@ -44,11 +44,15 @@ function createMessageNoticeAdapter({sendText,setNotice}) {
   };
 }
 
-function capability(client) {
-  // Stable explicit opt-in contract, not an inferred undocumented LOCO method.
-  const adapter=client?.roomNoticeAdapter;
-  if(!adapter || typeof adapter.register !== 'function')return null;
-  return adapter;
+function capability(client,linkId) {
+  // Prefer a verified third-party adapter when explicitly installed.
+  const custom=client?.roomNoticeAdapter;
+  if(custom && typeof custom.register==='function')return custom;
+  if(process.env.HZ_EVENT_NOTICE_API==='off')return null;
+  // Historical public node-kakao board API. May not work with 2026 server;
+  // availability of this object is NOT evidence of successful registration.
+  if(!client?.oauthToken || !client?.deviceUuid)return null;
+  return require('./event-board-api').createBoardAdapter(client,{linkId});
 }
 function sanitize(str) {
   const value=String(str??'').replace(/\r\n?/g,'\n')
@@ -94,16 +98,18 @@ async function handle({client,roomId,msg,text,send,loadSettings=load,adapter}){
     await notify(client,send,'방장 또는 부방장만 실제 공지를 등록할 수 있습니다.');
     return true;
   }
-  const transport=adapter===undefined?capability(client):adapter;
+  const transport=adapter===undefined?capability(client,msg?.room?.openLinkId):adapter;
   if(match[1]==='상태'){
     await notify(client,send,transport?
-      '✅ 실제 공지 등록 연동이 준비되었습니다. #이벤공지등록 으로 테스트할 수 있습니다.':
+      (transport.experimental
+        ? '🧪 과거 오픈채팅 게시판 API 연동이 준비되었습니다. 현재 서버 호환성은 미검증입니다. 방장/부방장 계정으로 #이벤공지등록 을 테스트할 수 있습니다.'
+        : '✅ 검증된 실제 공지 등록 연동이 설정되었습니다. #이벤공지등록 을 실행할 수 있습니다.'):
       '⚠️ 실제 공지 등록 연동이 아직 없습니다.\n현재 #이벤공지 는 일반 채팅 전송입니다. 카카오톡에서 해당 메시지를 길게 눌러 공지로 등록해 주세요.');
     return true;
   }
   if(!transport){
     await notify(client,send,
-      '⚠️ 실제 카카오톡 공지 등록 API가 아직 연결되지 않았습니다.\n'+
+      '⚠️ 실제 공지 등록에 필요한 카카오톡 로그인 정보가 없거나 실험 기능이 꺼져 있습니다.\n'+
       '공지 등록을 완료했다고 표시하지 않습니다.\n'+
       '현재는 #이벤공지 로 메시지를 보낸 뒤 카카오톡에서 길게 눌러 공지로 등록해야 합니다.');
     return true;
