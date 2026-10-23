@@ -22,6 +22,7 @@ function fixture(overrides={}) {
     send:async text=>{sent.push(text)},
     mention:(id,name)=>{mentionCalls.push({id,name});return marker(id,name)},
     pickRandom:()=>0,now:clock.now,sleep:async ms=>clock.advance(ms),
+    loadSettings:async()=>require('../shared/event-settings').DEFAULTS,
     ...overrides};
   return {args,sent,mentionCalls,clock};
 }
@@ -226,4 +227,60 @@ test('selected user can respond after late 4 tick even beyond 175ms absolute tim
   await start(args);
   assert.deepEqual(sent.filter(s=>s.startsWith('⏳ ')),['⏳ 5','⏳ 4']);
   assert.match(sent.at(-1),/반응 성공/);
+});
+
+
+test('custom announcement precedes the prominent real mention',async()=>{
+  const {args,sent}=fixture();
+  args.loadSettings=async()=>({
+    speedMs:35,announcement:'🎁 오늘의 특별 이벤트 안내!',
+    winMessage:'✅ {멘션}님 대단해요!',
+    earlyMessage:'🚫 너무 빠른 답변',timeoutMessage:'⌛ 이벤트 종료'
+  });
+  await start(args);
+  assert.match(sent[0],/📢 APEX 이벤트 공지/);
+  assert.match(sent[0],/오늘의 특별 이벤트 안내!/);
+  assert.match(sent[1],/📣📣📣/);
+  assert.ok(sent[1].includes(marker('9007199254740993123','𒊮𝐀𝐏𝐄𝐗 정 ᯽')));
+  assert.match(sent.at(-1),/이벤트 종료/);
+});
+
+test('custom 650ms speed is applied after every confirmed countdown send',async()=>{
+  const {args,sent,clock}=fixture();
+  const calls=[];
+  args.loadSettings=async()=>({speedMs:650});
+  args.sleep=async ms=>{calls.push(ms);clock.advance(ms);};
+  await start(args);
+  assert.deepEqual(calls,[650,650,650,650,650]);
+  assert.equal(clock.now(),3250);
+  assert.match(sent[0],/650ms 카운트 이벤트/);
+  assert.equal(sent.filter(x=>x.startsWith('⏳ ')).length,5);
+});
+
+test('custom winner message keeps a real mention even without {멘션}',async()=>{
+  const {args,sent,clock}=fixture();
+  args.loadSettings=async()=>({
+    speedMs:35,winMessage:'🥇 {닉네임}님 당첨! 후보 {인원}명'
+  });
+  args.sleep=async ms=>{
+    clock.advance(ms);
+    receive({roomId:args.roomId,senderId:'9007199254740993123',
+      text:'성공!',now:clock.now});
+  };
+  await start(args);
+  assert.match(sent.at(-1),/당첨! 후보 1명/);
+  assert.ok(sent.at(-1).includes(marker('9007199254740993123','𒊮𝐀𝐏𝐄𝐗 정 ᯽')));
+});
+
+test('custom early elimination message replaces default text',async()=>{
+  const {args,sent,clock}=fixture();
+  args.loadSettings=async()=>({earlyMessage:'🚨 {닉네임} 너무 서둘렀어요'});
+  args.send=async value=>{
+    sent.push(value);
+    if(value.includes('35ms 카운트 이벤트'))
+      receive({roomId:args.roomId,senderId:'9007199254740993123',
+        text:'너무 빨리',now:clock.now});
+  };
+  await start(args);
+  assert.match(sent.at(-1),/너무 서둘렀어요/);
 });
