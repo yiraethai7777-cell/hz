@@ -66,7 +66,7 @@ async function resolveCoinRecipient(roomId, target) {
   const fallback = String(target.name || "").trim();
   const placeholder = !fallback || fallback === "멘션 사용자";
   if (!placeholder) return target;
-  // Existing wallet names are preferred. Old NEXUS tables are optional.
+  // Existing wallet names are preferred. Old game tables are optional.
   const queries = [
     ["SELECT user_name AS name FROM hz_wallets WHERE room_id=$1 AND user_id=$2", [roomId, target.id]],
     ["SELECT name FROM hz_members WHERE room_id=$1 AND user_id=$2", [roomId, target.id]],
