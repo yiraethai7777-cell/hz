@@ -73,7 +73,10 @@ function createGame(client) {
       if(flags.game&&await require('./extra').handle(normalized,client))return;
       if (marketCommand.test(text)) {
         if (!flags.game) return;
-        if(msg.sender?.id!=null)await require('./economy').ensureLinked(String(roomId),String(msg.sender.id),msg.sender.name);
+        // Read-only coin lookups do not need a wallet migration/row lock.
+        const walletChanging=/^#(?:게임가입|코인송금|코인지급)(?:\s|$)/.test(text);
+        if(walletChanging&&msg.sender?.id!=null)
+          await require('./economy').ensureLinked(String(roomId),String(msg.sender.id),msg.sender.name);
         await market.message(normalized);
         return;
       }
