@@ -46,6 +46,7 @@ async function handle({client, roomId, msg, send}) {
   console.log('[이벤 인원 테스트] 조회 시작: room=' + room);
   try {
     const members = await client.refreshMemberProfiles(roomId, {
+      allowChatOnRoomFallback: true,
       onProgress(progress) {
         console.log('[이벤 인원 테스트] 조회 진행: room=' + room +
           ' page=' + progress.page +
@@ -75,7 +76,8 @@ async function handle({client, roomId, msg, send}) {
       '━━━━━━━━━━━━━━\n' +
       '조회된 인원: ' + members.length + '명\n' +
       '닉네임 확인: ' + valid.length + '명\n' +
-      'APEX 추첨 대상: ' + apex.length + '명\n' +
+      'APEX 추첨 대상: ' + apex.length + '명 (닉네임 확인 기준)\n' +
+      (valid.length < members.length ? '⚠️ 닉네임이 없는 인원이 있어 전체 추첨 대상은 미확정입니다.\n' : '') +
       '조회 소요: ' + elapsed + 'ms\n' +
       '━━━━━━━━━━━━━━\n' +
       '카카오톡에 표시되는 실제 방 인원과 비교해 주세요.');
