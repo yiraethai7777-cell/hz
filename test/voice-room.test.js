@@ -133,16 +133,17 @@ test('malformed title cannot be sent to adapter',async()=>{
   assert.match(sent[0],/40자 이하/);
 });
 
-test('room scope and bot self command are respected',async()=>{
+test('room scope and own-account commands are handled',async()=>{
   const {args,sent}=fixture();
   args.msg.room.isOpenChat=false;
   await voice.handle(args);
   assert.match(sent[0],/오픈채팅방/);
-  const own=fixture();
+  const own=fixture({text:'#보룸상태'});
   own.args.msg.sender.id=own.client.userId;
   const handled=await voice.handle(own.args);
   assert.equal(handled,true);
-  assert.equal(own.sent.length,0);
+  assert.equal(own.sent.length,1);
+  assert.match(own.sent[0],/보이스룸 상태/);
 });
 
 test('unsupported other commands return false',async()=>{
