@@ -90,7 +90,6 @@ async function log(room,actor,target,action,detail){await getPool().query('INSER
 // GL_BOT_ONLY_V1
 async function message({client,roomId,userId,userName,messageId,text,send,kick,unban,resolveTarget,isBotAccount=false,senderType,botId,msg}){
  const room=key(roomId),user=key(userId),db=getPool(),s=String(text||'').trim();
-  if(s==='#관리명령어'){await send(require('../shared/help').formatCommandHelp({manage:true,game:false},'관리'));return true}
  if(s==='#관리상태'){await send('🛡️ 관리: '+(await enabled(room)?'작동':'중지'));return true}
  if(s==='#관리작동'||s==='#관리중지'){
   if(!isBotAccount){await send('⛔ NEXUS 계정만 사용할 수 있습니다.');return true}
