@@ -92,6 +92,7 @@ async function start({
         !marker.endsWith('\u0004'))
       throw Error('Invalid mention marker');
     state.userId = String(selected.id);
+    state.phase='precountdown';
     const variables={name:selected.name,mention:marker,count:candidates.length};
 
     if(settings.announcement) {
@@ -102,7 +103,6 @@ async function start({
 
     // Highlight the actual Kakao mention in its own message.
     // Answering before first 5 is delivered is disqualifying.
-    state.phase='precountdown';
     if(!await sendSafe(client,send,
       '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트 테스트 📣📣📣\n'+
       '━━━━━━━━━━━━━━━━━━\n'+
