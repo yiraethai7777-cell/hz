@@ -53,6 +53,17 @@ if (text === '#이벤인원테스트') {
   return;
 }
 
+if (text === '#이벤추첨테스트') {
+  await require('./event-draw-test').handle({
+    client, roomId, msg, send: context.send,
+    mention: (id, name) => {
+      if (typeof chat?.mention !== 'function') return null;
+      return chat.mention(id, name, roomId);
+    }
+  });
+  return;
+}
+
       if (text === '#게임작동' || text === '#게임중지') {
         await game.toggle(context);
         return;
