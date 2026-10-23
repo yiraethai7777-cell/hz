@@ -137,25 +137,26 @@ test('fishing is text only with 20 species; old inventory remains saleable',asyn
  assert.ok(!player.inventory.includes(oldFish));
 });
 
-test('help shows only active modules, separated with a single 1200-character fold',()=>{
+test('game and management help remain separate, folded and unnamed',()=>{
  const {formatCommandHelp}=require('../shared/help');
- const manageOnly=formatCommandHelp({manage:true,game:false});
- assert.match(manageOnly,/🛡️ 관리 명령어/);assert.match(manageOnly,/!출석/);
- assert.ok(!manageOnly.includes('!낚시'));assert.ok(!manageOnly.includes('!주식구매'));
- assert.ok(!manageOnly.includes('🎮 게임 명령어'));
- const gameOnly=formatCommandHelp({manage:false,game:true});
- assert.match(gameOnly,/!낚시/);assert.ok(!gameOnly.includes('!주식'));
- assert.ok(!gameOnly.includes('!출석'));assert.ok(!gameOnly.includes('!경고'));
- const both=formatCommandHelp({manage:true,game:true});
- assert.ok(both.length<5000);assert.doesNotMatch(both,/헤이즈|\bGL\b|!내정보|!레벨|!코인(?:\s|$)|!주식/);
- const visible=both.split('\u200b'.repeat(1200))[0];
- assert.ok(visible.startsWith('📜 명령어 안내'));
- assert.match(both,/🎮 게임 명령어/);assert.match(both,/🛡️ 관리 명령어/);
- assert.equal([...both].filter(c=>c==='\u200b').length,1200);
- assert.match(formatCommandHelp({manage:false,game:false}),/작동 중인 기능이 없습니다/);
+ const manageOnly=formatCommandHelp({manage:true,game:false},'관리');
+ assert.match(manageOnly,/🛡️ 관리 명령어/);
+ assert.match(manageOnly,/!출석/);
+ assert.doesNotMatch(manageOnly,/!낚시/);
+ const gameOnly=formatCommandHelp({manage:false,game:true},'게임');
+ assert.match(gameOnly,/!낚시/);
+ assert.doesNotMatch(gameOnly,/!출석|!경고/);
+ for(const [menu,heading] of [[gameOnly,'게임'],[manageOnly,'관리']]){
+  assert.equal(menu.split('\u200b'.repeat(1200))[0],
+    '📜 명령어 안내\n작동 중인 기능 · '+heading);
+  assert.equal([...menu].filter(ch=>ch==='\u200b').length,1200);
+ }
+ const generic=formatCommandHelp({manage:true,game:true});
+ assert.match(generic,/!게임명령어/);
+ assert.match(generic,/!관리명령어/);
+ assert.doesNotMatch(generic,/!낚시|!출석/);
  assert.match(formatCommandHelp({manage:false,game:true},'관리'),/관리 기능은 중지/);
- assert.ok(!formatCommandHelp({manage:true,game:true},'게임').includes('!경고'));
- assert.ok(!formatCommandHelp({manage:true,game:true},'관리').includes('!낚시'));
+ assert.match(formatCommandHelp({manage:true,game:false},'게임'),/게임 기능은 중지/);
 });
 
 test('deletion alerts identify the actor only, without content, warnings or kicks',async()=>{
