@@ -288,3 +288,19 @@ test('custom early elimination message replaces default text',async()=>{
   await start(args);
   assert.match(sent.at(-1),/너무 서둘렀어요/);
 });
+
+
+test('answer during saved event notice also counts as before countdown',async()=>{
+  const {args,sent,clock}=fixture();
+  args.loadSettings=async()=>({announcement:'📌 지금부터 이벤트를 시작합니다!'});
+  args.send=async message=>{
+    sent.push(message);
+    if(message.includes('지금부터 이벤트를 시작합니다')) {
+      assert.equal(receive({roomId:args.roomId,
+        senderId:'9007199254740993123',text:'미리 대답',now:clock.now}),true);
+    }
+  };
+  await start(args);
+  assert.match(sent.at(-1),/탈락!/);
+  assert.equal(sent.some(x=>x.startsWith('⏳ ')),false);
+});
