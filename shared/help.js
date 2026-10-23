@@ -114,7 +114,7 @@ const bodies={
   "└─ 메시지 삭제 알림을 끕니다."
  ].join('\n'),
 };
-const MANAGEMENT_MENU='📜 명령어 안내\n작동 중인 기능 · 관리\n🛡️ 관리 명령어\n━━━━━━━━━━━━━━\n'+bodies.관리;
+const MANAGEMENT_MENU='📜 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 관리 명령어\n━━━━━━━━━━━━━━\n'+bodies.관리;
 function formatCommandHelp(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
