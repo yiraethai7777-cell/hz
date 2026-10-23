@@ -487,7 +487,9 @@ export class KakaoForgeClient extends EventEmitter {
         }
       })
       .finally(() => {
-        this._openChatInitInFlight.delete(key);
+        if (this._openChatInitInFlight.get(key) === task) {
+          this._openChatInitInFlight.delete(key);
+        }
       });
 
     this._openChatInitInFlight.set(key, task);
@@ -840,6 +842,7 @@ export class KakaoForgeClient extends EventEmitter {
       this._eventRosterIds.clear();
       this._eventDepartedIds.clear();
       this._openChatInitialized.clear();
+      this._openChatInitInFlight.clear();
       console.log('[!] Disconnected from Carriage');
       this.emit('disconnected');
       this._stopMemberRefresh();
