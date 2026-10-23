@@ -22,7 +22,7 @@ function fixture(overrides={}){
 test('unknown Kakao notice protocol must not send a fake notice',async()=>{
   const {args,out}=fixture();
   assert.equal(await notice.handle(args),true);
-  assert.match(out[0],/연결되지 않았습니다/);
+  assert.match(out[0],/로그인 정보가 없거나 실험 기능이 꺼져/);
   assert.doesNotMatch(out[0],/✅/);
   assert.equal(out.length,1);
 });
