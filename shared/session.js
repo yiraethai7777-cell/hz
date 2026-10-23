@@ -21,6 +21,20 @@ async function attachHZBot(client){
         isSelf=uid===ctx.globalBotId,isAdmin=uid===ctx.globalBotId||ctx.OWNER_IDS.has(uid),text=String(msg.message?.text??msg.text??"").trim(),
         name=String(msg.sender?.name||uid);
 
+      // Reply to game commands first. Member statistics and profile observation
+      // run after the game response and cannot delay its delivery.
+      const priorityGame=msg.__nexusGameCommand===true;
+      if(priorityGame){
+        const current=await ctx.roomFlags(rid);
+        if(current.game&&!current.locked){
+          const out=await ctx.withRoom(rid,rname,async(d,c)=>{
+            if(!d.game||d.locked)return null;
+            return ctx.handleGame(d,c,msg,isSelf);
+          });
+          if(out)await ctx.send(chat,rid,out);
+        }
+      }
+
       const exactSender=ctx.senderExactId(msg);
       if(exactSender && !isSelf){
         const mentionFlags=await ctx.roomFlags(rid);
@@ -56,6 +70,8 @@ async function attachHZBot(client){
           if(change)await ctx.send(chat,rid,require('../manage/leave-reply').profileNotice(change,ctx.nowK()));
         });
       }
+      // Do not execute a priority game command twice after housekeeping.
+      if(priorityGame)return;
       if(text==="#삭메기록켜기"||text==="#삭메기록끄기"){
         if(!flags.manage||flags.locked)return;
         if(!ctx.isManagerType(msg.sender?.type)){
