@@ -83,7 +83,7 @@ test('set_notice response alone is not treated as proof of pinning',async()=>{
 });
 
 test('transport restricts host and paths before network request',async()=>{
-  await assert.rejects(api.defaultTransport({
+  assert.throws(()=>api.defaultTransport({
     method:'POST',path:'/remote/host',headers:{}
   }),/허용되지 않은/);
 });
@@ -102,4 +102,12 @@ test('a verified custom adapter may replace the legacy implementation',()=>{
   const specific={register:async()=>({registered:true})};
   const other={oauthToken:'token',deviceUuid:'uuid',roomNoticeAdapter:specific};
   assert.equal(notice.capability(other),specific);
+});
+
+
+test('logged in KakaoForge session offers experimental notice adapter',()=>{
+  const notice=require('../shared/event-notice');
+  const adapter=notice.capability(session,link);
+  assert.equal(typeof adapter.register,'function');
+  assert.equal(adapter.experimental,true);
 });
