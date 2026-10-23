@@ -39,6 +39,7 @@ function toLegacyMessage(msg,original,translated){
  Object.defineProperty(attachment,'text',{value:translated,enumerable:true,configurable:true});
  Object.defineProperty(mapped,'text',{value:translated,enumerable:true,configurable:true});
  Object.defineProperty(mapped,'message',{value:attachment,enumerable:true,configurable:true});
+ Object.defineProperty(mapped,'__nexusGameCommand',{value:true,configurable:true});
  return mapped;
 }
 module.exports={COMMANDS,isGameCommand,isRetiredLegacyCommand,toLegacy,toLegacyMessage};
