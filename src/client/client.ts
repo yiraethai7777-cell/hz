@@ -426,8 +426,11 @@ export class KakaoForgeClient extends EventEmitter {
     const existing = this._openChatInitInFlight.get(key);
     if (existing) return existing;
 
+    const requestCarriage = this._carriage;
     const task = (async () => {
-      const res = await this._carriage.chatOnRoom({ chatId: resolvedChatId, token: 0, opt: 0 });
+      const res = await requestCarriage.chatOnRoom({ chatId: resolvedChatId, token: 0, opt: 0 });
+      // Do not restore a stale roster from a previous disconnected transport.
+      if (this._carriage !== requestCarriage || !this.connected) return;
       const body = res?.body || {};
       if (body) {
         const prev = this._chatRooms.get(key) || {};
