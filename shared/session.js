@@ -128,10 +128,10 @@ async function attachHZBot(client){
         if(!ctx.OWNER_IDS.has(uid)){await ctx.send(chat,rid,"⛔ 최고 관리자만 게임 초기화를 실행할 수 있습니다. HZ_OWNER_IDS 설정을 확인하세요.");return;}
         if(text==="#초기화"){
           await ctx.withRoom(rid,rname,async d=>{d.gameResetRequest={uid,expires:Date.now()+60000};});
-          await ctx.send(chat,rid,"⚠️ 전체 방의 게임 데이터(코인, 레벨, 물고기, 펫, 강화, 보호권 등)를 초기화합니다.\n채팅순위(hz_chat_stats)와 출석 기록은 유지됩니다.\n60초 이내 #초기화확인 을 입력하세요.");return;
+          await ctx.send(chat,rid,"⚠️ 전체 방의 게임 데이터(코인, 레벨, 물고기, 펫, 강화, 보호권 등)를 초기화합니다.\n채팅순위(hz_chat_stats)와 출석 기록은 유지됩니다.\n60초 이내 !초기화확인 을 입력하세요.");return;
         }
         const valid=await ctx.withRoom(rid,rname,async d=>{const x=d.gameResetRequest;const ok=x&&x.uid===uid&&x.expires>Date.now();delete d.gameResetRequest;return !!ok;});
-        if(!valid){await ctx.send(chat,rid,"⏰ 초기화 요청이 없거나 만료되었습니다. #초기화부터 입력하세요.");return;}
+        if(!valid){await ctx.send(chat,rid,"⏰ 초기화 요청이 없거나 만료되었습니다. !초기화부터 입력하세요.");return;}
         await ctx.pool.query(`UPDATE hz_rooms SET data=jsonb_set(jsonb_set(jsonb_set(jsonb_set(data,'{players}','{}'::jsonb,true),'{quiz}','null'::jsonb,true),'{quizQueue}','[]'::jsonb,true),'{lastQuiz}','-1'::jsonb,true),updated_at=NOW()`);
         await ctx.send(chat,rid,"✅ 모든 방의 게임 데이터가 초기화되었습니다.\n📊 채팅순위·채팅 횟수·출석 기록은 그대로 유지됩니다.");return;
       }
@@ -198,7 +198,7 @@ async function attachHZBot(client){
         if(!isAdmin||!flags.game)return;
         const mm=/^#회수\s+(all|[0-9]+)(?:\s|$)/i.exec(text);
         let t=ctx.targetFrom(msg,text);
-        if(!mm||!t){await ctx.send(chat,rid,"사용법: #회수 (코인/all) @(멘션) 또는 해시");return;}
+        if(!mm||!t){await ctx.send(chat,rid,"사용법: !회수 (코인 또는 all) (@멘션)");return;}
         const all=mm[1].toLowerCase()==="all";
         const amount=all?null:Number(mm[1]);
         if(!all&&(!Number.isSafeInteger(amount)||amount<1||amount>1000000000000)){
@@ -221,7 +221,7 @@ async function attachHZBot(client){
         if(!isAdmin||!flags.game)return;
         const mm=/^#치트\s+([0-9]+)[\s\S]*$/.exec(text);
         let t=ctx.targetFrom(msg,text);
-        if(!mm||!t){await ctx.send(chat,rid,"사용법: #치트 (코인) @(멘션) 또는 해시");return}
+        if(!mm||!t){await ctx.send(chat,rid,"사용법: !치트 (코인) (@멘션)");return}
         const amount=Number(mm[1]);
         if(!Number.isSafeInteger(amount)||amount<1||amount>1000000000000){await ctx.send(chat,rid,"지급 코인은 1~1,000,000,000,000 범위로 입력해주세요.");return}
         const out=await ctx.withRoom(rid,rname,async(d,c)=>{t=await ctx.resolveTarget(c,rid,t);const p=ctx.player(d,t.id,t.name||t.id);p.points+=amount;return `💰 치트 지급 완료\n👤 ${p.name}\n💵 +${ctx.n(amount)}코인\n💰 현재 ${ctx.n(p.points)}코인\n🤖 봇 잔액: ∞`});
