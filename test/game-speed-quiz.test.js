@@ -26,12 +26,12 @@ test('quiz shuffles 3 easy and 2 challenging questions per five rounds',()=>{
  for(let i=1;i<picks.length;i++)assert.notEqual(picks[i].i,picks[i-1].i);
 });
 
-test('game command result is sent before slow Kakao profile API lookup',async()=>{
- let callback,releaseProfile,requested=false,gameCalls=0,statCalls=0;
+test('game reply does not wait for Kakao profile lookup or room profile lock',async()=>{
+ let callback,requested=false,gameCalls=0,statCalls=0,profileCalls=0,roomCalls=0;
  const responses=[];
+ const pool={query:async()=>({rows:[]})};
  const ctx={
-  OWNER_IDS:new Set(),
-  pool:{query:async()=>({rows:[]})},
+  OWNER_IDS:new Set(),pool,
   id:v=>String(v??''),
   initDb:async()=>{},promoTick:async()=>{},autoFishTick:async()=>{},
   roomFlags:async()=>({manage:true,game:true,locked:false,quizEnabled:true}),
@@ -40,8 +40,8 @@ test('game command result is sent before slow Kakao profile API lookup',async()=
   addChatCount:async()=>{statCalls++;},
   saveOpenProfileLink:async()=>{},
   extractProfile:()=>null,findOpenProfileLink:()=>null,
-  profileObserve:async()=>null,
-  withRoom:async(room,name,fn)=>fn({game:true,locked:false},{}),
+  profileObserve:async db=>{assert.equal(db,pool);profileCalls++;return null;},
+  withRoom:async(room,name,fn)=>{roomCalls++;return fn({game:true,locked:false},{});},
   handleGame:async()=>{gameCalls++;return '🎣 낚시 완료';},
   send:async(chat,room,text)=>responses.push(String(text))
  };
@@ -49,22 +49,19 @@ test('game command result is sent before slow Kakao profile API lookup',async()=
   userId:'9999',chat:{sendText:async()=>{}},
   onMessage:fn=>{callback=fn;},onJoin(){},onLeave(){},onKick(){},
   getUserProfileSnapshot:()=>({profileLinkId:'present'}),
-  getUserOpenProfileLink:async()=>{requested=true;await new Promise(resolve=>releaseProfile=resolve);return 'https://open.kakao.com/o/abc123';}
+  getUserOpenProfileLink:async()=>{requested=true;return 'https://open.kakao.com/o/abc123';}
  };
- const instance=createSession(ctx);
- await instance.attachHZBot(client);
+ await createSession(ctx).attachHZBot(client);
  const event={__nexusGameCommand:true,
   room:{id:'1849',name:'Test'},sender:{id:'5555',name:'Tester',type:2},
   message:{text:'#낚시'}};
- const running=callback(event);
- for(let i=0;i<30&&!requested;i++)await Promise.resolve();
- assert.equal(requested,true,'slow profile lookup must eventually be reached');
- assert.deepEqual(responses,['🎣 낚시 완료'],'game output must precede Kakao API completion');
- assert.equal(gameCalls,1);
- releaseProfile();
- await running;
- assert.equal(gameCalls,1,'game message must never execute twice');
- assert.equal(statCalls,1,'chat stats are still maintained after the early reply');
+ await callback(event);
+ assert.deepEqual(responses,['🎣 낚시 완료']);
+ assert.equal(gameCalls,1,'do not execute the game command twice');
+ assert.equal(statCalls,1,'preserve chat counts');
+ assert.equal(profileCalls,1,'preserve profile checks');
+ assert.equal(roomCalls,1,'profile tracking must not lock the game room again');
+ assert.equal(requested,false,'game command must never invoke the slow Kakao profile API');
 });
 
 test('!정보 shows saved profile link without slow real-time Kakao API',async()=>{
