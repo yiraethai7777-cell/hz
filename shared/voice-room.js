@@ -54,8 +54,15 @@ async function safeReply(client,send,message) {
     console.warn('[보이스룸] 안내 전송 불가: 카카오톡 연결 없음');
     return false;
   }
-  try{await send(message);return true;}
-  catch(e){console.error('[보이스룸] 안내 전송 실패:',String(e?.message||e));return false;}
+  console.log('[보이스룸] 안내 응답 생성:', JSON.stringify({chars:String(message).length}));
+  try{
+    await send(message);
+    console.log('[보이스룸] 안내 응답 전송 완료');
+    return true;
+  }catch(e){
+    console.error('[보이스룸] 안내 전송 실패:',String(e?.message||e));
+    return false;
+  }
 }
 
 async function handle({client,roomId,msg,text,send,adapter}){
