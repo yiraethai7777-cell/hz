@@ -132,7 +132,10 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       }
       
 if(gameAliases.isGameCommand(text) && text!=='!게임작동' && text!=='!게임중지'){
+  const started=Date.now();
   await game.message({...context,msg,chat});
+  const elapsed=Date.now()-started;
+  if(elapsed>=800)console.warn('[NEXUS GAME COMMAND SLOW]',{command:text.split(/\s+/,1)[0],elapsedMs:elapsed});
   // Preserve management chat-count statistics without delaying the game reply.
   // This path cannot invoke management commands: aliases are game-only.
   Promise.resolve().then(()=>management.message(context))
