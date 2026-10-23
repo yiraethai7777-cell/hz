@@ -72,6 +72,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         }
         return;
       }
+      // Retired # management aliases must not reach the old HZ handler.
+      // Keep legacy #내아이디/#아이디/#출석확인 permission rules unchanged.
+      if (/^#(?:출석|출석순위|채팅순위|채팅순위전체|채팅정보|경고|경고내역|경고삭제|경고초기화|kick|k|내풀|벤해제|벤기록|관리로그|입퇴장로그|입장변경|퇴장변경|프로필로그|관리작동|관리중지|관리자추가|관리자삭제|도배감지켜기|도배감지끄기|삭제감지켜기|삭제감지끄기)(?=$|\s)/.test(text))return;
       // Observe incoming responses before other commands; never block the message.
       require('./event-reaction-test').receive({roomId, senderId, text, isBotAccount});
       await ready;
@@ -104,6 +107,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   },
   send: body => chat.sendText(roomId, body)
 };
+      if (await require('../manage/commands-v2').handle(context)) return;
       if (text === "!테스트") {
         await require("../manage/attendance-image/command")
           .handleTest(client, context);
