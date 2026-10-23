@@ -33,13 +33,16 @@ async function attachHZBot(client){
         // Some KakaoForge versions expose sender profile fields in raw sender.
         await ctx.saveOpenProfileLink(rid,uid,name,msg.raw?.sender);
       }
-      if(text==="#프로필진단"){
-        await ctx.send(chat,rid,ctx.profileDiagnostic(msg));
+      let flags=await ctx.roomFlags(rid);
+      if(text==="#내아이디"){
+        if(!flags.manage||flags.locked)return;
+        if(!ctx.isManagerType(msg.sender?.type)){
+          await ctx.send(chat,rid,"⛔ 방장·부방장만 사용할 수 있습니다.");
+          return;
+        }
+        await ctx.send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);
         return;
       }
-      if(text==="#내아이디"){await ctx.send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);return;}
-
-      let flags=await ctx.roomFlags(rid);
       if(flags.manage&&!flags.locked&&!isSelf&&exactSender){
         const snapshot=typeof client.getUserProfileSnapshot==='function'?client.getUserProfileSnapshot(rid,uid):null;
         const received=ctx.extractProfile(msg.sender)||ctx.extractProfile(msg.raw?.sender);
@@ -54,8 +57,14 @@ async function attachHZBot(client){
         });
       }
       if(text==="#삭메기록켜기"||text==="#삭메기록끄기"){
-        if(!isAdmin)return;
-        await ctx.send(chat,rid,'🗑️ 삭제 알림은 삭제한 사람만 표시하며 원문은 저장하지 않습니다.');
+        if(!flags.manage||flags.locked)return;
+        if(!ctx.isManagerType(msg.sender?.type)){
+          await ctx.send(chat,rid,"⛔ 방장·부방장만 사용할 수 있습니다.");
+          return;
+        }
+        const on=text==="#삭메기록켜기";
+        await ctx.pool.query('INSERT INTO gl_manage_rooms(room_id,enabled,deleted_enabled) VALUES($1,TRUE,$2) ON CONFLICT(room_id) DO UPDATE SET deleted_enabled=EXCLUDED.deleted_enabled',[rid,on]);
+        await ctx.send(chat,rid,on?"🗑️ 삭제 감지가 켜졌습니다.":"⏹️ 삭제 감지가 꺼졌습니다.");
         return;
       }
 
@@ -366,6 +375,8 @@ async function attachHZBot(client){
         if(!evt)return;
         const rid=ctx.pickDeleteRoom(evt); if(!rid)return;
         const flags=await ctx.roomFlags(rid); if(!flags.manage||flags.locked)return;
+        const setting=await ctx.pool.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[rid]);
+        if(setting.rows[0]?.deleted_enabled!==true)return;
         const actor=ctx.pickDeleteActor(evt);
         await ctx.pool.query("INSERT INTO hz_deleted_messages(room_id,deleter_id,deleter_name,message_text,meta) VALUES($1,$2,$3,$4,$5::jsonb)",
           [rid,actor.id||null,actor.name||null,null,JSON.stringify({event:"delete"})]);
