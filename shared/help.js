@@ -295,9 +295,13 @@ async function handleExtraMessage(client,...args){
  if(msg?.room?.id==null)return false;
  const text=String(msg.message?.text??msg.text??'').trim();
  if(text==='!게임명령어'){
+  const start=Date.now();
   const {getPool}=require('./db');
   const r=await getPool().query("SELECT COALESCE((SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS game",[String(msg.room.id)]);
+  const queried=Date.now();
   await chat.sendText(msg.room.id,formatCommandHelp({game:r.rows[0]?.game===true},'게임'));
+  const sent=Date.now();
+  if(sent-start>=800)console.warn('[NEXUS GAME HELP SLOW]',{dbMs:queried-start,sendMs:sent-queried,totalMs:sent-start});
   return true;
  }
  if(!/^#명령어(?:\s+.*)?$/.test(text))return false;
