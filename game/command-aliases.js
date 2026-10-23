@@ -13,8 +13,10 @@ const COMMANDS=new Set(`
 핑`.trim().split(/\s+/));
 const RETIRED=new Set([...COMMANDS,'게임순위']);
 function commandName(text,prefix){
- const match=new RegExp('^\\'+prefix+'(\\S+)(?=\\s|$)').exec(String(text||'').trim());
- return match?.[1]||null;
+ const raw=String(text||'').trim();
+ if(raw.charAt(0)!==prefix)return null;
+ const token=raw.split(/\s+/,1)[0].slice(1);
+ return token||null;
 }
 function isGameCommand(text){
  const name=commandName(text,'!');
@@ -29,12 +31,14 @@ function toLegacy(text){
  return isGameCommand(raw)?'#'+raw.slice(1):raw;
 }
 function toLegacyMessage(msg,original,translated){
- if(translated===original||!msg)return msg;
- // Inherit the KakaoForge message object instead of discarding its methods
- // or mutating its message attachment/mention metadata.
- return Object.assign(Object.create(msg),{
-  text:translated,
-  message:Object.assign(Object.create(msg.message||null),{text:translated})
- });
+ if(translated===original||!msg||typeof msg!=='object')return msg;
+ // Preserve KakaoForge methods and its original message object. Shadow
+ // text properties safely even when the source uses readonly accessors.
+ const mapped=Object.create(msg);
+ const attachment=msg.message&&typeof msg.message==='object'?Object.create(msg.message):{};
+ Object.defineProperty(attachment,'text',{value:translated,enumerable:true,configurable:true});
+ Object.defineProperty(mapped,'text',{value:translated,enumerable:true,configurable:true});
+ Object.defineProperty(mapped,'message',{value:attachment,enumerable:true,configurable:true});
+ return mapped;
 }
 module.exports={COMMANDS,isGameCommand,isRetiredLegacyCommand,toLegacy,toLegacyMessage};
