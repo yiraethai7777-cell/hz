@@ -2268,8 +2268,8 @@ export class KakaoForgeClient extends EventEmitter {
         page:page+1,pageMembers:members.length,totalMembers:ids.size,hasMore,
         source,responseKeys,bodyKeys,status
       });
-      if(!members.length && !ids.size)
-        throw new Error('MEMLIST returned no member entries (source='+source+
+      if(!ids.size && !hasMore)
+        throw new Error('MEMLIST returned no usable member IDs (source='+source+
           ', status='+status+', responseKeys='+responseKeys.join(',')+
           ', bodyKeys='+bodyKeys.join(',')+')');
       if(!hasMore)return [...ids].map(id=>({
