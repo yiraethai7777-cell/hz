@@ -8,7 +8,7 @@ function format({id,name,bot,player={},balance=0,chat,link}) {
  
 const fields = [
   '┏━━━━━━━━━━━━━━━━━━━━━━',
-  '┃ NEXUS | USER PROFILE',
+  '┃ USER PROFILE',
   '┣━━━━━━━━━━━━━━━━━━━━━━',
   `┃ [ LV ] 레벨 · ${n} / 200`,
   `┃ [ COIN ] 코인 · ${bot ? '∞' : fmt(balance)}`,
