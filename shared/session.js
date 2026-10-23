@@ -8,7 +8,7 @@ async function attachHZBot(client){
   ctx.promoTimer=setInterval(()=>{ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));},10000);
   if(ctx.promoTimer.unref)ctx.promoTimer.unref();
   ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));
-  if(ctx.autoFishTimer)clearInterval(ctx.autoFishTimer);ctx.autoFishTimer=setInterval(async()=>{if(ctx.autoFishBusy)return;ctx.autoFishBusy=true;try{await ctx.autoFishTick()}catch(e){console.error("[NEXUS AUTO TICK]",e)}finally{ctx.autoFishBusy=false}},10000);if(ctx.autoFishTimer.unref)ctx.autoFishTimer.unref();
+  if(ctx.autoFishTimer)clearInterval(ctx.autoFishTimer);ctx.autoFishTimer=setInterval(async()=>{if(ctx.autoFishBusy)return;ctx.autoFishBusy=true;try{await ctx.autoFishTick()}catch(e){console.error("[AUTO TICK]",e)}finally{ctx.autoFishBusy=false}},10000);if(ctx.autoFishTimer.unref)ctx.autoFishTimer.unref();
 
   client.onMessage(async (...args)=>{
     try{
@@ -23,7 +23,7 @@ async function attachHZBot(client){
 
       // Reply to game commands first. Member statistics and profile observation
       // run after the game response and cannot delay its delivery.
-      const priorityGame=msg.__nexusGameCommand===true &&
+      const priorityGame=msg.__gameCommandFastPath===true &&
         /^#(?:퀴즈|정답|퀴즈정보|퀴즈순위|낚시|낚시정보|어망|인벤|물고기도감|물고기판매|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동|펫뽑기|펫인벤|펫도감|펫기능|펫장착|펫강화)(?:\s|$)/.test(text);
       if(priorityGame){
         // One locked room read is sufficient; avoid a separate roomFlags query.
@@ -62,7 +62,7 @@ async function attachHZBot(client){
         let openLink=ctx.findOpenProfileLink(msg.sender)||ctx.findOpenProfileLink(msg.raw?.sender)||undefined;
         if([1,2,4].includes(snapshot?.profileType))openLink='';
         else if(!priorityGame&&snapshot?.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
-          try{const live=await client.getUserOpenProfileLink(rid,uid);if(live)openLink=live;}catch(e){console.error('[NEXUS PROFILE LINK]',e.message);}
+          try{const live=await client.getUserOpenProfileLink(rid,uid);if(live)openLink=live;}catch(e){console.error('[PROFILE LINK]',e.message);}
         }
         // Profile history lives in hz_members/hz_profiles, not in hz_rooms.
         // Avoid locking and re-writing the whole game room for every chat.
@@ -254,7 +254,7 @@ async function attachHZBot(client){
         return r
       });
       if(out)await ctx.send(chat,rid,out)
-    }catch(e){console.error("[NEXUS]",e)}
+    }catch(e){console.error("[GAME]",e)}
   });
 
   const memberEvent=type=>async ev=>{
@@ -313,15 +313,15 @@ async function attachHZBot(client){
             try{
               const live=await client.getUserOpenProfileLink(rid,uid);
               if(live){profileLink=ctx.validOpenProfileLink(live);await ctx.saveOpenProfileLink(rid,uid,name,{openProfileLink:live});}
-            }catch(e){console.error('[NEXUS MEMBER PROFILE]',e.message);}
+            }catch(e){console.error('[MEMBER PROFILE]',e.message);}
           }
           let snapshot=null;
           if(typeof client.getUserProfileSnapshot==='function'){
-            try{snapshot=client.getUserProfileSnapshot(rid,uid);}catch(e){console.error('[NEXUS PROFILE SNAPSHOT]',e.message);}
+            try{snapshot=client.getUserProfileSnapshot(rid,uid);}catch(e){console.error('[PROFILE SNAPSHOT]',e.message);}
           }
           let profileType=snapshot?.profileType;
           if(profileType==null&&typeof client.getUserOpenProfileType==='function'){
-            try{profileType=client.getUserOpenProfileType(rid,uid);}catch(e){console.error('[NEXUS PROFILE TYPE]',e.message);}
+            try{profileType=client.getUserOpenProfileType(rid,uid);}catch(e){console.error('[PROFILE TYPE]',e.message);}
           }
           let profileName='확인 불가';
           if([1,2,4].includes(Number(profileType))){profileName='기본프로필';profileLink='';}
