@@ -135,10 +135,10 @@ async function handleGameCore(d,c,msg,isSelf){
      }
 
      if(d.quiz&&d.quiz.expiresAt>now){
-       return `[ # ] NEXUS QUIZ\n\n`+
-         `[ ${d.quiz.difficulty||'혼합'} · ${d.quiz.kind} ]\n\n`+
+       return `[ # ] QUIZ\n\n`+
          `Q. ${d.quiz.question}\n`+
          `${'\u200b'.repeat(1200)}`+
+         `\n[ ${d.quiz.difficulty||'혼합'} · ${d.quiz.kind} ]\n`+
          `\n━━━━━━━━━━━━━━━━━━━━\n`+
          `[ QUIZ STATUS ]\n`+
          `이미 진행 중인 문제입니다.\n`+
@@ -162,10 +162,10 @@ async function handleGameCore(d,c,msg,isSelf){
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
-     return `[ # ] NEXUS QUIZ\n\n`+
-       `[ ${difficulty} · ${q[0]} ]\n\n`+
+     return `[ # ] QUIZ\n\n`+
        `Q. ${q[1]}\n`+
        `${'\u200b'.repeat(1200)}`+
+       `\n[ ${difficulty} · ${q[0]} ]\n`+
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
        `[ QUIZ INFORMATION ]\n\n`+
        `제한 시간  | ${ctx.QUIZ_SECONDS}초\n`+
