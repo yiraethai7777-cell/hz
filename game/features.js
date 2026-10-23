@@ -112,7 +112,7 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==="#명령어")return null;
   
    if(text==='#퀴즈정보'){
-     return `[ # ] NEXUS QUIZ\n`+
+     return `[ # ] QUIZ\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
        `[ QUIZ INFORMATION ]\n\n`+
        `문제 수    | ${ctx.QUIZZES.length}개\n`+
@@ -133,7 +133,7 @@ async function handleGameCore(d,c,msg,isSelf){
        .sort((a,b)=>(b.wins||0)-(a.wins||0))
        .slice(0,10);
 
-     return `[ # ] NEXUS QUIZ RANKING\n`+
+     return `[ # ] QUIZ RANKING\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
        (ranking.length
          ?ranking.map((x,i)=>
