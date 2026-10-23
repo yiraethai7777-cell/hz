@@ -301,7 +301,7 @@ async function handleExtraMessage(client,...args){
   const queried=Date.now();
   await chat.sendText(msg.room.id,formatCommandHelp({game:r.rows[0]?.game===true},'게임'));
   const sent=Date.now();
-  if(sent-start>=800)console.warn('[NEXUS GAME HELP SLOW]',{dbMs:queried-start,sendMs:sent-queried,totalMs:sent-start});
+  if(sent-start>=800)console.warn('[GAME HELP SLOW]',{dbMs:queried-start,sendMs:sent-queried,totalMs:sent-start});
   return true;
  }
  if(!/^#명령어(?:\s+.*)?$/.test(text))return false;
