@@ -17,7 +17,7 @@ function cell(number,size){const n=integer(number,'칸 번호');if(n>size*size)f
 function mention(id,name){return `\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;}
 function shop(){return 'NEXUS | SHOP\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
  '\n\n🌱 씨앗\n━━━━━━━━━━━━━━\n'+CROPS.map(c=>`${c.emoji} ${c.name} · ${fmt(c.price)}코인\n   성장 ${c.minutes}분 · 수확 ${fmt(c.sale)}코인`).join('\n')+
- '\n\n구매 안내\n└─ #낚시대구매 이름\n└─ #씨앗구매 이름 수량\n└─ #농장 / #농장정보';}
+ '\n\n구매 안내\n└─ !낚시대구매 이름\n└─ !씨앗구매 (이름) (수량)\n└─ !농장 / #농장정보';}
 function formatFarm(f,user,now){
  const size=f.level+2;let empty=0,growing=0,ready=0;const rows=[];
  for(let r=0;r<size;r++){
@@ -28,7 +28,7 @@ function formatFarm(f,user,now){
   }rows.push(line.join(' '));
  }
  const seeds=CROPS.filter(c=>f.seeds[c.name]>0).map(c=>`${c.emoji} ${c.name} ${fmt(f.seeds[c.name])}개`).join(' · ')||'없음';
- return `${mention(user.id,user.name)}님의 농장\n${FOLD}\nNEXUS | FARM\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n재배 중: ${growing}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ #심기 번호 작물이름\n└─ #수확 번호 / #전체수확\n└─ #농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
+ return `${mention(user.id,user.name)}님의 농장\n${FOLD}\nNEXUS | FARM\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n재배 중: ${growing}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호) (작물이름)\n└─ !수확 (번호) / #전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
 }
 function createFarm({pool,now=Date.now}){
  async function init(){await pool.query(`CREATE TABLE IF NOT EXISTS gl_farms(
@@ -37,12 +37,12 @@ function createFarm({pool,now=Date.now}){
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));`);}
  async function run(ctx){
   const text=String(ctx.text||'').trim(),parts=text.split(/\s+/),cmd=parts[0];
-  if(cmd==='#상점'){if(parts.length!==1)fail('사용법: #상점');return mention(ctx.userId,ctx.userName||ctx.userId)+'님, 통합 상점입니다.\n'+shop();}
+  if(cmd==='#상점'){if(parts.length!==1)fail('사용법: !상점');return mention(ctx.userId,ctx.userName||ctx.userId)+'님, 통합 상점입니다.\n'+shop();}
   const room=String(ctx.roomId),user=String(ctx.userId),name=String(ctx.userName||user);
   if(!/^\d+$/.test(room)||!/^\d+$/.test(user))fail('채팅방과 사용자 ID를 확인할 수 없습니다.');
   const readonly=['#농장','#농장정보'].includes(cmd);
 if(!['#농장','#농장정보','#농장확장','#씨앗구매','#심기','#수확','#전체수확'].includes(cmd))fail('지원하지 않는 농장 명령어입니다.');
-if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&parts.length!==1)fail('사용법: '+cmd);
+if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&parts.length!==1)fail('사용법: !'+cmd.slice(1));
   if(!readonly&&ctx.messageId==null)fail('메시지 고유번호를 확인할 수 없어 처리를 중단했습니다.');
   const db=await pool.connect();
   try{
@@ -62,9 +62,9 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    f.seeds={...f.seeds};f.plots={...f.plots};const size=f.level+2,time=now();let delta=0,result='';
    function spend(cost){if(!ctx.isBotAccount&&balance<cost)fail(`코인이 부족합니다. 필요 ${fmt(cost)}코인 · 보유 ${fmt(balance)}코인`);if(!ctx.isBotAccount)delta-=cost;}
    if(cmd==='#농장')result=formatFarm(f,{id:user,name},time);
-   if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\nNEXUS | FARM\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n#농장확장으로 한 단계씩 확장합니다.`;
+   if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\nNEXUS | FARM\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n!농장확장으로 한 단계씩 확장합니다.`;
    if(cmd==='#씨앗구매'){
-    if(parts.length!==3)fail('사용법: #씨앗구매 이름 수량');
+    if(parts.length!==3)fail('사용법: !씨앗구매 (이름) (수량)');
     const c=crop(parts[1]),quantity=integer(parts[2],'수량'),cost=c.price*quantity,total=(f.seeds[c.name]||0)+quantity;
     if(!Number.isSafeInteger(cost)||!Number.isSafeInteger(total))fail('구매 수량이 너무 큽니다.');
     spend(cost);f.seeds[c.name]=total;result=`🌱 ${c.name} 씨앗 ${fmt(quantity)}개를 구매했습니다.\n사용 코인: ${fmt(cost)}코인\n보유 씨앗: ${fmt(total)}개`;
@@ -73,7 +73,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    
    if(cmd==='#심기'){
     if(parts.length<3)
-      fail('사용법: #심기 번호 [번호...] 작물이름 또는 #심기 all 작물이름');
+      fail('사용법: !심기 (번호 또는 all) (작물이름)');
 
     const c=crop(parts[parts.length-1]);
     const isAll=parts[1].toLowerCase()==='all';
@@ -83,7 +83,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
 
     if(isAll){
       if(parts.length!==3)
-        fail('사용법: #심기 all 작물이름');
+        fail('사용법: !심기 (all) (작물이름)');
 
       numbers=[];
       keys=[];
@@ -114,7 +114,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     const owned=Number(f.seeds[c.name]||0);
 
     if(!Number.isSafeInteger(owned)||owned<=0)
-      fail(`${c.name} 씨앗이 없습니다. #씨앗구매로 구매해 주세요.`);
+      fail(`${c.name} 씨앗이 없습니다. !씨앗구매로 구매해 주세요.`);
 
     if(isAll){
       keys=keys.slice(0,owned);
@@ -142,7 +142,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
 
 
    if(cmd==='#수확'||cmd==='#전체수확'){
-    if(cmd==='#수확'&&parts.length!==2)fail('사용법: #수확 번호');
+    if(cmd==='#수확'&&parts.length!==2)fail('사용법: !수확 (번호)');
     const keys=cmd==='#수확'?[cell(parts[1],size)]:Object.keys(f.plots);let count=0,coins=0;const harvested=[];
     for(const key of keys){const planted=f.plots[key];if(!planted){if(cmd==='#수확')fail('빈 땅입니다.');continue;}
      const c=crop(planted.crop),remaining=planted.plantedAt+c.minutes*60000-time;
