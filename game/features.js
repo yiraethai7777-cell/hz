@@ -59,7 +59,37 @@ function enhancementCost(level,base){return Math.round(base*Math.pow(1.28,level)
 
 function enhancementNeed(level){return Math.min(200,1+Math.floor(level/3))}
 
-async function autoFishTick(){if(!ctx.globalChat)return;const rows=await ctx.pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'fishEnabled') IS DISTINCT FROM 'false'");for(const row of rows.rows){const rid=row.room_id;try{const results=await ctx.withRoom(rid,row.data.name||'',async(d,c)=>{if(!d.game||!d.fishEnabled)return [];const out=[],now=Date.now();for(const p of Object.values(d.players)){if(!p.autoUntil||p.autoUntil<=now)continue;if(now-(Number(p.lastFish)||0)<ctx.FISHING_COOLDOWN_SECONDS*1000)continue;const award=()=>ctx.awardFish(p,now);const r=ctx.economyEnabled?await require('./economy').withPlayer({db:c,room:rid,user:p.id,p,botId:ctx.globalBotId,msg:{text:'자동낚시'},run:award}):award();out.push(`🤖 자동 낚시 | ${p.name}\n🐟 ${r.f.name} (${r.size}cm)\n💰 낚시 보상 +${ctx.n(r.value)}코인 · 판매 가능 · ⭐ +${r.xp} XP`)}return out});for(const line of results)await ctx.send(ctx.globalChat,rid,line)}catch(e){console.error('[NEXUS AUTO FISH]',rid,e)}}}
+async function autoFishTick(){
+ if(!ctx.globalChat)return;
+ const rows=await ctx.pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'fishEnabled') IS DISTINCT FROM 'false'");
+ const now=Date.now(),cooldown=ctx.FISHING_COOLDOWN_SECONDS*1000;
+ for(const row of rows.rows){
+  const rid=row.room_id;
+  // Do not lock/rewrite every game room on each 10-second tick.
+  // Most rooms have no active auto-fishers or none due to fish yet.
+  const due=Object.values(row.data?.players||{}).some(p=>
+   Number(p?.autoUntil)>now&&now-(Number(p?.lastFish)||0)>=cooldown);
+  if(!due)continue;
+  try{
+   const results=await ctx.withRoom(rid,row.data?.name||'',async(d,c)=>{
+    if(!d.game||!d.fishEnabled)return [];
+    const out=[],time=Date.now();
+    for(const p of Object.values(d.players)){
+     if(!p.autoUntil||p.autoUntil<=time)continue;
+     if(time-(Number(p.lastFish)||0)<cooldown)continue;
+     const award=()=>ctx.awardFish(p,time);
+     const r=ctx.economyEnabled
+      ?await require('./economy').withPlayer({db:c,room:rid,user:p.id,p,botId:ctx.globalBotId,msg:{text:'자동낚시'},run:award})
+      :award();
+     if(!r)continue;
+     out.push(`🤖 자동 낚시 | ${p.name}\n🐟 ${r.f.name} (${r.size}cm)\n💰 낚시 보상 +${ctx.n(r.value)}코인 · 판매 가능 · ⭐ +${r.xp} XP`);
+    }
+    return out;
+   });
+   for(const line of results)await ctx.send(ctx.globalChat,rid,line);
+  }catch(e){console.error('[NEXUS AUTO FISH]',rid,e)}
+ }
+}
 
 async function handleGame(d,c,msg,isSelf){
  const text=String(msg.message?.text??msg.text??'').trim();
