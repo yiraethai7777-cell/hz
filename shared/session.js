@@ -26,14 +26,12 @@ async function attachHZBot(client){
       const priorityGame=msg.__nexusGameCommand===true &&
         /^#(?:퀴즈|정답|퀴즈정보|퀴즈순위|낚시|낚시정보|어망|인벤|물고기도감|물고기판매|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동|펫뽑기|펫인벤|펫도감|펫기능|펫장착|펫강화)(?:\s|$)/.test(text);
       if(priorityGame){
-        const current=await ctx.roomFlags(rid);
-        if(current.game&&!current.locked){
-          const out=await ctx.withRoom(rid,rname,async(d,c)=>{
-            if(!d.game||d.locked)return null;
-            return ctx.handleGame(d,c,msg,isSelf);
-          });
-          if(out)await ctx.send(chat,rid,out);
-        }
+        // One locked room read is sufficient; avoid a separate roomFlags query.
+        const out=await ctx.withRoom(rid,rname,async(d,c)=>{
+          if(!d.game||d.locked)return null;
+          return ctx.handleGame(d,c,msg,isSelf);
+        });
+        if(out)await ctx.send(chat,rid,out);
       }
 
       const exactSender=ctx.senderExactId(msg);
@@ -63,13 +61,13 @@ async function attachHZBot(client){
         const received=ctx.extractProfile(msg.sender)||ctx.extractProfile(msg.raw?.sender);
         let openLink=ctx.findOpenProfileLink(msg.sender)||ctx.findOpenProfileLink(msg.raw?.sender)||undefined;
         if([1,2,4].includes(snapshot?.profileType))openLink='';
-        else if(snapshot?.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
+        else if(!priorityGame&&snapshot?.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
           try{const live=await client.getUserOpenProfileLink(rid,uid);if(live)openLink=live;}catch(e){console.error('[NEXUS PROFILE LINK]',e.message);}
         }
-        await ctx.withRoom(rid,rname,async(d,c)=>{
-          const change=await ctx.profileObserve(c,rid,uid,name,snapshot?.imageUrl||received?.url||'',openLink);
-          if(change)await ctx.send(chat,rid,require('../manage/leave-reply').profileNotice(change,ctx.nowK()));
-        });
+        // Profile history lives in hz_members/hz_profiles, not in hz_rooms.
+        // Avoid locking and re-writing the whole game room for every chat.
+        const change=await ctx.profileObserve(ctx.pool,rid,uid,name,snapshot?.imageUrl||received?.url||'',openLink);
+        if(change)await ctx.send(chat,rid,require('../manage/leave-reply').profileNotice(change,ctx.nowK()));
       }
       // Do not execute a priority game command twice after housekeeping.
       if(priorityGame)return;
