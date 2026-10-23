@@ -2228,57 +2228,101 @@ export class KakaoForgeClient extends EventEmitter {
 
   async refreshMemberProfiles(
     chatId: number | string,
-    options: {onProgress?: (progress: {
-      page: number; pageMembers: number; totalMembers: number; hasMore: boolean;
-      source: string; responseKeys: string[]; bodyKeys: string[]; status: string;
-    }) => void} = {}
+    options: {
+      onProgress?: (progress: {
+        page: number; pageMembers: number; totalMembers: number; hasMore: boolean;
+        source: string; responseKeys: string[]; bodyKeys: string[]; status: string;
+      }) => void;
+      allowChatOnRoomFallback?: boolean;
+    } = {}
   ) {
     const carriage=this._carriage;
-    if (!carriage) throw new Error('LOCO not connected');
+    if (!carriage || !this.connected) throw new Error('LOCO not connected');
     const roomId=this._resolveChatId(chatId), ids=new Set<string>();
-    let token: number | string=0;
-    for(let page=0;page<30;page++) {
+    const assertConnected=() => {
       if (this._carriage !== carriage || !this.connected)
         throw new Error('LOCO connection changed during member refresh');
-      const response=await carriage.memList({chatId:roomId,token,excludeMe:false});
+    };
+    const addId=(value: any) => {
+      const normalized=String(normalizeIdValue(value)||'');
+      if(/^[1-9]\d*$/.test(normalized))ids.add(normalized);
+    };
+    const metadata=(response: any) => {
       const body=response?.body||{};
-      const statusValue=response?.status ?? body?.status;
-      const status=String(statusValue ?? 'unknown');
-      // Never log response values: they can contain private member information.
-      const responseKeys=Object.keys(response||{}).slice(0,20);
-      const bodyKeys=Object.keys(body).slice(0,25);
+      const statusValue=response?.status??body?.status;
+      const status=String(statusValue??'unknown');
       const statusNumber=Number(statusValue);
       if(statusValue!=null && Number.isFinite(statusNumber) && statusNumber!==0)
-        throw new Error('Profile MEMLIST failed (status='+status+')');
+        throw new Error('Member request rejected (status='+status+')');
+      return {
+        body,status,
+        responseKeys:Object.keys(response||{}).slice(0,20),
+        bodyKeys:Object.keys(body).slice(0,25)
+      };
+    };
+    let token: number | string=0, completed=false, lastKeys='';
+    for(let page=0;page<30;page++) {
+      assertConnected();
+      const response=await carriage.memList({chatId:roomId,token,excludeMe:false});
+      const {body,status,responseKeys,bodyKeys}=metadata(response);
       const entries=[
         ['members',body.members],['memberList',body.memberList],
         ['memList',body.memList],['m',body.m]
-      ] as Array<[string, any]>;
-      const found=entries.find(([,value])=>Array.isArray(value));
-      const source=found?.[0]||'none';
+      ] as Array<[string,any]>;
+      const found=entries.find(([,v])=>Array.isArray(v));
       const members=found?.[1]||[];
-      for(const member of members) {
-        const id=String(normalizeIdValue(member?.userId??member?.id??member?.memberId??member?.user_id)||'');
-        if(/^[1-9]\d*$/.test(id))ids.add(id);
-      }
+      const memberIds=Array.isArray(body.memberIds)?body.memberIds:[];
+      const source=found?.[0]||(Array.isArray(body.memberIds)?'memberIds':'none');
+      for(const member of members)
+        addId(member?.userId??member?.id??member?.memberId??member?.user_id);
+      for(const memberId of memberIds)addId(memberId);
       if(members.length)this._cacheMembers(roomId,members);
       const next=String(normalizeIdValue(body.token??body.nextToken??body.memberToken??0)||'');
       const hasMore=!!next&&next!=='0'&&next!==String(token);
+      lastKeys=bodyKeys.join(',');
       options.onProgress?.({
-        page:page+1,pageMembers:members.length,totalMembers:ids.size,hasMore,
-        source,responseKeys,bodyKeys,status
+        page:page+1,pageMembers:members.length||memberIds.length,
+        totalMembers:ids.size,hasMore,source,responseKeys,bodyKeys,status
       });
-      if(!ids.size && !hasMore)
-        throw new Error('MEMLIST returned no usable member IDs (source='+source+
-          ', status='+status+', responseKeys='+responseKeys.join(',')+
-          ', bodyKeys='+bodyKeys.join(',')+')');
-      if(!hasMore)return [...ids].map(id=>({
-        id,...this.getUserProfileSnapshot(roomId,id),type:this._getCachedMemberType(roomId,id)
-      }));
+      if(!hasMore){completed=true;break;}
       token=next;
       await new Promise(resolve=>setTimeout(resolve,250));
     }
-    throw new Error('MEMLIST pagination incomplete after 30 pages');
+    if(!completed)throw new Error('MEMLIST pagination incomplete after 30 pages');
+
+    // CHATONROOM can contain member profiles in its "m" field even when
+    // MEMLIST returns only status or member IDs. Use it only on demand
+    // for manual diagnostics so background watchers do not add extra load.
+    if(options.allowChatOnRoomFallback &&
+      (!ids.size || [...ids].some(id=>!this._getCachedMemberName(roomId,id)))) {
+      if(typeof carriage.chatOnRoom !== 'function')
+        throw new Error('CHATONROOM lookup is unavailable');
+      assertConnected();
+      const response=await carriage.chatOnRoom({chatId:roomId,token:0,opt:0});
+      const {body,status,responseKeys,bodyKeys}=metadata(response);
+      const entries=[
+        ['m',body.m],['members',body.members],
+        ['memberList',body.memberList],['memList',body.memList]
+      ] as Array<[string,any]>;
+      const found=entries.find(([,v])=>Array.isArray(v));
+      const members=found?.[1]||[];
+      for(const member of members)
+        addId(member?.userId??member?.id??member?.memberId??member?.user_id);
+      if(members.length)this._cacheMembers(roomId,members);
+      options.onProgress?.({
+        page:1,pageMembers:members.length,totalMembers:ids.size,hasMore:false,
+        source:'CHATONROOM:'+(found?.[0]||'none'),responseKeys,bodyKeys,status
+      });
+      lastKeys+=';CHATONROOM='+bodyKeys.join(',');
+    }
+    if(!ids.size)throw new Error('No current member IDs returned (fields='+lastKeys+')');
+    const result=[...ids].map(id=>({
+      id,...this.getUserProfileSnapshot(roomId,id),type:this._getCachedMemberType(roomId,id)
+    }));
+    if(options.allowChatOnRoomFallback &&
+      !result.some(member=>typeof member.name==='string'&&member.name.trim()))
+      throw new Error('Member IDs found but no nicknames available (fields='+lastKeys+')');
+    return result;
   }
 
   getUserOpenProfileType(chatId: number | string, userId: number | string): number {
