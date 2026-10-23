@@ -122,7 +122,7 @@ async function processMentionAlerts(chat,rid,msg,uid,name){
     const names=[...new Set(pending.rows.map(x=>x.sender_name||x.sender_id))];
     const who=names.length<=3?names.map(x=>`${x}님`).join(", "):names.slice(0,3).map(x=>`${x}님`).join(", ")+` 외 ${names.length-3}명`;
     try{await ctx.send(chat,rid,`📢 ${name}님, ${who}이 회원님을 멘션했습니다.\n미확인 멘션: ${pending.rows.length}건`)}
-    catch(e){console.error("[NEXUS MENTION NOTIFY]",e)}
+    catch(e){console.error("[MENTION NOTIFY]",e)}
   }
 }
 
@@ -394,7 +394,7 @@ async function kickMember(msg,targetId){
   if(!rid || !/^\d{4,}$/.test(uid))throw new Error("방 ID 또는 대상 사용자 ID가 올바르지 않습니다.");
   const result=await ctx.globalChat.openChatKick(rid,uid);
   // Some implementations resolve a promise without actually removing a member.
-  console.log("[NEXUS KICK API]",JSON.stringify({roomId:rid,targetId:uid,result:result===undefined?"undefined":result}));
+  console.log("[KICK API]",JSON.stringify({roomId:rid,targetId:uid,result:result===undefined?"undefined":result}));
   if(result===false || result?.success===false || result?.ok===false || result?.status==="error" || (typeof result?.status==="number" && result.status!==0))
     throw new Error("강퇴 API가 실패를 반환했습니다: "+JSON.stringify(result).slice(0,400));
   return result;
@@ -557,12 +557,12 @@ async function handleManage(d,c,msg,isSelf){
       pending.timer=setTimeout(async()=>{
         if(ctx.pendingManualKicks.get(key)!==pending)return;
         ctx.pendingManualKicks.delete(key);
-        try{await ctx.send(ctx.globalChat,ctx.id(msg.room.id),`⚠️ ${pending.name}님 강퇴 확인 실패\n강퇴 이벤트가 감지되지 않았습니다. 실제 퇴장 여부와 봇의 방장/부방장 권한을 확인해 주세요.\nRailway 로그의 [NEXUS KICK API] 반환값도 확인해 주세요.`)}
-        catch(e){console.error("[NEXUS KICK VERIFY]",e)}
+        try{await ctx.send(ctx.globalChat,ctx.id(msg.room.id),`⚠️ ${pending.name}님 강퇴 확인 실패\n강퇴 이벤트가 감지되지 않았습니다. 실제 퇴장 여부와 봇의 방장/부방장 권한을 확인해 주세요.\nRailway 로그의 [KICK API] 반환값도 확인해 주세요.`)}
+        catch(e){console.error("[KICK VERIFY]",e)}
       },12000);
       return `⏳ ${pending.name}님 벤 요청 중\n아이디: ${t.id}`;
     }catch(e){
-      console.error("[NEXUS BAN]",e);
+      console.error("[BAN]",e);
       const reason=String(e?.message||e||"알 수 없는 오류").slice(0,240);
       return `❌ 강퇴 실패: ${reason}\n봇이 해당 오픈채팅방의 방장/부방장인지 확인해 주세요.`;
     }
