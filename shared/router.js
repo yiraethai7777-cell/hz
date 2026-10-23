@@ -1,5 +1,6 @@
 'use strict';
 const { handleExtraMessage } = require('./help');
+const gameAliases=require('../game/command-aliases');
 
 function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   client.onMessage(async (...args) => {
@@ -72,6 +73,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         }
         return;
       }
+      // Game commands now use !. Drop retired # game commands before any legacy listeners.
+      if (gameAliases.isRetiredLegacyCommand(text)) return;
       // Retired # management aliases must not reach the old HZ handler.
       // Keep legacy #내아이디/#아이디/#출석확인 permission rules unchanged.
       if (/^#(?:출석|출석순위|채팅순위|채팅순위전체|채팅정보|경고|경고내역|경고삭제|경고초기화|kick|k|내풀|벤해제|벤기록|관리로그|입퇴장로그|입장변경|퇴장변경|프로필로그|관리작동|관리중지|관리자추가|관리자삭제|도배감지켜기|도배감지끄기|삭제감지켜기|삭제감지끄기)(?=$|\s)/.test(text))return;
@@ -155,11 +158,12 @@ if (text === '#이벤추첨테스트') {
         return;
       }
 
-      if (text === '#게임작동' || text === '#게임중지') {
+      if (text === '!게임작동' || text === '!게임중지') {
         await game.toggle(context);
         return;
       }
-      if (await management.message(context)) return;
+      if (text==='!게임명령어' && await handleExtraMessage(client,...args)) return;
+      if (!gameAliases.isGameCommand(text) && await management.message(context)) return;
       if (text !== '#주식시간' && await handleExtraMessage(client, ...args)) return;
       if (/^#출석(?:확인|순위)?(?:\s|$)/.test(text)) return;
       await game.message({ ...context, msg, chat });
