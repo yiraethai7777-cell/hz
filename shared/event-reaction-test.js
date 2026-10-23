@@ -6,7 +6,8 @@ const {getCandidates} = require('./event-draw-test');
 const active = new Map();
 const cooldown = new Map();
 const COOLDOWN_MS = 60_000;
-const TICK_MS = 35; // Nominal countdown gap. Actual sends may be rate-limited.
+const TICK_MS = 35;
+const TOTAL_MS = TICK_MS * 5; // 5,4,3,2,1 lasts 175ms in game time.
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function sendSafe(client, send, message) {
@@ -36,7 +37,7 @@ function receive({roomId, senderId, text, isBotAccount = false, now = Date.now})
     console.log('[이벤 진행 테스트] 카운트 시작 전 답변으로 탈락: room=' + state.room);
     return true;
   }
-  if (state.phase !== 'counting') return false;
+  if (state.phase !== 'counting' || now() >= state.deadline) return false;
   state.result = 'success';
   state.resolveSignal();
   console.log('[이벤 진행 테스트] 카운트 진행 중 채팅 감지: room=' + state.room);
@@ -75,7 +76,7 @@ async function start({
 
   let resolveSignal;
   const signal = new Promise(resolve => {resolveSignal = resolve;});
-  const state = {room, userId:'', phase:'choosing', result:null, resolveSignal, signal};
+  const state = {room, userId:'', phase:'choosing', deadline:0, result:null, resolveSignal, signal};
   active.set(room, state); // Lock before any await.
   try {
     const members = await client.getCachedMemberProfiles(roomId);
@@ -118,14 +119,17 @@ async function start({
     for (let remaining=5; remaining>=1; remaining--) {
       if (state.result) break;
       if (client.connected === false) throw Error('Connection closed during countdown');
+      if (remaining < 5 && now() >= state.deadline) break;
       if (!await sendSafe(client, send, '⏳ ' + remaining)) 
         throw Error('Countdown delivery failed');
       if (state.result) break;
       if (remaining === 5) {
         state.phase = 'counting';
-        console.log('[이벤 진행 테스트] 카운트 시작: room=' + room + ' tickMs=' + TICK_MS);
+        state.deadline = now() + TOTAL_MS;
+        console.log('[이벤 진행 테스트] 카운트 시작: room=' + room + ' tickMs=' + TICK_MS + ' totalMs=' + TOTAL_MS);
       }
-      await Promise.race([sleep(TICK_MS), signal]);
+      if (now() >= state.deadline) break;
+      await Promise.race([sleep(Math.min(TICK_MS, Math.max(0, state.deadline - now()))), signal]);
     }
 
     if (client.connected === false) throw Error('Connection closed during event');
