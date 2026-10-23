@@ -7,7 +7,7 @@ const cases=[
  {file:'03-february.png',name:'서연',today:'2026-02-28',streak:1,total:25,reward:'30000',days:[1,4,8,20,28]},
  {file:'04-leap-february.png',name:'윤년 테스트',today:'2024-02-29',streak:100,total:1000,reward:'129000',days:Array.from({length:29},(_,i)=>i+1)},
  {file:'05-december-six-weeks.png',name:'지우',today:'2023-12-31',streak:7,total:1000,reward:'36000',days:[1,8,25,26,27,28,29,30,31]},
- {file:'06-escaped-name.png',name:'<NEXUS & 출석> "별명"',today:'2026-10-19',streak:2,total:50,reward:'31000',days:[1,3,18,19]}
+ {file:'06-escaped-name.png',name:'<출석 & 확인> "별명"',today:'2026-10-19',streak:2,total:50,reward:'31000',days:[1,3,18,19]}
 ];
 async function main(){
  const output=path.resolve(process.argv[2]||path.join(__dirname,'../../../outputs/attendance-images'));await fs.mkdir(output,{recursive:true});
