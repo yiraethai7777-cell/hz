@@ -413,7 +413,10 @@ async function handleManageStats(d,c,msg){
     const s=await ctx.chatInfo(msg.room.id,uid);
     return `💬 ${name}님의 채팅 정보\n\n🏆 채팅 순위: ${s.rank?s.rank+"위":"기록 없음"}\n💬 총 채팅: ${ctx.n(s.count)}회\n📅 활동 일수: ${ctx.n(s.days)}일\n📊 일평균: ${s.avg.toFixed(1)}회`;
   }
-  if(text==="#출석" || text==="#출석순위" || text.startsWith("#출석확인")){
+  if(text==="#출석" || text==="#출석순위" || /^#출석확인(?:\s|$)/.test(text)){
+     if(/^#출석확인(?:\s|$)/.test(text) &&
+       !ctx.isManagerType(msg.sender?.type) && ctx.senderExactId(msg)!==ctx.globalBotId)
+       return "⛔ 방장·부방장 또는 봇 계정만 사용할 수 있습니다.";
     const today=ctx.dayK();
     // Import legacy JSON attendance once, preserving original order and check-in time.
     const legacy=Array.isArray(d.attendance?.[today])?d.attendance[today]:[];
@@ -518,17 +521,18 @@ async function handleManage(d,c,msg,isSelf){
   }
   if(/^#프로필로그(?:\s|$)/.test(text)){if(!t)return "사용법: #프로필로그 @(실제 멘션), 사용자 ID 또는 대상 메시지에 답장·댓글";return require("./profile-history").message(c,msg.room.id,t);}
   if(text==="#아이디"||text.startsWith("#아이디 ")){
+    if(!ctx.isManagerType(msg.sender?.type))return "⛔ 방장·부방장만 사용할 수 있습니다.";
     const it=await ctx.idCommandTarget(c,msg.room.id,msg,text);
     if(!it)return "❌ 대상의 정확한 ID를 확인하지 못했습니다.\n실제 멘션 또는 답장으로 시도해 주세요.\n채팅 기록에 없는 사용자는 ID를 확인할 수 없을 수 있습니다.";
     return `🔎 아이디 확인\n${ctx.MORE}\n👤 ${it.name||it.id}\n카카오 사용자 ID: ${it.id}`;
   }
-  if(/^#벤(?:\s|$)/.test(text)){
+  if(/^#(?:kick|k)(?:\s|$)/.test(text)){
     // 명시적 ID/멘션을 우선하고, 답장만 있는 경우 원작성자 ID를 추출한다.
     if(!t){
       const replyBan=ctx.replyTargetFrom(msg);
       if(replyBan)t=await ctx.resolveTarget(c,msg.room.id,replyBan);
     }
-    if(!t)return "❌ 강퇴 대상을 확인하지 못했습니다.\n사용법: #벤 @닉네임 또는 #벤 (카카오 사용자 ID)\n답장 대상 ID가 확인되지 않으면 강퇴하지 않습니다.";
+    if(!t)return "❌ 강퇴 대상을 확인하지 못했습니다.\n사용법: #kick @닉네임 또는 #k (카카오 사용자 ID)\n답장 대상 ID가 확인되지 않으면 강퇴하지 않습니다.";
     if(!/^\d{4,}$/.test(String(t.id)))return "❌ 올바른 카카오 사용자 ID가 아닙니다.";
     if(t.id===ctx.globalBotId)return "봇 계정은 벤할 수 없습니다.";
     if(t.id===uid)return "자기 자신은 벤할 수 없습니다.";
