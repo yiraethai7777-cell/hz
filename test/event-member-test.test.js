@@ -94,7 +94,54 @@ test('member refresh supports m arrays without losing exact string IDs',async()=
 test('empty MEMLIST reports diagnostic keys instead of fake zero participants',async()=>{
   const client=mockRosterClient({someField:1,token:0});
   const progress=[];
-  await assert.rejects(()=>client.refreshMemberProfiles('18495931541358610',{onProgress:x=>progress.push(x)}),/MEMLIST returned no usable member IDs/);
+  await assert.rejects(()=>client.refreshMemberProfiles('18495931541358610',{onProgress:x=>progress.push(x)}),/No current member IDs returned/);
   assert.equal(progress[0].source,'none');
   assert.deepEqual(progress[0].bodyKeys,['someField','token']);
+});
+
+
+test('member refresh accepts memberIds without unsafe numeric conversion',async()=>{
+  const exact='9007199254740993123';
+  const client=mockRosterClient({status:0,type:1,memberIds:[exact],token:0});
+  const progress=[];
+  const result=await client.refreshMemberProfiles('100',{onProgress:p=>progress.push(p)});
+  assert.deepEqual(result.map(x=>x.id),[exact]);
+  assert.equal(progress[0].source,'memberIds');
+  assert.equal(progress[0].totalMembers,1);
+});
+
+test('manual event test falls back to CHATONROOM profiles when MEMLIST is status only',async()=>{
+  const client=mockRosterClient({status:0});
+  let calls=0;
+  client._carriage.chatOnRoom=async()=>{calls++;return {status:0,body:{
+    status:0,m:[{userId:'9007199254740993123',nickName:'𝐀𝐏𝐄𝐗 멤버',mt:2}]
+  }};};
+  const progress=[];
+  const result=await client.refreshMemberProfiles('100',{
+    allowChatOnRoomFallback:true,onProgress:p=>progress.push(p)
+  });
+  assert.equal(calls,1);
+  assert.equal(result.length,1);
+  assert.equal(result[0].id,'9007199254740993123');
+  assert.equal(result[0].name,'𝐀𝐏𝐄𝐗 멤버');
+  assert.deepEqual(progress.map(x=>x.source),['none','CHATONROOM:m']);
+});
+
+test('manual event scan refuses a roster with IDs but no verified nicknames',async()=>{
+  const client=mockRosterClient({memberIds:['9007199254740993123'],token:0});
+  client._carriage.chatOnRoom=async()=>({status:0,body:{status:0}});
+  await assert.rejects(
+    ()=>client.refreshMemberProfiles('100',{allowChatOnRoomFallback:true}),
+    /no nicknames available/
+  );
+});
+
+test('manual event reply warns when only some member nicknames are known',async()=>{
+  const ctx=request();
+  ctx.client.refreshMemberProfiles=async()=>[
+    {id:'101',name:'APEX'},
+    {id:'102',name:''}
+  ];
+  await handle(ctx);
+  assert.match(ctx.messages[0],/전체 추첨 대상은 미확정/);
 });
