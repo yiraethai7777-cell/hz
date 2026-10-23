@@ -52,7 +52,7 @@ test('game reply does not wait for Kakao profile lookup or room profile lock',as
   getUserOpenProfileLink:async()=>{requested=true;return 'https://open.kakao.com/o/abc123';}
  };
  await createSession(ctx).attachHZBot(client);
- const event={__nexusGameCommand:true,
+ const event={__gameCommandFastPath:true,
   room:{id:'1849',name:'Test'},sender:{id:'5555',name:'Tester',type:2},
   message:{text:'#낚시'}};
  await callback(event);
@@ -117,7 +117,7 @@ test('fast game handler never intercepts game reset or quiz control commands',as
  };
  await createSession(ctx).attachHZBot(client);
  const send=async text=>callback({
-  __nexusGameCommand:true,room:{id:'1849'},sender:{id:'7777',name:'Owner'},
+  __gameCommandFastPath:true,room:{id:'1849'},sender:{id:'7777',name:'Owner'},
   message:{text}
  });
  await send('#초기화');
