@@ -51,7 +51,7 @@ async function message({ text, msg, chat, isBotAccount = false }) {
 
         await chat.sendText(
             roomId,
-            ' NEXUS | 메시지 전송 속도 측정 중...'
+            ' 메시지 전송 속도 측정 중...'
         );
 
         const messageLatency =
@@ -60,7 +60,7 @@ async function message({ text, msg, chat, isBotAccount = false }) {
         // 3. 측정 결과 출력
         
 const result =
-    'NEXUS | STATUS\n' +
+    'STATUS\n' +
     '━━━━━━━━━━━━━━\n' +
     'Server Latency : ' + serverLatency + 'ms\n' +
     'Message Latency: ' + messageLatency + 'ms\n' +
