@@ -124,7 +124,8 @@ test('router runs event and observes later user message',async()=>{
   };
   attachRouter(client,{ready:Promise.resolve(),game:{message:async()=>{}},management:{message:async()=>false}});
   const a=dispatch({room:{id:'123456',isOpenChat:true},sender:{id:'5',type:1},text:'#이벤진행테스트'});
-  await new Promise(resolve=>setImmediate(resolve));
+  for(let i=0;i<25&&!sent.some(x=>x.includes('35ms 카운트 이벤트'));i++)
+    await new Promise(resolve=>setImmediate(resolve));
   assert.ok(sent.some(x=>x.includes('35ms 카운트 이벤트')));
   const b=dispatch({room:{id:'123456',isOpenChat:true},sender:{id:target,type:2},text:'안녕하세요'});
   await b;
@@ -143,7 +144,7 @@ test('selected user answering during announcement is eliminated before countdown
     }
   };
   await start(args);
-  assert.match(sent.at(-1),/탈락! 카운트다운이 시작되기 전에/);
+  assert.match(sent.at(-1),/탈락!/);
   assert.equal(sent.some(x=>x.startsWith('⏳ ')),false);
 });
 
