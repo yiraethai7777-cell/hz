@@ -103,7 +103,7 @@ async function start({
 
     // Highlight the actual Kakao mention in its own message.
     // Answering before first 5 is delivered is disqualifying.
-    if(!await sendSafe(client,send,
+    if(state.result!=='early' && !await sendSafe(client,send,
       '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트 테스트 📣📣📣\n'+
       '━━━━━━━━━━━━━━━━━━\n'+
       '🎯🎯 선택된 도전자 🎯🎯\n\n'+
