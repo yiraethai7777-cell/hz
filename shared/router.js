@@ -131,7 +131,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       
-if(gameAliases.isGameCommand(text)){
+if(gameAliases.isGameCommand(text) && text!=='!게임작동' && text!=='!게임중지'){
   await game.message({...context,msg,chat});
   return;
 }
