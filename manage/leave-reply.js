@@ -54,7 +54,7 @@ function leaveNotice({
     `\n강퇴 기록   ${bans}회` +
     `\n\n04  ADMIN CONTROL` +
     `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n해당 메시지에 답장으로 'a' 입력 시` +
+    `\n해당 메시지에 답장으로 'k' 입력 시` +
     `\n대상 사용자 강퇴 기능이 실행됩니다.` +
     `\n\n실행 권한   방장 · 부방장` +
     `\n\n━━━━━━━━━━━━━━━━━━━━` +
@@ -138,7 +138,7 @@ function replyReference(msg,botId){
 }
 async function handle(context,db){
  const {text,msg,roomId,userId,senderType,botId,send,kick}=context;
- if(text!=='a')return false;
+ if(text!=='k')return false;
  const log=replyReference(msg,botId);if(!log)return false;
  if(![1,4].includes(Number(senderType))){await send('⛔ 방장·부방장만 퇴장 알림에 답장으로 벤할 수 있습니다.');return true;}
  const found=await db.query(`SELECT target_id,target_name,state FROM gl_leave_replies WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
