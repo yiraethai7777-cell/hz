@@ -131,6 +131,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       
+if(gameAliases.isGameCommand(text)){
+  await game.message({...context,msg,chat});
+  return;
+}
+
 if (await require('./event-notice').handle({
   client,roomId,msg,text,send:context.send
 })) return;
@@ -165,11 +170,6 @@ if (text === '#이벤추첨테스트') {
 
       if (text === '!게임작동' || text === '!게임중지') {
         await game.toggle(context);
-        return;
-      }
-      // Known game commands avoid unrelated event/settings DB work.
-      if(gameAliases.isGameCommand(text)){
-        await game.message({...context,msg,chat});
         return;
       }
 
