@@ -152,10 +152,10 @@ function formatCommandHelp(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
  if(groupName&&!Object.hasOwn(bodies,groupName))return LINKS+'사용법: #명령어 [게임|관리]';
- const enabled=(groupName?[groupName]:['게임','관리']).filter(n=>n==='관리'?flags.manage:flags.game);
- if(!enabled.length)return LINKS+(groupName?`이 방의 ${groupName} 기능은 중지되어 있습니다.`:'현재 작동 중인 기능이 없습니다.\n봇 계정에서 #게임작동 또는 #관리작동을 입력해 주세요.');
+ const enabled=(groupName?[groupName]:['게임']).filter(n=>n==='관리'?flags.manage:flags.game);
+ if(!enabled.length)return LINKS+(groupName?`이 방의 ${groupName} 기능은 중지되어 있습니다.`:(flags.manage?'🛡️ 관리 명령어는 !관리명령어로 확인해 주세요.':'현재 작동 중인 기능이 없습니다.\n봇 계정에서 #게임작동 또는 !관리on을 입력해 주세요.'));
  return LINKS+'📜 NEXUS 명령어 안내\n'+FOLD+'\n'+
-  '작동 중인 기능 · '+enabled.join(' + ')+'\n#명령어 게임 / #명령어 관리로 따로 보기\n'+
+  '작동 중인 기능 · '+enabled.join(' + ')+'\n#명령어 게임 / !관리명령어로 따로 보기\n'+
   '대상 = ID·실제 멘션·답장·댓글 (명령별 지원)\n권한이 필요한 명령은 방장·부방장 또는 지정 관리자만 사용\n\n'+
   enabled.map(n=>(n==='관리'?'🛡️':'🎮')+' '+n+' 명령어\n━━━━━━━━━━━━━━\n'+bodies[n]).join('\n\n━━━━━━━━━━━━━━\n\n');
 }
@@ -165,6 +165,10 @@ async function handleExtraMessage(client,...args){
  if(msg?.room?.id==null)return false;
  const text=String(msg.message?.text??msg.text??'').trim();
  if(!/^#명령어(?:\s+.*)?$/.test(text))return false;
+ if(text.slice('#명령어'.length).trim()==='관리'){
+  await chat.sendText(msg.room.id,'🛡️ 관리 명령어는 !관리명령어를 입력해 주세요.');
+  return true;
+ }
  const {getPool}=require('./db');
  const state=await getPool().query(`SELECT
   COALESCE((SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS game,
