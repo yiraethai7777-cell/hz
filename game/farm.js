@@ -15,7 +15,7 @@ function integer(value,label){if(!/^[1-9]\d*$/.test(String(value||'')))fail(labe
 function crop(name){const c=CROPS.find(c=>c.name===name);if(!c)fail('존재하지 않는 작물입니다. #상점에서 씨앗 종류를 확인해 주세요.');return c;}
 function cell(number,size){const n=integer(number,'칸 번호');if(n>size*size)fail(`칸 번호는 1~${size*size}까지입니다.`);return Math.floor((n-1)/size)+':'+((n-1)%size);}
 function mention(id,name){return `\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;}
-function shop(){return 'NEXUS | SHOP\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
+function shop(){return '상점\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
  '\n\n🌱 씨앗\n━━━━━━━━━━━━━━\n'+CROPS.map(c=>`${c.emoji} ${c.name} · ${fmt(c.price)}코인\n   성장 ${c.minutes}분 · 수확 ${fmt(c.sale)}코인`).join('\n')+
  '\n\n구매 안내\n└─ !낚시대구매 (이름)\n└─ !씨앗구매 (이름) (수량)\n└─ !농장\n└─ !농장정보';}
 function formatFarm(f,user,now){
@@ -28,7 +28,7 @@ function formatFarm(f,user,now){
   }rows.push(line.join(' '));
  }
  const seeds=CROPS.filter(c=>f.seeds[c.name]>0).map(c=>`${c.emoji} ${c.name} ${fmt(f.seeds[c.name])}개`).join(' · ')||'없음';
- return `${mention(user.id,user.name)}님의 농장\n${FOLD}\nNEXUS | FARM\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n재배 중: ${growing}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호 또는 all) (작물이름)\n└─ !수확 (번호)\n└─ !전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
+ return `${mention(user.id,user.name)}님의 농장\n${FOLD}\n농장\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n재배 중: ${growing}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호 또는 all) (작물이름)\n└─ !수확 (번호)\n└─ !전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
 }
 function createFarm({pool,now=Date.now}){
  async function init(){await pool.query(`CREATE TABLE IF NOT EXISTS gl_farms(
@@ -62,7 +62,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    f.seeds={...f.seeds};f.plots={...f.plots};const size=f.level+2,time=now();let delta=0,result='';
    function spend(cost){if(!ctx.isBotAccount&&balance<cost)fail(`코인이 부족합니다. 필요 ${fmt(cost)}코인 · 보유 ${fmt(balance)}코인`);if(!ctx.isBotAccount)delta-=cost;}
    if(cmd==='#농장')result=formatFarm(f,{id:user,name},time);
-   if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\nNEXUS | FARM\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n!농장확장으로 한 단계씩 확장합니다.`;
+   if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\n농장\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n!농장확장으로 한 단계씩 확장합니다.`;
    if(cmd==='#씨앗구매'){
     if(parts.length!==3)fail('사용법: !씨앗구매 (이름) (수량)');
     const c=crop(parts[1]),quantity=integer(parts[2],'수량'),cost=c.price*quantity,total=(f.seeds[c.name]||0)+quantity;
@@ -129,7 +129,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
 
     f.seeds[c.name]=owned-keys.length;
 
-    result=`[ ✓ ] NEXUS | PLANTING\n`+
+    result=`[ ✓ ] 심기\n`+
       `━━━━━━━━━━━━━━━━━━━━\n`+
       `작물       | ${c.name}\n`+
       `심은 위치  | ${numbers.join(', ')}번\n`+
@@ -174,7 +174,7 @@ async function init(){await service().init();}
 async function handle(ctx){
  if(!/^#(?:농장|농장정보|농장확장|상점|씨앗구매|심기|수확|전체수확)(?:\s|$)/.test(ctx.text))return false;
  try{await ctx.send(await service().run({...ctx,messageId:ctx.messageId??require('./coin').messageKey(ctx.msg||{})}));}
- catch(e){if(!e.userFacing)console.error('[NEXUS FARM]',e.message);await ctx.send('❌ '+(e.userFacing?e.message:'농장 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.'));}
+ catch(e){if(!e.userFacing)console.error('[FARM]',e.message);await ctx.send('❌ '+(e.userFacing?e.message:'농장 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.'));}
  return true;
 }
 module.exports={createFarm,CROPS,EXPANSIONS,shop,formatFarm,init,handle};
