@@ -50,6 +50,10 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       
+if (await require('./event-notice').handle({
+  client,roomId,msg,text,send:context.send
+})) return;
+
 if (await require('./event-settings').handle({
   client,roomId,msg,text,send:context.send
 })) return;
