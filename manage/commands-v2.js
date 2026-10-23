@@ -42,11 +42,11 @@ async function setEnabled(db,room,on){
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }
 async function targetOf(db,room,msg,tail,client,allowMention=true){
+ const first=String(tail||'').trim().split(/\s+/)[0];
+ if(/^\d{4,}$/.test(first))return {id:first,name:first};
  const tagged=mentions(msg);
  if(allowMention&&tagged.length===1)return tagged[0];
  if(!allowMention&&tagged.length)return null;
- const first=String(tail||'').trim().split(/\s+/)[0];
- if(/^\d{4,}$/.test(first))return {id:first,name:first};
  const r=await resolveReply({msg,text:'#대상 '+String(tail||'').trim(),roomId:room,client,db});
  return r?.id?r:null;
 }
@@ -55,10 +55,10 @@ async function action(db,room,user,target,name,detail){
  await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[room,user,target,name,detail]);
 }
 async function history(db,room,target){
- const a=await db.query("SELECT created_at,action,actor_id,target_id FROM gl_manage_actions WHERE room_id=$1 AND action IN ('KICK','KICK_RELEASE','UNKICK','AUTO_BAN') AND ($2::text IS NULL OR target_id=$2) ORDER BY id DESC LIMIT 100",[room,target||null]);
+ const a=await db.query("SELECT created_at,action,actor_id,target_id,detail FROM gl_manage_actions WHERE room_id=$1 AND action IN ('KICK','KICK_RELEASE','UNKICK','AUTO_BAN') AND ($2::text IS NULL OR target_id=$2) ORDER BY id DESC LIMIT 100",[room,target||null]);
  const b=await db.query("SELECT created_at,user_id AS target_id,meta FROM hz_events WHERE room_id=$1 AND event_type='kick' AND ($2::text IS NULL OR user_id=$2) AND (meta->>'actorType') IN ('1','4') ORDER BY id DESC LIMIT 100",[room,target||null]);
  return [
-  ...a.rows.map(v=>({d:new Date(v.created_at),s:time(v.created_at)+' · '+v.action+' · 대상 '+v.target_id+' · 실행 '+(v.actor_id||'자동')})),
+  ...a.rows.map(v=>({d:new Date(v.created_at),s:time(v.created_at)+' · '+(v.detail||v.action)+' · 대상 '+v.target_id+' · 실행 '+(v.actor_id||'자동')})),
   ...b.rows.map(v=>({d:new Date(v.created_at),s:time(v.created_at)+' · 방장/부방장 강퇴 · 대상 '+v.target_id+' · 실행 '+(v.meta?.actorName||v.meta?.actorId||'미확인')}))
  ].sort((x,y)=>y.d-x.d).slice(0,150).map(v=>v.s);
 }
