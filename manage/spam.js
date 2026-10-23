@@ -225,7 +225,7 @@ async function check(ctx, msg, chat, rid, uid, name, text, isSelf, flags) {
         `⚠️ ${name}님의 도배를 감지했지만 벤에 실패했습니다.\n이유: ${reason}\n봇의 방장·부방장 권한을 확인해 주세요.`
       );
 
-      console.error('[NEXUS AUTO BAN]', e.message);
+      console.error('[AUTO BAN]', e.message);
     }
 
     ctx.spamState.delete(key);
