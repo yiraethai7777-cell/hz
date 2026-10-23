@@ -66,6 +66,10 @@ async function handleGame(d,c,msg,isSelf){
  const userId=ctx.id(msg.sender?.id??msg.senderId);
  const restoring=['네','아니요'].includes(text)&&d.players?.[userId]?.rodRestore;
  if(!text.startsWith('#')&&!restoring&&(!d.game||!d.quizEnabled||d.locked||!require('./quiz').plainAnswer(d.quiz,text)))return null;
+ // Read-only operations never need wallet synchronization or extra row locks.
+ const command=text.split(/\s+/,1)[0];
+ if(new Set(['#퀴즈정보','#퀴즈순위','#낚시정보','#인벤','#물고기도감','#보호권','#펫인벤','#펫도감','#펫기능','#상점']).has(command))
+   return handleGameCore(d,c,msg,isSelf);
  if(!ctx.economyEnabled)return handleGameCore(d,c,msg,isSelf);
  const user=ctx.id(msg.sender?.id??msg.senderId),p=ctx.player(d,user,msg.sender?.name||user);
  return require('./economy').withPlayer({db:c,room:ctx.id(msg.room.id),user,p,msg,botId:ctx.globalBotId,run:()=>handleGameCore(d,c,msg,isSelf)});
