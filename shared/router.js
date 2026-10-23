@@ -107,7 +107,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       throw new Error('봇 또는 명령 실행자 본인은 내보낼 수 없습니다.');
     if (typeof client.openChatKick !== 'function') throw new Error('내보내기 API를 사용할 수 없습니다.');
     const result = await client.openChatKick(roomId, id);
-    console.log('[NEXUS KICK API]', JSON.stringify({ roomId: String(roomId), targetId: id, result }));
+    console.log('[KICK API]', JSON.stringify({ roomId: String(roomId), targetId: id, result }));
     if (result === false || result?.success === false || result?.ok === false ||
         result?.status === 'error' || (typeof result?.status === 'number' && result.status !== 0))
       throw new Error('내보내기 요청 실패: ' + JSON.stringify(result));
@@ -119,9 +119,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try {
           if (await require('../manage/commands-v2').handle(context)) return;
         } catch (error) {
-          console.error('[NEXUS !관리 명령 오류]', error);
+          console.error('[MANAGE COMMAND ERROR]', error);
           try { await context.send('❌ 관리 명령 처리 실패. Railway 로그를 확인해 주세요.'); }
-          catch (sendError) { console.error('[NEXUS !관리 응답 실패]', sendError); }
+          catch (sendError) { console.error('[MANAGE SEND ERROR]', sendError); }
           return;
         }
       }
@@ -135,11 +135,11 @@ if(gameAliases.isGameCommand(text) && text!=='!게임작동' && text!=='!게임�
   const started=Date.now();
   await game.message({...context,msg,chat});
   const elapsed=Date.now()-started;
-  if(elapsed>=800)console.warn('[NEXUS GAME COMMAND SLOW]',{command:text.split(/\s+/,1)[0],elapsedMs:elapsed});
+  if(elapsed>=800)console.warn('[GAME COMMAND SLOW]',{command:text.split(/\s+/,1)[0],elapsedMs:elapsed});
   // Preserve management chat-count statistics without delaying the game reply.
   // This path cannot invoke management commands: aliases are game-only.
   Promise.resolve().then(()=>management.message(context))
-    .catch(error=>console.error('[NEXUS GAME CHAT COUNT]',error));
+    .catch(error=>console.error('[GAME CHAT COUNT]',error));
   return;
 }
 
