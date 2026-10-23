@@ -2328,6 +2328,20 @@ export class KakaoForgeClient extends EventEmitter {
   getUserOpenProfileType(chatId: number | string, userId: number | string): number {
     return this._memberProfileTypes?.get(String(this._resolveChatId(chatId)) + ':' + String(userId)) ?? 0;
   }
+  // Cached observations only. This does not query LOCO and is not a verified
+  // complete/current room roster (departed users may remain in the cache).
+  getCachedMemberProfiles(chatId: number | string) {
+    const roomId=this._resolveChatId(chatId);
+    const cache=this._memberNames.get(String(roomId));
+    if(!cache)return [];
+    return [...cache.entries()]
+      .filter(([id])=>/^[1-9]\d*$/.test(String(id)))
+      .map(([id,name])=>({
+        id:String(id),name:String(name||''),
+        type:this._getCachedMemberType(roomId,id)
+      }));
+  }
+
   getUserProfileSnapshot(chatId: number | string, userId: number | string) {
     const roomId=this._resolveChatId(chatId), key=String(roomId)+':'+String(userId);
     return {name:this._getCachedMemberName(roomId,userId),imageUrl:this._memberProfileImages?.get(key)||'',profileType:this.getUserOpenProfileType(roomId,userId),profileLinkId:this._memberProfileLinkIds.get(key)||''};
