@@ -1,67 +1,65 @@
 'use strict';
-const {test} = require('node:test');
-const assert = require('node:assert/strict');
-const {handle} = require('../shared/event-member-test');
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {handle}=require('../shared/event-member-test');
 
-function request(overrides = {}) {
-  const messages = [];
-  const client = {
-    connected: true,
-    userId: '999',
-    refreshMemberProfiles: async (_room, {onProgress}) => {
-      onProgress({page: 1, pageMembers: 3, totalMembers: 3, hasMore: false});
-      return [
-        {id: '101', name: '𒊮𝐀𝐏𝐄𝐗 정 ᯽'},
-        {id: '102', name: '일반'},
-        {id: '999', name: 'APEX 봇'}
-      ];
-    }
+function request(overrides={}) {
+  const messages=[];
+  const client={
+    connected:true,userId:'999',
+    getCachedMemberProfiles:()=>[
+      {id:'101',name:'𒊮𝐀𝐏𝐄𝐗 정 ᯽'},
+      {id:'102',name:'일반'},
+      {id:'999',name:'APEX 봇'}
+    ],
+    refreshMemberProfiles:()=>{throw Error('Must not request MEMLIST')}
   };
-  return {client, roomId: '100', msg: {room: {isOpenChat: true}, sender: {type: 1}},
-    send: async message => {messages.push(message);}, messages, ...overrides};
+  return {client,roomId:'100',msg:{room:{isOpenChat:true},sender:{type:1}},
+    send:async text=>{messages.push(text)},messages,...overrides};
 }
 
-test('event member test normalizes APEX and excludes the bot', async () => {
-  const ctx = request();
-  await handle(ctx);
-  assert.equal(ctx.messages.length, 1);
-  assert.match(ctx.messages[0], /조회된 인원: 3명/);
-  assert.match(ctx.messages[0], /APEX 추첨 대상: 1명/);
+test('event cache diagnostic detects styled APEX and excludes bot without server query',async()=>{
+  const ctx=request();await handle(ctx);
+  assert.equal(ctx.messages.length,1);
+  assert.match(ctx.messages[0],/캐시에서 확인된 인원: 3명/);
+  assert.match(ctx.messages[0],/APEX 후보\(캐시 기준\): 1명/);
+  assert.match(ctx.messages[0],/현재 참여 여부는 확인되지 않았습니다/);
 });
 
-test('event member test rejects non-admin and non-open rooms', async () => {
-  const noPermission = request({msg: {room: {isOpenChat: true}, sender: {type: 2}}});
-  await handle(noPermission);
-  assert.match(noPermission.messages[0], /방장 또는 부방장/);
-  const notOpen = request({msg: {room: {isOpenChat: false}, sender: {type: 1}}});
-  await handle(notOpen);
-  assert.match(notOpen.messages[0], /오픈채팅방/);
+test('event cache diagnostic rejects unauthorized and regular chat rooms',async()=>{
+  const a=request({msg:{room:{isOpenChat:true},sender:{type:2}}});await handle(a);
+  assert.match(a.messages[0],/방장 또는 부방장/);
+  const b=request({msg:{room:{isOpenChat:false},sender:{type:1}}});await handle(b);
+  assert.match(b.messages[0],/오픈채팅방/);
 });
 
-test('event member lookup failure and disconnected response do not throw', async () => {
-  const ctx = request();
-  ctx.client.refreshMemberProfiles = async () => {
-    ctx.client.connected = false;
-    throw Error('Connection closed');
+test('event cache lookup and reply failures are safely contained',async()=>{
+  const ctx=request();ctx.client.getCachedMemberProfiles=()=>{
+    ctx.client.connected=false;throw Error('Connection closed');
   };
-  await assert.doesNotReject(handle(ctx));
-  assert.equal(ctx.messages.length, 0);
-  ctx.client.connected = true;
-  ctx.client.refreshMemberProfiles = async () => {throw Error('MEMLIST failed');};
-  ctx.send = async () => {throw Error('Not connected');};
+  await assert.doesNotReject(handle(ctx));assert.equal(ctx.messages.length,0);
+  ctx.client.connected=true;
+  ctx.client.getCachedMemberProfiles=()=>{throw Error('Unexpected cache failure')};
+  ctx.send=async()=>{throw Error('Not connected')};
   await assert.doesNotReject(handle(ctx));
 });
 
-test('event member test prevents concurrent scans in the same room', async () => {
-  const ctx = request();
-  let finish;
-  ctx.client.refreshMemberProfiles = async () => new Promise(resolve => {finish = resolve;});
-  const first = handle(ctx);
-  await handle(ctx);
-  assert.match(ctx.messages[0], /이미 이벤트 인원을 조회/);
-  finish([{id:'101',name:'APEX'}]);
+test('event cache lookup blocks concurrent requests in the same room',async()=>{
+  const ctx=request();
+  let release;
+  ctx.client.getCachedMemberProfiles=()=>new Promise(resolve=>{release=resolve});
+  const first=handle(ctx);await handle(ctx);
+  assert.match(ctx.messages[0],/이미 이벤트 인원 캐시/);
+  release([{id:'101',name:'APEX'}]);
   await first;
-  assert.match(ctx.messages[1], /APEX 추첨 대상: 1명/);
+  assert.match(ctx.messages[1],/APEX 후보\(캐시 기준\): 1명/);
+});
+
+test('event cache diagnostic never requests live member information',async()=>{
+  const ctx=request();let attempts=0;
+  ctx.client._carriage={memList:()=>{attempts++},chatOnRoom:()=>{attempts++}};
+  await handle(ctx);
+  assert.equal(attempts,0);
 });
 
 require('ts-node/register/transpile-only');
@@ -144,4 +142,16 @@ test('manual event reply warns when only some member nicknames are known',async(
   ];
   await handle(ctx);
   assert.match(ctx.messages[0],/전체 추첨 대상은 미확정/);
+});
+
+
+test('getCachedMemberProfiles reads exact ID strings without network calls',()=>{
+  const client=mockRosterClient({status:0});
+  const room='18495931541358610',exact='9007199254740993123';
+  client._cacheMembers(room,[{userId:exact,nickName:'𝐀𝐏𝐄𝐗 회원',mt:2}]);
+  client._carriage.memList=()=>{throw Error('Unexpected MEMLIST')};
+  client._carriage.chatOnRoom=()=>{throw Error('Unexpected CHATONROOM')};
+  const result=client.getCachedMemberProfiles(room);
+  assert.deepEqual(result.map(m=>m.id),[exact]);
+  assert.equal(result[0].name,'𝐀𝐏𝐄𝐗 회원');
 });
