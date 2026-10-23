@@ -90,7 +90,7 @@ test('concurrent events and cooldown prevent repeated sends',async()=>{
   await Promise.resolve();
   await Promise.resolve();
   await start(args);
-  assert.ok(sent.some(s=>s.includes('이미 5초 이벤트 테스트')));
+  assert.ok(sent.some(s=>s.includes('이미 카운트 이벤트 테스트')));
   const matched=receive({roomId:args.roomId,senderId:'9007199254740993123',text:'안녕',now:clock.now});
   assert.equal(matched,true);
   await first;
@@ -122,7 +122,7 @@ test('router runs event and observes later user message',async()=>{
   attachRouter(client,{ready:Promise.resolve(),game:{message:async()=>{}},management:{message:async()=>false}});
   const a=dispatch({room:{id:'123456',isOpenChat:true},sender:{id:'5',type:1},text:'#이벤진행테스트'});
   await new Promise(resolve=>setImmediate(resolve));
-  assert.ok(sent.some(x=>x.includes('5초 반응 이벤트')));
+  assert.ok(sent.some(x=>x.includes('35ms 카운트 이벤트')));
   const b=dispatch({room:{id:'123456',isOpenChat:true},sender:{id:target,type:2},text:'안녕하세요'});
   await b;
   await a;
@@ -135,7 +135,7 @@ test('selected user answering during announcement is eliminated before countdown
   const selected='9007199254740993123';
   args.send=async message=>{
     sent.push(message);
-    if(message.includes('5초 반응 이벤트')) {
+    if(message.includes('35ms 카운트 이벤트')) {
       assert.equal(receive({roomId:args.roomId,senderId:selected,text:'미리 답장',now:clock.now}),true);
     }
   };
@@ -173,7 +173,7 @@ test('other user answering before countdown cannot eliminate selected user',asyn
   const {args,sent,clock}=fixture();
   args.send=async message=>{
     sent.push(message);
-    if(message.includes('5초 반응 이벤트')) {
+    if(message.includes('35ms 카운트 이벤트')) {
       assert.equal(receive({roomId:args.roomId,senderId:'42',text:'내 대답',now:clock.now}),false);
     }
   };
@@ -185,7 +185,7 @@ test('premature answer blocks repeat event until cooldown',async()=>{
   const {args,sent,clock}=fixture();
   args.send=async message=>{
     sent.push(message);
-    if(message.includes('5초 반응 이벤트'))
+    if(message.includes('35ms 카운트 이벤트'))
       receive({roomId:args.roomId,senderId:'9007199254740993123',text:'너무 빨리',now:clock.now});
   };
   await start(args);
