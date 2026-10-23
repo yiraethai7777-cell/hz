@@ -58,7 +58,8 @@ function leaveNotice({
     `\n대상 사용자 강퇴 기능이 실행됩니다.` +
     `\n\n실행 권한   방장 · 부방장` +
     `\n\n━━━━━━━━━━━━━━━━━━━━` +
-    `\nNEXUS  ·  AUTOMATED SYSTEM`
+    `\nNEXUS  ·  AUTOMATED SYSTEM` +
+    (detail ? `\n\n💬 ${detail}` : '')
   );
 }
 
@@ -99,7 +100,8 @@ function joinNotice({
     `\n누적 퇴장   ${leaves}회` +
     `\n강퇴 기록   ${bans}회` +
     `\n\n━━━━━━━━━━━━━━━━━━━━` +
-    `\nNEXUS  ·  AUTOMATED SYSTEM`
+    `\nNEXUS  ·  AUTOMATED SYSTEM` +
+    (detail ? `\n\n💬 ${detail}` : '')
   );
 }
 
@@ -140,7 +142,9 @@ async function handle(context,db){
  const {text,msg,roomId,userId,senderType,botId,send,kick}=context;
  if(text!=='k')return false;
  const log=replyReference(msg,botId);if(!log)return false;
- if(![1,4].includes(Number(senderType))){await send('⛔ 방장·부방장만 퇴장 알림에 답장으로 벤할 수 있습니다.');return true;}
+ const isManager=[1,4].includes(Number(senderType));
+ const assigned=isManager?false:(await db.query('SELECT 1 FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[String(roomId),String(userId)])).rowCount>0;
+ if(!isManager&&!assigned){await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;}
  const found=await db.query(`SELECT target_id,target_name,state FROM gl_leave_replies WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
  const row=found.rows[0];if(!row)return false;
  if(row.target_id===String(userId)||row.target_id===String(botId)){await send('⛔ 봇 또는 명령 실행자 본인은 벤할 수 없습니다.');return true;}
