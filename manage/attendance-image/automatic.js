@@ -41,7 +41,7 @@ async function sendAttendanceImage(client, context) {
       dates: data.dates
     });
 
-    console.log("[NEXUS ATTENDANCE IMAGE] 생성 완료", {
+    console.log("[ATTENDANCE IMAGE] 생성 완료", {
       roomId: room,
       userId: user,
       bytes: image.length
@@ -53,18 +53,18 @@ async function sendAttendanceImage(client, context) {
       throw new Error("이미지 전송 확인 실패");
     }
 
-    console.log("[NEXUS ATTENDANCE IMAGE] 전송 완료", {
+    console.log("[ATTENDANCE IMAGE] 전송 완료", {
       roomId: room,
       userId: user
     });
 
   } catch (error) {
-    console.error("[NEXUS ATTENDANCE IMAGE ERROR]", error);
+    console.error("[ATTENDANCE IMAGE ERROR]", error);
 
     try {
       await send("⚠️ 출석은 정상 완료되었지만 이미지를 전송하지 못했습니다.");
     } catch (replyError) {
-      console.error("[NEXUS ATTENDANCE IMAGE REPLY ERROR]", replyError);
+      console.error("[ATTENDANCE IMAGE REPLY ERROR]", replyError);
     }
   } finally {
     running.delete(key);
