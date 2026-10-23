@@ -107,7 +107,16 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   },
   send: body => chat.sendText(roomId, body)
 };
-      if (await require('../manage/commands-v2').handle(context)) return;
+      if (text.startsWith('!')) {
+        try {
+          if (await require('../manage/commands-v2').handle(context)) return;
+        } catch (error) {
+          console.error('[NEXUS !관리 명령 오류]', error);
+          try { await context.send('❌ 관리 명령 처리 실패. Railway 로그를 확인해 주세요.'); }
+          catch (sendError) { console.error('[NEXUS !관리 응답 실패]', sendError); }
+          return;
+        }
+      }
       if (text === "!테스트") {
         await require("../manage/attendance-image/command")
           .handleTest(client, context);
