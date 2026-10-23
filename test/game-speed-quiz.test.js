@@ -30,6 +30,7 @@ test('game command result is sent before slow Kakao profile API lookup',async()=
  let callback,releaseProfile,requested=false,gameCalls=0,statCalls=0;
  const responses=[];
  const ctx={
+  OWNER_IDS:new Set(),
   pool:{query:async()=>({rows:[]})},
   id:v=>String(v??''),
   initDb:async()=>{},promoTick:async()=>{},autoFishTick:async()=>{},
@@ -96,6 +97,6 @@ test('!정보 shows saved profile link without slow real-time Kakao API',async()
  }
  assert.equal(kakaoCalls,0);
  assert.equal(requests.length,4);
- assert.ok(responses[0].includes('12,345'));
+ assert.ok(responses[0].includes('코인 · ∞'));
  assert.ok(responses[0].includes('https://open.kakao.com/o/abc123'));
 });
