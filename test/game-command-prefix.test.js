@@ -115,7 +115,9 @@ test('router routes ! game commands but refuses retired # commands',async()=>{
  const emit=async text=>handler({room:{id:'1849',isOpenChat:true},sender:{id:'5555',name:'Guest'},message:{text}});
  await emit('#낚시');assert.equal(calls.length,0);
  await emit('!낚시');assert.equal(calls.some(x=>x[0]==='game'&&x[1]==='!낚시'),true);
- assert.equal(calls.some(x=>x[0]==='management'&&x[1]==='!낚시'),false);
+ assert.equal(calls.some(x=>x[0]==='management'&&x[1]==='!낚시'),true);
+ assert.ok(calls.findIndex(x=>x[0]==='management'&&x[1]==='!낚시')>
+   calls.findIndex(x=>x[0]==='game'&&x[1]==='!낚시'));
  await emit('#게임작동');assert.equal(calls.some(x=>x[0]==='toggle'),false);
  await emit('!게임작동');assert.equal(calls.some(x=>x[0]==='toggle'&&x[1]==='!게임작동'),true);
 });
