@@ -8,7 +8,7 @@ const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['!출석','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!도배감지on','!삭제감지on','!삭제감지off']);
-const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!명령어']);
+const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
 const owner=(u,bot)=>bot===true||String(u)===String(process.env.GL_OWNER_ID||'__NO_OWNER__')||OWNER_IDS.has(String(u));
 async function enabled(db,room){
@@ -64,11 +64,11 @@ async function history(db,room,target){
 }
 async function handle(ctx){
  const raw=String(ctx.text||'').trim(),cmd=raw.split(/\s+/)[0];
- if(!ALL.has(cmd)||cmd==='!명령어'&&raw!=='!명령어 관리')return false;
+ if(!ALL.has(cmd)||cmd==='!관리명령어'&&raw!=='!관리명령어')return false;
  const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId),tail=raw.slice(cmd.length).trim();
  const send=ctx.send,botOwner=owner(user,ctx.isBotAccount);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
- if(cmd==='!관리명령어'||cmd==='!명령어'){
+ if(cmd==='!관리명령어'){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리'));return true;
  }
  if(OWNER.has(cmd)&&!botOwner){await send('⛔ 봇 관리자만 사용할 수 있습니다.');return true;}
