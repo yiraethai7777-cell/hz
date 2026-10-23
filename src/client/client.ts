@@ -129,6 +129,8 @@ export class KakaoForgeClient extends EventEmitter {
   _openLinkInfoInFlight: Map<string, Promise<string | null>>;
   _openLinkSyncToken: number;
   _chatListCursor: ChatListCursor;
+  _eventRosterIds: Map<string, Set<string>>;
+  _eventDepartedIds: Map<string, Set<string>>;
   _memberNames: MemberNameCache;
   _memberTypes: Map<string, Map<string, number>>;
   _memberProfileLinkIds: Map<string, string>;
@@ -247,6 +249,8 @@ export class KakaoForgeClient extends EventEmitter {
     this._openLinkInfoInFlight = new Map();
     this._openLinkSyncToken = 0;
     this._chatListCursor = { lastTokenId: 0, lastChatId: 0 };
+    this._eventRosterIds = new Map();
+    this._eventDepartedIds = new Map();
     this._memberNames = new Map();
     this._memberTypes = new Map();
     this._memberProfileLinkIds = new Map();
@@ -445,6 +449,9 @@ export class KakaoForgeClient extends EventEmitter {
         }
         this._chatRooms.set(key, next);
         const members = body.m || body.members || body.memberList || [];
+        if (Array.isArray(members)) {
+          this._setEventRoomRoster(resolvedChatId, members);
+        }
         if (Array.isArray(members) && members.length > 0) {
           if (this.debug) {
             const sample = members[0] || {};
@@ -826,6 +833,10 @@ export class KakaoForgeClient extends EventEmitter {
     });
     this._carriage.on('error', (err) => console.error('[!] Carriage error:', err.message));
     this._carriage.on('disconnected', () => {
+      // Missed departures during disconnection make existing rosters unsafe.
+      this._eventRosterIds.clear();
+      this._eventDepartedIds.clear();
+      this._openChatInitialized.clear();
       console.log('[!] Disconnected from Carriage');
       this.emit('disconnected');
       this._stopMemberRefresh();
@@ -1037,6 +1048,7 @@ export class KakaoForgeClient extends EventEmitter {
   }
 
   _emitMemberEvent(action: MemberAction, event: MemberEvent) {
+    this._trackEventRoomMembership(action, event);
     const handler =
       action === 'join'
         ? this._joinHandler
@@ -2328,17 +2340,69 @@ export class KakaoForgeClient extends EventEmitter {
   getUserOpenProfileType(chatId: number | string, userId: number | string): number {
     return this._memberProfileTypes?.get(String(this._resolveChatId(chatId)) + ':' + String(userId)) ?? 0;
   }
-  // Cached observations only. This does not query LOCO and is not a verified
-  // complete/current room roster (departed users may remain in the cache).
+  // Only a CHATONROOM membership snapshot can initialize event eligibility.
+  // A departed user must not reappear due to delayed profile cache writes.
+  _setEventRoomRoster(chatId: number | string, members: any[]) {
+    const room = String(this._resolveChatId(chatId));
+    if (!Array.isArray(members)) return;
+    const departed = this._eventDepartedIds.get(room);
+    const ids = new Set<string>();
+    for (const member of members) {
+      const id = String(normalizeIdValue(member?.userId ?? member?.id ?? member?.memberId ?? 0) || '');
+      if (/^[1-9]\d*$/.test(id) && !departed?.has(id)) ids.add(id);
+    }
+    this._eventRosterIds.set(room, ids);
+    if (this.debug) console.log('[DBG] event roster: room=' + room + ' members=' + ids.size);
+  }
+
+  _trackEventRoomMembership(action: MemberAction, event: MemberEvent) {
+    const room = event?.room?.id == null ? '' : String(this._resolveChatId(event.room.id));
+    if (!room || event?.room?.isOpenChat !== true) return;
+    const ids = (event.member?.ids?.length
+      ? event.member.ids
+      : (event.members || []).map(member => member?.id))
+      .map(id => String(normalizeIdValue(id) || ''))
+      .filter(id => /^[1-9]\d*$/.test(id));
+    if (!ids.length) return;
+    const roster = this._eventRosterIds.get(room);
+    if (action === 'leave' || action === 'kick') {
+      const departed = this._eventDepartedIds.get(room) || new Set<string>();
+      const names = this._memberNames.get(room);
+      const types = this._memberTypes.get(room);
+      for (const id of ids) {
+        departed.add(id);
+        roster?.delete(id);
+        names?.delete(id);
+        types?.delete(id);
+      }
+      this._eventDepartedIds.set(room, departed);
+      console.log('[이벤 인원] 퇴장·강퇴 제외: room=' + room +
+        ' count=' + ids.length + ' eligible=' + (roster?.size ?? 'unverified'));
+    } else if (action === 'join') {
+      const departed = this._eventDepartedIds.get(room);
+      for (const id of ids) {
+        departed?.delete(id);
+        roster?.add(id);
+      }
+      const named = (event.members || []).filter(member =>
+        member?.id != null && typeof member?.name === 'string' && member.name.trim());
+      if (named.length) this._cacheMembers(room, named);
+    }
+  }
+
+  // Read-only event roster view: no MEMLIST or additional CHATONROOM calls.
+  // Unknown/unsynchronized rooms fail closed instead of selecting stale users.
   getCachedMemberProfiles(chatId: number | string) {
-    const roomId=this._resolveChatId(chatId);
-    const cache=this._memberNames.get(String(roomId));
-    if(!cache)return [];
-    return [...cache.entries()]
-      .filter(([id])=>/^[1-9]\d*$/.test(String(id)))
-      .map(([id,name])=>({
-        id:String(id),name:String(name||''),
-        type:this._getCachedMemberType(roomId,id)
+    const roomId = this._resolveChatId(chatId);
+    const room = String(roomId);
+    const roster = this._eventRosterIds.get(room);
+    const names = this._memberNames.get(room);
+    if (!roster || !names) return [];
+    return [...roster]
+      .filter(id => names.has(id))
+      .map(id => ({
+        id, name: String(names.get(id) || ''),
+        type: this._getCachedMemberType(roomId,id)
       }));
   }
 
