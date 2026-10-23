@@ -23,7 +23,8 @@ async function attachHZBot(client){
 
       // Reply to game commands first. Member statistics and profile observation
       // run after the game response and cannot delay its delivery.
-      const priorityGame=msg.__nexusGameCommand===true;
+      const priorityGame=msg.__nexusGameCommand===true &&
+        /^#(?:퀴즈|정답|퀴즈정보|퀴즈순위|낚시|낚시정보|어망|인벤|물고기도감|물고기판매|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동|펫뽑기|펫인벤|펫도감|펫기능|펫장착|펫강화)(?:\s|$)/.test(text);
       if(priorityGame){
         const current=await ctx.roomFlags(rid);
         if(current.game&&!current.locked){
