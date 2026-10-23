@@ -62,8 +62,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
   const match=/^[#!]?(보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.exec(raw);
   if(!match)return false;
-  // Ignore the bot's own commands to avoid message loops.
-  if(client?.userId!=null && String(client.userId)===String(msg?.sender?.id))return true;
+  // Allow commands from the same Kakao account as the bot. Replies never
+  // begin with command prefixes, so they will not recurse into this handler.
   if(msg?.room?.isOpenChat!==true){
     await safeReply(client,send,'❌ 보이스룸 명령어는 오픈채팅방에서만 사용할 수 있습니다.');
     return true;
