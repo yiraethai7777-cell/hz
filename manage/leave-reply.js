@@ -55,8 +55,9 @@ function joinNotice({
  profileLink='',profileType=0,profileImage='',bans=0,detail=''
 }){
  const {id,clean,mention}=displayMember(name,userId);
- const typeName=[1,2,4].includes(Number(profileType))?'기본프로필':
-  Number(profileType)===0?(profileLink?'오픈프로필':'확인 불가'):'오픈프로필';
+ const typeName=['기본프로필','오픈프로필','확인 불가'].includes(profileType)?profileType:
+  [1,2,4].includes(Number(profileType))?'기본프로필':
+  Number(profileType)===0?(profileLink?'오픈프로필':'확인 불가'):'확인 불가';
  return (
   mention+' 님이 채팅방에 입장하셨습니다.\n'+'\u200b'.repeat(1200)+
   '\n┏━━━━━━━━━━━━━━━━━━━━'+
