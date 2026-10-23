@@ -83,7 +83,7 @@ async function handle({client, roomId, msg, send, mention, pickRandom = randomIn
     console.log('[이벤 추첨 테스트] 캐시 후보 확인: room='+room+
       ' cached='+(members?.length ?? '?')+' apex='+candidates.length);
     if (candidates.length===0) {
-      await safeSend(client,send,'APEX 닉네임 후보가 캐시에 없습니다. 먼저 #이벤인원테스트로 확인해 주세요.');
+      await safeSend(client,send,'현재 확인된 APEX 참가자가 없습니다. 퇴장자 제외 또는 방 명단 동기화 중일 수 있습니다. 새 메시지 수신 후 #이벤인원테스트를 확인해 주세요.');
       return;
     }
 
