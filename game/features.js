@@ -22,14 +22,10 @@ function player(d,uid,name){
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
 function nextQuiz(d){
- if(d.quizBankVersion!=='knowledge-math-v2'){
-  d.quizQueues={};d.quizBankVersion='knowledge-math-v2';
+ if(d.quizBankVersion!=='difficulty-mix-v1'){
+  d.quizQueues={};d.quizDifficultyQueue=[];d.quizBankVersion='difficulty-mix-v1';
  }
- const kinds=[...new Set(ctx.QUIZZES.map(q=>q[0]))];
- const kind=kinds[Math.floor(Math.random()*kinds.length)];
- if(!d.quizQueues||typeof d.quizQueues!=='object')d.quizQueues={};
- if(!d.quizQueues[kind]?.length)d.quizQueues[kind]=ctx.shuffle(ctx.QUIZZES.map((q,i)=>q[0]===kind?i:-1).filter(i=>i>=0));
- const i=d.quizQueues[kind].shift();d.lastQuiz=i;return {i,q:ctx.QUIZZES[i]};
+ return require('./quiz-difficulty').next(d,ctx.QUIZZES,ctx.shuffle);
 }
 
 function fishPick(luck){
@@ -90,6 +86,7 @@ async function handleGameCore(d,c,msg,isSelf){
        `제한 시간  | ${ctx.QUIZ_SECONDS}초\n`+
        `정답 보상  | ${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
        `경험치     | +${ctx.QUIZ_XP} XP\n`+
+       `난이도     | 쉬움 60% · 도전 40%\n`+
        `작동 상태  | ${d.quizEnabled?'ON':'OFF'}\n`+
        `진행 상태  | ${d.quiz?'진행 중':'대기 중'}\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
@@ -135,7 +132,7 @@ async function handleGameCore(d,c,msg,isSelf){
 
      if(d.quiz&&d.quiz.expiresAt>now){
        return `[ # ] NEXUS QUIZ\n\n`+
-         `[ ${d.quiz.kind} ]\n\n`+
+         `[ ${d.quiz.difficulty||'혼합'} · ${d.quiz.kind} ]\n\n`+
          `Q. ${d.quiz.question}\n`+
          `${'\u200b'.repeat(1200)}`+
          `\n━━━━━━━━━━━━━━━━━━━━\n`+
@@ -151,17 +148,18 @@ async function handleGameCore(d,c,msg,isSelf){
      if(remain>0)
        return `[ ! ] 다음 퀴즈까지 ${remain}초 남았습니다.`;
 
-     const {q}=ctx.nextQuiz(d);
+     const {q,difficulty}=ctx.nextQuiz(d);
 
      d.quiz={
        kind:q[0],
+       difficulty,
        question:q[1],
        answers:q[2],
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
      return `[ # ] NEXUS QUIZ\n\n`+
-       `[ ${q[0]} ]\n\n`+
+       `[ ${difficulty} · ${q[0]} ]\n\n`+
        `Q. ${q[1]}\n`+
        `${'\u200b'.repeat(1200)}`+
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
@@ -172,7 +170,7 @@ async function handleGameCore(d,c,msg,isSelf){
        `[ ANSWER GUIDE ]\n\n`+
        `정답을 채팅에 입력하세요.\n`+
        `첫 번째 정답자에게 보상이 지급됩니다.\n`+
-       `#정답 (답) 명령어도 사용 가능합니다.\n\n`+
+       `!정답 (답) 명령어도 사용 가능합니다.\n\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
        `NEXUS · QUIZ SYSTEM`;
    }
