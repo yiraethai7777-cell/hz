@@ -81,6 +81,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Observe incoming responses before other commands; never block the message.
       require('./event-reaction-test').receive({roomId, senderId, text, isBotAccount});
       await ready;
+      // Serve the (static) game help before management and event pipelines.
+      if(text==='!게임명령어'){
+        await handleExtraMessage(client,...args);
+        return;
+      }
       
       const context = {
   client,
@@ -162,7 +167,12 @@ if (text === '#이벤추첨테스트') {
         await game.toggle(context);
         return;
       }
-      if (text==='!게임명령어' && await handleExtraMessage(client,...args)) return;
+      // Known game commands avoid unrelated event/settings DB work.
+      if(gameAliases.isGameCommand(text)){
+        await game.message({...context,msg,chat});
+        return;
+      }
+
       if (!gameAliases.isGameCommand(text) && await management.message(context)) return;
       if (text !== '#주식시간' && await handleExtraMessage(client, ...args)) return;
       if (/^#출석(?:확인|순위)?(?:\s|$)/.test(text)) return;
