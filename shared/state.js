@@ -98,7 +98,7 @@ async function withRoom(rid,rname,fn){
       await c.query('UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1',[rid,after]);
     await c.query('COMMIT');
     const finished=Date.now();
-    if(finished-started>=800)console.warn('[NEXUS GAME ROOM SLOW]',{
+    if(finished-started>=800)console.warn('[GAME ROOM SLOW]',{
       poolMs:connected-started,lockMs:locked-connected,
       actionMs:handled-locked,saveMs:finished-handled,
       wrote:after!==original
