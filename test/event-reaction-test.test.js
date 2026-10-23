@@ -192,3 +192,35 @@ test('premature answer blocks repeat event until cooldown',async()=>{
   await start(args);
   assert.match(sent.at(-1),/다시 테스트/);
 });
+
+
+test('slow 400ms Kakao message queue cannot end at 5 and 4',async()=>{
+  const {args,sent,clock}=fixture();
+  args.send=async message=>{
+    // Simulate LOCO send queue/response latency independently of the 35ms wait.
+    clock.advance(400);
+    sent.push(message);
+  };
+  await start(args);
+  assert.deepEqual(sent.filter(s=>s.startsWith('⏳ ')),
+    ['⏳ 5','⏳ 4','⏳ 3','⏳ 2','⏳ 1']);
+  assert.match(sent.at(-1),/시간 초과/);
+  assert.ok(clock.now()>=2175);
+});
+
+test('selected user can respond after late 4 tick even beyond 175ms absolute time',async()=>{
+  const {args,sent,clock}=fixture();
+  args.send=async message=>{
+    clock.advance(400);
+    sent.push(message);
+    if(message==='⏳ 4') {
+      assert.equal(receive({
+        roomId:args.roomId,senderId:'9007199254740993123',
+        text:'4에서 답변',now:clock.now
+      }),true);
+    }
+  };
+  await start(args);
+  assert.deepEqual(sent.filter(s=>s.startsWith('⏳ ')),['⏳ 5','⏳ 4']);
+  assert.match(sent.at(-1),/반응 성공/);
+});
