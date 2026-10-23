@@ -81,11 +81,10 @@ test('authorization blocks non-managers and non-open chats',async()=>{
   assert.match(two.sent[0],/오픈채팅방/);
 });
 
-test('concurrent events and cooldown prevent repeated sends',async()=>{
+test('concurrent event is blocked but completed event can restart immediately',async()=>{
   const {args,sent,clock}=fixture();
-  args.sleep=()=>new Promise(()=>{}); // only the winner signal can end this wait
+  args.sleep=()=>new Promise(()=>{}); // finish only after the selected user responds
   const first=start(args);
-  // Allow asynchronous cached member and initial text sends to complete.
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
@@ -94,8 +93,11 @@ test('concurrent events and cooldown prevent repeated sends',async()=>{
   const matched=receive({roomId:args.roomId,senderId:'9007199254740993123',text:'안녕',now:clock.now});
   assert.equal(matched,true);
   await first;
+  args.sleep=async ms=>clock.advance(ms);
+  const announcementsBefore=sent.filter(s=>s.includes('35ms 카운트 이벤트')).length;
   await start(args);
-  assert.match(sent.at(-1),/다시 테스트/);
+  assert.equal(sent.filter(s=>s.includes('35ms 카운트 이벤트')).length, announcementsBefore+1);
+  assert.match(sent.at(-1),/시간 초과/);
 });
 
 test('connection errors abort without false timeout or success',async()=>{
@@ -181,7 +183,7 @@ test('other user answering before countdown cannot eliminate selected user',asyn
   assert.match(sent.at(-1),/시간 초과/);
 });
 
-test('premature answer blocks repeat event until cooldown',async()=>{
+test('early elimination allows immediate rerun without cooldown',async()=>{
   const {args,sent,clock}=fixture();
   args.send=async message=>{
     sent.push(message);
@@ -190,7 +192,8 @@ test('premature answer blocks repeat event until cooldown',async()=>{
   };
   await start(args);
   await start(args);
-  assert.match(sent.at(-1),/다시 테스트/);
+  assert.equal(sent.filter(s=>s.includes('35ms 카운트 이벤트')).length,2);
+  assert.equal(sent.filter(s=>s.includes('탈락!')).length,2);
 });
 
 
