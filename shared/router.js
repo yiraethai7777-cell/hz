@@ -50,6 +50,10 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       
+if (await require('./event-settings').handle({
+  client,roomId,msg,text,send:context.send
+})) return;
+
 if (text === '#이벤인원테스트') {
   await require('./event-member-test').handle({client, roomId, msg, send: context.send});
   return;
