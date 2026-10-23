@@ -92,7 +92,7 @@ test('QUIZ title and question precede fold; difficulty follows fold',async()=>{
  assert.doesNotMatch(first.slice(0,pos),/\[ (쉬움|도전) · /);
  assert.ok(first.slice(pos+fold.length).includes(
   '[ '+room.quiz.difficulty+' · '+room.quiz.kind+' ]'));
- assert.doesNotMatch(first,/NEXUS QUIZ/);
+ assert.match(first,/^\[ # \] QUIZ/);
  const active=await game.handleGame(room,{},msg,false);
  const again=active.indexOf(fold);
  assert.match(active.slice(0,again),/^\[ # \] QUIZ\n\nQ\. /);
