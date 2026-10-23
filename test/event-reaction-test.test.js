@@ -26,15 +26,15 @@ function fixture(overrides={}) {
   return {args,sent,mentionCalls,clock};
 }
 
-test('5-second test sends real mention and 5,4,3,2,1 then times out',async()=>{
+test('35ms ticks count 5,4,3,2,1 and then time out',async()=>{
   const {args,sent,mentionCalls,clock}=fixture();
   await start(args);
   assert.equal(mentionCalls.length,1);
   assert.equal(mentionCalls[0].id,'9007199254740993123');
   assert.ok(sent[0].includes(marker('9007199254740993123','𒊮𝐀𝐏𝐄𝐗 정 ᯽')));
-  assert.deepEqual(sent.filter(s=>s.startsWith('⏳ ')),['⏳ 5초','⏳ 4초','⏳ 3초','⏳ 2초','⏳ 1초']);
+  assert.deepEqual(sent.filter(s=>s.startsWith('⏳ ')),['⏳ 5','⏳ 4','⏳ 3','⏳ 2','⏳ 1']);
   assert.match(sent.at(-1),/시간 초과/);
-  assert.equal(clock.now(),5000);
+  assert.equal(clock.now(),175);
 });
 
 test('selected user ordinary chat within the deadline wins, countdown stops',async()=>{
@@ -44,7 +44,7 @@ test('selected user ordinary chat within the deadline wins, countdown stops',asy
     receive({roomId:args.roomId,senderId:'9007199254740993123',text:'참여!',now:clock.now});
   };
   await start(args);
-  assert.deepEqual(sent.filter(s=>s.startsWith('⏳ ')),['⏳ 5초']);
+  assert.deepEqual(sent.filter(s=>s.startsWith('⏳ ')),['⏳ 5']);
   assert.match(sent.at(-1),/반응 성공/);
 });
 
@@ -61,11 +61,11 @@ test('another user and commands cannot trigger success',async()=>{
   assert.match(sent.at(-1),/시간 초과/);
 });
 
-test('a message delivered at or after five seconds is too late',async()=>{
+test('a message delivered at or after 175ms is too late',async()=>{
   const {args,sent,clock}=fixture();
   args.sleep=async ms=>{
     clock.advance(ms);
-    if(clock.now()===5000) assert.equal(
+    if(clock.now()===175) assert.equal(
       receive({roomId:args.roomId,senderId:'9007199254740993123',text:'늦음',now:clock.now}),false);
   };
   await start(args);
@@ -127,4 +127,68 @@ test('router runs event and observes later user message',async()=>{
   await b;
   await a;
   assert.match(sent.at(-1),/반응 성공/);
+});
+
+
+test('selected user answering during announcement is eliminated before countdown',async()=>{
+  const {args,sent,clock}=fixture();
+  const selected='9007199254740993123';
+  args.send=async message=>{
+    sent.push(message);
+    if(message.includes('5초 반응 이벤트')) {
+      assert.equal(receive({roomId:args.roomId,senderId:selected,text:'미리 답장',now:clock.now}),true);
+    }
+  };
+  await start(args);
+  assert.match(sent.at(-1),/탈락! 카운트다운이 시작되기 전에/);
+  assert.equal(sent.some(x=>x.startsWith('⏳ ')),false);
+});
+
+test('answer while first 5 tick is sending is still early',async()=>{
+  const {args,sent,clock}=fixture();
+  args.send=async message=>{
+    sent.push(message);
+    if(message === '⏳ 5') {
+      assert.equal(receive({roomId:args.roomId,senderId:'9007199254740993123',text:'아직 전',now:clock.now}),true);
+    }
+  };
+  await start(args);
+  assert.deepEqual(sent.filter(x=>x.startsWith('⏳ ')),['⏳ 5']);
+  assert.match(sent.at(-1),/탈락!/);
+});
+
+test('winner response at first 5 tick after successful send is accepted',async()=>{
+  const {args,sent,clock}=fixture();
+  args.sleep=async ms=>{
+    assert.equal(ms,35);
+    clock.advance(ms);
+    assert.equal(receive({roomId:args.roomId,senderId:'9007199254740993123',text:'이제 답장',now:clock.now}),true);
+  };
+  await start(args);
+  assert.deepEqual(sent.filter(x=>x.startsWith('⏳ ')),['⏳ 5']);
+  assert.match(sent.at(-1),/반응 성공/);
+});
+
+test('other user answering before countdown cannot eliminate selected user',async()=>{
+  const {args,sent,clock}=fixture();
+  args.send=async message=>{
+    sent.push(message);
+    if(message.includes('5초 반응 이벤트')) {
+      assert.equal(receive({roomId:args.roomId,senderId:'42',text:'내 대답',now:clock.now}),false);
+    }
+  };
+  await start(args);
+  assert.match(sent.at(-1),/시간 초과/);
+});
+
+test('premature answer blocks repeat event until cooldown',async()=>{
+  const {args,sent,clock}=fixture();
+  args.send=async message=>{
+    sent.push(message);
+    if(message.includes('5초 반응 이벤트'))
+      receive({roomId:args.roomId,senderId:'9007199254740993123',text:'너무 빨리',now:clock.now});
+  };
+  await start(args);
+  await start(args);
+  assert.match(sent.at(-1),/다시 테스트/);
 });
