@@ -63,3 +63,38 @@ test('event member test prevents concurrent scans in the same room', async () =>
   await first;
   assert.match(ctx.messages[1], /APEX 추첨 대상: 1명/);
 });
+
+require('ts-node/register/transpile-only');
+const {KakaoForgeClient} = require('../src/client/client');
+
+function mockRosterClient(body) {
+  const client=Object.create(KakaoForgeClient.prototype);
+  Object.assign(client,{
+    _carriage:{_socket:{destroyed:false},memList:async()=>({status:0,body})},
+    _resolveChatId:id=>id,
+    _memberNames:new Map(),_memberTypes:new Map(),
+    _memberProfileLinkIds:new Map(),_memberProfileTypes:new Map(),
+    _memberProfileImages:new Map(),
+    _chatRooms:new Map(),_touchMemberCache:()=>{}
+  });
+  return client;
+}
+
+test('member refresh supports m arrays without losing exact string IDs',async()=>{
+  const client=mockRosterClient({m:[{userId:'9007199254740993123',nickName:'𝐀𝐏𝐄𝐗',mt:2}],token:0});
+  const progress=[];
+  const result=await client.refreshMemberProfiles('18495931541358610',{onProgress:x=>progress.push(x)});
+  assert.equal(result.length,1);
+  assert.equal(result[0].id,'9007199254740993123');
+  assert.equal(result[0].name,'𝐀𝐏𝐄𝐗');
+  assert.equal(progress[0].source,'m');
+  assert.deepEqual(progress[0].bodyKeys,['m','token']);
+});
+
+test('empty MEMLIST reports diagnostic keys instead of fake zero participants',async()=>{
+  const client=mockRosterClient({someField:1,token:0});
+  const progress=[];
+  await assert.rejects(()=>client.refreshMemberProfiles('18495931541358610',{onProgress:x=>progress.push(x)}),/MEMLIST returned no usable member IDs/);
+  assert.equal(progress[0].source,'none');
+  assert.deepEqual(progress[0].bodyKeys,['someField','token']);
+});
