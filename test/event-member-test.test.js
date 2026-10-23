@@ -70,6 +70,7 @@ function mockRosterClient(body) {
   Object.assign(client,{
     _carriage:{_socket:{destroyed:false},memList:async()=>({status:0,body})},
     _resolveChatId:id=>id,
+    _eventRosterIds:new Map(),_eventDepartedIds:new Map(),
     _memberNames:new Map(),_memberTypes:new Map(),
     _memberProfileLinkIds:new Map(),_memberProfileTypes:new Map(),
     _memberProfileImages:new Map(),
@@ -149,9 +150,73 @@ test('getCachedMemberProfiles reads exact ID strings without network calls',()=>
   const client=mockRosterClient({status:0});
   const room='18495931541358610',exact='9007199254740993123';
   client._cacheMembers(room,[{userId:exact,nickName:'𝐀𝐏𝐄𝐗 회원',mt:2}]);
+  client._setEventRoomRoster(room,[{userId:exact}]);
   client._carriage.memList=()=>{throw Error('Unexpected MEMLIST')};
   client._carriage.chatOnRoom=()=>{throw Error('Unexpected CHATONROOM')};
   const result=client.getCachedMemberProfiles(room);
   assert.deepEqual(result.map(m=>m.id),[exact]);
   assert.equal(result[0].name,'𝐀𝐏𝐄𝐗 회원');
+});
+
+
+test('event cache excludes left participant even when stale profile data remains',()=>{
+  const client=mockRosterClient({status:0});
+  const room='18495931541358610';
+  const current='9007199254740993123', departed='9007199254740993124';
+  const people=[
+    {userId:current,nickName:'𝐀𝐏𝐄𝐗 남은사람',mt:2},
+    {userId:departed,nickName:'𝐀𝐏𝐄𝐗 퇴장자',mt:2}
+  ];
+  client._cacheMembers(room,people);
+  client._setEventRoomRoster(room,people);
+  assert.equal(client.getCachedMemberProfiles(room).length,2);
+  client._trackEventRoomMembership('leave',{
+    room:{id:room,isOpenChat:true},member:{ids:[departed],names:['']}
+  });
+  assert.deepEqual(client.getCachedMemberProfiles(room).map(m=>m.id),[current]);
+  // Late profile response must not make a departed participant eligible again.
+  client._cacheMembers(room,[people[1]]);
+  assert.deepEqual(client.getCachedMemberProfiles(room).map(m=>m.id),[current]);
+  // Even an old room snapshot cannot re-add an unjoined participant.
+  client._setEventRoomRoster(room,people);
+  assert.deepEqual(client.getCachedMemberProfiles(room).map(m=>m.id),[current]);
+});
+
+test('event cache excludes kicked participants in only the specified room',()=>{
+  const client=mockRosterClient({status:0});
+  const room='100', other='200', id='9007199254740993123';
+  client._cacheMembers(room,[{userId:id,nickName:'APEX'}]);
+  client._cacheMembers(other,[{userId:id,nickName:'APEX'}]);
+  client._setEventRoomRoster(room,[{userId:id}]);
+  client._setEventRoomRoster(other,[{userId:id}]);
+  client._trackEventRoomMembership('kick',{
+    room:{id:room,isOpenChat:true},member:{ids:[id],names:[]}
+  });
+  assert.equal(client.getCachedMemberProfiles(room).length,0);
+  assert.equal(client.getCachedMemberProfiles(other).length,1);
+});
+
+test('joined participant is restored after a fresh join event',()=>{
+  const client=mockRosterClient({status:0});
+  const room='100', id='9007199254740993123',person={userId:id,nickName:'APEX 새로 입장'};
+  client._cacheMembers(room,[person]);
+  client._setEventRoomRoster(room,[person]);
+  client._trackEventRoomMembership('leave',{room:{id:room,isOpenChat:true},member:{ids:[id]}});
+  assert.equal(client.getCachedMemberProfiles(room).length,0);
+  client._trackEventRoomMembership('join',{
+    room:{id:room,isOpenChat:true},
+    member:{ids:[id]}, members:[{id,name:'APEX 새로 입장',type:2}]
+  });
+  assert.deepEqual(client.getCachedMemberProfiles(room).map(m=>m.id),[id]);
+});
+
+test('event cache refuses member profiles without a current snapshot',()=>{
+  const client=mockRosterClient({status:0});
+  const room='100',id='9007199254740993123';
+  client._cacheMembers(room,[{userId:id,nickName:'APEX 예전회원'}]);
+  assert.deepEqual(client.getCachedMemberProfiles(room),[]);
+  client._setEventRoomRoster(room,[{userId:id}]);
+  assert.equal(client.getCachedMemberProfiles(room).length,1);
+  client._eventRosterIds.clear(); // Simulates a dropped connection
+  assert.deepEqual(client.getCachedMemberProfiles(room),[]);
 });
