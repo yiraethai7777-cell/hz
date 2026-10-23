@@ -102,3 +102,41 @@ test('unrecognized command returns false',async()=>{
   const {args}=fixture({text:'#이벤진행테스트'});
   assert.equal(await notice.handle(args),false);
 });
+
+
+test('message-to-notice adapter uses real KakaoForge response.body.logId',async()=>{
+  const called=[];
+  const adapter=notice.createMessageNoticeAdapter({
+    sendText:async(room,text)=>{called.push({kind:'send',room,text});return {
+      status:0,body:{logId:'9007199254740993123'}
+    };},
+    setNotice:async args=>{called.push({kind:'notice',...args});return {
+      registered:true,status:0,postId:'post-123'
+    };}
+  });
+  const res=await adapter.register({roomId,text:'오늘 이벤트 공지'});
+  assert.deepEqual(called,[
+    {kind:'send',room:roomId,text:'오늘 이벤트 공지'},
+    {kind:'notice',roomId,logId:'9007199254740993123'}
+  ]);
+  assert.deepEqual(res,{registered:true,postId:'post-123'});
+});
+
+test('message-to-notice adapter stops if WRITE returned no valid logId',async()=>{
+  let posted=false;
+  const adapter=notice.createMessageNoticeAdapter({
+    sendText:async()=>({status:0,result:{logId:'77'}}),
+    setNotice:async()=>{posted=true;return {registered:true};}
+  });
+  await assert.rejects(adapter.register({roomId,text:'안내'}),/logId/);
+  assert.equal(posted,false);
+});
+
+test('notice method without verified completion is not reported as registered',async()=>{
+  const adapter=notice.createMessageNoticeAdapter({
+    sendText:async()=>({status:0,body:{logId:'9007199254740993123'}}),
+    setNotice:async()=>({status:0})
+  });
+  const result=await adapter.register({roomId,text:'공지'});
+  assert.deepEqual(result,{registered:false});
+});
