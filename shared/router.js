@@ -133,6 +133,10 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       
 if(gameAliases.isGameCommand(text) && text!=='!게임작동' && text!=='!게임중지'){
   await game.message({...context,msg,chat});
+  // Preserve management chat-count statistics without delaying the game reply.
+  // This path cannot invoke management commands: aliases are game-only.
+  Promise.resolve().then(()=>management.message(context))
+    .catch(error=>console.error('[NEXUS GAME CHAT COUNT]',error));
   return;
 }
 
