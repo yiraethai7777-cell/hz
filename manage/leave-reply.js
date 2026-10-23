@@ -12,99 +12,76 @@ async function init(db){await db.query(`CREATE TABLE IF NOT EXISTS gl_leave_repl
  target_name TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  PRIMARY KEY(room_id,log_id))`);}
 
+function displayMember(name,userId){
+ const id=exactId(userId),clean=String(name||id||'알 수 없음').replace(/[\u0002-\u0004]/g,'').trim()||id||'알 수 없음';
+ return {id,clean,mention:id?'\u0002'+id+'\u0003'+clean+'\u0004':'@'+clean};
+}
 function leaveNotice({
-  name,
-  userId,
-  joins,
-  leaves,
-  time,
-  detail = '',
-  profileLink = '',
-  profileType = '확인 불가',
-  profileImage = '',
-  joinedAt = null,
-  stay = '확인 불가',
-  bans = 0
-}) {
-  const clean = String(name).replace(/[\u0002-\u0004]/g, '');
-  const mention = exactId(userId)
-    ? `\u0002${userId}\u0003${clean}\u0004`
-    : `@${clean}`;
-
-  return (
-    `${mention} 님이 채팅방에서 퇴장하셨습니다.` +
-    '\u200b'.repeat(1200) +
-    `\n\nNEXUS  /  MEMBER LEFT` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n\n01  MEMBER PROFILE` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n닉네임      ${mention}` +
-    `\n유저 ID     ${userId}` +
-    `\n프로필      ${profileType}` +
-    `\n프사 URL    ${profileImage || '확인 불가'}` +
-    `\n\n02  SESSION HISTORY` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n입장 시각   ${joinedAt || '확인 불가'}` +
-    `\n퇴장 시각   ${time}` +
-    `\n체류 시간   ${stay}` +
-    `\n\n03  ACTIVITY RECORD` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n누적 입장   ${joins}회` +
-    `\n누적 퇴장   ${leaves}회` +
-    `\n강퇴 기록   ${bans}회` +
-    `\n\n04  ADMIN CONTROL` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n해당 메시지에 답장으로 'k' 입력 시` +
-    `\n대상 사용자 강퇴 기능이 실행됩니다.` +
-    `\n\n실행 권한   방장 · 부방장` +
-    `\n\n━━━━━━━━━━━━━━━━━━━━` +
-    `\nNEXUS  ·  AUTOMATED SYSTEM` +
-    (detail ? `\n\n💬 ${detail}` : '')
-  );
+ name,userId,joins=0,leaves=0,time,detail='',
+ profileLink='',profileType='확인 불가',profileImage='',
+ joinedAt=null,stay='확인 불가',bans=0
+}){
+ const {id,clean,mention}=displayMember(name,userId);
+ return (
+  mention+' 님이 채팅방에서 퇴장하셨습니다.\n'+ '\u200b'.repeat(1200)+
+  '\n┏━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃회원 프로필'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃└ 닉네임       '+clean+
+  '\n┃└ 유저 ID      '+(id||'확인 불가')+
+  '\n┃└ 프로필       '+profileType+
+  '\n┃└ 프사 URL     '+(profileImage||'확인 불가')+
+  '\n┃└ 오픈프로필 URL '+(profileLink||'확인 불가')+
+  '\n┃'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃세션 기록'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃└ 입장 시각    '+(joinedAt||'확인 불가')+
+  '\n┃└ 퇴장 시각    '+(time||'확인 불가')+
+  '\n┃└ 체류 시간    '+(stay||'확인 불가')+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃활동 기록'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃└ 누적 입장    '+Number(joins||0)+'회'+
+  '\n┃└ 누적 퇴장    '+Number(leaves||0)+'회'+
+  '\n┃└ 강퇴 기록    '+Number(bans||0)+'회'+
+  '\n┗━━━━━━━━━━━━━━━━━━━━'+
+  '\n퇴장 알림에 답장으로 k 입력 시 벤합니다. (방장·부방장·지정 관리자)'+
+  (detail?'\n\n💬 '+detail:'')
+ );
 }
-
-
 function joinNotice({
-  name, userId, roomName, joins, leaves, time,
-  profileLink = '', profileType = 0,
-  profileImage = '', bans = 0, detail = ''
-}) {
-  const clean = String(name).replace(/[\u0002-\u0004]/g, '');
-  const mention = exactId(userId)
-    ? `\u0002${userId}\u0003${clean}\u0004`
-    : `@${clean}`;
-
-  const typeName = [1, 2, 4].includes(Number(profileType))
-    ? '기본프로필'
-    : Number(profileType) === 0
-      ? (profileLink ? '오픈프로필' : '확인 불가')
-      : '오픈프로필';
-
-  return (
-    `${mention} 님이 채팅방에 입장하셨습니다.\n` +
-    '\u200b'.repeat(1200) +
-    `\nNEXUS  /  MEMBER JOINED` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n\n01  MEMBER PROFILE` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n닉네임      ${mention}` +
-    `\n유저 ID     ${userId}` +
-    `\n프로필      ${typeName}` +
-    `\n프사 URL    ${profileImage || '확인 불가'}` +
-    `\n\n02  SESSION HISTORY` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n입장 시각   ${time}` +
-    `\n\n03  ACTIVITY RECORD` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n누적 입장   ${joins}회` +
-    `\n누적 퇴장   ${leaves}회` +
-    `\n강퇴 기록   ${bans}회` +
-    `\n\n━━━━━━━━━━━━━━━━━━━━` +
-    `\nNEXUS  ·  AUTOMATED SYSTEM` +
-    (detail ? `\n\n💬 ${detail}` : '')
-  );
+ name,userId,roomName,joins=0,leaves=0,time,
+ profileLink='',profileType=0,profileImage='',bans=0,detail=''
+}){
+ const {id,clean,mention}=displayMember(name,userId);
+ const typeName=[1,2,4].includes(Number(profileType))?'기본프로필':
+  Number(profileType)===0?(profileLink?'오픈프로필':'확인 불가'):'오픈프로필';
+ return (
+  mention+' 님이 채팅방에 입장하셨습니다.\n'+'\u200b'.repeat(1200)+
+  '\n┏━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃회원 프로필'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃└ 닉네임       '+clean+
+  '\n┃└ 유저 ID      '+(id||'확인 불가')+
+  '\n┃└ 프로필       '+typeName+
+  '\n┃└ 프사 URL     '+(profileImage||'확인 불가')+
+  '\n┃└ 오픈프로필 URL '+(profileLink||'확인 불가')+
+  '\n┃'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃세션 기록'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃└ 입장 시각    '+(time||'확인 불가')+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃활동 기록'+
+  '\n┣━━━━━━━━━━━━━━━━━━━━'+
+  '\n┃└ 누적 입장    '+Number(joins||0)+'회'+
+  '\n┃└ 누적 퇴장    '+Number(leaves||0)+'회'+
+  '\n┃└ 강퇴 기록    '+Number(bans||0)+'회'+
+  '\n┗━━━━━━━━━━━━━━━━━━━━'+
+  (detail?'\n\n💬 '+detail:'')
+ );
 }
-
 function profileNotice(change,time){
   return `👤 ${change.newName}님이 프로필을 변경했습니다.\n${'\u200b'.repeat(1200)}\n${change.oldName||'확인 불가'} → ${change.newName||'확인 불가'}\n예전 옾링: ${change.oldOpenLink||'확인된 링크 없음'}\n현재 옾링: ${change.newOpenLink||'확인된 링크 없음'}\n시간: ${time}`;
 }
@@ -160,7 +137,7 @@ async function handle(context,db){
  try{
   await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
     [String(roomId),String(userId),row.target_id,'KICK','퇴장 알림 k 답장 강퇴']);
- }catch(e){console.error('[NEXUS LEAVE K LOG]',String(e?.message||e));}
+ }catch(e){console.error('[LEAVE K LOG]',String(e?.message||e));}
  await send(`🚫 ${row.target_name}님을 벤했습니다.\n사용자 ID: ${row.target_id}`);return true;
 }
 module.exports={init,leaveNotice,joinNotice,profileNotice,record,replyReference,handle};
