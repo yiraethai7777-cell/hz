@@ -2228,32 +2228,57 @@ export class KakaoForgeClient extends EventEmitter {
 
   async refreshMemberProfiles(
     chatId: number | string,
-    options: {onProgress?: (progress: {page: number; pageMembers: number; totalMembers: number; hasMore: boolean}) => void} = {}
+    options: {onProgress?: (progress: {
+      page: number; pageMembers: number; totalMembers: number; hasMore: boolean;
+      source: string; responseKeys: string[]; bodyKeys: string[]; status: string;
+    }) => void} = {}
   ) {
     const carriage=this._carriage;
     if (!carriage) throw new Error('LOCO not connected');
     const roomId=this._resolveChatId(chatId), ids=new Set<string>();
     let token: number | string=0;
     for(let page=0;page<30;page++) {
-      // Abort if the underlying connection changed during pagination.
-      if (this._carriage !== carriage) throw new Error('LOCO connection changed during member refresh');
+      if (this._carriage !== carriage || !this.connected)
+        throw new Error('LOCO connection changed during member refresh');
       const response=await carriage.memList({chatId:roomId,token,excludeMe:false});
-      if(typeof response?.status==='number'&&response.status!==0)throw new Error('Profile MEMLIST failed (status=' + response.status + ')');
-      const body=response?.body||{}, members=body.members||body.memberList||body.memList||[];
-      if(!Array.isArray(members))throw new Error('Invalid profile member list');
-      this._cacheMembers(roomId,members);
+      const body=response?.body||{};
+      const statusValue=response?.status ?? body?.status;
+      const status=String(statusValue ?? 'unknown');
+      // Never log response values: they can contain private member information.
+      const responseKeys=Object.keys(response||{}).slice(0,20);
+      const bodyKeys=Object.keys(body).slice(0,25);
+      const statusNumber=Number(statusValue);
+      if(statusValue!=null && Number.isFinite(statusNumber) && statusNumber!==0)
+        throw new Error('Profile MEMLIST failed (status='+status+')');
+      const entries=[
+        ['members',body.members],['memberList',body.memberList],
+        ['memList',body.memList],['m',body.m]
+      ] as Array<[string, any]>;
+      const found=entries.find(([,value])=>Array.isArray(value));
+      const source=found?.[0]||'none';
+      const members=found?.[1]||[];
       for(const member of members) {
-        const id=String(normalizeIdValue(member.userId??member.id??member.memberId)||'');
+        const id=String(normalizeIdValue(member?.userId??member?.id??member?.memberId??member?.user_id)||'');
         if(/^[1-9]\d*$/.test(id))ids.add(id);
       }
+      if(members.length)this._cacheMembers(roomId,members);
       const next=String(normalizeIdValue(body.token??body.nextToken??body.memberToken??0)||'');
       const hasMore=!!next&&next!=='0'&&next!==String(token);
-      options.onProgress?.({page:page+1,pageMembers:members.length,totalMembers:ids.size,hasMore});
-      if(!hasMore)break;
+      options.onProgress?.({
+        page:page+1,pageMembers:members.length,totalMembers:ids.size,hasMore,
+        source,responseKeys,bodyKeys,status
+      });
+      if(!members.length && !ids.size)
+        throw new Error('MEMLIST returned no member entries (source='+source+
+          ', status='+status+', responseKeys='+responseKeys.join(',')+
+          ', bodyKeys='+bodyKeys.join(',')+')');
+      if(!hasMore)return [...ids].map(id=>({
+        id,...this.getUserProfileSnapshot(roomId,id),type:this._getCachedMemberType(roomId,id)
+      }));
       token=next;
       await new Promise(resolve=>setTimeout(resolve,250));
     }
-    return [...ids].map(id=>({id,...this.getUserProfileSnapshot(roomId,id),type:this._getCachedMemberType(roomId,id)}));
+    throw new Error('MEMLIST pagination incomplete after 30 pages');
   }
 
   getUserOpenProfileType(chatId: number | string, userId: number | string): number {
