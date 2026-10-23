@@ -6,7 +6,7 @@ const {getCandidates} = require('./event-draw-test');
 const active = new Map();
 const cooldown = new Map();
 const COOLDOWN_MS = 60_000;
-const WINDOW_MS = 5_000;
+const TICK_MS = 35; // Nominal countdown gap. Actual sends may be rate-limited.
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function sendSafe(client, send, message) {
@@ -26,14 +26,20 @@ async function sendSafe(client, send, message) {
 // Called for every incoming message, without blocking other command handlers.
 function receive({roomId, senderId, text, isBotAccount = false, now = Date.now}) {
   const state = active.get(String(roomId));
-  if (!state || !state.armed || state.result || isBotAccount) return false;
+  if (!state || !state.userId || state.result || isBotAccount) return false;
   if (String(senderId ?? '') !== state.userId) return false;
   const body = String(text ?? '').trim();
   if (!body || body.startsWith('#')) return false;
-  if (now() >= state.deadline) return false;
+  if (state.phase === 'precountdown') {
+    state.result = 'early';
+    state.resolveSignal();
+    console.log('[이벤 진행 테스트] 카운트 시작 전 답변으로 탈락: room=' + state.room);
+    return true;
+  }
+  if (state.phase !== 'counting') return false;
   state.result = 'success';
   state.resolveSignal();
-  console.log('[이벤 진행 테스트] 당첨 후보 채팅 감지: room=' + state.room);
+  console.log('[이벤 진행 테스트] 카운트 진행 중 채팅 감지: room=' + state.room);
   return true;
 }
 
@@ -69,7 +75,7 @@ async function start({
 
   let resolveSignal;
   const signal = new Promise(resolve => {resolveSignal = resolve;});
-  const state = {room, userId:'', armed:false, result:null, deadline:0, resolveSignal, signal};
+  const state = {room, userId:'', phase:'choosing', result:null, resolveSignal, signal};
   active.set(room, state); // Lock before any await.
   try {
     const members = await client.getCachedMemberProfiles(roomId);
@@ -88,51 +94,60 @@ async function start({
         !marker.endsWith('\u0004'))
       throw Error('Invalid mention marker');
     state.userId = String(selected.id);
+    // The selected user must wait until the first countdown number is sent.
+    state.phase = 'precountdown';
 
     if (!await sendSafe(client, send,
       '🎯 APEX 5초 반응 이벤트 테스트\n' +
       '━━━━━━━━━━━━━━\n' +
       '후보: ' + candidates.length + '명 (캐시 기준)\n' +
       '도전자: ' + marker + '\n' +
-      '멘션된 분은 5초 안에 아무 채팅이나 보내세요!\n' +
+      '⏳ 5 카운트가 시작되면 답장하세요! (숫자당 35ms)\n' +
+      '시작 전에 답장하면 즉시 탈락합니다.\n' +
       '━━━━━━━━━━━━━━\n' +
       '⚠️ 테스트 전용 · 실제 당첨이나 보상 없음')) return;
 
-    state.armed = true;
-    state.deadline = now() + WINDOW_MS;
     cooldown.set(room, now());
-    console.log('[이벤 진행 테스트] 5초 시작: room=' + room + ' candidateCount=' + candidates.length);
+    console.log('[이벤 진행 테스트] 카운트 준비: room=' + room +
+      ' candidateCount=' + candidates.length + ' tickMs=' + TICK_MS);
 
-    // Display 5,4,3,2,1 once per second. Never await a timer without also
-    // observing the selected user's response, so winning can stop early.
+    // Before the first "5" is delivered, a selected user's answer
+    // disqualifies them. Once "5" is delivered, normal chat is valid.
+    // Each tick waits 35 ms after a confirmed send. Network delivery and
+    // the client's outgoing send queue can make the visible pace slower.
     for (let remaining=5; remaining>=1; remaining--) {
       if (state.result) break;
       if (client.connected === false) throw Error('Connection closed during countdown');
-      if (now() >= state.deadline) break;
-      if (!await sendSafe(client, send, '⏳ ' + remaining + '초')) 
+      if (!await sendSafe(client, send, '⏳ ' + remaining)) 
         throw Error('Countdown delivery failed');
       if (state.result) break;
-      const untilNext = Math.max(0, Math.min(1000, state.deadline - now()));
-      await Promise.race([sleep(untilNext), signal]);
+      if (remaining === 5) {
+        state.phase = 'counting';
+        console.log('[이벤 진행 테스트] 카운트 시작: room=' + room + ' tickMs=' + TICK_MS);
+      }
+      await Promise.race([sleep(TICK_MS), signal]);
     }
 
     if (client.connected === false) throw Error('Connection closed during event');
-    if (state.result === 'success') {
+    state.phase = 'ended';
+    if (state.result === 'early') {
+      console.log('[이벤 진행 테스트] 조기 답변 탈락: room=' + room);
+      await sendSafe(client, send, '🚫 탈락! 카운트다운이 시작되기 전에 답장했습니다.\n🎯 테스트 종료 · 실제 보상 없음');
+    } else if (state.result === 'success') {
       console.log('[이벤 진행 테스트] 성공: room=' + room);
-      await sendSafe(client, send, '✅ 반응 성공! 선택된 참가자의 채팅을 5초 안에 감지했습니다.\n🎯 테스트 성공 · 실제 보상 없음');
+      await sendSafe(client, send, '✅ 반응 성공! 카운트 진행 중 선택된 참가자의 채팅을 감지했습니다.\n🎯 테스트 성공 · 실제 보상 없음');
     } else {
-      state.armed = false;
       state.result = 'expired';
       console.log('[이벤 진행 테스트] 시간 초과: room=' + room);
-      await sendSafe(client, send, '⌛ 시간 초과! 선택된 참가자의 채팅이 5초 안에 감지되지 않았습니다.\n🎯 테스트 종료 · 실제 보상 없음');
+      await sendSafe(client, send, '⌛ 시간 초과! 카운트가 끝나기 전에 선택된 참가자가 답장하지 않았습니다.\n🎯 테스트 종료 · 실제 보상 없음');
     }
   } catch(error) {
-    state.armed = false;
+    state.phase = 'ended';
     state.result = 'aborted';
     console.error('[이벤 진행 테스트] 중단: room=' + room + ' error=' + String(error?.message || error));
     await sendSafe(client, send, '❌ 이벤트 테스트가 연결 오류 또는 전송 오류로 중단되었습니다.');
   } finally {
-    state.armed = false;
+    state.phase = 'ended';
     if (active.get(room) === state) active.delete(room);
   }
 }
