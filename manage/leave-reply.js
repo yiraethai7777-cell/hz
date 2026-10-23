@@ -157,6 +157,10 @@ async function handle(context,db){
   await send('벤 요청 실패: '+e.message);return true;
  }
  await db.query(`UPDATE gl_leave_replies SET state='done' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
+ try{
+  await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
+    [String(roomId),String(userId),row.target_id,'KICK','퇴장 알림 k 답장 강퇴']);
+ }catch(e){console.error('[NEXUS LEAVE K LOG]',String(e?.message||e));}
  await send(`🚫 ${row.target_name}님을 벤했습니다.\n사용자 ID: ${row.target_id}`);return true;
 }
 module.exports={init,leaveNotice,joinNotice,profileNotice,record,replyReference,handle};
