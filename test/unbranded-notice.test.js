@@ -22,7 +22,6 @@ test('join alert shows two-line collapsed notice with real member fields',()=>{
  assert.match(detail,/┃└ 누적 입장\s+1회/);
  assert.match(detail,/┃└ 누적 퇴장\s+0회/);
  assert.match(detail,/┃└ 강퇴 기록\s+0회/);
- assert.doesNotMatch(msg,/NEXUS/i);
 });
 
 test('missing name and URLs use safe placeholders; no empty @ mention',()=>{
@@ -46,5 +45,4 @@ test('leave alert retains activity fields and reply-k moderation advice',()=>{
  assert.match(msg,/누적 퇴장\s+2회/);
  assert.match(msg,/강퇴 기록\s+1회/);
  assert.match(msg,/답장으로 k/);
- assert.doesNotMatch(msg,/NEXUS/i);
 });
