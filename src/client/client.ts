@@ -2239,7 +2239,7 @@ export class KakaoForgeClient extends EventEmitter {
       if (this._carriage !== carriage) throw new Error('LOCO connection changed during member refresh');
       const response=await carriage.memList({chatId:roomId,token,excludeMe:false});
       if(typeof response?.status==='number'&&response.status!==0)throw new Error('Profile MEMLIST failed (status=' + response.status + ')');
-      const body=response?.body||{}, members=body.members||body.memberList||[];
+      const body=response?.body||{}, members=body.members||body.memberList||body.memList||[];
       if(!Array.isArray(members))throw new Error('Invalid profile member list');
       this._cacheMembers(roomId,members);
       for(const member of members) {
