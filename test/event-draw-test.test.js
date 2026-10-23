@@ -66,7 +66,7 @@ test('event draw rejects non-admin or normal chat',async()=>{
 test('event draw reports no candidates without mentioning anyone',async()=>{
   const ctx=context();
   ctx.client.getCachedMemberProfiles=()=>[{id:'321',name:'일반'}];
-  await handle(ctx);assert.match(ctx.sent[0],/캐시에 없습니다/);assert.equal(ctx.called.length,0);
+  await handle(ctx);assert.match(ctx.sent[0],/현재 확인된 APEX 참가자가 없습니다/);assert.equal(ctx.called.length,0);
 });
 
 test('event draw blocks rapid repeated mention attempts',async()=>{
