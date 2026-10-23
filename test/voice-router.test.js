@@ -84,3 +84,18 @@ test('bare 보룸켜기 without a prefix responds with unsupported protocol expl
   assert.equal(sent.length,1);
   assert.match(sent[0].body,/생성 API가 아직 연결되지 않았습니다/);
 });
+
+
+test('same Kakao account as bot can execute status without being silently ignored',async()=>{
+  const {client,sent}=fixture();
+  let callback;
+  client.onMessage=handler=>{callback=handler;};
+  attachRouter(client,{game:{},management:{},ready:new Promise(()=>{})});
+  await callback({
+    room:{id:'18495931541358610',isOpenChat:true},
+    sender:{id:client.userId,type:1},
+    message:{text:'#보룸상태'}
+  });
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/보이스룸 상태/);
+});
