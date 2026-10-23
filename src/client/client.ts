@@ -2226,14 +2226,20 @@ export class KakaoForgeClient extends EventEmitter {
     }
   }
 
-  async refreshMemberProfiles(chatId: number | string) {
-    if (!this._carriage) throw new Error('LOCO not connected');
+  async refreshMemberProfiles(
+    chatId: number | string,
+    options: {onProgress?: (progress: {page: number; pageMembers: number; totalMembers: number; hasMore: boolean}) => void} = {}
+  ) {
+    const carriage=this._carriage;
+    if (!carriage) throw new Error('LOCO not connected');
     const roomId=this._resolveChatId(chatId), ids=new Set<string>();
     let token: number | string=0;
     for(let page=0;page<30;page++) {
-      const response=await this._carriage.memList({chatId:roomId,token,excludeMe:false});
-      if(typeof response?.status==='number'&&response.status!==0)throw new Error('Profile MEMLIST failed');
-      const body=response?.body||{}, members=body.members||body.memberList||body.memList||[];
+      // Abort if the underlying connection changed during pagination.
+      if (this._carriage !== carriage) throw new Error('LOCO connection changed during member refresh');
+      const response=await carriage.memList({chatId:roomId,token,excludeMe:false});
+      if(typeof response?.status==='number'&&response.status!==0)throw new Error('Profile MEMLIST failed (status=' + response.status + ')');
+      const body=response?.body||{}, members=body.members||body.memberList||[];
       if(!Array.isArray(members))throw new Error('Invalid profile member list');
       this._cacheMembers(roomId,members);
       for(const member of members) {
@@ -2241,7 +2247,9 @@ export class KakaoForgeClient extends EventEmitter {
         if(/^[1-9]\d*$/.test(id))ids.add(id);
       }
       const next=String(normalizeIdValue(body.token??body.nextToken??body.memberToken??0)||'');
-      if(!next||next==='0'||next===String(token))break;
+      const hasMore=!!next&&next!=='0'&&next!==String(token);
+      options.onProgress?.({page:page+1,pageMembers:members.length,totalMembers:ids.size,hasMore});
+      if(!hasMore)break;
       token=next;
       await new Promise(resolve=>setTimeout(resolve,250));
     }
