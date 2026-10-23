@@ -1,6 +1,7 @@
 'use strict';
 
-// Isolated event roster diagnostic: no game or moderation switch required.
+// Passive event-member diagnostic: never request a live member roster.
+// Cached members are observations, NOT verified current room membership.
 const runningRooms = new Set();
 
 async function safeReply(client, send, message) {
@@ -26,14 +27,14 @@ async function handle({client, roomId, msg, send}) {
     await safeReply(client, send, '방장 또는 부방장만 사용할 수 있습니다.');
     return;
   }
-  if (typeof client?.refreshMemberProfiles !== 'function') {
-    await safeReply(client, send, '이벤트 인원 조회 기능을 사용할 수 없습니다.');
+  if (typeof client?.getCachedMemberProfiles !== 'function') {
+    await safeReply(client, send, '캐시 인원 테스트 기능을 사용할 수 없습니다.');
     return;
   }
 
   const room = String(roomId);
   if (runningRooms.has(room)) {
-    await safeReply(client, send, '이미 이벤트 인원을 조회하고 있습니다.');
+    await safeReply(client, send, '이미 이벤트 인원 캐시를 확인하고 있습니다.');
     return;
   }
   if (client.connected === false) {
@@ -42,54 +43,39 @@ async function handle({client, roomId, msg, send}) {
   }
 
   runningRooms.add(room);
-  const started = Date.now();
-  console.log('[이벤 인원 테스트] 조회 시작: room=' + room);
+  const started=Date.now();
+  console.log('[이벤 인원 테스트] 캐시 확인 시작: room=' + room);
   try {
-    const members = await client.refreshMemberProfiles(roomId, {
-      allowChatOnRoomFallback: true,
-      onProgress(progress) {
-        console.log('[이벤 인원 테스트] 조회 진행: room=' + room +
-          ' page=' + progress.page +
-          ' pageMembers=' + progress.pageMembers +
-          ' totalMembers=' + progress.totalMembers +
-          ' hasMore=' + progress.hasMore +
-          ' source=' + progress.source +
-          ' status=' + progress.status +
-          ' responseKeys=' + (progress.responseKeys || []).join(',') +
-          ' bodyKeys=' + (progress.bodyKeys || []).join(','));
-      }
-    });
-    if (!Array.isArray(members)) throw new Error('Invalid member profile result');
-
-    const valid = members.filter(m => m?.id && typeof m.name === 'string' && m.name.trim());
-    const apex = valid.filter(m =>
-      String(m.id) !== String(client.userId) &&
-      m.name.normalize('NFKC').replace(/\s+/g, '').toUpperCase().includes('APEX')
+    // Deliberately no MEMLIST or CHATONROOM: both were involved in unstable
+    // connection periods. A cache result must never be treated as a full roster.
+    const members=await client.getCachedMemberProfiles(roomId);
+    if(!Array.isArray(members))throw new Error('Invalid cached member result');
+    const valid=members.filter(m=>m?.id && typeof m.name==='string' && m.name.trim());
+    const apex=valid.filter(m=>
+      String(m.id)!==String(client.userId) &&
+      m.name.normalize('NFKC').replace(/\s+/g,'').toUpperCase().includes('APEX')
     );
-    const elapsed = Date.now() - started;
-    console.log('[이벤 인원 테스트] 조회 완료: room=' + room +
-      ' members=' + members.length + ' named=' + valid.length +
-      ' apex=' + apex.length + ' elapsedMs=' + elapsed);
+    console.log('[이벤 인원 테스트] 캐시 확인 완료: room=' + room +
+      ' cached=' + members.length + ' named=' + valid.length +
+      ' apexCandidates=' + apex.length + ' elapsedMs=' + (Date.now()-started));
 
-    await safeReply(client, send,
-      '🔍 이벤트 인원 조회 결과\n' +
+    await safeReply(client,send,
+      '🔍 이벤트 인원 캐시 테스트\n' +
       '━━━━━━━━━━━━━━\n' +
-      '조회된 인원: ' + members.length + '명\n' +
+      '캐시에서 확인된 인원: ' + members.length + '명\n' +
       '닉네임 확인: ' + valid.length + '명\n' +
-      'APEX 추첨 대상: ' + apex.length + '명 (닉네임 확인 기준)\n' +
-      (valid.length < members.length ? '⚠️ 닉네임이 없는 인원이 있어 전체 추첨 대상은 미확정입니다.\n' : '') +
-      '조회 소요: ' + elapsed + 'ms\n' +
+      'APEX 후보(캐시 기준): ' + apex.length + '명\n' +
+      '조회 소요: ' + (Date.now()-started) + 'ms\n' +
       '━━━━━━━━━━━━━━\n' +
-      '카카오톡에 표시되는 실제 방 인원과 비교해 주세요.');
-  } catch (err) {
-    const elapsed = Date.now() - started;
-    console.error('[이벤 인원 테스트] 조회 실패: room=' + room +
-      ' elapsedMs=' + elapsed + ' error=' + String(err?.message || err));
-    await safeReply(client, send,
-      '❌ 이벤트 인원 조회 실패\nRailway 로그에서 [이벤 인원 테스트]를 확인해 주세요.');
+      '⚠️ 실제 전체 인원과 현재 참여 여부는 확인되지 않았습니다.\n' +
+      '이 결과만으로 실제 이벤트 추첨을 진행하면 안 됩니다.');
+  } catch(err) {
+    console.error('[이벤 인원 테스트] 캐시 확인 실패: room='+room+
+      ' error='+String(err?.message||err));
+    await safeReply(client,send,'❌ 캐시 인원 확인 실패\nRailway 로그를 확인해 주세요.');
   } finally {
     runningRooms.delete(room);
   }
 }
 
-module.exports = {handle};
+module.exports={handle};
