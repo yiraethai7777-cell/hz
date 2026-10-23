@@ -37,17 +37,23 @@ async function handle(ctx,client) {
  if(!/^\d+$/.test(id)){await ctx.send('사용자 ID를 확인할 수 없습니다.');return true;}
  const db=getPool(),room=String(ctx.roomId),name=ctx.userName||ctx.msg?.sender?.name||id;
  if(!ctx.isBotAccount)await require('./economy').ensureLinked(room,id,name);
- const player=(await db.query('SELECT data FROM hz_rooms WHERE room_id=$1',[room])).rows[0]?.data?.players?.[id]||{};
- const balance=(await db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[room,id])).rows[0]?.balance||0;
- const chat=(await db.query(`SELECT count,
-  (SELECT COUNT(*)+1 FROM gl_manage_chat_counts b WHERE b.room_id=a.room_id
-   AND (b.count>a.count OR (b.count=a.count AND b.user_id<a.user_id))) AS rank
-  FROM gl_manage_chat_counts a WHERE room_id=$1 AND user_id=$2`,[room,id])).rows[0];
- let link='';
- try{if(typeof client.getUserOpenProfileLink==='function')link=await client.getUserOpenProfileLink(room,id);}catch{}
+ // Read profile fields in parallel and use the link saved by profile observation,
+ // avoiding a synchronous Kakao API lookup on every !정보 request.
+ const [roomResult,walletResult,chatResult,profileResult]=await Promise.all([
+   db.query('SELECT data FROM hz_rooms WHERE room_id=$1',[room]),
+   db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[room,id]),
+   db.query(`SELECT count,
+     (SELECT COUNT(*)+1 FROM gl_manage_chat_counts b WHERE b.room_id=a.room_id
+      AND (b.count>a.count OR (b.count=a.count AND b.user_id<a.user_id))) AS rank
+     FROM gl_manage_chat_counts a WHERE room_id=$1 AND user_id=$2`,[room,id]),
+   db.query('SELECT open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,id])
+ ]);
+ const player=roomResult.rows[0]?.data?.players?.[id]||{};
+ const balance=walletResult.rows[0]?.balance||0;
+ const chat=chatResult.rows[0];
+ const saved=profileResult.rows[0]?.open_profile_link;
  const valid=v=>/^https:\/\/open\.kakao\.com\/o\/[A-Za-z0-9_-]+(?:[?#][^\s]*)?$/.test(v||'');
- if(!valid(link))link='';
- if(!link){const r=await db.query('SELECT open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,id]);const saved=r.rows[0]?.open_profile_link;if(valid(saved))link=saved;}
+ const link=valid(saved)?saved:'';
  await ctx.send(format({id,name,bot:ctx.isBotAccount,player,balance,chat,link}));
  return true;
 }
