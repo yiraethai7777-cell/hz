@@ -100,3 +100,35 @@ test('!정보 shows saved profile link without slow real-time Kakao API',async()
  assert.ok(responses[0].includes('코인 · ∞'));
  assert.ok(responses[0].includes('https://open.kakao.com/o/abc123'));
 });
+
+test('fast game handler never intercepts game reset or quiz control commands',async()=>{
+ let callback,gameCalls=0;
+ const responses=[],room={game:true,manage:false,locked:false,quizEnabled:false};
+ const ctx={
+  OWNER_IDS:new Set(['7777']),pool:{query:async()=>({rows:[]})},
+  id:v=>String(v??''),initDb:async()=>{},promoTick:async()=>{},autoFishTick:async()=>{},
+  roomFlags:async()=>({...room}),senderExactId:msg=>String(msg.sender.id),
+  processMentionAlerts:async()=>{},addChatCount:async()=>{},saveOpenProfileLink:async()=>{},
+  extractProfile:()=>null,findOpenProfileLink:()=>null,
+  withRoom:async(rid,name,fn)=>fn(room,{}),
+  handleGame:async()=>{gameCalls++;return 'Should not run';},
+  send:async(chat,roomId,text)=>responses.push(String(text))
+ };
+ const client={
+  userId:'9999',chat:{},onMessage:cb=>{callback=cb},
+  onJoin(){},onLeave(){},onKick(){}
+ };
+ await createSession(ctx).attachHZBot(client);
+ const send=async text=>callback({
+  __nexusGameCommand:true,room:{id:'1849'},sender:{id:'7777',name:'Owner'},
+  message:{text}
+ });
+ await send('#초기화');
+ assert.equal(gameCalls,0);
+ assert.ok(room.gameResetRequest);
+ assert.match(responses.at(-1),/!초기화확인/);
+ await send('#퀴즈작동');
+ assert.equal(gameCalls,0);
+ assert.equal(room.quizEnabled,true);
+ assert.match(responses.at(-1),/퀴즈 ON/);
+});
