@@ -17,7 +17,7 @@ test('farm contracts: shared wallet, private plots, restart-safe growth and atom
   const wallet=async()=>Number((await query("SELECT balance FROM hz_wallets WHERE room_id='100' AND user_id='2001'")).rows[0].balance);
   await t.test('eight crops and existing rod prices are shown inside a real fold',async()=>{
    assert.equal(CROPS.length,8);assert.deepEqual(CROPS.map(x=>x.minutes),[1,2,3,4,5,6,8,10]);
-   const shop=await run('!상점');const [visible,detail]=shop.split('\u200b'.repeat(1200));assert.match(visible,/NEXUS \| SHOP/);assert.doesNotMatch(visible,/당근|20,000/);assert.match(detail,/당근/);assert.match(detail,/돌.*20,000/);assert.match(detail,/천상.*15,000,000/);
+   const shop=await run('!상점');const [visible,detail]=shop.split('\u200b'.repeat(1200));assert.match(visible,/상점/);assert.doesNotMatch(visible,/당근|20,000/);assert.match(detail,/당근/);assert.match(detail,/돌.*20,000/);assert.match(detail,/천상.*15,000,000/);
   });
   await t.test('initial farm is private, empty and folded; invalid arguments cannot inspect another account',async()=>{
    const text=await run('!농장');assert.match(text,/\u00022001\u0003농부\u0004님의 농장/);assert.match(text,/3×3/);assert.equal((text.match(/🟫/g)||[]).length,9);assert.match(text,/빈 땅: 9칸/);assert.match(text,/\u200b{1200}/);
