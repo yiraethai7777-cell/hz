@@ -51,7 +51,11 @@ async function handle({client, roomId, msg, send}) {
           ' page=' + progress.page +
           ' pageMembers=' + progress.pageMembers +
           ' totalMembers=' + progress.totalMembers +
-          ' hasMore=' + progress.hasMore);
+          ' hasMore=' + progress.hasMore +
+          ' source=' + progress.source +
+          ' status=' + progress.status +
+          ' responseKeys=' + (progress.responseKeys || []).join(',') +
+          ' bodyKeys=' + (progress.bodyKeys || []).join(','));
       }
     });
     if (!Array.isArray(members)) throw new Error('Invalid member profile result');
