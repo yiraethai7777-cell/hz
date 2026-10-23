@@ -63,7 +63,7 @@ async function start({
 
   const room = String(roomId);
   if (active.has(room)) {
-    await sendSafe(client, send, '이미 5초 이벤트 테스트가 진행 중입니다.');
+    await sendSafe(client, send, '이미 카운트 이벤트 테스트가 진행 중입니다.');
     return;
   }
   const last = cooldown.get(room);
@@ -99,7 +99,7 @@ async function start({
     state.phase = 'precountdown';
 
     if (!await sendSafe(client, send,
-      '🎯 APEX 5초 반응 이벤트 테스트\n' +
+      '🎯 APEX 35ms 카운트 이벤트 테스트\n' +
       '━━━━━━━━━━━━━━\n' +
       '후보: ' + candidates.length + '명 (캐시 기준)\n' +
       '도전자: ' + marker + '\n' +
