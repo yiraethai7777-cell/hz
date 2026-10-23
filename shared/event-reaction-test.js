@@ -4,8 +4,6 @@ const {getCandidates} = require('./event-draw-test');
 
 // A test-only game: no rewards, punishments or message hiding.
 const active = new Map();
-const cooldown = new Map();
-const COOLDOWN_MS = 60_000;
 const TICK_MS = 35;
 // Sending through KakaoForge is queued (normally >=400ms); never use
 // 175ms of wall-clock time to cut off the five countdown messages.
@@ -67,12 +65,6 @@ async function start({
     await sendSafe(client, send, '이미 카운트 이벤트 테스트가 진행 중입니다.');
     return;
   }
-  const last = cooldown.get(room);
-  if (last != null && now() - last < COOLDOWN_MS) {
-    const remaining = Math.ceil((COOLDOWN_MS - (now() - last))/1000);
-    await sendSafe(client, send, remaining + '초 뒤에 다시 테스트할 수 있습니다.');
-    return;
-  }
   if (client.connected === false) return;
 
   let resolveSignal;
@@ -109,7 +101,6 @@ async function start({
       '━━━━━━━━━━━━━━\n' +
       '⚠️ 테스트 전용 · 실제 당첨이나 보상 없음')) return;
 
-    cooldown.set(room, now());
     console.log('[이벤 진행 테스트] 카운트 준비: room=' + room +
       ' candidateCount=' + candidates.length + ' tickMs=' + TICK_MS);
 
