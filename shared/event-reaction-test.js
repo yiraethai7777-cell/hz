@@ -75,7 +75,7 @@ async function start({
     const members = await client.getCachedMemberProfiles(roomId);
     const candidates = getCandidates(members, client.userId);
     if (!candidates.length) {
-      await sendSafe(client, send, '캐시에 APEX 후보가 없습니다. #이벤인원테스트를 실행해 주세요.');
+      await sendSafe(client, send, '현재 확인된 APEX 참가자가 없습니다. 방 명단 동기화 중이거나 퇴장자가 제외된 상태일 수 있습니다. #이벤인원테스트로 확인해 주세요.');
       return;
     }
     const index = pickRandom(candidates.length);
