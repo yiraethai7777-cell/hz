@@ -12,6 +12,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Observe incoming responses before other commands; never block the message.
+      require('./event-reaction-test').receive({roomId, senderId, text, isBotAccount});
       await ready;
       
       const context = {
@@ -63,6 +65,14 @@ if (text === '#이벤추첨테스트') {
   });
   return;
 }
+
+      if (text === '#이벤진행테스트') {
+        await require('./event-reaction-test').start({
+          client, roomId, msg, send: context.send,
+          mention: (id, name) => typeof chat?.mention === 'function' ? chat.mention(id, name, roomId) : null
+        });
+        return;
+      }
 
       if (text === '#게임작동' || text === '#게임중지') {
         await game.toggle(context);
