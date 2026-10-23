@@ -50,14 +50,17 @@ function verifiedActive(result,roomId) {
   return result.status===undefined || result.status===0;
 }
 async function safeReply(client,send,message) {
-  if(client?.connected===false)return false;
+  if(client?.connected===false) {
+    console.warn('[보이스룸] 안내 전송 불가: 카카오톡 연결 없음');
+    return false;
+  }
   try{await send(message);return true;}
   catch(e){console.error('[보이스룸] 안내 전송 실패:',String(e?.message||e));return false;}
 }
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^#(보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.exec(raw);
+  const match=/^[#!](보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.exec(raw);
   if(!match)return false;
   // Ignore the bot's own commands to avoid message loops.
   if(client?.userId!=null && String(client.userId)===String(msg?.sender?.id))return true;
