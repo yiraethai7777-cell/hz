@@ -22,15 +22,49 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           connected: client.connected !== false,
           sameAsBotAccount: isBotAccount
         }));
+        const sendVoiceReply = async body => {
+          const len = String(body).length;
+          const target = String(roomId);
+          console.log('[보이스룸] 응답 전송 시작:', JSON.stringify({
+            roomId: target, chars: len,
+            method: typeof chat?.sendText === 'function' ? 'chat.sendText' :
+              typeof client?.sendText === 'function' ? 'client.sendText' : 'missing'
+          }));
+          try {
+            let result;
+            if (typeof chat?.sendText === 'function') {
+              result = await chat.sendText(roomId, body);
+            } else if (typeof client?.sendText === 'function') {
+              result = await client.sendText(roomId, body);
+            } else {
+              throw Error('KakaoForge sendText 함수가 없습니다.');
+            }
+            const status = result?.status;
+            const logId = result?.body?.logId;
+            console.log('[보이스룸] 응답 전송 결과:', JSON.stringify({
+              roomId: target, status: status ?? 'unknown',
+              ackLogId: logId == null ? null : String(logId)
+            }));
+            // The KakaoForge WRITE implementation accepts only status 0
+            // with a returned body.logId as a confirmed message send.
+            if (status !== 0 || !logId) {
+              throw Error('카카오톡 WRITE 응답 확인 불가 (status=' +
+                String(status ?? 'unknown') + ', logId=' + (logId ? 'present' : 'missing') + ')');
+            }
+            return result;
+          } catch (sendError) {
+            console.error('[보이스룸] 응답 전송 오류:', String(sendError?.message || sendError));
+            throw sendError;
+          }
+        };
         try {
           await require('./voice-room').handle({
-            client, roomId, msg, text,
-            send: body => chat.sendText(roomId, body)
+            client, roomId, msg, text, send: sendVoiceReply
           });
         } catch (error) {
           console.error('[보이스룸] 명령어 처리 오류:', error);
           try {
-            await chat.sendText(roomId,
+            await sendVoiceReply(
               '❌ 보이스룸 명령어 처리 중 오류가 발생했습니다. Railway 로그를 확인해 주세요.');
           } catch (sendError) {
             console.error('[보이스룸] 오류 안내 전송 실패:', sendError);
