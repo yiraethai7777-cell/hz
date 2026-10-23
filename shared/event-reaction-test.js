@@ -7,7 +7,8 @@ const active = new Map();
 const cooldown = new Map();
 const COOLDOWN_MS = 60_000;
 const TICK_MS = 35;
-const TOTAL_MS = TICK_MS * 5; // 5,4,3,2,1 lasts 175ms in game time.
+// Sending through KakaoForge is queued (normally >=400ms); never use
+// 175ms of wall-clock time to cut off the five countdown messages.
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function sendSafe(client, send, message) {
@@ -76,7 +77,7 @@ async function start({
 
   let resolveSignal;
   const signal = new Promise(resolve => {resolveSignal = resolve;});
-  const state = {room, userId:'', phase:'choosing', deadline:0, result:null, resolveSignal, signal};
+  const state = {room, userId:'', phase:'choosing', deadline:Number.POSITIVE_INFINITY, result:null, resolveSignal, signal};
   active.set(room, state); // Lock before any await.
   try {
     const members = await client.getCachedMemberProfiles(roomId);
@@ -103,7 +104,7 @@ async function start({
       '━━━━━━━━━━━━━━\n' +
       '후보: ' + candidates.length + '명 (캐시 기준)\n' +
       '도전자: ' + marker + '\n' +
-      '⏳ 5 카운트가 시작되면 답장하세요! (숫자당 35ms)\n' +
+      '⏳ 5 카운트가 시작되면 답장하세요! (숫자마다 추가 35ms 대기)\n' +
       '시작 전에 답장하면 즉시 탈락합니다.\n' +
       '━━━━━━━━━━━━━━\n' +
       '⚠️ 테스트 전용 · 실제 당첨이나 보상 없음')) return;
@@ -112,24 +113,22 @@ async function start({
     console.log('[이벤 진행 테스트] 카운트 준비: room=' + room +
       ' candidateCount=' + candidates.length + ' tickMs=' + TICK_MS);
 
-    // Before the first "5" is delivered, a selected user's answer
-    // disqualifies them. Once "5" is delivered, normal chat is valid.
-    // Each tick waits 35 ms after a confirmed send. Network delivery and
-    // the client's outgoing send queue can make the visible pace slower.
+    // The first "5" opens the response window. Wait 35ms *after each
+    // completed send*, not from the first "5", so Kakao's slower send
+    // queue cannot cause an early 5 -> 4 -> timeout sequence.
+    // The last "1" closes the response window 35ms after its send.
     for (let remaining=5; remaining>=1; remaining--) {
       if (state.result) break;
       if (client.connected === false) throw Error('Connection closed during countdown');
-      if (remaining < 5 && now() >= state.deadline) break;
-      if (!await sendSafe(client, send, '⏳ ' + remaining)) 
+      if (!await sendSafe(client, send, '⏳ ' + remaining))
         throw Error('Countdown delivery failed');
       if (state.result) break;
       if (remaining === 5) {
         state.phase = 'counting';
-        state.deadline = now() + TOTAL_MS;
-        console.log('[이벤 진행 테스트] 카운트 시작: room=' + room + ' tickMs=' + TICK_MS + ' totalMs=' + TOTAL_MS);
+        console.log('[이벤 진행 테스트] 카운트 시작: room=' + room + ' tickWaitMs=' + TICK_MS);
       }
-      if (now() >= state.deadline) break;
-      await Promise.race([sleep(Math.min(TICK_MS, Math.max(0, state.deadline - now()))), signal]);
+      if (remaining === 1) state.deadline = now() + TICK_MS;
+      await Promise.race([sleep(TICK_MS), signal]);
     }
 
     if (client.connected === false) throw Error('Connection closed during event');
