@@ -47,6 +47,53 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           .handleTest(client, context);
         return;
       }
+      
+if (text === '#이벤인원테스트') {
+  if (msg.room.isOpenChat !== true) {
+    await context.send('오픈채팅방에서만 사용할 수 있습니다.');
+    return;
+  }
+
+  // 방장(1), 부방장(4)만 테스트 허용
+  if (![1, 4].includes(Number(msg.sender?.type))) {
+    await context.send('방장 또는 부방장만 사용할 수 있습니다.');
+    return;
+  }
+
+  try {
+    const started = Date.now();
+
+    const members = await client.refreshMemberProfiles(roomId);
+
+    const valid = members.filter(m => m.id && m.name);
+    const apex = valid.filter(m =>
+      String(m.id) !== String(client.userId) &&
+      m.name.normalize('NFKC')
+        .replace(/\s+/g, '')
+        .toUpperCase()
+        .includes('APEX')
+    );
+
+    await context.send(
+      '🔍 이벤트 인원 조회 결과\n' +
+      '━━━━━━━━━━━━━━\n' +
+      `조회된 인원: ${members.length}명\n` +
+      `닉네임 확인: ${valid.length}명\n` +
+      `APEX 추첨 대상: ${apex.length}명\n` +
+      `조회 소요: ${Date.now() - started}ms\n` +
+      '━━━━━━━━━━━━━━\n' +
+      '카카오톡에 표시되는 실제 방 인원과 비교해 주세요.'
+    );
+
+  } catch (err) {
+    console.error('[이벤 인원 조회 실패]', err);
+    await context.send(
+      '❌ 인원 조회 실패\nRailway 로그에서 오류를 확인해 주세요.'
+    );
+  }
+  return;
+}
+
       if (text === '#게임작동' || text === '#게임중지') {
         await game.toggle(context);
         return;
