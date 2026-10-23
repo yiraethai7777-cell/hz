@@ -6,7 +6,7 @@ const {sendPng}=require('../manage/attendance-image/send');
 const {createService}=require('../manage/attendance-image/preview');
 const png=()=>PNG.sync.write(new PNG({width:1,height:1}));
 test('photo adapter uses the existing sendPhoto path and cleans its private file after success and failure',async()=>{
- const root=await fs.mkdtemp(path.join(os.tmpdir(),'nexus-photo-test-')),paths=[];
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'photo-test-')),paths=[];
  try{
   const client={connected:true,sendPhoto:async(room,file,options)=>{assert.equal(room,'12345');assert.deepEqual(await fs.readFile(file),png());assert.match(options.text,/테스트/);paths.push(file);return {complete:{status:0},msgId:1};}};
   assert.equal((await sendPng(client,'12345',png(),{tempRoot:root})).confirmed,true);
