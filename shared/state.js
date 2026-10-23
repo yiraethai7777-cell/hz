@@ -76,19 +76,37 @@ CREATE INDEX IF NOT EXISTS hz_chat_rank_idx ON hz_chat_stats(room_id,chat_count 
 `)}
 
 async function withRoom(rid,rname,fn){
+  const started=Date.now();
   const c=await ctx.pool.connect();
+  const connected=Date.now();
   try{
-    await c.query("BEGIN");
-    await c.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,$2::jsonb) ON CONFLICT DO NOTHING",[rid,JSON.stringify(ctx.blankRoom(rname))]);
-    const q=await c.query("SELECT data FROM hz_rooms WHERE room_id=$1 FOR UPDATE",[rid]);
+    await c.query('BEGIN');
+    // Most rooms already exist. Avoid a redundant INSERT for every game command.
+    let q=await c.query('SELECT data FROM hz_rooms WHERE room_id=$1 FOR UPDATE',[rid]);
+    if(!q.rows.length){
+      await c.query('INSERT INTO hz_rooms(room_id,data) VALUES($1,$2::jsonb) ON CONFLICT DO NOTHING',
+        [rid,JSON.stringify(ctx.blankRoom(rname))]);
+      q=await c.query('SELECT data FROM hz_rooms WHERE room_id=$1 FOR UPDATE',[rid]);
+      if(!q.rows.length)throw Error('게임 방 정보를 읽을 수 없습니다.');
+    }
+    const locked=Date.now(),original=JSON.stringify(q.rows[0].data);
     const d=ctx.fixRoom(q.rows[0].data,rname);
     const out=await fn(d,c);
-    await c.query("UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1",[rid,JSON.stringify(d)]);
-    await c.query("COMMIT");
-    return out
-  }catch(e){await c.query("ROLLBACK");throw e}finally{c.release()}
+    const handled=Date.now(),after=JSON.stringify(d);
+    // Read-only commands should not write huge room JSON documents.
+    if(after!==original)
+      await c.query('UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1',[rid,after]);
+    await c.query('COMMIT');
+    const finished=Date.now();
+    if(finished-started>=800)console.warn('[NEXUS GAME ROOM SLOW]',{
+      poolMs:connected-started,lockMs:locked-connected,
+      actionMs:handled-locked,saveMs:finished-handled,
+      wrote:after!==original
+    });
+    return out;
+  }catch(e){await c.query('ROLLBACK');throw e}
+  finally{c.release()}
 }
-
 async function roomFlags(rid){const q=await ctx.pool.query("SELECT data FROM hz_rooms WHERE room_id=$1",[rid]);return q.rows[0]?ctx.fixRoom(q.rows[0].data):ctx.blankRoom()}
 
 async function send(chat,rid,text){
