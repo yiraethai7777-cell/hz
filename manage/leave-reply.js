@@ -56,7 +56,7 @@ function joinNotice({
 }){
  const {id,clean,mention}=displayMember(name,userId);
  const typeName=['기본프로필','오픈프로필','확인 불가'].includes(profileType)?profileType:
-  profileType==null?'확인 불가':
+  profileType==null?(profileLink?'오픈프로필':'확인 불가'):
   [1,2,4].includes(Number(profileType))?'기본프로필':
   Number(profileType)===0?'오픈프로필':'확인 불가';
  return (
