@@ -16,7 +16,7 @@ async function handle(ctx,db){
    try{await ctx.kick(target.id);kicked=true;}catch(e){await ctx.send('❌ 벤 실패: '+e.message);return true;}
   }
   try{await ctx.unban(target.id);}catch(e){await ctx.send(`${kicked?'⚠️ '+target.name+'님을 벤했지만 해제에 실패했습니다.':'❌ 벤 해제 실패:'}\n${e.message}${kicked?'\n#벤해제 '+target.id+' 로 다시 해제할 수 있습니다.':''}`);return true;}
-  try{await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[String(ctx.roomId),String(ctx.userId),target.id,kicked?'KICK_RELEASE':'UNKICK','카카오 내보내기 목록 해제 확인']);}catch(e){console.error('[NEXUS UNKICK LOG]',e.message);}
+  try{await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[String(ctx.roomId),String(ctx.userId),target.id,kicked?'KICK_RELEASE':'UNKICK','카카오 내보내기 목록 해제 확인']);}catch(e){console.error('[UNKICK LOG]',e.message);}
   await ctx.send(kicked?`✅ ${target.name}님을 벤한 뒤 해제했습니다.\n다시 입장할 수 있습니다.`:`✅ ${target.name}님의 벤을 해제했습니다.\n다시 입장할 수 있습니다.`);
   return true;
  }finally{running.delete(key);}
