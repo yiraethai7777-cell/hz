@@ -87,7 +87,7 @@ async function autoFishTick(){
     return out;
    });
    for(const line of results)await ctx.send(ctx.globalChat,rid,line);
-  }catch(e){console.error('[NEXUS AUTO FISH]',rid,e)}
+  }catch(e){console.error('[AUTO FISH]',rid,e)}
  }
 }
 
@@ -124,7 +124,7 @@ async function handleGameCore(d,c,msg,isSelf){
        `작동 상태  | ${d.quizEnabled?'ON':'OFF'}\n`+
        `진행 상태  | ${d.quiz?'진행 중':'대기 중'}\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
-       `NEXUS · QUIZ SYSTEM`;
+       `QUIZ SYSTEM`;
    }
 
    if(text==='#퀴즈순위'){
@@ -206,7 +206,7 @@ async function handleGameCore(d,c,msg,isSelf){
        `첫 번째 정답자에게 보상이 지급됩니다.\n`+
        `!정답 (답) 명령어도 사용 가능합니다.\n\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
-       `NEXUS · QUIZ SYSTEM`;
+       `QUIZ SYSTEM`;
    }
 
    const m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);
@@ -230,7 +230,7 @@ async function handleGameCore(d,c,msg,isSelf){
          `[ QUIZ TIMEOUT ]\n\n`+
          `정답 | ${answer}\n\n`+
          `━━━━━━━━━━━━━━━━━━━━\n`+
-         `NEXUS · QUIZ SYSTEM`;
+         `QUIZ SYSTEM`;
      }
 
      if(!m[1])
@@ -272,7 +272,7 @@ async function handleGameCore(d,c,msg,isSelf){
        `누적 정답   | ${p.wins}회\n`+
        `${up?`\n[ LEVEL UP ] Lv.${p.level}\n`:''}`+
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
-       `NEXUS · QUIZ SYSTEM`;
+       `QUIZ SYSTEM`;
    }
   
   if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
@@ -361,8 +361,8 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==="#인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+ctx.MORE+"\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${ctx.n(x.value)}코인`).join("\n")}
   if(text==="#물고기 도감"||text==="#물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 물고기 도감\n"+ctx.MORE+"\n"+ctx.FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
 
-  if(text==="#포인트")return isSelf?"🤖 NEXUS\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
-  if(text==="#퀴즈점수")return `⭐ NEXUS LEVEL\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
+  if(text==="#포인트")return isSelf?"🤖\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
+  if(text==="#퀴즈점수")return `⭐ LEVEL\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
 
   if(text==="#게임순위"||text==="#퀴즈순위"){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>b.points-a.points).slice(0,10);return "🏆 게임 순위\n"+(a.length?a.map((x,i)=>`${i+1}등 ${x.name} · ${ctx.n(x.points)}코인`).join("\n"):"아직 기록이 없습니다.")}
   if(text==="#상점")return "🛒 낚시대 상점\n"+ctx.RODS.map(x=>`${x.name} 낚시대 · ${ctx.n(x.price)}코인${p.rods.includes(x.name)?" [보유]":""}`).join("\n");
