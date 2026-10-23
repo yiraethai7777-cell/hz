@@ -104,7 +104,7 @@ async function start({
     // Answering before first 5 is delivered is disqualifying.
     state.phase='precountdown';
     if(!await sendSafe(client,send,
-      '📣📣📣 APEX 이벤트 도전자 발표 📣📣📣\n'+
+      '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트 테스트 📣📣📣\n'+
       '━━━━━━━━━━━━━━━━━━\n'+
       '🎯🎯 선택된 도전자 🎯🎯\n\n'+
       '👉👉  '+marker+'  👈👈\n\n'+
