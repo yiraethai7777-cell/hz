@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS gl_manage_actions(id BIGSERIAL PRIMARY KEY,room_id TE
   ALTER TABLE gl_manage_members
   ADD COLUMN IF NOT EXISTS last_joined_at TIMESTAMPTZ;
 `);
- // Existing NEXUS settings take precedence. Only synchronize the management flag;
+ // Existing game settings take precedence. Only synchronize the management flag;
  // legacy game state and all stored records remain intact.
  await db.query(`INSERT INTO hz_rooms(room_id,data)
  SELECT room_id,jsonb_build_object('manage',enabled) FROM gl_manage_rooms
@@ -92,7 +92,7 @@ async function message({client,roomId,userId,userName,messageId,text,send,kick,u
  const room=key(roomId),user=key(userId),db=getPool(),s=String(text||'').trim();
  if(s==='#관리상태'){await send('🛡️ 관리: '+(await enabled(room)?'작동':'중지'));return true}
  if(s==='#관리작동'||s==='#관리중지'){
-  if(!isBotAccount){await send('⛔ NEXUS 계정만 사용할 수 있습니다.');return true}
+  if(!isBotAccount){await send('⛔ 봇 계정만 사용할 수 있습니다.');return true}
   await setEnabled(room,s==='#관리작동');await send('🛡️ 관리 '+(s==='#관리작동'?'작동':'중지')+' 완료');return true
  }
  if(!await enabled(room))return false;
@@ -245,26 +245,12 @@ async function join({roomId,userId,userName,send}){
   const joinedAt = m.rows[0].last_joined_at;
   const bans = await kickCount(room,user);
 
-  await send(
-    `@${userName} 님이 채팅방에 입장하셨습니다.` +
-    MORE +
-    `\n\nNEXUS / MEMBER JOINED` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n\n01  MEMBER PROFILE` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n닉네임     ${userName}` +
-    `\n유저 ID    ${user}` +
-    `\n프로필     확인 불가` +
-    `\n프사 URL   확인 불가` +
-    `\n입장 시각  ${formatKST(joinedAt)}` +
-    `\n\n02  ACTIVITY RECORD` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n누적 입장   ${joins}회` +
-    `\n누적 퇴장   ${leaves}회` +
-    `\n강퇴 기록   ${bans}회` +
-    `\n\n━━━━━━━━━━━━━━━━━━━━` +
-    `\nNEXUS · AUTOMATED SYSTEM`
-  );
+  const saved=(await db.query('SELECT open_profile_link,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,user])).rows[0]||{};
+  await send(require('./leave-reply').joinNotice({
+    name:userName,userId:user,joins,leaves,time:formatKST(joinedAt),bans,
+    profileLink:saved.open_profile_link||'',profileImage:saved.last_profile_url||'',
+    profileType:saved.open_profile_link?'오픈프로필':'확인 불가'
+  }));
 }
 
 
@@ -309,30 +295,13 @@ async function leave({roomId,userId,userName,send}){
   const stay = formatStayDuration(lastJoinedAt,leftAt);
   const bans = await kickCount(room,user);
 
-  await send(
-    `@${userName} 님이 채팅방에서 퇴장하셨습니다.` +
-    MORE +
-    `\n\nNEXUS / MEMBER LEFT` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n\n01  MEMBER PROFILE` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n닉네임     ${userName}` +
-    `\n유저 ID    ${user}` +
-    `\n프로필     확인 불가` +
-    `\n프사 URL   확인 불가` +
-    `\n\n02  SESSION HISTORY` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n입장 시각  ${lastJoinedAt ? formatKST(lastJoinedAt) : '확인 불가'}` +
-    `\n퇴장 시각  ${formatKST(leftAt)}` +
-    `\n체류 시간  ${stay}` +
-    `\n\n03  ACTIVITY RECORD` +
-    `\n━━━━━━━━━━━━━━━━━━━━` +
-    `\n누적 입장   ${joins}회` +
-    `\n누적 퇴장   ${leaves}회` +
-    `\n강퇴 기록   ${bans}회` +
-    `\n\n━━━━━━━━━━━━━━━━━━━━` +
-    `\nNEXUS · AUTOMATED SYSTEM`
-  );
+  const saved=(await db.query('SELECT open_profile_link,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,user])).rows[0]||{};
+  await send(require('./leave-reply').leaveNotice({
+    name:userName,userId:user,joins,leaves,time:formatKST(leftAt),
+    joinedAt:lastJoinedAt?formatKST(lastJoinedAt):'확인 불가',stay,bans,
+    profileLink:saved.open_profile_link||'',profileImage:saved.last_profile_url||'',
+    profileType:saved.open_profile_link?'오픈프로필':'확인 불가'
+  }));
 }
 
 async function deleted({roomId,userId,userName,send}){
