@@ -19,7 +19,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           roomId: String(roomId),
           command: text.split(/\s/,1)[0],
           senderType: msg.sender?.type == null ? 'unknown' : String(msg.sender.type),
-          connected: client.connected !== false
+          connected: client.connected !== false,
+          sameAsBotAccount: isBotAccount
         }));
         try {
           await require('./voice-room').handle({
