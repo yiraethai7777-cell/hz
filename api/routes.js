@@ -39,8 +39,15 @@ async function routes(req,res,url,body){
  if(p==='/api/admin/promotion-message'&&method==='GET')return {message:await promotion.commonMessage()||''};
  if(p==='/api/admin/promotion-message'&&method==='POST')return promotion.setCommonMessage(s.user,body);
  if(p==='/api/admin/rooms'&&method==='GET'){
-  await require('../promotion/rooms').refresh(status.client).catch(()=>{});
-  const r=await getPool().query("SELECT r.room_id,r.data->>'name' AS name,COALESCE((r.data->>'game')::boolean,FALSE) AS game,COALESCE(g.enabled,(r.data->>'manage')::boolean,FALSE) AS manage,COALESCE((r.data->>'quizEnabled')::boolean,TRUE) AS quiz_enabled,COALESCE((r.data->>'fishEnabled')::boolean,TRUE) AS fish_enabled,r.data->'promo' AS promotion FROM hz_rooms r LEFT JOIN gl_manage_rooms g USING(room_id) ORDER BY r.updated_at DESC LIMIT 200");return {rooms:r.rows};
+  // Show only rooms still joined by the bot. Preserve all historical DB records.
+  if(!status.connected||typeof status.client?.getChatRooms!=='function'||typeof status.client?.getKnownChatRooms!=='function')
+    fail('카카오톡 연결 상태를 확인할 수 없어 채팅방 목록을 불러오지 못했습니다.',503);
+  await require('../promotion/rooms').refresh(status.client,{force:true});
+  const activeRoomIds=[...new Set(status.client.getKnownChatRooms()
+    .map(room=>String(room.id||''))
+    .filter(roomId=>/^\d{1,24}$/.test(roomId)))];
+  if(!activeRoomIds.length)return {rooms:[]};
+  const r=await getPool().query("SELECT r.room_id,r.data->>'name' AS name,COALESCE((r.data->>'game')::boolean,FALSE) AS game,COALESCE(g.enabled,(r.data->>'manage')::boolean,FALSE) AS manage,COALESCE((r.data->>'quizEnabled')::boolean,TRUE) AS quiz_enabled,COALESCE((r.data->>'fishEnabled')::boolean,TRUE) AS fish_enabled,r.data->'promo' AS promotion FROM hz_rooms r LEFT JOIN gl_manage_rooms g USING(room_id) WHERE r.room_id = ANY($1::text[]) ORDER BY r.updated_at DESC LIMIT 200",[activeRoomIds]);return {rooms:r.rows};
  }
  if(p==='/api/admin/rooms'&&method==='POST'){
   const room=id(body.roomId),flags=body.flags||{};
