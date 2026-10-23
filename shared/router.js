@@ -12,6 +12,31 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Voice-room help/status must remain responsive even if unrelated
+      // game/database initialization is still pending or has failed.
+      if (/^[#!](?:보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.test(text)) {
+        console.log('[보이스룸] 명령 수신:', JSON.stringify({
+          roomId: String(roomId),
+          command: text.split(/\s/,1)[0],
+          senderType: msg.sender?.type == null ? 'unknown' : String(msg.sender.type),
+          connected: client.connected !== false
+        }));
+        try {
+          await require('./voice-room').handle({
+            client, roomId, msg, text,
+            send: body => chat.sendText(roomId, body)
+          });
+        } catch (error) {
+          console.error('[보이스룸] 명령어 처리 오류:', error);
+          try {
+            await chat.sendText(roomId,
+              '❌ 보이스룸 명령어 처리 중 오류가 발생했습니다. Railway 로그를 확인해 주세요.');
+          } catch (sendError) {
+            console.error('[보이스룸] 오류 안내 전송 실패:', sendError);
+          }
+        }
+        return;
+      }
       // Observe incoming responses before other commands; never block the message.
       require('./event-reaction-test').receive({roomId, senderId, text, isBotAccount});
       await ready;
@@ -50,10 +75,6 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       
-if (await require('./voice-room').handle({
-  client,roomId,msg,text,send:context.send
-})) return;
-
 if (await require('./event-notice').handle({
   client,roomId,msg,text,send:context.send
 })) return;
