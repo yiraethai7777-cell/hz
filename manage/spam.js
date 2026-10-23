@@ -162,13 +162,8 @@ async function check(ctx, msg, chat, rid, uid, name, text, isSelf, flags) {
   const duplicateWarning =
     cur.count === DUPLICATE_WARNING_COUNT;
 
-  const rateWarning =
-    recentMessages.length === RATE_WARNING_COUNT;
-
-  if ((duplicateWarning || rateWarning) && cur.warnedAt == null) {
-    const reason = duplicateWarning
-      ? '동일 글·이모티콘 4회 연속 도배 (5초 이내)'
-      : '5초 내 메시지 5회 도배';
+  if (duplicateWarning && cur.warnedAt == null) {
+    const reason = '동일 글·이모티콘 4회 연속 도배 (5초 이내)';
 
     await ctx.pool.query(
       'INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',
@@ -202,12 +197,8 @@ async function check(ctx, msg, chat, rid, uid, name, text, isSelf, flags) {
 
   // 벤 조건
   const duplicateBan = cur.count === BAN_COUNT;
-  const rateBan = recentMessages.length === BAN_COUNT;
-
-  if (duplicateBan || rateBan) {
-    const reason = duplicateBan
-      ? '동일 글·이모티콘 10회 연속 도배 (5초 이내)'
-      : '5초 내 메시지 10회 도배';
+  if (duplicateBan) {
+    const reason = '동일 글·이모티콘 10회 연속 도배 (5초 이내)';
 
     try {
       await ctx.kickMember(msg, user);
