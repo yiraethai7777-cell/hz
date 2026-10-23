@@ -2373,13 +2373,10 @@ export class KakaoForgeClient extends EventEmitter {
     const roster = this._eventRosterIds.get(room);
     if (action === 'leave' || action === 'kick') {
       const departed = this._eventDepartedIds.get(room) || new Set<string>();
-      const names = this._memberNames.get(room);
-      const types = this._memberTypes.get(room);
       for (const id of ids) {
         departed.add(id);
+        // Keep profile names for history, but never treat them as membership.
         roster?.delete(id);
-        names?.delete(id);
-        types?.delete(id);
       }
       this._eventDepartedIds.set(room, departed);
       console.log('[이벤 인원] 퇴장·강퇴 제외: room=' + room +
