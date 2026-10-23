@@ -14,7 +14,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     try {
       // Voice-room help/status must remain responsive even if unrelated
       // game/database initialization is still pending or has failed.
-      if (/^[#!](?:보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.test(text)) {
+      if (/^[#!]?(?:보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.test(text)) {
         console.log('[보이스룸] 명령 수신:', JSON.stringify({
           roomId: String(roomId),
           command: text.split(/\s/,1)[0],
