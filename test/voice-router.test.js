@@ -11,7 +11,7 @@ function fixture() {
     userId:'9007199254740993123',
     connected:true,
     onMessage(fn){callback=fn;},
-    chat:{sendText:async (roomId,body)=>{sent.push({roomId,body});return {status:0};}},
+    chat:{sendText:async (roomId,body)=>{sent.push({roomId,body});return {status:0,body:{logId:'88888'}};}},
     _activeChatId:'18495931541358610',
     _getCachedMemberType:()=>4
   };
@@ -98,4 +98,25 @@ test('same Kakao account as bot can execute status without being silently ignore
   });
   assert.equal(sent.length,1);
   assert.match(sent[0].body,/보이스룸 상태/);
+});
+
+
+test('voice status sends a WRITE with confirmed logId',async()=>{
+  const {emit,sent}=fixture();
+  await emit('#보룸상태');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/보이스룸 상태/);
+});
+
+test('failed WRITE still returns from command handler and logs failure',async()=>{
+  const {emit,client}=fixture();
+  const original=client.chat.sendText;
+  let attempts=0;
+  client.chat.sendText=async(...args)=>{
+    attempts++;
+    throw Error('WRITE failed: status=-203');
+  };
+  await emit('#보룸상태');
+  assert.equal(attempts,1);
+  client.chat.sendText=original;
 });
