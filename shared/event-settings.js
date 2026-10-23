@@ -113,7 +113,7 @@ const HELP=[
   '설정 속도: 35~10000ms (카카오 자체 전송 간격 별도)',
   '문구에 줄바꿈을 넣을 수 있습니다.'
 ].join('\n');
-async function handle({client,roomId,msg,text,send}) {
+async function handle({client,roomId,msg,text,send,store={load,save,reset}}) {
   const str=String(text??'').trim();
   const commands=['#이벤설정','#이벤속도','#이벤공지작성','#이벤공지',
     '#이벤당첨문구','#이벤탈락문구','#이벤시간초과문구','#이벤초기화'];
@@ -128,29 +128,29 @@ async function handle({client,roomId,msg,text,send}) {
   const value=str.slice(command.length).trim();
   try{
     if(command==='#이벤설정') {
-      const cur=await load(roomId);
+      const cur=await store.load(roomId);
       await reply(client,send,HELP+'\n\n현재 속도: '+cur.speedMs+'ms'+
         '\n공지: '+(cur.announcement?'설정됨':'없음')+
         '\n당첨 문구: '+cur.winMessage+'\n탈락 문구: '+cur.earlyMessage+
         '\n시간 초과 문구: '+cur.timeoutMessage);
     } else if(command==='#이벤공지') {
-      const cur=await load(roomId);
+      const cur=await store.load(roomId);
       await reply(client,send,cur.announcement?'📢 APEX 이벤트 공지\n━━━━━━━━━━━━━━\n'+cur.announcement:
         '저장된 공지가 없습니다. #이벤공지작성 내용 으로 작성하세요.');
     } else if(command==='#이벤초기화') {
       const mapping={당첨:'winMessage',탈락:'earlyMessage',시간초과:'timeoutMessage',
         공지:'announcement',속도:'speedMs'};
       if(!mapping[value])throw Error('초기화 항목은 당첨, 탈락, 시간초과, 공지, 속도입니다.');
-      await reset(roomId,mapping[value]);
+      await store.reset(roomId,mapping[value]);
       await reply(client,send,'✅ '+value+' 설정이 초기화되었습니다.');
     } else if(command==='#이벤속도') {
-      const n=await save(roomId,'speedMs',value);
+      const n=await store.save(roomId,'speedMs',value);
       await reply(client,send,'✅ 카운트 대기를 '+n+'ms로 설정했습니다.\n카카오톡 전송 속도는 별도 적용됩니다.');
     } else {
       const field=COMMANDS[command];
       const name={announcement:'시작 공지',winMessage:'당첨 문구',
         earlyMessage:'조기 탈락 문구',timeoutMessage:'시간 초과 문구'}[field];
-      const valueSaved=await save(roomId,field,value);
+      const valueSaved=await store.save(roomId,field,value);
       await reply(client,send,'✅ '+name+' 저장 완료\n━━━━━━━━━━━━━━\n'+valueSaved);
     }
   }catch(e) {
