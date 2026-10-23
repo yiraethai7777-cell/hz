@@ -57,11 +57,11 @@ test('PostgreSQL platform integration: preserve records, economy, trading, games
    assert.equal(await wallet.getBalance('1','7001','송금자'),4000);
    assert.equal(await wallet.getBalance('1','9007199254740993123','공백 닉네임'),1000);
    await coin.handleCoinCommand({...input,text:'!코인지급 @공백 닉네임 1000',msg:{...msg,id:'denied-grant'}});assert.match(messages.at(-1),/관리자만/);
-   const bot={...msg,id:'bot-transfer',sender:{id:'9999',name:'NEXUS'}};
+   const bot={...msg,id:'bot-transfer',sender:{id:'9999',name:'봇'}};
    await coin.handleCoinCommand({...input,msg:bot,isBotAccount:true});assert.match(messages.at(-1),/송금 완료/);
    await coin.handleCoinCommand({...input,text:'!코인지급 @공백 닉네임 2000',msg:{...bot,id:'bot-grant'},isBotAccount:true});assert.match(messages.at(-1),/지급 완료/);
    assert.equal(await wallet.getBalance('1','9007199254740993123','공백 닉네임'),4000);
-   assert.equal(await wallet.getBalance('1','9999','NEXUS'),0);
+   assert.equal(await wallet.getBalance('1','9999','봇'),0);
    await coin.handleCoinCommand({...input,text:'!코인송금 @공백 닉네임 -1',msg:{...msg,id:'negative'}});assert.match(messages.at(-1),/1 이상의 정수/);
    await coin.handleCoinCommand({...input,text:'!코인송금 @송금자 1',msg:{...msg,id:'self',mentions:[{userId:'7001',name:'송금자'}]}});assert.match(messages.at(-1),/자기 자신/);
    assert.equal(await coin.handleCoinCommand({...input,text:'!코인'}),false);
