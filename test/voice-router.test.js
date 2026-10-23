@@ -69,3 +69,18 @@ test('voice command logs an exception and attempts a user-visible error',async()
   await cb(msg);
   assert.match(sent.at(-1).body,/명령어 처리 중 오류/);
 });
+
+
+test('bare 보룸상태 without a prefix also replies',async()=>{
+  const {emit,sent}=fixture();
+  await emit('보룸상태');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/보이스룸 상태/);
+});
+
+test('bare 보룸켜기 without a prefix responds with unsupported protocol explanation',async()=>{
+  const {emit,sent}=fixture();
+  await emit('보룸켜기');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/생성 API가 아직 연결되지 않았습니다/);
+});
