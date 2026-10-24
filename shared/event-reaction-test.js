@@ -32,7 +32,7 @@ function receive({roomId, senderId, text, isBotAccount = false, now = Date.now})
   if (!state || !state.userId || state.result || isBotAccount) return false;
   if (String(senderId ?? '') !== state.userId) return false;
   const body = String(text ?? '').trim();
-  if (!body || body.startsWith('#')) return false;
+  if (!body || body.startsWith('#') || body.startsWith('!')) return false;
   if (state.phase === 'precountdown') {
     state.result = 'early';
     state.resolveSignal();
@@ -191,8 +191,8 @@ async function startUntilWinner(args){
    if(client?.connected===false)return 'unavailable';
    const result=await start({...args,session,testMode:false,
      announce:rounds===0,excludeId:lastSelected});
-   if(result?.outcome==='success')return 'success';
    if(session.cancelled||result?.outcome==='cancelled')return 'cancelled';
+   if(result?.outcome==='success')return 'success';
    if(!['early','expired'].includes(result?.outcome))return result?.outcome||'aborted';
    rounds++;
    lastSelected=result.selectedId;
