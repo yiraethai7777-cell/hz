@@ -37,6 +37,7 @@ function fixture({image}={}){
   '../shared/db':{getPool:()=>db},
   './attendance':{attend:async(room,user)=>{state.attenders.push(user);return {message:state.attenders.length===1?'✅ 출석 성공':'📌 이미 출석',isNew:state.attenders.length===1,date:'2026-10-24'};}},
   './attendance-image/automatic':{sendAttendanceImage:async(client,context)=>{state.images.push(context);return image?image(context):true;}},
+  './chat-ranking-image/automatic':{sendRankingImage:async(db,ctx)=>{state.rankingImage=ctx;return true;}},
   './chat-ranking':{messages:async(db,room,all)=>[all?'전체 채팅 순위 20명':'채팅 순위 TOP 10']},
   './targets':{mentions:msg=>msg.mentions||[],resolve:async({msg})=>msg.replyId?{id:msg.replyId,name:'답장 대상'}:null},
   '../shared/help':{formatCommandHelp:()=>'📜 명령어 안내'},
@@ -61,7 +62,8 @@ function fixture({image}={}){
 test('public commands work for a regular user',async()=>{
  const f=fixture();
  assert.match((await f.emit('!출석')).sent[0],/출석 성공/);
- assert.match((await f.emit('!채팅순위')).sent[0],/TOP 10/);
+ assert.deepEqual((await f.emit('!채팅순위')).sent,[]);
+ assert.equal(f.state.rankingImage.userName,'Tester');
  assert.match((await f.emit('!채팅순위전체')).sent[0],/전체 채팅 순위/);
 });
 test('attendance image auto-send is new-only and manual resend does not reward again',async()=>{

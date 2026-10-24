@@ -101,8 +101,12 @@ async function handle(ctx){
   const r=await db.query("SELECT user_name,attended_at FROM hz_new_attendance WHERE room_id=$1 AND attend_date=(NOW() AT TIME ZONE 'Asia/Seoul')::date ORDER BY attended_at,user_id",[room]);
   await pages(send,'🏆 오늘 출석 순위 ('+r.rows.length+'명)',r.rows.map((v,i)=>(i+1)+'. '+v.user_name+' · '+time(v.attended_at)));return true;
  }
- if(cmd==='!채팅순위'||cmd==='!채팅순위전체'){
-  for(const part of await chatRanks(db,room,cmd==='!채팅순위전체'))await send(part);
+ if(cmd==='!채팅순위'){
+  await require('./chat-ranking-image/automatic').sendRankingImage(db,ctx);
+  return true;
+ }
+ if(cmd==='!채팅순위전체'){
+  for(const part of await chatRanks(db,room,true))await send(part);
   return true;
  }
  if(cmd==='!채팅정보'){
