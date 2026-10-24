@@ -133,10 +133,10 @@ const bodies={
   "",
   "⚙️ 게임 설정 · 봇 계정 전용",
   "",
-  "!게임작동",
+  "!게임on",
   "└─ 해당 방의 게임 기능을 켭니다.",
   "",
-  "!게임중지",
+  "!게임off",
   "└─ 해당 방의 게임 기능을 끕니다.",
   "",
   "!퀴즈작동",
@@ -319,7 +319,7 @@ const GAME_MENU='📜 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n
 function formatCommandHelp(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
- if(groupName==='게임')return flags.game?GAME_MENU:'⏹️ 이 방의 게임 기능은 중지되어 있습니다. #게임작동';
+ if(groupName==='게임')return flags.game?GAME_MENU:'⏹️ 이 방의 게임 기능은 중지되어 있습니다. !게임on';
  return '📜 명령어 안내\n🎮 게임: !게임명령어\n🛡️ 관리: !관리명령어';
 }
 const commandLists=Object.fromEntries(['기본','게임','관리'].map(group=>[group,formatCommandHelp({game:true,manage:true},group)]));
