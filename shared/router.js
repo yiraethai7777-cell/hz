@@ -171,6 +171,18 @@ if (text === '#이벤추첨테스트') {
   return;
 }
 
+      if (text === '!이벤트시작' || text === '!이벤트중지') {
+        const event=require('./event-reaction-test');
+        const commandArgs={
+          client,roomId,msg,send:context.send,
+          mention:(id,name)=>typeof chat?.mention==='function'
+            ?chat.mention(id,name,roomId):null
+        };
+        if(text==='!이벤트시작')await event.startUntilWinner(commandArgs);
+        else await event.stopUntilWinner(commandArgs);
+        return;
+      }
+
       if (text === '#이벤진행테스트') {
         await require('./event-reaction-test').start({
           client, roomId, msg, send: context.send,
