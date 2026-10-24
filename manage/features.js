@@ -103,30 +103,12 @@ function senderExactId(msg){
 }
 
 async function processMentionAlerts(chat,rid,msg,uid,name){
-  if(!uid||uid===ctx.globalBotId)return;
-  // 메시지에 실제로 포함된 멘션 정보만 수집한다. 닉네임 텍스트로 추측하지 않는다.
-  const mentions=ctx.rawMentions(msg).filter(x=>x.id!==uid&&x.id!==ctx.globalBotId);
-  const unique=new Set();
-  for(const m of mentions){
-    if(unique.has(m.id))continue;unique.add(m.id);
-    await ctx.pool.query(`INSERT INTO hz_mention_alerts(room_id,target_id,sender_id,sender_name)
-      VALUES($1,$2,$3,$4)`,[rid,m.id,uid,name]);
-  }
-  // 동일 대상의 미전달 알림을 원자적으로 수거한다. 최대 20건씩 처리한다.
-  const pending=await ctx.pool.query(`WITH picked AS (
-    SELECT id FROM hz_mention_alerts WHERE room_id=$1 AND target_id=$2
-      AND notified_at IS NULL ORDER BY id LIMIT 20 FOR UPDATE SKIP LOCKED
-  ) UPDATE hz_mention_alerts a SET notified_at=NOW() FROM picked
-    WHERE a.id=picked.id RETURNING a.sender_id,a.sender_name`,[rid,uid]);
-  if(pending.rows.length){
-    const names=[...new Set(pending.rows.map(x=>x.sender_name||x.sender_id))];
-    const who=names.length<=3?names.map(x=>`${x}님`).join(", "):names.slice(0,3).map(x=>`${x}님`).join(", ")+` 외 ${names.length-3}명`;
-    try{await ctx.send(chat,rid,`📢 ${name}님, ${who}이 회원님을 멘션했습니다.\n미확인 멘션: ${pending.rows.length}건`)}
-    catch(e){console.error("[MENTION NOTIFY]",e)}
-  }
+  return require('./mention-notify').observe({
+    db:ctx.pool,chat,roomId:rid,msg,senderId:uid,senderName:name,
+    botId:ctx.globalBotId,mentionTargets:ctx.rawMentions(msg),
+    send:body=>ctx.send(chat,rid,body)
+  });
 }
-
-
 
 function deepFindUserId(v, preferReply=false){
   let found="";

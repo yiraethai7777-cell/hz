@@ -339,6 +339,13 @@ async function attachHZBot(client){
             // joinNotice currently expects KakaoForge's numeric profile type.
             const output=leaveReply.joinNotice({name,userId:uid,roomName,joins,leaves,time:formatKST(eventTime),profileLink,profileType,profileImage,bans,detail});
             await ctx.send(ctx.globalChat,rid,output);
+            // Rejoining also counts as returning for undelivered mentions.
+            try{
+              await require('../manage/mention-notify').deliver({
+                db:ctx.pool,chat:ctx.globalChat,roomId:rid,userId:uid,userName:name,
+                send:body=>ctx.send(ctx.globalChat,rid,body)
+              });
+            }catch(error){console.error('[MENTION JOIN DELIVERY]',error);}
           }
           if(type==='leave'){
             const lastJoin=await ctx.pool.query("SELECT created_at FROM hz_events WHERE room_id=$1 AND user_id=$2 AND event_type='join' ORDER BY id DESC LIMIT 1",[rid,uid]);
