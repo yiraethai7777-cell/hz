@@ -3,7 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const notifier=require('../manage/mention-notify');
 
-test('absent-mention summary has name, time, sender, room and fold marker',()=>{
+test('absent-mention summary has name, time and sender but no room information',()=>{
   const body=notifier.formatNotification('바닐라',[
     {id:'1',sender_name:'헤이즈',sender_id:'1002',room_name:'APEX',
       created_at:'2026-10-24T05:12:00.000Z'}
@@ -11,7 +11,7 @@ test('absent-mention summary has name, time, sender, room and fold marker',()=>{
   assert.match(body,/^@바닐라님, 부재중 멘션이 1개 있었어요/);
   assert.match(body,/10\.24 14:12/);
   assert.match(body,/헤이즈/);
-  assert.match(body,/채팅방: APEX/);
+  assert.doesNotMatch(body,/채팅방|APEX/);
   assert.match(body,/┣━/);
   assert.match(body,/┗━/);
   assert.ok(body.includes('\u200b'.repeat(1200)));
@@ -33,8 +33,9 @@ test('records verified mention IDs only, once per message, without the message b
   });
   const inserts=statements.filter(v=>v.sql.startsWith('INSERT INTO hz_mention_alerts'));
   assert.equal(inserts.length,1);
-  assert.deepEqual(inserts[0].args,['1234','3333','2222','헤이즈','APEX','12345']);
+  assert.deepEqual(inserts[0].args,['1234','3333','2222','헤이즈','12345']);
   assert.ok(!JSON.stringify(statements).includes('절대 저장하면 안 되는 본문'));
+  assert.ok(!JSON.stringify(inserts).includes('APEX'));
 });
 
 test('does not accept plain @name text as verified mention',async()=>{
