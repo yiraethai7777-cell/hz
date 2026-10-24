@@ -392,3 +392,35 @@ test('event control commands cannot count as a winning response',async()=>{
  await start(args);
  assert.match(sent.at(-1),/시간 초과/);
 });
+
+
+test('router accepts !이벤트시작 and sends an actual countdown before declaring a winner',async()=>{
+ const {attachRouter}=require('../shared/router');
+ const id='9007199254740993123',sent=[];
+ let dispatch;
+ const client={
+  userId:'999',connected:true,
+  onMessage:fn=>{dispatch=fn},
+  getCachedMemberProfiles:async()=>[{id,name:'APEX 참가자'}],
+  chat:{
+   mention:(uid,display)=>marker(uid,display),
+   sendText:async(_room,body)=>{
+    sent.push(body);
+    if(body==='⏳ 5'){
+     setImmediate(()=>dispatch({
+      room:{id:'56789',isOpenChat:true},
+      sender:{id,type:2},text:'당첨 도전!'
+     }));
+    }
+   }
+  }
+ };
+ attachRouter(client,{ready:Promise.resolve(),
+  game:{message:async()=>{}},management:{message:async()=>false}});
+ await dispatch({room:{id:'56789',isOpenChat:true},
+  sender:{id:'1234',type:1},text:'!이벤트시작'});
+ assert.ok(sent.some(t=>t.includes('카운트 이벤트 시작')));
+ assert.ok(sent.includes('⏳ 5'));
+ assert.match(sent.at(-1),/반응 성공/);
+ assert.equal(sent.filter(t=>t.includes('🎯 이벤트 종료')).length,1);
+});
