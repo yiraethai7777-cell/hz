@@ -106,7 +106,7 @@ test('router forwards event draw command through client.chat.mention',async()=>{
     }
   };
   attachRouter(client,{game:{},management:{},ready:Promise.resolve()});
-  await dispatch({room:{id:'777777',isOpenChat:true},sender:{id:'101',type:1},text:'#이벤추첨테스트'});
+  await dispatch({room:{id:'777777',isOpenChat:true},sender:{id:'101',type:1},text:'!이벤추첨테스트'});
   assert.equal(mentionCalls.length,1);
   assert.equal(mentionCalls[0].id,'9007199254740993123');
   assert.equal(String(mentionCalls[0].roomId),'777777');
