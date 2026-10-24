@@ -8,7 +8,7 @@ const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!도배감지on','!삭제감지on','!삭제감지off','!프로필감지on','!프로필감지off']);
-const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어']);
+const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
 const owner=(u,bot)=>bot===true||String(u)===String(process.env.GL_OWNER_ID||'__NO_OWNER__')||OWNER_IDS.has(String(u));
 async function enabled(db,room){
@@ -77,6 +77,12 @@ async function handle(ctx){
   await send(on?'🛡️ 관리 기능이 작동되었습니다.':'⏹️ 관리 기능이 중지되었습니다.');return true;
  }
  if(!await enabled(db,room)){await send('⏹️ 관리 기능 중지 · !관리on으로 작동할 수 있습니다.');return true;}
+ if(cmd==='!id'){
+  if(![1,4].includes(Number(ctx.senderType))){await send('⛔ 방장·부방장만 사용할 수 있습니다.');return true;}
+  if(tail){await send('사용법: !id (본인 사용자 ID 확인)');return true;}
+  if(!/^\d+$/.test(user)){await send('❌ 사용자 ID를 확인할 수 없습니다.');return true;}
+  await send('🆔 내 아이디: '+user);return true;
+ }
  if(STAFF.has(cmd)&&!await isStaff(db,room,user,ctx.senderType,botOwner)){
   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
  }

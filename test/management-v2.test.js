@@ -171,3 +171,15 @@ test('only bot administrators can persist room profile alert toggles',async()=>{
  assert.match((await f.emit('!프로필감지on',{self:true})).sent[0],/ON/);
  assert.deepEqual(f.state.profileSetting,{room:'1849',on:true});
 });
+
+
+test('!id preserves exact user ID and legacy room-manager restrictions',async()=>{
+ const f=fixture(),id='9007199254740993123';
+ for(const role of [1,4])assert.equal((await f.emit('!id',{role,user:id})).sent[0],'🆔 내 아이디: '+id);
+ assert.match((await f.emit('!id')).sent[0],/방장·부방장만/);
+ assert.match((await f.emit('!id',{self:true})).sent[0],/방장·부방장만/);
+ assert.match((await f.emit('!id',{user:'2000'})).sent[0],/방장·부방장만/);
+ assert.match((await f.emit('!id 대상',{role:1})).sent[0],/사용법/);
+ await f.emit('!관리off',{self:true});assert.match((await f.emit('!id',{role:1})).sent[0],/관리 기능 중지/);
+ assert.ok(require('../shared/help').formatCommandHelp({manage:true},'관리').includes('!id'));
+});
