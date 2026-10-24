@@ -8,7 +8,7 @@ const { sendPng } = require("./send");
 const running = new Set();
 
 async function sendAttendanceImage(client, context) {
-  const { roomId, userId, send } = context;
+  const { roomId, userId, send, onDemand = false } = context;
 
   const room = String(roomId);
   const user = String(userId);
@@ -24,6 +24,10 @@ async function sendAttendanceImage(client, context) {
     });
 
     if (!data.attendanceDate) {
+      if (onDemand) {
+        await send("📅 오늘 출석 기록이 없습니다. 먼저 !출석을 입력해 주세요.");
+        return false;
+      }
       throw new Error("출석 기록을 찾을 수 없습니다.");
     }
 
@@ -47,7 +51,9 @@ async function sendAttendanceImage(client, context) {
       bytes: image.length
     });
 
-    const result = await sendPng(client, room, image);
+    const result = await sendPng(client, room, image, {
+      caption: '📅 ' + data.name + '님의 출석 달력 · ' + data.attendanceDate
+    });
 
     if (!result.confirmed) {
       throw new Error("이미지 전송 확인 실패");
@@ -57,15 +63,19 @@ async function sendAttendanceImage(client, context) {
       roomId: room,
       userId: user
     });
+    return true;
 
   } catch (error) {
     console.error("[ATTENDANCE IMAGE ERROR]", error);
 
     try {
-      await send("⚠️ 출석은 정상 완료되었지만 이미지를 전송하지 못했습니다.");
+      await send(onDemand
+        ? "⚠️ 출석 이미지를 전송하지 못했습니다. 잠시 후 다시 !출석이미지를 입력해 주세요."
+        : "⚠️ 출석은 정상 완료되었지만 이미지를 전송하지 못했습니다. !출석이미지로 다시 요청할 수 있습니다.");
     } catch (replyError) {
       console.error("[ATTENDANCE IMAGE REPLY ERROR]", replyError);
     }
+    return false;
   } finally {
     running.delete(key);
   }
