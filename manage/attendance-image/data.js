@@ -40,8 +40,16 @@ async function readSnapshot(pool,{roomId,userId,now=new Date(),attendanceDate}){
    // Missing or ambiguous audit records must not be replaced by an estimated reward.
    if(rewards.rows.length===1&&/^\d+$/.test(rewards.rows[0].amount))reward=rewards.rows[0].amount;
   }
+  // Rank all members before filtering this user; ordering matches !출석순위.
+  const ranked=await db.query(`SELECT day,position FROM (
+    SELECT user_id,attend_date::text AS day,
+      ROW_NUMBER() OVER(PARTITION BY attend_date ORDER BY attended_at,user_id)::int AS position
+    FROM hz_new_attendance WHERE room_id=$1
+      AND attend_date >= $3::date AND attend_date < ($3::date + INTERVAL '1 month')
+  ) ranked WHERE user_id=$2`,[room,user,today.slice(0,7)+'-01']);
+  const ranks=Object.fromEntries(ranked.rows.map(r=>[r.day,Number(r.position)]));
   const days=new Set(dates);let expected=requested,streak=0;while(days.has(expected)){streak++;expected=previousDay(expected);}
-  const snapshot={roomId:room,userId:user,name:record?.user_name??rows[0]?.user_name??'',today,attendanceDate:record?requested:null,attendedAt:record?.attended_at??null,total:rows.length,streak,reward,dates,calendar:calendar({year,month,dates,today})};
+  const snapshot={roomId:room,userId:user,name:record?.user_name??rows[0]?.user_name??'',today,attendanceDate:record?requested:null,attendedAt:record?.attended_at??null,total:rows.length,streak,reward,dates,ranks,calendar:calendar({year,month,dates,today})};
   await db.query('COMMIT');return snapshot;
  }catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();}
 }

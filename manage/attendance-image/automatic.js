@@ -46,7 +46,8 @@ async function sendAttendanceImage(client, context) {
       streak: data.streak,
       total: data.total,
       reward: data.reward,
-      dates: data.dates
+      dates: data.dates,
+      ranks: data.ranks
     });
 
     console.log("[ATTENDANCE IMAGE] 생성 완료", {

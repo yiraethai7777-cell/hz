@@ -7,7 +7,7 @@ function createFixture({snapshot,render,deliver}={}){
  const emitted=[],calls={reads:0,renders:0,uploads:0};
  const expected=snapshot===undefined?{
   roomId:'12345',userId:'67890',name:'출석 회원',today:'2026-10-24',
-  attendanceDate:'2026-10-24',streak:3,total:12,reward:'32000',
+  ranks:{'2026-10-24':1},attendanceDate:'2026-10-24',streak:3,total:12,reward:'32000',
   dates:['2026-10-22','2026-10-23','2026-10-24']
  }:snapshot;
  const m={exports:{}};
@@ -82,7 +82,7 @@ test('concurrent photo requests do not upload duplicate images',async()=>{
 
 test('automatic rendering preserves the committed date and current nickname across midnight',async()=>{
  const f=createFixture({render:input=>{
-  assert.equal(input.name,'새 닉네임');
+  assert.equal(input.name,'새 닉네임');assert.equal(input.ranks['2026-10-24'],1);
   assert.equal(input.attendanceDate,'2026-10-24');
   return undefined;
  }});

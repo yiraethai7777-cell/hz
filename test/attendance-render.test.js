@@ -24,3 +24,14 @@ test('personal greeting and every rendered pixel stay monochrome',async()=>{
  const png=PNG.sync.read(await renderAttendance(input));
  for(let i=0;i<png.data.length;i+=4){assert.equal(png.data[i],png.data[i+1]);assert.equal(png.data[i+1],png.data[i+2]);}
 });
+
+test('each recorded calendar day uses its own gold, silver, bronze or monochrome rank',async()=>{
+ const dates=['2026-10-19','2026-10-20','2026-10-21','2026-10-22'];
+ const input=fixture('순위 테스트','2026-10-22',{dates,ranks:Object.fromEntries(dates.map((d,i)=>[d,i+1]))});
+ const png=PNG.sync.read(await renderAttendance(input));
+ for(const [i,rgb]of [[0,[212,175,55]],[1,[192,192,192]],[2,[205,127,50]]]){
+  const index=4+18+i,x=88+(index%7)*184+20,y=Math.floor(650+Math.floor(index/7)*56.4+25);
+  const offset=(y*png.width+x)*4;assert.deepEqual([...png.data.subarray(offset,offset+3)],rgb);
+ }
+ const svg=buildSvg(input);assert.ok(svg.includes('data-rank="4" fill="url(#selected)"'));
+});

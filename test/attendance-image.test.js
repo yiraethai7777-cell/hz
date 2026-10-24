@@ -25,7 +25,7 @@ test('snapshot reads committed per-user records and actual rewards with no write
  const query=async(sql,args)=>args?.length?db.query(sql,args):(await db.exec(sql)).at(-1);
  await db.exec(`CREATE TABLE hz_new_attendance(room_id TEXT,user_id TEXT,user_name TEXT,attend_date DATE,attended_at TIMESTAMPTZ,PRIMARY KEY(room_id,user_id,attend_date));
  CREATE TABLE hz_coin_logs(room_id TEXT,user_id TEXT,type TEXT,amount BIGINT,created_at TIMESTAMPTZ);`);
- for(const [user,name,day,reward]of [['1','첫 사용자','2026-10-18',30000],['1','긴닉네임'.repeat(40),'2026-10-19',31000],['2','다른 사용자','2026-10-19',30000]]){
+ for(const [user,name,day,reward]of [['1','첫 사용자','2026-10-18',30000],['1','긴닉네임'.repeat(40),'2026-10-19',31000],['2','다른 사용자','2026-10-19',30000],['3','동메달','2026-10-19',30000],['4','일반','2026-10-19',30000]]){
   await query('INSERT INTO hz_new_attendance VALUES($1,$2,$3,$4::date,$5::timestamptz)',['100',user,name,day,day+'T01:02:03+09:00']);
   await query("INSERT INTO hz_coin_logs VALUES('100',$1,'ATTENDANCE',$2,$3::timestamptz)",[user,reward,day+'T01:02:03+09:00']);
  }
@@ -35,7 +35,13 @@ test('snapshot reads committed per-user records and actual rewards with no write
   assert.equal(a.total,2);assert.equal(a.streak,2);assert.equal(a.reward,'31000');assert.equal(a.name,'긴닉네임'.repeat(40));
   assert.equal(b.total,1);assert.equal(b.streak,1);assert.equal(b.reward,'30000');assert.equal(b.name,'다른 사용자');
   assert.equal(a.calendar.cells.filter(x=>x?.attended).length,2);assert.equal(b.calendar.cells.filter(x=>x?.attended).length,1);
-  const next=await readSnapshot(pool,{roomId:'100',userId:'1',now:new Date('2026-11-01T00:00:00Z')});assert.equal(next.calendar.cells.filter(x=>x?.attended).length,0);assert.equal(next.reward,null);assert.equal(next.total,2);
+  assert.equal(a.ranks['2026-10-18'],1);assert.equal(a.ranks['2026-10-19'],1);
+  assert.equal(b.ranks['2026-10-19'],2);
+  for(const [userId,rank]of [['3',3],['4',4]]){
+   const value=await readSnapshot(pool,{roomId:'100',userId,now:new Date('2026-10-19T00:00:00Z')});assert.equal(value.ranks['2026-10-19'],rank);
+  }
+  const otherRoom=await readSnapshot(pool,{roomId:'200',userId:'1',now:new Date('2026-10-19T00:00:00Z')});assert.deepEqual(otherRoom.ranks,{});
+  const next=await readSnapshot(pool,{roomId:'100',userId:'1',now:new Date('2026-11-01T00:00:00Z')});assert.equal(next.calendar.cells.filter(x=>x?.attended).length,0);assert.equal(next.reward,null);assert.equal(next.total,2);assert.deepEqual(next.ranks,{});
   const boundary=await readSnapshot(pool,{roomId:'100',userId:'1',attendanceDate:'2026-10-19',now:new Date('2026-10-19T15:00:00Z')});assert.equal(boundary.today,'2026-10-20');assert.equal(boundary.attendanceDate,'2026-10-19');assert.equal(boundary.reward,'31000');assert.equal(boundary.calendar.cells.filter(x=>x?.highlightToday).length,0);
   assert.ok(calls.every(s=>!/\bINSERT|\bUPDATE|\bDELETE|\bALTER|\bCREATE/.test(s)));
   // A new loader invocation reads the same durable rows without any in-memory state.

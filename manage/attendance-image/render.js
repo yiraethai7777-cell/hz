@@ -41,10 +41,12 @@ function buildSvg(input){
  const cells=grid.cells.slice(0,rows*7).map((c,index)=>{
   const x=88+(index%7)*184,y=650+Math.floor(index/7)*(cellHeight+6);
   const checked=c?.attended,current=c?.highlightToday;
-  const box=`<rect x="${x}" y="${y}" width="174" height="${cellHeight}" rx="12" fill="${current?'url(#selected)':'url(#cell)'}" stroke="${checked?'#b2b2b2':'#303030'}" stroke-width="${current?2.5:1}" ${current?'filter="url(#glow)"':''}/>`;
+  const rank=checked?input.ranks?.[c.date]:undefined;
+  const medal=({1:'#d4af37',2:'#c0c0c0',3:'#cd7f32'})[rank];
+  const box=`<rect x="${x}" y="${y}" width="174" height="${cellHeight}" rx="12" data-rank="${rank??''}" fill="${medal|| (current?'url(#selected)':'url(#cell)')}" stroke="${medal||(checked?'#b2b2b2':'#303030')}" stroke-width="${current?2.5:1}" ${current?'filter="url(#glow)"':''}/>`;
   if(!c)return box;
-  const color=current?'#fff':c.weekend==='sunday'?'#888888':c.weekend==='saturday'?'#939393':'#e2e2e2';
-  const mark=checked?`<circle cx="${x+157}" cy="${y+12}" r="${current?17:10}" fill="#c6c6c6" ${current?'filter="url(#glow)"':''}/><path d="m${x+150} ${y+12} 5 5 9-10" fill="none" stroke="#3b3b3b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`:'';
+  const color=medal?'#171717':current?'#fff':c.weekend==='sunday'?'#888888':c.weekend==='saturday'?'#939393':'#e2e2e2';
+  const mark=checked?`<circle cx="${x+157}" cy="${y+12}" r="${current?17:10}" fill="${medal?'#f5f5f5':'#c6c6c6'}" ${current?'filter="url(#glow)"':''}/><path d="m${x+150} ${y+12} 5 5 9-10" fill="none" stroke="#3b3b3b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`:'';
   return `<g data-date="${c.date}" data-attended="${Boolean(checked)}">${box}${text(x+87,y+cellHeight/2+8,c.day,24,color,'text-anchor="middle"'+(current?' font-weight="800"':''))}${mark}</g>`;
  }).join('');
  const streakText=localized(streak)+'일',totalText=localized(total)+'회',rewardText='+'+localized(reward);
@@ -64,13 +66,13 @@ function buildSvg(input){
  <mask id="art-vertical"><rect x="848" y="85" width="557" height="260" fill="url(#vertical-fade)"/></mask>
  <mask id="check-mask"><rect x="91" y="131" width="195" height="190" fill="url(#check-fade)"/></mask>
  </defs>
- <g filter="url(#monochrome)"><rect width="1448" height="1086" fill="#141414"/>
+ <g><rect width="1448" height="1086" fill="#141414"/>
  <rect x="32" y="24" width="1384" height="1034" rx="44" fill="url(#background)" stroke="url(#frame)" stroke-width="3"/>
  <g font-family="Noto Sans KR" font-weight="400">
  ${text(80,82,'출석체크',26,'#fff','font-weight="800"')}
  ${text(1377,77,today.replaceAll('-','. ')+' ('+label.slice(-2,-1)+')',23,'#bdbdbd','text-anchor="end"')}
- <g mask="url(#art-vertical)"><image x="848" y="85" width="557" height="260" xlink:href="${decorations.calendar}" mask="url(#art-fade)"/></g>
- <image x="91" y="131" width="195" height="190" xlink:href="${decorations.check}" mask="url(#check-mask)"/>
+ <g mask="url(#art-vertical)"><image filter="url(#monochrome)" x="848" y="85" width="557" height="260" xlink:href="${decorations.calendar}" mask="url(#art-fade)"/></g>
+ <image filter="url(#monochrome)" x="91" y="131" width="195" height="190" xlink:href="${decorations.check}" mask="url(#check-mask)"/>
  ${nameSvg}${text(314,256,'출석 완료되셨습니다!',43,'#fff','font-weight="800"')}
  ${text(315,309,'오늘도 함께해 주셔서 감사합니다.',26,'#c6c6c6')}${text(690,309,'♥',27,'#b5b5b5')}
  <rect x="56" y="345" width="1338" height="160" rx="23" fill="url(#panel)" stroke="#5e5e5e"/>
@@ -88,7 +90,7 @@ function buildSvg(input){
  <path d="M64 978h1320" stroke="#959595"/>
  <g transform="translate(83 1018)" fill="#bcbcbc"><path d="M0 13V-6 M0 3C-19 4-17-13-17-13 0-15 0 1 0 3 M0 1C0-15 15-15 15-15 17 0 3 3 0 1" stroke="#bcbcbc" stroke-width="2"/></g>
  ${text(122,1027,'오늘도 출석 완료! 꾸준한 하루가 멋진 변화를 만듭니다. 항상 응원할게요!',20,'#f6f6f6')}
- <path d="M1077 1018h138" stroke="#bfbfbf"/>
+ ${text(1325,1027,'1등 금 · 2등 은 · 3등 동',20,'#bfbfbf','text-anchor="end"')}
  </g></g></svg>`;
 }
 let active=0;const waiting=[];
