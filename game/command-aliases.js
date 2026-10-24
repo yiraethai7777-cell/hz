@@ -8,10 +8,11 @@ const COMMANDS=new Set(`
 펫뽑기 펫인벤 펫도감 펫기능 펫장착 펫강화
 농장 농장정보 농장확장 씨앗구매 심기 수확 전체수확
 퀴즈 정답 퀴즈정보 퀴즈순위
-게임작동 게임중지 퀴즈작동 퀴즈중지 낚시작동 낚시중지 게임상태 게임정보
+게임on 게임off 퀴즈작동 퀴즈중지 낚시작동 낚시중지 게임상태 게임정보
 치트 회수 초기화 초기화확인 랭킹공개 랭킹비공개
 핑`.trim().split(/\s+/));
-const RETIRED=new Set([...COMMANDS,'게임순위']);
+// Block old # commands, including removed game toggles, before the legacy handlers.
+const RETIRED=new Set([...COMMANDS,'게임순위','게임작동','게임중지']);
 function commandName(text,prefix){
  const raw=String(text||'').trim();
  if(raw.charAt(0)!==prefix)return null;
