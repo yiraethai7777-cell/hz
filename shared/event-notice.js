@@ -51,7 +51,10 @@ function capability(client,linkId) {
   if(process.env.HZ_EVENT_NOTICE_API==='off')return null;
   // Historical public node-kakao board API. May not work with 2026 server;
   // availability of this object is NOT evidence of successful registration.
-  if(!client?.oauthToken || !client?.deviceUuid)return null;
+  // Only use deviceId as an alternative when explicitly opted in.
+  const hasDevice=!!client?.deviceUuid ||
+    (process.env.HZ_NOTICE_USE_DEVICE_ID==='1' && !!client?.deviceId);
+  if(!client?.oauthToken || !hasDevice)return null;
   return require('./event-board-api').createBoardAdapter(client,{linkId});
 }
 function sanitize(str) {
