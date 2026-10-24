@@ -14,7 +14,10 @@ async function sendAttendanceImage(client, context) {
   const user = String(userId);
   const key = room + ":" + user;
 
-  if (running.has(key)) return;
+  if (running.has(key)) {
+    if (onDemand) await send("⏳ 출석 이미지를 전송하고 있습니다. 전송이 끝난 뒤 다시 시도해 주세요.");
+    return false;
+  }
   running.add(key);
 
   try {
