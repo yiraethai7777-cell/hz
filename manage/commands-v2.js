@@ -8,7 +8,7 @@ const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!도배감지on','!삭제감지on','!삭제감지off','!프로필감지on','!프로필감지off']);
-const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id']);
+const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
 const owner=(u,bot)=>bot===true||String(u)===String(process.env.GL_OWNER_ID||'__NO_OWNER__')||OWNER_IDS.has(String(u));
 async function enabled(db,room){
@@ -77,8 +77,19 @@ async function handle(ctx){
   await send(on?'🛡️ 관리 기능이 작동되었습니다.':'⏹️ 관리 기능이 중지되었습니다.');return true;
  }
  if(!await enabled(db,room)){await send('⏹️ 관리 기능 중지 · !관리on으로 작동할 수 있습니다.');return true;}
+ if(cmd==='!멘션감지on'||cmd==='!멘션감지off'||cmd==='!멘션감지상태'){
+  const notifier=require('./mention-notify');
+  if(cmd==='!멘션감지상태'){
+   await send('🔔 멘션 감지: '+(await notifier.isEnabled(db,room)?'ON':'OFF'));return true;
+  }
+  if(!botOwner&&![1,4].includes(Number(ctx.senderType))){
+   await send('⛔ 멘션 감지 설정은 방장·부방장 또는 봇 관리자만 변경할 수 있습니다.');return true;
+  }
+  const on=cmd==='!멘션감지on';await notifier.setEnabled(db,room,on);
+  await send(on?'🔔 멘션 감지 ON · 부재중 멘션 기록과 알림을 시작합니다.':'⏹️ 멘션 감지 OFF · 새 멘션을 기록하거나 알리지 않습니다.');return true;
+ }
  if(cmd==='!id'){
-  if(Number(ctx.senderType)!==4){await send('⛔ 부방장만 사용할 수 있습니다.');return true;}
+  if(!ctx.isBotAccount&&![1,4].includes(Number(ctx.senderType))){await send('⛔ 방장·부방장·봇 계정만 사용할 수 있습니다.');return true;}
   const tagged=mentions(ctx.msg),ref=reference(ctx.msg);
   const hasTarget=tail||tagged.length||ref||Number(ctx.msg?.message?.type??ctx.msg?.type)===26;
   if(!hasTarget){
