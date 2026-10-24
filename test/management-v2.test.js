@@ -7,7 +7,7 @@ const vm=require('node:vm');
 
 function fixture(){
  const state={enabled:true,admins:new Set(['2000']),deleteEnabled:false,spamEnabled:false,rows:[],
-  actions:[],kicks:[],unbans:[],sent:[],sql:[],attenders:[],templates:[],warnings:[]};
+  actions:[],kicks:[],unbans:[],sent:[],sql:[],attenders:[],images:[],templates:[],warnings:[]};
  const db={
   async query(sql,v=[]){
    state.sql.push(String(sql));
@@ -35,7 +35,8 @@ function fixture(){
  const source=fs.readFileSync(path.join(__dirname,'../manage/commands-v2.js'),'utf8');
  const deps={
   '../shared/db':{getPool:()=>db},
-  './attendance':{attend:async(room,user)=>{state.attenders.push(user);return '✅ 출석 성공';}},
+  './attendance':{attend:async(room,user)=>{state.attenders.push(user);return state.attenders.length===1?'✅ 출석 성공':'📌 이미 출석';}},
+  './attendance-image/automatic':{sendAttendanceImage:async(client,context)=>{state.images.push(context);return true;}},
   './chat-ranking':{messages:async(db,room,all)=>[all?'전체 채팅 순위 20명':'채팅 순위 TOP 10']},
   './targets':{mentions:msg=>msg.mentions||[],resolve:async({msg})=>msg.replyId?{id:msg.replyId,name:'답장 대상'}:null},
   '../shared/help':{formatCommandHelp:()=>'📜 명령어 안내'},
@@ -63,6 +64,26 @@ test('public commands work for a regular user',async()=>{
  assert.match((await f.emit('!채팅순위')).sent[0],/TOP 10/);
  assert.match((await f.emit('!채팅순위전체')).sent[0],/전체 채팅 순위/);
 });
+test('attendance image auto-send is new-only and manual resend does not reward again',async()=>{
+ const f=fixture();
+ const first=await f.emit('!출석');
+ assert.match(first.sent[0],/출석 성공/);
+ await Promise.resolve();
+ assert.equal(f.state.images.length,1);
+ assert.equal(f.state.images[0].onDemand,false);
+ assert.equal(f.state.attenders.length,1);
+ const duplicate=await f.emit('!출석');
+ assert.match(duplicate.sent[0],/이미 출석/);
+ await Promise.resolve();
+ assert.equal(f.state.images.length,1,'duplicate must not upload an image');
+ const manual=await f.emit('!출석이미지');
+ assert.equal(manual.handled,true);
+ await Promise.resolve();
+ assert.equal(f.state.images.length,2);
+ assert.equal(f.state.images[1].onDemand,true);
+ assert.equal(f.state.attenders.length,2,'manual resend must not update attendance');
+});
+
 test('attendance ranking includes everyone and splits if needed',async()=>{
  const f=fixture();
  f.state.rows=Array.from({length:75},(_,i)=>({user_name:'참가자'+i,attended_at:new Date(2026,9,24,10,i%60)}));
