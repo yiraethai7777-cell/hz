@@ -113,7 +113,7 @@ async function start({
     const challengerBanner = testMode
       ? '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트 테스트 📣📣📣\n'+
         '━━━━━━━━━━━━━━━━━━\n'+
-        '🎯🎯 선택된 도전자 🎯🎯\n\n'+
+        '🎯🎯 선택된 사람 🎯🎯\n\n'+
         '👉👉  '+marker+'  👈👈\n\n'+
         '━━━━━━━━━━━━━━━━━━\n'+
         'APEX 후보: '+candidates.length+'명 (캐시 기준)\n'+
@@ -121,7 +121,7 @@ async function start({
         '🚫 먼저 답장하면 즉시 탈락\n'+
         '⚙️ 숫자별 추가 대기: '+tickMs+'ms\n'+
         '⚠️ 테스트 전용 · 보상 없음'
-      : '🎯🎯 선택된 도전자 🎯🎯\n\n👉👉  '+marker+'  👈👈';
+      : '🎯🎯 선택된 사람 🎯🎯\n\n👉👉  '+marker+'  👈👈';
     if(!state.result && !await sendSafe(client,send,challengerBanner))return {outcome:'aborted'};
 
     console.log('[이벤 진행 테스트] 카운트 준비: room='+room+
