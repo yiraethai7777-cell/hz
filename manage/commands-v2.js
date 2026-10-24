@@ -5,7 +5,7 @@ const {messages:chatRanks}=require('./chat-ranking');
 const {mentions,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
-const PUBLIC=new Set(['!출석','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
+const PUBLIC=new Set(['!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!도배감지on','!삭제감지on','!삭제감지off']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어']);
@@ -80,7 +80,19 @@ async function handle(ctx){
  if(STAFF.has(cmd)&&!await isStaff(db,room,user,ctx.senderType,botOwner)){
   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
  }
- if(cmd==='!출석'){await send(await attend(room,user,ctx.userName||user));return true;}
+ if(cmd==='!출석'||cmd==='!출석이미지'){
+  if(cmd==='!출석'){
+   // Commit and send the normal attendance result first, without waiting for PNG rendering.
+   const result=await attend(room,user,ctx.userName||user);
+   await send(result);
+   if(!result.startsWith('✅ '))return true; // Already checked in: never reissue coins or photos.
+  }
+  // Generate/upload independently so slow media transfer cannot delay command routing.
+  Promise.resolve().then(()=>require('./attendance-image/automatic').sendAttendanceImage(ctx.client,{
+   roomId:room,userId:user,send,onDemand:cmd==='!출석이미지'
+  })).catch(error=>console.error('[ATTENDANCE IMAGE TASK]',error));
+  return true;
+ }
  if(cmd==='!출석순위'){
   const r=await db.query("SELECT user_name,attended_at FROM hz_new_attendance WHERE room_id=$1 AND attend_date=(NOW() AT TIME ZONE 'Asia/Seoul')::date ORDER BY attended_at,user_id",[room]);
   await pages(send,'🏆 오늘 출석 순위 ('+r.rows.length+'명)',r.rows.map((v,i)=>(i+1)+'. '+v.user_name+' · '+time(v.attended_at)));return true;
