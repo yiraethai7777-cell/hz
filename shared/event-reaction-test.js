@@ -6,6 +6,8 @@ const {load:loadSettingsDefault,render,DEFAULTS}=require('./event-settings');
 // Shared countdown engine for #이벤진행테스트 and !이벤트시작.
 // A win is a reaction result only: no prize payment or message hiding.
 const active = new Map();
+// One multi-round live event session per room, held until a win or cancellation.
+const sessions = new Map();
 // Sending through KakaoForge is queued (normally >=400ms); never use
 // 175ms of wall-clock time to cut off the five countdown messages.
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -47,27 +49,28 @@ function receive({roomId, senderId, text, isBotAccount = false, now = Date.now})
 async function start({
   client, roomId, msg, send, mention, pickRandom = randomInt,
   now = Date.now, sleep = delay, loadSettings = loadSettingsDefault,
-  testMode = true
+  testMode = true, session = null, announce = true, excludeId = null
 }) {
   if (msg?.room?.isOpenChat !== true) {
     await sendSafe(client, send, '오픈채팅방에서만 사용할 수 있습니다.');
-    return;
+    return {outcome:'unavailable'};
   }
   if (![1,4].includes(Number(msg?.sender?.type))) {
     await sendSafe(client, send, '방장 또는 부방장만 실행할 수 있습니다.');
-    return;
+    return {outcome:'unauthorized'};
   }
   if (typeof client?.getCachedMemberProfiles !== 'function' || typeof mention !== 'function') {
     await sendSafe(client, send, '캐시 인원 또는 멘션 기능이 없습니다.');
-    return;
+    return {outcome:'unavailable'};
   }
 
   const room = String(roomId);
-  if (active.has(room)) {
+  if (active.has(room) || (sessions.has(room) && sessions.get(room)!==session)) {
     await sendSafe(client, send, testMode?'이미 카운트 이벤트 테스트가 진행 중입니다.':'이미 카운트 이벤트가 진행 중입니다.');
-    return;
+    return {outcome:'busy'};
   }
-  if (client.connected === false) return;
+  if (client.connected === false) return {outcome:'unavailable'};
+  if (session?.cancelled) return {outcome:'cancelled'};
 
   let resolveSignal;
   const signal = new Promise(resolve => {resolveSignal = resolve;});
@@ -82,12 +85,13 @@ async function start({
     const candidates = getCandidates(members, client.userId);
     if (!candidates.length) {
       await sendSafe(client, send, '현재 확인된 APEX 참가자가 없습니다. 방 명단 동기화 중이거나 퇴장자가 제외된 상태일 수 있습니다. #이벤인원테스트로 확인해 주세요.');
-      return;
+      return {outcome:'no-candidates'};
     }
-    const index = pickRandom(candidates.length);
-    if (!Number.isInteger(index) || index < 0 || index >= candidates.length)
+    const eligible = excludeId && candidates.length>1 ? candidates.filter(p=>String(p.id)!==String(excludeId)) : candidates;
+    const index = pickRandom(eligible.length);
+    if (!Number.isInteger(index) || index < 0 || index >= eligible.length)
       throw Error('Invalid random index');
-    const selected = candidates[index];
+    const selected = eligible[index];
     const marker = mention(String(selected.id), selected.name);
     if (typeof marker !== 'string' ||
         !marker.startsWith('\u0002') || !marker.includes('\u0003') ||
@@ -97,7 +101,7 @@ async function start({
     state.phase='precountdown';
     const variables={name:selected.name,mention:marker,count:candidates.length};
 
-    if(settings.announcement) {
+    if(settings.announcement && announce) {
       // Optional per-room notice is posted before displaying the nominee.
       if(!await sendSafe(client,send,
         '📢 APEX 이벤트 공지\n━━━━━━━━━━━━━━\n'+render(settings.announcement,variables)))return;
@@ -105,7 +109,7 @@ async function start({
 
     // Highlight the actual Kakao mention in its own message.
     // Answering before first 5 is delivered is disqualifying.
-    if(state.result!=='early' && !await sendSafe(client,send,
+    if(!state.result && !await sendSafe(client,send,
       '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트'+(testMode?' 테스트':' 시작')+' 📣📣📣\n'+
       '━━━━━━━━━━━━━━━━━━\n'+
       '🎯🎯 선택된 도전자 🎯🎯\n\n'+
@@ -140,26 +144,87 @@ async function start({
 
     if (client.connected === false) throw Error('Connection closed during event');
     state.phase = 'ended';
+    if (state.result === 'cancelled' || session?.cancelled) return {outcome:'cancelled',selectedId:state.userId};
     if (state.result === 'early') {
       console.log('[이벤 진행 테스트] 조기 답변 탈락: room=' + room);
-      await sendSafe(client, send, render(settings.earlyMessage,variables)+(testMode?'\n🎯 테스트 종료 · 실제 보상 없음':'\n🎯 이벤트 종료'));
+      await sendSafe(client, send, render(settings.earlyMessage,variables)+(testMode?'\n🎯 테스트 종료 · 실제 보상 없음':''));
     } else if (state.result === 'success') {
       console.log('[이벤 진행 테스트] 성공: room=' + room);
       await sendSafe(client, send, '✅ 반응 성공!\n'+render(settings.winMessage,variables,true)+(testMode?'\n🎯 테스트 성공 · 실제 보상 없음':'\n🎯 이벤트 종료'));
     } else {
       state.result = 'expired';
       console.log('[이벤 진행 테스트] 시간 초과: room=' + room);
-      await sendSafe(client, send, render(settings.timeoutMessage,variables)+(testMode?'\n🎯 테스트 종료 · 실제 보상 없음':'\n🎯 이벤트 종료'));
+      await sendSafe(client, send, render(settings.timeoutMessage,variables)+(testMode?'\n🎯 테스트 종료 · 실제 보상 없음':''));
     }
+    return {outcome:state.result,selectedId:state.userId};
   } catch(error) {
     state.phase = 'ended';
     state.result = 'aborted';
     console.error('[이벤 진행 테스트] 중단: room=' + room + ' error=' + String(error?.message || error));
     await sendSafe(client, send, testMode?'❌ 이벤트 테스트가 연결 오류 또는 전송 오류로 중단되었습니다.':'❌ 이벤트가 연결 오류 또는 전송 오류로 중단되었습니다.');
+    return {outcome:'aborted'};
   } finally {
     state.phase = 'ended';
     if (active.get(room) === state) active.delete(room);
   }
 }
 
-module.exports = {start, receive};
+async function startUntilWinner(args){
+ const {client,roomId,msg,send}=args;
+ const room=String(roomId);
+ if(msg?.room?.isOpenChat!==true){
+  await sendSafe(client,send,'오픈채팅방에서만 사용할 수 있습니다.');return 'unavailable';
+ }
+ if(![1,4].includes(Number(msg?.sender?.type))){
+  await sendSafe(client,send,'방장 또는 부방장만 실행할 수 있습니다.');return 'unauthorized';
+ }
+ if(sessions.has(room)||active.has(room)){
+  await sendSafe(client,send,'이미 이벤트가 진행 중입니다.');return 'busy';
+ }
+ // Retain a lock between rounds as well as during the countdown.
+ const session={cancelled:false};
+ sessions.set(room,session);
+ let lastSelected=null,rounds=0;
+ const pause=args.betweenRounds||(()=>delay(500));
+ try{
+  while(!session.cancelled){
+   if(client?.connected===false)return 'unavailable';
+   const result=await start({...args,session,testMode:false,
+     announce:rounds===0,excludeId:lastSelected});
+   if(result?.outcome==='success')return 'success';
+   if(session.cancelled||result?.outcome==='cancelled')return 'cancelled';
+   if(!['early','expired'].includes(result?.outcome))return result?.outcome||'aborted';
+   rounds++;
+   lastSelected=result.selectedId;
+   // Stop only on a real winner, explicit cancellation, disconnection
+   // or unrecoverable error; never end after a timed-out round.
+   if(!await sendSafe(client,send,'🔄 아직 당첨자가 없습니다. 다음 참가자를 추첨합니다.'))
+     return 'aborted';
+   await pause();
+  }
+  return 'cancelled';
+ }finally{
+  if(sessions.get(room)===session)sessions.delete(room);
+ }
+}
+async function stopUntilWinner({client,roomId,msg,send}){
+ if(msg?.room?.isOpenChat!==true){
+  await sendSafe(client,send,'오픈채팅방에서만 사용할 수 있습니다.');return false;
+ }
+ if(![1,4].includes(Number(msg?.sender?.type))){
+  await sendSafe(client,send,'방장 또는 부방장만 중지할 수 있습니다.');return false;
+ }
+ const room=String(roomId),session=sessions.get(room);
+ if(!session){
+  await sendSafe(client,send,'현재 진행 중인 이벤트가 없습니다.');return false;
+ }
+ session.cancelled=true;
+ const current=active.get(room);
+ if(current&&!current.result){
+  current.result='cancelled';
+  current.resolveSignal();
+ }
+ await sendSafe(client,send,'⏹️ 이벤트가 중지되었습니다.');
+ return true;
+}
+module.exports = {start, receive, startUntilWinner, stopUntilWinner};
