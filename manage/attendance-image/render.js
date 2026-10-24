@@ -67,7 +67,7 @@ function buildSvg(input){
  <rect width="1448" height="1086" fill="#111518"/>
  <rect x="32" y="24" width="1384" height="1034" rx="44" fill="url(#background)" stroke="url(#frame)" stroke-width="3"/>
  <g font-family="Noto Sans KR" font-weight="400">
- ${text(80,66,'N E X U S',14,'#a8bdd5')}${text(80,98,'출석체크',22,'#fff','font-weight="700"')}
+ ${text(80,82,'출석체크',26,'#fff','font-weight="800"')}
  ${text(1377,77,today.replaceAll('-','. ')+' ('+label.slice(-2,-1)+')',23,'#aebfd0','text-anchor="end"')}
  <g mask="url(#art-vertical)"><image x="848" y="85" width="557" height="260" xlink:href="${decorations.calendar}" mask="url(#art-fade)"/></g>
  <image x="91" y="131" width="195" height="190" xlink:href="${decorations.check}" mask="url(#check-mask)"/>
@@ -88,7 +88,7 @@ function buildSvg(input){
  <path d="M64 978h1320" stroke="#8797a7"/>
  <g transform="translate(83 1018)" fill="#2ae2f6"><path d="M0 13V-6 M0 3C-19 4-17-13-17-13 0-15 0 1 0 3 M0 1C0-15 15-15 15-15 17 0 3 3 0 1" stroke="#2ae2f6" stroke-width="2"/></g>
  ${text(122,1027,'오늘도 출석 완료! 꾸준한 하루가 멋진 변화를 만듭니다. 항상 응원할게요!',20,'#f3f6fa')}
- <path d="M1077 1018h138" stroke="#8fc9ef"/>${text(1380,1027,'N E X U S  B O T',17,'#9dafc6','text-anchor="end"')}
+ <path d="M1077 1018h138" stroke="#8fc9ef"/>
  </g></svg>`;
 }
 let active=0;const waiting=[];
