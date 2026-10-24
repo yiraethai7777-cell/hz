@@ -3,7 +3,8 @@ const {randomInt} = require('node:crypto');
 const {getCandidates} = require('./event-draw-test');
 const {load:loadSettingsDefault,render,DEFAULTS}=require('./event-settings');
 
-// A test-only game: no rewards, punishments or message hiding.
+// Shared countdown engine for #이벤진행테스트 and !이벤트시작.
+// A win is a reaction result only: no prize payment or message hiding.
 const active = new Map();
 // Sending through KakaoForge is queued (normally >=400ms); never use
 // 175ms of wall-clock time to cut off the five countdown messages.
@@ -45,7 +46,8 @@ function receive({roomId, senderId, text, isBotAccount = false, now = Date.now})
 
 async function start({
   client, roomId, msg, send, mention, pickRandom = randomInt,
-  now = Date.now, sleep = delay, loadSettings = loadSettingsDefault
+  now = Date.now, sleep = delay, loadSettings = loadSettingsDefault,
+  testMode = true
 }) {
   if (msg?.room?.isOpenChat !== true) {
     await sendSafe(client, send, '오픈채팅방에서만 사용할 수 있습니다.');
@@ -62,7 +64,7 @@ async function start({
 
   const room = String(roomId);
   if (active.has(room)) {
-    await sendSafe(client, send, '이미 카운트 이벤트 테스트가 진행 중입니다.');
+    await sendSafe(client, send, testMode?'이미 카운트 이벤트 테스트가 진행 중입니다.':'이미 카운트 이벤트가 진행 중입니다.');
     return;
   }
   if (client.connected === false) return;
@@ -104,7 +106,7 @@ async function start({
     // Highlight the actual Kakao mention in its own message.
     // Answering before first 5 is delivered is disqualifying.
     if(state.result!=='early' && !await sendSafe(client,send,
-      '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트 테스트 📣📣📣\n'+
+      '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트'+(testMode?' 테스트':' 시작')+' 📣📣📣\n'+
       '━━━━━━━━━━━━━━━━━━\n'+
       '🎯🎯 선택된 도전자 🎯🎯\n\n'+
       '👉👉  '+marker+'  👈👈\n\n'+
@@ -112,8 +114,8 @@ async function start({
       'APEX 후보: '+candidates.length+'명 (캐시 기준)\n'+
       '⏳ 숫자 5가 시작된 다음 답장하세요!\n'+
       '🚫 먼저 답장하면 즉시 탈락\n'+
-      '⚙️ 숫자별 추가 대기: '+tickMs+'ms\n'+
-      '⚠️ 테스트 전용 · 보상 없음'))return;
+      '⚙️ 숫자별 추가 대기: '+tickMs+'ms'+
+      (testMode?'\n⚠️ 테스트 전용 · 보상 없음':'')))return;
 
     console.log('[이벤 진행 테스트] 카운트 준비: room='+room+
       ' candidateCount='+candidates.length+' tickMs='+tickMs);
@@ -140,20 +142,20 @@ async function start({
     state.phase = 'ended';
     if (state.result === 'early') {
       console.log('[이벤 진행 테스트] 조기 답변 탈락: room=' + room);
-      await sendSafe(client, send, render(settings.earlyMessage,variables)+'\n🎯 테스트 종료 · 실제 보상 없음');
+      await sendSafe(client, send, render(settings.earlyMessage,variables)+(testMode?'\n🎯 테스트 종료 · 실제 보상 없음':'\n🎯 이벤트 종료'));
     } else if (state.result === 'success') {
       console.log('[이벤 진행 테스트] 성공: room=' + room);
-      await sendSafe(client, send, '✅ 반응 성공!\n'+render(settings.winMessage,variables,true)+'\n🎯 테스트 성공 · 실제 보상 없음');
+      await sendSafe(client, send, '✅ 반응 성공!\n'+render(settings.winMessage,variables,true)+(testMode?'\n🎯 테스트 성공 · 실제 보상 없음':'\n🎯 이벤트 종료'));
     } else {
       state.result = 'expired';
       console.log('[이벤 진행 테스트] 시간 초과: room=' + room);
-      await sendSafe(client, send, render(settings.timeoutMessage,variables)+'\n🎯 테스트 종료 · 실제 보상 없음');
+      await sendSafe(client, send, render(settings.timeoutMessage,variables)+(testMode?'\n🎯 테스트 종료 · 실제 보상 없음':'\n🎯 이벤트 종료'));
     }
   } catch(error) {
     state.phase = 'ended';
     state.result = 'aborted';
     console.error('[이벤 진행 테스트] 중단: room=' + room + ' error=' + String(error?.message || error));
-    await sendSafe(client, send, '❌ 이벤트 테스트가 연결 오류 또는 전송 오류로 중단되었습니다.');
+    await sendSafe(client, send, testMode?'❌ 이벤트 테스트가 연결 오류 또는 전송 오류로 중단되었습니다.':'❌ 이벤트가 연결 오류 또는 전송 오류로 중단되었습니다.');
   } finally {
     state.phase = 'ended';
     if (active.get(room) === state) active.delete(room);
