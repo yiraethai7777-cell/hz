@@ -72,7 +72,8 @@ test('host event controls and bot messages remain visible, but host small talk i
  assert.equal(t.blinds[0][1],talk);
  // The host can still stop an event after a hidden ordinary message.
  await t.dispatch(t.host('!이벤트중지','303'));
- assert.equal(await task,'cancelled');
+ await task;
+ assert.ok(t.outputs.some(text=>text.includes('이벤트가 중지되었습니다.')));
  assert.equal(t.blinds.length,1);
  await t.dispatch(t.message('22222','중지 후 대화','304'));
  assert.equal(t.blinds.length,1);
@@ -86,7 +87,8 @@ test('invalid or missing log IDs are not passed to BLIND',async()=>{
  await t.dispatch(t.message('22222','사진',null));
  assert.equal(t.blinds.length,0);
  await t.dispatch(t.host('!이벤트중지'));
- assert.equal(await task,'cancelled');
+ await task;
+ assert.ok(t.outputs.some(text=>text.includes('이벤트가 중지되었습니다.')));
 });
 
 test('event test mode never blinds unrelated participant messages',async()=>{
