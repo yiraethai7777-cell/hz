@@ -123,7 +123,7 @@ test('router runs event and observes later user message',async()=>{
     }
   };
   attachRouter(client,{ready:Promise.resolve(),game:{message:async()=>{}},management:{message:async()=>false}});
-  const a=dispatch({room:{id:'123456',isOpenChat:true},sender:{id:'5',type:1},text:'#이벤진행테스트'});
+  const a=dispatch({room:{id:'123456',isOpenChat:true},sender:{id:'5',type:1},text:'!이벤진행테스트'});
   for(let i=0;i<25&&!sent.includes('⏳ 5');i++)
     await new Promise(resolve=>setImmediate(resolve));
   assert.ok(sent.some(x=>x.includes('35ms 카운트 이벤트')));
