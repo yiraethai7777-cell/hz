@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS gl_manage_actions(id BIGSERIAL PRIMARY KEY,room_id TE
  SELECT room_id,jsonb_build_object('manage',enabled) FROM gl_manage_rooms
  ON CONFLICT(room_id) DO UPDATE SET
  data=jsonb_set(hz_rooms.data,'{manage}',EXCLUDED.data->'manage')`);
+ await require('./scheduled-notices').init(db);
 }
 async function enabled(room){
  const r=await getPool().query("SELECT COALESCE((SELECT enabled FROM gl_manage_rooms WHERE room_id=$1),(SELECT (data->>'manage')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS enabled",[key(room)]);
