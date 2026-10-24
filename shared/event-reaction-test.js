@@ -101,25 +101,28 @@ async function start({
     state.phase='precountdown';
     const variables={name:selected.name,mention:marker,count:candidates.length};
 
-    if(settings.announcement && announce) {
+    // The live event start shows only the challenger mention before counting.
+    if(testMode && settings.announcement && announce) {
       // Optional per-room notice is posted before displaying the nominee.
       if(!await sendSafe(client,send,
         '📢 APEX 이벤트 공지\n━━━━━━━━━━━━━━\n'+render(settings.announcement,variables)))return;
     }
 
-    // Highlight the actual Kakao mention in its own message.
-    // Answering before first 5 is delivered is disqualifying.
-    if(!state.result && !await sendSafe(client,send,
-      '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트'+(testMode?' 테스트':' 시작')+' 📣📣📣\n'+
-      '━━━━━━━━━━━━━━━━━━\n'+
-      '🎯🎯 선택된 도전자 🎯🎯\n\n'+
-      '👉👉  '+marker+'  👈👈\n\n'+
-      '━━━━━━━━━━━━━━━━━━\n'+
-      'APEX 후보: '+candidates.length+'명 (캐시 기준)\n'+
-      '⏳ 숫자 5가 시작된 다음 답장하세요!\n'+
-      '🚫 먼저 답장하면 즉시 탈락\n'+
-      '⚙️ 숫자별 추가 대기: '+tickMs+'ms'+
-      (testMode?'\n⚠️ 테스트 전용 · 보상 없음':'')))return;
+    // Show only the challenger title and actual Kakao mention in live rounds.
+    // Keep the more detailed announcement in the explicit test command.
+    const challengerBanner = testMode
+      ? '📣📣📣 APEX '+tickMs+'ms 카운트 이벤트 테스트 📣📣📣\n'+
+        '━━━━━━━━━━━━━━━━━━\n'+
+        '🎯🎯 선택된 도전자 🎯🎯\n\n'+
+        '👉👉  '+marker+'  👈👈\n\n'+
+        '━━━━━━━━━━━━━━━━━━\n'+
+        'APEX 후보: '+candidates.length+'명 (캐시 기준)\n'+
+        '⏳ 숫자 5가 시작된 다음 답장하세요!\n'+
+        '🚫 먼저 답장하면 즉시 탈락\n'+
+        '⚙️ 숫자별 추가 대기: '+tickMs+'ms\n'+
+        '⚠️ 테스트 전용 · 보상 없음'
+      : '🎯🎯 선택된 도전자 🎯🎯\n\n👉👉  '+marker+'  👈👈';
+    if(!state.result && !await sendSafe(client,send,challengerBanner))return {outcome:'aborted'};
 
     console.log('[이벤 진행 테스트] 카운트 준비: room='+room+
       ' candidateCount='+candidates.length+' tickMs='+tickMs);
