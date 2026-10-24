@@ -13,7 +13,7 @@ export function extractFeedPayload(chatLog: any, attachmentsRaw: any[]): any | n
       }
     }
     if (typeof chatLog.message === 'string') {
-      const text = chatLog.message.trim();
+      const text = chatLog.message.replace(/^[\s\u200b\u200e\u200f\u2060\ufeff]+|[\s\u200b\u200e\u200f\u2060\ufeff]+$/g, '');
       if (text.startsWith('{') || text.startsWith('[')) {
         try {
           const parsed = LosslessJSON.parse(text) as any;

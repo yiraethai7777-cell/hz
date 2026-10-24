@@ -1106,6 +1106,8 @@ export class KakaoForgeClient extends EventEmitter {
     const action = this._resolveFeedAction(feed);
     if (!action) return;
 
+    // Keep member-scoped profile metadata before reducing members to event refs.
+    this._cacheMembers(msg.room.id, Array.isArray(feed.members) ? feed.members : feed.member ? [feed.member] : []);
     const memberIds = extractFeedMemberIds(feed);
     const nameMap = buildFeedMemberNameMap(feed);
 
@@ -1132,6 +1134,7 @@ export class KakaoForgeClient extends EventEmitter {
     );
     if (!roomId) return false;
 
+    this._cacheMembers(roomId, Array.isArray(body.members) ? body.members : []);
     let resolvedAction = action;
     let memberIds = extractPushMemberIds(body, packet.method);
     let nameMap = buildMemberNameMap(body);
@@ -1144,6 +1147,7 @@ export class KakaoForgeClient extends EventEmitter {
       );
       const feed = extractFeedPayload(chatLog, attachmentsRaw);
       if (feed) {
+        this._cacheMembers(roomId, Array.isArray(feed.members) ? feed.members : feed.member ? [feed.member] : []);
         const feedAction = this._resolveFeedAction(feed);
         if (feedAction) resolvedAction = feedAction;
         const feedMemberIds = extractFeedMemberIds(feed);
@@ -2420,6 +2424,7 @@ export class KakaoForgeClient extends EventEmitter {
     let profileId = this._memberProfileLinkIds.get(key);
     if (!profileId) {
       const response = await this._carriage.member(roomId, [userId]);
+      if (response?.status != null && Number(response.status) !== 0) return '';
       const list = response?.body?.members || response?.body?.memberList || response?.body?.memList || [];
       const member = list.find((v: any) => String(normalizeIdValue(v.userId ?? v.id ?? v.memberId)) === String(userId));
       if (member) this._cacheMembers(roomId, [member]);
@@ -2429,13 +2434,13 @@ export class KakaoForgeClient extends EventEmitter {
     const cachedUrl = this._profileLinkUrls?.get(profileId);
     if (cachedUrl && Date.now() - cachedUrl.checkedAt < 300000) return cachedUrl.url;
     const response = await this._carriage.infoLink([profileId]);
-    if (typeof response?.status === 'number' && response.status !== 0) return '';
+    if (response?.status != null && Number(response.status) !== 0) return '';
     const links = response?.body?.ols || [];
     const profile = links.find((v: any) => String(normalizeIdValue(v.li)) === profileId);
     if (!profile || typeof profile.lu !== 'string') return '';
     try {
-      const url = new URL(profile.lu);
-      const valid = url.protocol === 'https:' && url.hostname === 'open.kakao.com' && /^\/o\/[A-Za-z0-9_-]+\/?$/.test(url.pathname) ? url.href : '';
+      const url = new URL(profile.lu.replace(/[\u200b\u200e\u200f\u2060\ufeff]/g, '').trim());
+      const valid = url.protocol === 'https:' && url.hostname === 'open.kakao.com' && !url.username && !url.password && !url.port && /^\/o\/[A-Za-z0-9_-]+\/?$/.test(url.pathname) ? url.href : '';
       if (valid) this._profileLinkUrls?.set(profileId,{url:valid,checkedAt:Date.now()});
       return valid;
     } catch { return ''; }
