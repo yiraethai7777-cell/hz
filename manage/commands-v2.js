@@ -109,12 +109,17 @@ async function handle(ctx){
    if(cmd==='!공지예약'){
     const m=/^(\S+)\s+([\s\S]+)$/.exec(tail);
     if(!m){await send('사용법: !공지예약 HH:MM (내용)\n예: !공지예약 18:30 오늘 저녁 모임을 시작합니다.');return true;}
-    const record=await notices.schedule(db,{roomId:room,userId:user,time:m[1],content:m[2]});
+    if(ctx.msg?.room?.isOpenChat!==true){await send('❌ 실제 공지 예약은 오픈채팅방에서만 사용할 수 있습니다.');return true;}
+    const transport=notices.noticeCapability(ctx.client,room,ctx.msg.room.openLinkId);
+    const linkId=transport.experimental?
+      require('../shared/event-board-api').getLinkId(ctx.client,room,ctx.msg.room.openLinkId):null;
+    const record=await notices.schedule(db,{roomId:room,userId:user,time:m[1],content:m[2],linkId});
     await send('✅ 공지 예약 완료\n━━━━━━━━━━━━━━━━━━\n'+
       '예약 번호: '+record.noticeNo+'\n'+
       '전송 예정: '+notices.formatKST(record.scheduledAt)+' (한국시간)\n'+
       '내용: '+record.content+'\n'+
-      '※ 1회 전송 · 카카오톡 일반 채팅 메시지');
+      '※ 1회 등록 · 실제 채팅방 공지 (일반 채팅 전송 아님)\n'+
+      (transport.experimental?'⚠️ 공지 API는 시험용입니다. 지정 시각에 등록 성공 여부를 확인합니다.':'지정 시각에 실제 공지 등록 성공 여부를 확인합니다.'));
     return true;
    }
    if(cmd==='!공지목록'){
@@ -124,7 +129,7 @@ async function handle(ctx){
     if(!entries.length){await send('📋 예약한 공지가 없습니다.');return true;}
     // Keep one notice per line group and respect Kakao message length limits.
     const rows=entries.map(r=>('#'+r.notice_no+' ┃ '+notices.formatKST(r.scheduled_at)+
-      (r.state==='failed'?' · ⚠️ 전송 실패':'')+'\n┃ '+
+      (r.state==='failed'?' · ⚠️ 공지 등록 실패·확인 필요':'')+'\n┃ '+
       String(r.content).replace(/\s+/g,' ').slice(0,100)+
       (r.content.length>100?'…':'')));
     await pages(send,'📋 예약 공지 목록 ('+entries.length+'개)\n!공지삭제 (번호)로 삭제',rows);
@@ -138,7 +143,7 @@ async function handle(ctx){
    }
   }catch(error){
    if(error instanceof Error&&(
-     /시간을 HH:MM|공지 내용|최대 2000자|최대 100개|사용자 ID|올바른 채팅방 ID|삭제할 공지 번호/.test(error.message))){
+     /시간을 HH:MM|공지 내용|최대 2000자|최대 100개|사용자 ID|올바른 채팅방 ID|삭제할 공지 번호|실제 채팅방 공지|링크 ID|오픈채팅/.test(error.message))){
     await send('❌ '+error.message);
    }else{
     console.error('[SCHEDULED NOTICE COMMAND]',error);
