@@ -26,6 +26,26 @@ async function sendSafe(client, send, message) {
   }
 }
 
+// During the live countdown, only the selected participant may speak.
+// Return true only for a message that may safely be hidden. This does not run
+// during test events, between rounds, after a result or after cancellation.
+function shouldBlind({roomId,senderId,isBotAccount=false,msg,text=''}) {
+ const room=String(roomId??''),state=active.get(room);
+ if(!state||!state.live||state.result||state.session?.cancelled)return false;
+ if(state.phase!=='precountdown'&&state.phase!=='counting')return false;
+ if(msg?.room?.isOpenChat!==true||isBotAccount)return false;
+ const sender=String(senderId??'');
+ if(!/^[1-9]\d*$/.test(sender)||sender===state.userId)return false;
+ const command=String(text||'').trim();
+ // Do not hide an authorized host's attempt to stop or configure the event.
+ if([1,4].includes(Number(msg?.sender?.type)) &&
+   /^!(?:이벤트중지|이벤설정|이벤속도|이벤공지작성|이벤공지|이벤당첨문구|이벤탈락문구|이벤시간초과문구|이벤초기화)(?=$|\s)/.test(command))
+   return false;
+ // Do not attempt to blind events without a verifiable chat log ID.
+ const logId=msg?.message?.logId??msg?.message?.id??msg?.logId??msg?.id;
+ return /^(?:0*[1-9]\d*)$/.test(String(logId??''));
+}
+
 // Called for every incoming message, without blocking other command handlers.
 function receive({roomId, senderId, text, isBotAccount = false, now = Date.now}) {
   const state = active.get(String(roomId));
@@ -74,7 +94,8 @@ async function start({
 
   let resolveSignal;
   const signal = new Promise(resolve => {resolveSignal = resolve;});
-  const state = {room, userId:'', phase:'choosing', deadline:Number.POSITIVE_INFINITY, result:null, resolveSignal, signal};
+  const state = {room, userId:'', phase:'choosing', deadline:Number.POSITIVE_INFINITY, result:null, resolveSignal, signal,
+    live:!testMode, session};
   active.set(room, state); // Lock before any await.
   try {
     const settings={...DEFAULTS,...(await loadSettings(roomId))};
@@ -229,4 +250,4 @@ async function stopUntilWinner({client,roomId,msg,send}){
  await sendSafe(client,send,'⏹️ 이벤트가 중지되었습니다.');
  return true;
 }
-module.exports = {start, receive, startUntilWinner, stopUntilWinner};
+module.exports = {start, receive, shouldBlind, startUntilWinner, stopUntilWinner};
