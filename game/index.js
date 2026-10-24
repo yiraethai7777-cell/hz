@@ -31,7 +31,7 @@ function createGame(client) {
     },
     async toggle({roomId,text,isBotAccount,send}) {
       if (!isBotAccount) { await send('⛔ 봇 계정만 사용할 수 있습니다.'); return; }
-      const on = text === '!게임작동';
+      const on = text === '!게임on';
       // Patch only the flag, retaining every existing player and setting.
       await getPool().query(`INSERT INTO hz_rooms(room_id,data)
         VALUES($1,jsonb_build_object('game',$2::boolean))
