@@ -134,7 +134,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       
-if(gameAliases.isGameCommand(text) && text!=='!게임작동' && text!=='!게임중지'){
+if(gameAliases.isGameCommand(text) && text!=='!게임on' && text!=='!게임off'){
   const started=Date.now();
   await game.message({...context,msg,chat});
   const elapsed=Date.now()-started;
@@ -174,7 +174,7 @@ if (text === '#이벤추첨테스트') {
         return;
       }
 
-      if (text === '!게임작동' || text === '!게임중지') {
+      if (text === '!게임on' || text === '!게임off') {
         await game.toggle(context);
         return;
       }
