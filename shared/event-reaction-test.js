@@ -3,7 +3,7 @@ const {randomInt} = require('node:crypto');
 const {getCandidates} = require('./event-draw-test');
 const {load:loadSettingsDefault,render,DEFAULTS}=require('./event-settings');
 
-// Shared countdown engine for #이벤진행테스트 and !이벤트시작.
+// Shared countdown engine for !이벤진행테스트 and !이벤트시작.
 // A win is a reaction result only: no prize payment or message hiding.
 const active = new Map();
 // One multi-round live event session per room, held until a win or cancellation.
@@ -84,7 +84,7 @@ async function start({
     const members = await client.getCachedMemberProfiles(roomId);
     const candidates = getCandidates(members, client.userId);
     if (!candidates.length) {
-      await sendSafe(client, send, '현재 확인된 APEX 참가자가 없습니다. 방 명단 동기화 중이거나 퇴장자가 제외된 상태일 수 있습니다. #이벤인원테스트로 확인해 주세요.');
+      await sendSafe(client, send, '현재 확인된 APEX 참가자가 없습니다. 방 명단 동기화 중이거나 퇴장자가 제외된 상태일 수 있습니다. !이벤인원테스트로 확인해 주세요.');
       return {outcome:'no-candidates'};
     }
     const eligible = excludeId && candidates.length>1 ? candidates.filter(p=>String(p.id)!==String(excludeId)) : candidates;
