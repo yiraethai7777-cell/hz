@@ -99,7 +99,7 @@ async function deliver({db,chat,roomId,userId,userName,send}){
     }
   }finally{activeDeliveries.delete(key);}
 }
-async function observe({db,chat,roomId,msg,senderId,senderName,botId,send}){
+async function observe({db,chat,roomId,msg,senderId,senderName,botId,mentionTargets,send}){
   const room=String(roomId),sender=String(senderId);
   if(!/^\d{4,}$/.test(sender)||sender===String(botId))return;
   if(!await isEnabled(db,room))return;
@@ -107,8 +107,8 @@ async function observe({db,chat,roomId,msg,senderId,senderName,botId,send}){
   // Actual offline status is not exposed by KakaoForge.
   await deliver({db,chat,roomId:room,userId:sender,userName:senderName,send});
   const targets=new Map();
-  for(const m of mentions(msg)){
-    const id=String(m.id);
+  for(const m of Array.isArray(mentionTargets)?mentionTargets:mentions(msg)){
+    const id=String(m.id??m.userId??'');
     if(id!==sender&&id!==String(botId)&&/^\d{4,}$/.test(id))targets.set(id,m);
   }
   const key=messageKey(msg),roomName=clean(msg?.room?.name,'채팅방 확인 불가');
