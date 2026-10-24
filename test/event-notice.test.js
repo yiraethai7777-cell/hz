@@ -1,86 +1,39 @@
 'use strict';
-
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const notice=require('../shared/event-notice');
 
 const roomId='18495931541358610';
-function fixture(overrides={}){
-  const out=[];
-  const args={
-    client:{connected:true},
-    roomId,
-    msg:{room:{isOpenChat:true},sender:{type:1}},
-    text:'#이벤공지등록',
-    send:async text=>{out.push(text);return {body:{logId:'42'}};},
-    loadSettings:async()=>({announcement:'APEX 이벤트 공지입니다.'}),
-    ...overrides
-  };
-  return {args,out};
-}
 
-test('unknown Kakao notice protocol must not send a fake notice',async()=>{
-  const {args,out}=fixture();
-  assert.equal(await notice.handle(args),true);
-  assert.match(out[0],/로그인 정보가 없거나 실험 기능이 꺼져/);
-  assert.doesNotMatch(out[0],/✅/);
-  assert.equal(out.length,1);
+test('manual event notice registration and status handlers are retired',()=>{
+  assert.equal(Object.hasOwn(notice,'handle'),false);
 });
 
-test('notice capability status is accurate',async()=>{
-  const {args,out}=fixture({text:'#이벤공지상태'});
-  await notice.handle(args);
-  assert.match(out[0],/연동이 아직 없습니다/);
+test('scheduled real notice requires a real registration adapter',async()=>{
+  const result=await notice.register({client:{},roomId,body:'공지 테스트',adapter:null});
+  assert.deepEqual(result,{registered:false,reason:'unsupported'});
 });
 
-test('unprivileged chat member cannot register a real notice',async()=>{
-  let called=false;
-  const {args,out}=fixture({
-    msg:{room:{isOpenChat:true},sender:{type:2}},
-    adapter:{register:async()=>{called=true;return {registered:true};}}
-  });
-  await notice.handle(args);
-  assert.equal(called,false);
-  assert.match(out[0],/방장 또는 부방장/);
-});
-
-test('verified adapter receives persisted room announcement and reports success',async()=>{
+test('scheduled notice calls a verified registration adapter, not chat.sendText',async()=>{
   const calls=[];
-  const {args,out}=fixture({adapter:{
-    register:async payload=>{
-      calls.push(payload);
-      return {registered:true,status:0,postId:'123456789'};
-    }
-  }});
-  await notice.handle(args);
-  assert.deepEqual(calls,[{roomId,text:'APEX 이벤트 공지입니다.'}]);
-  assert.match(out[0],/실제 공지 등록 확인/);
-  assert.match(out[0],/123456789/);
+  const result=await notice.register({client:{chat:{sendText:()=>{throw Error('unexpected ordinary chat');}}},
+    roomId,body:'예약 공지',adapter:{
+      register:async payload=>{calls.push(payload);return {registered:true,status:0,postId:'post-123'};}
+    }});
+  assert.deepEqual(calls,[{roomId,text:'예약 공지'}]);
+  assert.deepEqual(result,{registered:true,postId:'post-123'});
 });
 
-test('command with text registers explicit content rather than stored notice',async()=>{
-  const calls=[];
-  const {args}=fixture({
-    text:'#이벤공지등록 오늘부터 1시간 이벤트입니다.',
-    adapter:{register:async data=>{calls.push(data);return {registered:true};}}
-  });
-  await notice.handle(args);
-  assert.equal(calls[0].text,'오늘부터 1시간 이벤트입니다.');
+test('ambiguous adapter response is not reported as successful notice',async()=>{
+  const result=await notice.register({client:{},roomId,body:'확인 필요',
+    adapter:{register:async()=>({status:0})}});
+  assert.deepEqual(result,{registered:false,reason:'unconfirmed'});
 });
 
-test('adapter result without explicit confirmation never claims success',async()=>{
-  const {args,out}=fixture({adapter:{register:async()=>({status:0})}});
-  await notice.handle(args);
-  assert.match(out[0],/등록이 확인되지 않았습니다/);
-});
-
-test('notice registration refuses invalid content',async()=>{
-  const {args,out}=fixture({text:'#이벤공지등록',
-    loadSettings:async()=>({announcement:''}),
-    adapter:{register:async()=>{throw Error('should not be called');}}
-  });
-  await notice.handle(args);
-  assert.match(out[0],/공지 내용을 먼저 작성/);
+test('an empty scheduled notice is rejected',async()=>{
+  await assert.rejects(notice.register({client:{},roomId,body:' ',
+    adapter:{register:async()=>{throw Error('should not register');}},
+    loadSettings:async()=>({announcement:''})}),/공지 내용을/);
 });
 
 test('register uses a per-room lock to avoid duplicate submissions',async()=>{
@@ -97,12 +50,6 @@ test('register uses a per-room lock to avoid duplicate submissions',async()=>{
   release();
   assert.equal((await first).registered,true);
 });
-
-test('unrecognized command returns false',async()=>{
-  const {args}=fixture({text:'#이벤진행테스트'});
-  assert.equal(await notice.handle(args),false);
-});
-
 
 test('message-to-notice adapter uses real KakaoForge response.body.logId',async()=>{
   const called=[];
