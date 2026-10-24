@@ -82,7 +82,7 @@ test('unverified real room notice never falls back to a plain Kakao chat',async(
     logger:{info:()=>{},error:()=>{}}
   });
   assert.equal(plainChats.length,0);
-  assert.ok(calls.some(x=>x.sql.includes("SET state='failed'")&&x.args.some(a=>String(a).includes('확인 필요'))));
+  assert.ok(calls.some(x=>x.sql.includes("SET state='failed'")&&Array.isArray(x.args)&&x.args.some(a=>String(a).includes('확인 필요'))));
   assert.ok(!calls.some(x=>x.sql.includes('next_attempt_at=NOW()')));
 });
 
