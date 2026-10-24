@@ -10,8 +10,8 @@ const DEFAULTS=Object.freeze({
 });
 const COLUMNS={speedMs:'speed_ms',announcement:'announcement',
   winMessage:'win_message',earlyMessage:'early_message',timeoutMessage:'timeout_message'};
-const COMMANDS={'#이벤공지작성':'announcement','#이벤당첨문구':'winMessage',
-  '#이벤탈락문구':'earlyMessage','#이벤시간초과문구':'timeoutMessage'};
+const COMMANDS={'!이벤공지작성':'announcement','!이벤당첨문구':'winMessage',
+  '!이벤탈락문구':'earlyMessage','!이벤시간초과문구':'timeoutMessage'};
 const init=new WeakMap();
 
 function validateRoom(roomId) {
@@ -21,7 +21,7 @@ function validateRoom(roomId) {
 }
 function checkSpeed(value) {
   const v=String(value??'').trim();
-  if(!/^\d+$/.test(v))throw Error('숫자로 입력해 주세요. 예: #이벤속도 500');
+  if(!/^\d+$/.test(v))throw Error('숫자로 입력해 주세요. 예: !이벤속도 500');
   const n=Number(v);
   if(!Number.isSafeInteger(n)||n<35||n>10000)
     throw Error('35~10000ms 범위로 설정해 주세요.');
@@ -104,21 +104,21 @@ const HELP=[
   '⚙️ APEX 이벤트 설정','━━━━━━━━━━━━━━',
   '!이벤트시작 — 당첨자가 나올 때까지 추첨 및 5→1 카운트 반복',
   '!이벤트중지 — 진행 중인 반복 이벤트 종료',
-  '#이벤설정 — 설정 확인','#이벤속도 500 — 카운트 대기(ms)',
-  '#이벤공지작성 내용 — 이벤트 공지 저장',
-  '#이벤공지 — 작성한 공지 전송',
-  '#이벤당첨문구 내용 — 성공 문구',
-  '#이벤탈락문구 내용 — 조기 답변 문구',
-  '#이벤시간초과문구 내용 — 시간 초과 문구',
-  '#이벤초기화 당첨|탈락|시간초과|공지|속도',
+  '!이벤설정 — 설정 확인','!이벤속도 500 — 카운트 대기(ms)',
+  '!이벤공지작성 내용 — 이벤트 공지 저장',
+  '!이벤공지 — 작성한 공지 전송',
+  '!이벤당첨문구 내용 — 성공 문구',
+  '!이벤탈락문구 내용 — 조기 답변 문구',
+  '!이벤시간초과문구 내용 — 시간 초과 문구',
+  '!이벤초기화 당첨|탈락|시간초과|공지|속도',
   '━━━━━━━━━━━━━━','문구 변수: {멘션} {닉네임} {인원}',
   '설정 속도: 35~10000ms (카카오 자체 전송 간격 별도)',
   '문구에 줄바꿈을 넣을 수 있습니다.'
 ].join('\n');
 async function handle({client,roomId,msg,text,send,store={load,save,reset}}) {
   const str=String(text??'').trim();
-  const commands=['#이벤설정','#이벤속도','#이벤공지작성','#이벤공지',
-    '#이벤당첨문구','#이벤탈락문구','#이벤시간초과문구','#이벤초기화'];
+  const commands=['!이벤설정','!이벤속도','!이벤공지작성','!이벤공지',
+    '!이벤당첨문구','!이벤탈락문구','!이벤시간초과문구','!이벤초기화'];
   const command=commands.find(p=>str===p||str.startsWith(p+' ')||str.startsWith(p+'\n'));
   if(!command)return false;
   if(msg?.room?.isOpenChat!==true) {
@@ -129,23 +129,23 @@ async function handle({client,roomId,msg,text,send,store={load,save,reset}}) {
   }
   const value=str.slice(command.length).trim();
   try{
-    if(command==='#이벤설정') {
+    if(command==='!이벤설정') {
       const cur=await store.load(roomId);
       await reply(client,send,HELP+'\n\n현재 속도: '+cur.speedMs+'ms'+
         '\n공지: '+(cur.announcement?'설정됨':'없음')+
         '\n당첨 문구: '+cur.winMessage+'\n탈락 문구: '+cur.earlyMessage+
         '\n시간 초과 문구: '+cur.timeoutMessage);
-    } else if(command==='#이벤공지') {
+    } else if(command==='!이벤공지') {
       const cur=await store.load(roomId);
       await reply(client,send,cur.announcement?'📢 APEX 이벤트 공지\n━━━━━━━━━━━━━━\n'+cur.announcement:
-        '저장된 공지가 없습니다. #이벤공지작성 내용 으로 작성하세요.');
-    } else if(command==='#이벤초기화') {
+        '저장된 공지가 없습니다. !이벤공지작성 내용 으로 작성하세요.');
+    } else if(command==='!이벤초기화') {
       const mapping={당첨:'winMessage',탈락:'earlyMessage',시간초과:'timeoutMessage',
         공지:'announcement',속도:'speedMs'};
       if(!mapping[value])throw Error('초기화 항목은 당첨, 탈락, 시간초과, 공지, 속도입니다.');
       await store.reset(roomId,mapping[value]);
       await reply(client,send,'✅ '+value+' 설정이 초기화되었습니다.');
-    } else if(command==='#이벤속도') {
+    } else if(command==='!이벤속도') {
       const n=await store.save(roomId,'speedMs',value);
       await reply(client,send,'✅ 카운트 대기를 '+n+'ms로 설정했습니다.\n카카오톡 전송 속도는 별도 적용됩니다.');
     } else {
