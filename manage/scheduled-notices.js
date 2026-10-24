@@ -125,7 +125,7 @@ function formatList(rows){
 function noticeCapability(client,roomId,linkId){
   const notice=require('../shared/event-notice');
   const adapter=notice.capability(client,linkId||undefined);
-  if(!adapter)throw new Error('실제 채팅방 공지 등록 연동이 없습니다. #이벤공지상태를 확인해 주세요.');
+  if(!adapter)throw new Error('실제 채팅방 공지 등록 연동을 사용할 수 없습니다. 봇 로그인 상태와 공지 권한·설정을 확인해 주세요.');
   if(adapter.experimental){
     require('../shared/event-board-api').getLinkId(client,roomId,linkId||undefined);
   }
