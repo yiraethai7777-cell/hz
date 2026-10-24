@@ -58,7 +58,7 @@ async function initAttendance() {
   `);
   console.log("[HZ 출석] 테이블 준비 완료");
 }
-async function attend(roomId, userId, userName) {
+async function attend(roomId, userId, userName, { detailed = false } = {}) {
   const room = String(roomId), user = String(userId), name = String(userName);
   const date = todayKST();
   const db = await getPool().connect();
@@ -108,7 +108,8 @@ async function attend(roomId, userId, userName) {
     ORDER BY attended_at ASC,user_id ASC
   `, [room, date]);
   const position = ranking.rows.findIndex(row => row.user_id === user);
-  return formatAttendance({user,name:isNew?name:record.user_name,date,time:timeKST(record.attended_at),position:position+1,days,isNew,reward});
+  const message = formatAttendance({user,name:isNew?name:record.user_name,date,time:timeKST(record.attended_at),position:position+1,days,isNew,reward});
+  return detailed ? { message, date, isNew } : message;
 }
 async function attendanceRanking(roomId) {
   const result = await getPool().query(`

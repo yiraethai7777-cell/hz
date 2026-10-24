@@ -35,7 +35,7 @@ function fixture(){
  const source=fs.readFileSync(path.join(__dirname,'../manage/commands-v2.js'),'utf8');
  const deps={
   '../shared/db':{getPool:()=>db},
-  './attendance':{attend:async(room,user)=>{state.attenders.push(user);return state.attenders.length===1?'✅ 출석 성공':'📌 이미 출석';}},
+  './attendance':{attend:async(room,user)=>{state.attenders.push(user);return {message:state.attenders.length===1?'✅ 출석 성공':'📌 이미 출석',isNew:state.attenders.length===1,date:'2026-10-24'};}},
   './attendance-image/automatic':{sendAttendanceImage:async(client,context)=>{state.images.push(context);return true;}},
   './chat-ranking':{messages:async(db,room,all)=>[all?'전체 채팅 순위 20명':'채팅 순위 TOP 10']},
   './targets':{mentions:msg=>msg.mentions||[],resolve:async({msg})=>msg.replyId?{id:msg.replyId,name:'답장 대상'}:null},
@@ -71,6 +71,7 @@ test('attendance image auto-send is new-only and manual resend does not reward a
  await Promise.resolve();
  assert.equal(f.state.images.length,1);
  assert.equal(f.state.images[0].onDemand,false);
+ assert.equal(f.state.images[0].attendanceDate,'2026-10-24');
  assert.equal(f.state.attenders.length,1);
  const duplicate=await f.emit('!출석');
  assert.match(duplicate.sent[0],/이미 출석/);

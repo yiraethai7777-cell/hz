@@ -81,15 +81,17 @@ async function handle(ctx){
   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
  }
  if(cmd==='!출석'||cmd==='!출석이미지'){
+  let attendanceDate;
   if(cmd==='!출석'){
    // Commit and send the normal attendance result first, without waiting for PNG rendering.
-   const result=await attend(room,user,ctx.userName||user);
-   await send(result);
-   if(!result.startsWith('✅ '))return true; // Already checked in: never reissue coins or photos.
+   const result=await attend(room,user,ctx.userName||user,{detailed:true});
+   await send(result.message);
+   if(!result.isNew)return true;
+   attendanceDate=result.date; // Already checked in: never reissue coins or photos.
   }
   // Generate/upload independently so slow media transfer cannot delay command routing.
   Promise.resolve().then(()=>require('./attendance-image/automatic').sendAttendanceImage(ctx.client,{
-   roomId:room,userId:user,send,onDemand:cmd==='!출석이미지'
+   roomId:room,userId:user,send,attendanceDate,userName:ctx.userName||user,onDemand:cmd==='!출석이미지'
   })).catch(error=>console.error('[ATTENDANCE IMAGE TASK]',error));
   return true;
  }
