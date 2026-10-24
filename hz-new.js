@@ -46,6 +46,8 @@ function start() {
 
       await manage.init();
 
+      require('./manage/scheduled-notices').start(client);
+
       require('./shared/runtime').startProfileWatch(client);
 
       resolveReady();

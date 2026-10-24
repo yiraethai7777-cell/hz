@@ -6,7 +6,7 @@ const {mentions,reference,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
-const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그']);
+const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지예약','!공지목록','!공지삭제']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!도배감지on','!삭제감지on','!삭제감지off','!프로필감지on','!프로필감지off']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
@@ -102,6 +102,50 @@ async function handle(ctx){
  }
  if(STAFF.has(cmd)&&!await isStaff(db,room,user,ctx.senderType,botOwner)){
   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
+ }
+ if(cmd==='!공지예약'||cmd==='!공지목록'||cmd==='!공지삭제'){
+  const notices=require('./scheduled-notices');
+  try{
+   if(cmd==='!공지예약'){
+    const m=/^(\S+)\s+([\s\S]+)$/.exec(tail);
+    if(!m){await send('사용법: !공지예약 HH:MM (내용)\n예: !공지예약 18:30 오늘 저녁 모임을 시작합니다.');return true;}
+    const record=await notices.schedule(db,{roomId:room,userId:user,time:m[1],content:m[2]});
+    await send('✅ 공지 예약 완료\n━━━━━━━━━━━━━━━━━━\n'+
+      '예약 번호: '+record.noticeNo+'\n'+
+      '전송 예정: '+notices.formatKST(record.scheduledAt)+' (한국시간)\n'+
+      '내용: '+record.content+'\n'+
+      '※ 1회 전송 · 카카오톡 일반 채팅 메시지');
+    return true;
+   }
+   if(cmd==='!공지목록'){
+    if(tail){await send('사용법: !공지목록');return true;}
+    const items=await notices.list(db,room);
+    const entries=items.length?items:[];
+    if(!entries.length){await send('📋 예약한 공지가 없습니다.');return true;}
+    // Keep one notice per line group and respect Kakao message length limits.
+    const rows=entries.map(r=>('#'+r.notice_no+' ┃ '+notices.formatKST(r.scheduled_at)+
+      (r.state==='failed'?' · ⚠️ 전송 실패':'')+'\n┃ '+
+      String(r.content).replace(/\s+/g,' ').slice(0,100)+
+      (r.content.length>100?'…':'')));
+    await pages(send,'📋 예약 공지 목록 ('+entries.length+'개)\n!공지삭제 (번호)로 삭제',rows);
+    return true;
+   }
+   if(cmd==='!공지삭제'){
+    if(!/^\d+$/.test(tail)){await send('사용법: !공지삭제 (공지 번호)\n예: !공지삭제 1');return true;}
+    const deleted=await notices.remove(db,room,tail);
+    await send(deleted?'✅ '+tail+'번 예약 공지를 삭제했습니다.':'❌ 해당 번호의 대기 중인 공지가 없습니다. (!공지목록 확인)');
+    return true;
+   }
+  }catch(error){
+   if(error instanceof Error&&(
+     /시간을 HH:MM|공지 내용|최대 2000자|최대 100개|사용자 ID|올바른 채팅방 ID|삭제할 공지 번호/.test(error.message))){
+    await send('❌ '+error.message);
+   }else{
+    console.error('[SCHEDULED NOTICE COMMAND]',error);
+    await send('❌ 공지 예약 처리 중 오류가 발생했습니다. Railway 로그를 확인해 주세요.');
+   }
+   return true;
+  }
  }
  if(cmd==='!출석'||cmd==='!출석이미지'){
   let attendanceDate,completionMessage;
