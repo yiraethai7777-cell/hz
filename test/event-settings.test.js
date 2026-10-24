@@ -86,7 +86,7 @@ function command(overrides={}) {
 }
 
 test('only room owner or co-manager may change event settings',async()=>{
-  const ctx=command({text:'#이벤당첨문구 유저 축하',
+  const ctx=command({text:'!이벤당첨문구 유저 축하',
     msg:{room:{isOpenChat:true},sender:{type:2}}});
   assert.equal(await settings.handle(ctx.args),true);
   assert.equal(ctx.calls.length,0);
@@ -95,22 +95,22 @@ test('only room owner or co-manager may change event settings',async()=>{
 
 test('event commands save multiline notice and expose settings',async()=>{
   const ctx=command();
-  assert.equal(await settings.handle({...ctx.args,text:'#이벤공지작성 오늘 9시 시작\n응원해주세요'}),true);
+  assert.equal(await settings.handle({...ctx.args,text:'!이벤공지작성 오늘 9시 시작\n응원해주세요'}),true);
   assert.equal(ctx.calls[0].field,'announcement');
   assert.match(ctx.row.announcement,/응원해주세요/);
-  await settings.handle({...ctx.args,text:'#이벤공지'});
+  await settings.handle({...ctx.args,text:'!이벤공지'});
   assert.match(ctx.sent.at(-1),/오늘 9시/);
-  await settings.handle({...ctx.args,text:'#이벤설정'});
-  assert.match(ctx.sent.at(-1),/#이벤당첨문구/);
+  await settings.handle({...ctx.args,text:'!이벤설정'});
+  assert.match(ctx.sent.at(-1),/!이벤당첨문구/);
 });
 
 test('event speed and early/timeout/custom winner controls are recognized',async()=>{
   const ctx=command();
   for(const [cmd,field] of [
-    ['#이벤속도 700','speedMs'],
-    ['#이벤당첨문구 {멘션} 당첨!','winMessage'],
-    ['#이벤탈락문구 너무 빨랐어요','earlyMessage'],
-    ['#이벤시간초과문구 늦었어요','timeoutMessage']
+    ['!이벤속도 700','speedMs'],
+    ['!이벤당첨문구 {멘션} 당첨!','winMessage'],
+    ['!이벤탈락문구 너무 빨랐어요','earlyMessage'],
+    ['!이벤시간초과문구 늦었어요','timeoutMessage']
   ])await settings.handle({...ctx.args,text:cmd});
   assert.deepEqual(ctx.calls.map(c=>c.field),['speedMs','winMessage','earlyMessage','timeoutMessage']);
 });
