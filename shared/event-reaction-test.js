@@ -201,8 +201,7 @@ async function startUntilWinner(args){
    lastSelected=result.selectedId;
    // Stop only on a real winner, explicit cancellation, disconnection
    // or unrecoverable error; never end after a timed-out round.
-   if(!await sendSafe(client,send,'🔄 아직 당첨자가 없습니다. 다음 참가자를 추첨합니다.'))
-     return 'aborted';
+   // Move straight to the next challenger without another intro message.
    await pause();
   }
   return 'cancelled';
