@@ -60,15 +60,10 @@ function capability(client,linkId) {
 function sanitize(str) {
   const value=String(str??'').replace(/\r\n?/g,'\n')
     .replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g,'').trim();
-  if(!value)throw Error('공지 내용을 먼저 작성해 주세요: #이벤공지작성 내용');
+  if(!value)throw Error('공지 내용을 입력해 주세요. 사용법: !공지예약 HH:MM 내용');
   if(value.length>MAX_NOTICE)throw Error('공지 내용은 최대 '+MAX_NOTICE+'자입니다.');
   return value;
 }
-async function notify(client,send,message) {
-  if(client?.connected===false)return;
-  try {await send(message);}catch(e){console.error('[실제 공지] 안내 전송 실패:',String(e?.message||e));}
-}
-
 async function register({client,roomId,body,loadSettings=load,adapter=capability(client)}) {
   if(!adapter) return {registered:false,reason:'unsupported'};
   const str=body && String(body).trim()?sanitize(body):
@@ -89,49 +84,4 @@ async function register({client,roomId,body,loadSettings=load,adapter=capability
   }
 }
 
-async function handle({client,roomId,msg,text,send,loadSettings=load,adapter}){
-  const str=String(text??'').trim();
-  const match=/^#이벤공지(등록|상태)(?=$|\s)/.exec(str);
-  if(!match)return false;
-  if(msg?.room?.isOpenChat!==true){
-    await notify(client,send,'오픈채팅방에서만 사용할 수 있습니다.');
-    return true;
-  }
-  if(![1,4].includes(Number(msg?.sender?.type))){
-    await notify(client,send,'방장 또는 부방장만 실제 공지를 등록할 수 있습니다.');
-    return true;
-  }
-  const transport=adapter===undefined?capability(client,msg?.room?.openLinkId):adapter;
-  if(match[1]==='상태'){
-    await notify(client,send,transport?
-      (transport.experimental
-        ? '🧪 과거 오픈채팅 게시판 API 연동이 준비되었습니다. 현재 서버 호환성은 미검증입니다. 방장/부방장 계정으로 #이벤공지등록 을 테스트할 수 있습니다.'
-        : '✅ 검증된 실제 공지 등록 연동이 설정되었습니다. #이벤공지등록 을 실행할 수 있습니다.'):
-      '⚠️ 실제 공지 등록 연동이 아직 없습니다.\n현재 #이벤공지 는 일반 채팅 전송입니다. 카카오톡에서 해당 메시지를 길게 눌러 공지로 등록해 주세요.');
-    return true;
-  }
-  if(!transport){
-    await notify(client,send,
-      '⚠️ 실제 공지 등록에 필요한 카카오톡 로그인 정보가 없거나 실험 기능이 꺼져 있습니다.\n'+
-      '공지 등록을 완료했다고 표시하지 않습니다.\n'+
-      '현재는 #이벤공지 로 메시지를 보낸 뒤 카카오톡에서 길게 눌러 공지로 등록해야 합니다.');
-    return true;
-  }
-  const body=str.slice(match[0].length).trim();
-  try{
-    const result=await register({client,roomId,body,loadSettings,adapter:transport});
-    if(result.registered){
-      await notify(client,send,'✅ 카카오톡 실제 공지 등록 확인'+
-        (result.postId?' · 포스트 ID: '+String(result.postId):''));
-    }else if(result.reason==='busy'){
-      await notify(client,send,'이미 이 방의 공지 등록을 처리 중입니다.');
-    }else{
-      await notify(client,send,'❌ 실제 공지 등록이 확인되지 않았습니다. 카카오톡 공지 목록에서 확인해 주세요.');
-    }
-  }catch(err){
-    console.error('[실제 공지] 등록 실패:',String(err?.message||err));
-    await notify(client,send,'❌ 실제 공지 등록 실패: '+String(err?.message||err));
-  }
-  return true;
-}
-module.exports={handle,register,capability,normalizeStatus,sanitize,extractSentLogId,createMessageNoticeAdapter};
+module.exports={register,capability,normalizeStatus,sanitize,extractSentLogId,createMessageNoticeAdapter};
