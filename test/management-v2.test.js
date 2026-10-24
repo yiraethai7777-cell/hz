@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-function fixture(){
+function fixture({image}={}){
  const state={enabled:true,admins:new Set(['2000']),deleteEnabled:false,spamEnabled:false,rows:[],
   actions:[],kicks:[],unbans:[],sent:[],sql:[],attenders:[],images:[],templates:[],warnings:[]};
  const db={
@@ -36,7 +36,7 @@ function fixture(){
  const deps={
   '../shared/db':{getPool:()=>db},
   './attendance':{attend:async(room,user)=>{state.attenders.push(user);return {message:state.attenders.length===1?'✅ 출석 성공':'📌 이미 출석',isNew:state.attenders.length===1,date:'2026-10-24'};}},
-  './attendance-image/automatic':{sendAttendanceImage:async(client,context)=>{state.images.push(context);return true;}},
+  './attendance-image/automatic':{sendAttendanceImage:async(client,context)=>{state.images.push(context);return image?image(context):true;}},
   './chat-ranking':{messages:async(db,room,all)=>[all?'전체 채팅 순위 20명':'채팅 순위 TOP 10']},
   './targets':{mentions:msg=>msg.mentions||[],resolve:async({msg})=>msg.replyId?{id:msg.replyId,name:'답장 대상'}:null},
   '../shared/help':{formatCommandHelp:()=>'📜 명령어 안내'},
@@ -140,4 +140,18 @@ test('greeting text reaches room config and retired # prefix is not recognized h
  assert.equal(f.state.templates[0][1],'joinTemplate');
  assert.equal(f.state.templates[0][2],'어서오세요');
  assert.equal((await f.emit('#관리작동',{self:true})).handled,false);
+});
+
+test('attendance completion text waits until the photo finishes uploading',async()=>{
+ let release,started;const uploading=new Promise(r=>started=r);
+ const f=fixture({image:async()=>{started();await new Promise(r=>release=r);}});
+ const pending=f.emit('!출석');await uploading;
+ assert.deepEqual(f.state.sent,[],'no completion text before photo confirmation');
+ release();await pending;assert.match(f.state.sent[0],/출석 성공/);
+});
+test('photo failure still sends committed attendance completion without another reward',async()=>{
+ const f=fixture({image:async()=>{throw Error('upload unavailable');}});
+ assert.match((await f.emit('!출석')).sent[0],/출석 성공/);
+ assert.match((await f.emit('!출석')).sent[0],/이미 출석/);
+ assert.equal(f.state.images.length,1);
 });
