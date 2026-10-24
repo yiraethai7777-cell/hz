@@ -26,7 +26,6 @@ function formatNotification(displayName,records,realMention){
   const lines=['┃ 부재중 멘션 '+n+'개','┣━━━━━━━━━━━━━━━━━━┫'];
   records.forEach((r,i)=>{
     lines.push('┃ '+(i+1)+'. ['+formatTime(r.created_at)+'] '+clean(r.sender_name,r.sender_id||'알 수 없음'));
-    lines.push('┃    채팅방: '+clean(r.room_name,'채팅방 확인 불가'));
     if(i!==records.length-1)lines.push('┃');
   });
   lines.push('┗━━━━━━━━━━━━━━━━━━┛');
@@ -83,7 +82,7 @@ async function deliver({db,chat,roomId,userId,userName,send}){
       "AND (claimed_at IS NULL OR claimed_at < NOW()-INTERVAL '5 minutes') "+
       "ORDER BY id LIMIT 20 FOR UPDATE SKIP LOCKED) "+
       "UPDATE hz_mention_alerts a SET claim_token=$3,claimed_at=NOW() FROM picked "+
-      "WHERE a.id=picked.id RETURNING a.id,a.sender_id,a.sender_name,a.room_name,a.created_at",
+      "WHERE a.id=picked.id RETURNING a.id,a.sender_id,a.sender_name,a.created_at",
       [room,user,token]
     );
     if(!r.rows.length)return;
@@ -111,12 +110,12 @@ async function observe({db,chat,roomId,msg,senderId,senderName,botId,mentionTarg
     const id=String(m.id??m.userId??'');
     if(id!==sender&&id!==String(botId)&&/^\d{4,}$/.test(id))targets.set(id,m);
   }
-  const key=messageKey(msg),roomName=clean(msg?.room?.name,'채팅방 확인 불가');
+  const key=messageKey(msg);
   for(const id of targets.keys()){
     await db.query(
-      'INSERT INTO hz_mention_alerts(room_id,target_id,sender_id,sender_name,room_name,message_key) VALUES($1,$2,$3,$4,$5,$6) '+
+      'INSERT INTO hz_mention_alerts(room_id,target_id,sender_id,sender_name,message_key) VALUES($1,$2,$3,$4,$5) '+
       'ON CONFLICT DO NOTHING',
-      [room,id,sender,clean(senderName,sender),roomName,key]
+      [room,id,sender,clean(senderName,sender),key]
     );
   }
 }
