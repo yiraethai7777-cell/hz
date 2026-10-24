@@ -42,6 +42,7 @@ function fixture({image}={}){
   './targets':{mentions:msg=>msg.mentions||[],resolve:async({msg})=>msg.replyId?{id:msg.replyId,name:'답장 대상'}:null},
   '../shared/help':{formatCommandHelp:()=>'📜 명령어 안내'},
   './spam':{reset(){}},
+  './profile-alerts':{setEnabled:async(db,room,on)=>{state.profileSetting={room,on};}},
   './profile-history':{message:async()=> '👤 오픈프로필 기록'}
  };
  vm.runInNewContext(source,{module:m,exports:m.exports,require:n=>deps[n]||(()=>{throw Error('Unexpected import '+n)})(),
@@ -156,4 +157,17 @@ test('photo failure still sends committed attendance completion without another 
  assert.match((await f.emit('!출석')).sent[0],/출석 성공/);
  assert.match((await f.emit('!출석')).sent[0],/이미 출석/);
  assert.equal(f.state.images.length,1);
+});
+
+
+test('only bot administrators can persist room profile alert toggles',async()=>{
+ const f=fixture();
+ for(const role of [1,2,4]){
+  assert.match((await f.emit('!프로필감지off',{role})).sent[0],/봇 관리자/);
+  assert.equal(f.state.profileSetting,undefined);
+ }
+ assert.match((await f.emit('!프로필감지off',{self:true})).sent[0],/OFF/);
+ assert.deepEqual(f.state.profileSetting,{room:'1849',on:false});
+ assert.match((await f.emit('!프로필감지on',{self:true})).sent[0],/ON/);
+ assert.deepEqual(f.state.profileSetting,{room:'1849',on:true});
 });

@@ -67,7 +67,7 @@ async function attachHZBot(client){
         // Profile history lives in hz_members/hz_profiles, not in hz_rooms.
         // Avoid locking and re-writing the whole game room for every chat.
         const change=await ctx.profileObserve(ctx.pool,rid,uid,name,snapshot?.imageUrl||received?.url||'',openLink);
-        if(change)await ctx.send(chat,rid,require('../manage/leave-reply').profileNotice(change,ctx.nowK()));
+        if(change)await require('../manage/profile-alerts').sendNotice(ctx,chat,rid,change);
       }
       // Do not execute a priority game command twice after housekeeping.
       if(priorityGame)return;

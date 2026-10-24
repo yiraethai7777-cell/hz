@@ -1,5 +1,5 @@
 'use strict';
-const {profileNotice}=require('./leave-reply');
+const {sendNotice}=require('./profile-alerts');
 function createWatcher(ctx,client,{now=Date.now}={}){
  let busy=false,timer,cursor=0,verified=false,resumeAt=0;
  // Give the main chat connection time to recover before any background requests.
@@ -56,7 +56,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
       }
       return result;
      });
-     for(const change of changes)await ctx.send(ctx.globalChat,room,profileNotice(change,ctx.nowK()));
+     for(const change of changes)await sendNotice(ctx,ctx.globalChat,room,change);
      if(!verified){console.log('[PROFILE WATCH] live member refresh verified');verified=true;}
     }catch(e){console.error('[PROFILE WATCH]',String(room),e.message);}
    }
