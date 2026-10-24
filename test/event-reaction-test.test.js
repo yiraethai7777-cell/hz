@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {start,receive}=require('../shared/event-reaction-test');
+const {start,receive,startUntilWinner,stopUntilWinner}=require('../shared/event-reaction-test');
 
 let nextRoom=12000;
 const marker=(id,name)=>'\u0002'+id+'\u0003'+name+'\u0004';
@@ -303,4 +303,92 @@ test('answer during saved event notice also counts as before countdown',async()=
   await start(args);
   assert.match(sent.at(-1),/탈락!/);
   assert.equal(sent.some(x=>x.startsWith('⏳ ')),false);
+});
+
+
+test('!이벤트시작 repeats after timeout, excludes last candidate, and stops on the first winner',async()=>{
+ const {args,sent,mentionCalls,clock}=fixture();
+ args.client.getCachedMemberProfiles=async()=>[
+  {id:'9007199254740993123',name:'APEX 첫째'},
+  {id:'9007199254740993124',name:'APEX 둘째'}
+ ];
+ let rounds=0;
+ args.send=async text=>{sent.push(text);if(text.includes('선택된 도전자'))rounds++;};
+ args.betweenRounds=async()=>{};
+ args.sleep=async ms=>{
+  clock.advance(ms);
+  if(rounds===2)receive({roomId:args.roomId,senderId:'9007199254740993124',
+    text:'5부터 답변',now:clock.now});
+ };
+ const result=await startUntilWinner(args);
+ assert.equal(result,'success');
+ assert.equal(rounds,2);
+ assert.deepEqual(mentionCalls.map(c=>c.id),['9007199254740993123','9007199254740993124']);
+ assert.deepEqual(sent.filter(t=>t.startsWith('⏳ ')),
+  ['⏳ 5','⏳ 4','⏳ 3','⏳ 2','⏳ 1','⏳ 5']);
+ assert.equal(sent.filter(t=>t.includes('다음 참가자를 추첨')).length,1);
+ assert.equal(sent.filter(t=>t.includes('🎯 이벤트 종료')).length,1);
+ assert.match(sent.at(-1),/반응 성공/);
+ assert.equal(sent.some(t=>t.includes('테스트 전용')),false);
+});
+
+test('!이벤트시작 repeats after early reply without treating it as a win',async()=>{
+ const {args,sent,clock}=fixture();
+ let rounds=0;
+ args.send=async text=>{
+  sent.push(text);
+  if(text.includes('선택된 도전자')){
+   rounds++;
+   if(rounds===1)receive({roomId:args.roomId,senderId:'9007199254740993123',
+     text:'너무 빨리',now:clock.now});
+  }
+ };
+ args.betweenRounds=async()=>{};
+ args.sleep=async ms=>{
+  clock.advance(ms);
+  if(rounds===2)receive({roomId:args.roomId,senderId:'9007199254740993123',
+    text:'성공',now:clock.now});
+ };
+ assert.equal(await startUntilWinner(args),'success');
+ assert.equal(rounds,2);
+ assert.equal(sent.filter(t=>t.startsWith('⏳ ')).length,1);
+ assert.equal(sent.filter(t=>t.includes('다음 참가자를 추첨')).length,1);
+ assert.equal(sent.filter(t=>t.includes('🎯 이벤트 종료')).length,1);
+ assert.match(sent.at(-1),/축하합니다/);
+});
+
+test('!이벤트중지 interrupts a running countdown and rejects a duplicate start',async()=>{
+ const {args,sent}=fixture();
+ args.sleep=()=>new Promise(()=>{});
+ const first=startUntilWinner(args);
+ for(let i=0;i<50&&!sent.includes('⏳ 5');i++)
+  await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(sent.includes('⏳ 5'));
+ assert.equal(await startUntilWinner(args),'busy');
+ assert.equal(await stopUntilWinner(args),true);
+ assert.equal(await first,'cancelled');
+ assert.equal(sent.filter(t=>t.includes('이벤트가 중지되었습니다.')).length,1);
+ assert.equal(sent.some(t=>t.includes('🎯 이벤트 종료')),false);
+ assert.equal(sent.some(t=>t.includes('반응 성공')),false);
+});
+
+test('!이벤트시작 requires room host permissions and valid candidates',async()=>{
+ const noAuth=fixture({msg:{room:{isOpenChat:true},sender:{type:2}}});
+ assert.equal(await startUntilWinner(noAuth.args),'unauthorized');
+ assert.match(noAuth.sent.at(-1),/방장 또는 부방장/);
+ const empty=fixture();
+ empty.args.client.getCachedMemberProfiles=async()=>[];
+ assert.equal(await startUntilWinner(empty.args),'no-candidates');
+ assert.match(empty.sent.at(-1),/APEX 참가자가 없습니다/);
+});
+
+test('event control commands cannot count as a winning response',async()=>{
+ const {args,sent,clock}=fixture();
+ args.sleep=async ms=>{
+  clock.advance(ms);
+  assert.equal(receive({roomId:args.roomId,senderId:'9007199254740993123',
+    text:'!이벤트중지',now:clock.now}),false);
+ };
+ await start(args);
+ assert.match(sent.at(-1),/시간 초과/);
 });
