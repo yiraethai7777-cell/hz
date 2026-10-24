@@ -313,7 +313,7 @@ test('!이벤트시작 repeats after timeout, excludes last candidate, and stops
   {id:'9007199254740993124',name:'APEX 둘째'}
  ];
  let rounds=0;
- args.send=async text=>{sent.push(text);if(text.includes('선택된 도전자'))rounds++;};
+ args.send=async text=>{sent.push(text);if(text.includes('선택된 사람'))rounds++;};
  args.betweenRounds=async()=>{};
  args.sleep=async ms=>{
   clock.advance(ms);
@@ -326,9 +326,14 @@ test('!이벤트시작 repeats after timeout, excludes last candidate, and stops
  assert.deepEqual(mentionCalls.map(c=>c.id),['9007199254740993123','9007199254740993124']);
  assert.deepEqual(sent.filter(t=>t.startsWith('⏳ ')),
   ['⏳ 5','⏳ 4','⏳ 3','⏳ 2','⏳ 1','⏳ 5']);
- assert.equal(sent.filter(t=>t.includes('다음 참가자를 추첨')).length,1);
+ assert.equal(sent.filter(t=>t.includes('다음 참가자를 추첨')).length,0);
  assert.equal(sent.filter(t=>t.includes('🎯 이벤트 종료')).length,1);
  assert.match(sent.at(-1),/반응 성공/);
+ const liveHeadings=sent.filter(t=>t.startsWith('🎯🎯 선택된 사람 🎯🎯'));
+ assert.equal(liveHeadings.length,2);
+ assert.deepEqual(liveHeadings.map(t=>t.replace(/\u0002[^\u0003]*\u0003([^\u0004]*)\u0004/g,'@$1')),
+  ['🎯🎯 선택된 사람 🎯🎯\n\n👉👉  @APEX 첫째  👈👈',
+   '🎯🎯 선택된 사람 🎯🎯\n\n👉👉  @APEX 둘째  👈👈']);
  assert.equal(sent.some(t=>t.includes('테스트 전용')),false);
 });
 
@@ -337,7 +342,7 @@ test('!이벤트시작 repeats after early reply without treating it as a win',a
  let rounds=0;
  args.send=async text=>{
   sent.push(text);
-  if(text.includes('선택된 도전자')){
+  if(text.includes('선택된 사람')){
    rounds++;
    if(rounds===1)receive({roomId:args.roomId,senderId:'9007199254740993123',
      text:'너무 빨리',now:clock.now});
@@ -352,7 +357,7 @@ test('!이벤트시작 repeats after early reply without treating it as a win',a
  assert.equal(await startUntilWinner(args),'success');
  assert.equal(rounds,2);
  assert.equal(sent.filter(t=>t.startsWith('⏳ ')).length,1);
- assert.equal(sent.filter(t=>t.includes('다음 참가자를 추첨')).length,1);
+ assert.equal(sent.filter(t=>t.includes('다음 참가자를 추첨')).length,0);
  assert.equal(sent.filter(t=>t.includes('🎯 이벤트 종료')).length,1);
  assert.match(sent.at(-1),/축하합니다/);
 });
@@ -419,7 +424,8 @@ test('router accepts !이벤트시작 and sends an actual countdown before decla
   game:{message:async()=>{}},management:{message:async()=>false}});
  await dispatch({room:{id:'56789',isOpenChat:true},
   sender:{id:'1234',type:1},text:'!이벤트시작'});
- assert.ok(sent.some(t=>t.includes('카운트 이벤트 시작')));
+ assert.ok(sent.some(t=>t.startsWith('🎯🎯 선택된 사람 🎯🎯\n\n👉👉  ')));
+ assert.ok(sent.every(t=>!t.includes('다음 참가자를 추첨')));
  assert.ok(sent.includes('⏳ 5'));
  assert.match(sent.at(-1),/반응 성공/);
  assert.equal(sent.filter(t=>t.includes('🎯 이벤트 종료')).length,1);
