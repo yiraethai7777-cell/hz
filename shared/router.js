@@ -86,6 +86,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Manual KakaoTalk notice status/registration commands were retired.
       // Actual room notice registration is available only via scheduled commands.
       if (/^#이벤공지(?:상태|등록)(?=$|\s)/.test(text)) return;
+      // All APEX event commands now use !. Retire old # event aliases.
+      if (/^#이벤(?:설정|속도|공지작성|공지|당첨문구|탈락문구|시간초과문구|초기화|인원테스트|추첨테스트|진행테스트)(?=$|\s)/.test(text)) return;
       // Observe incoming responses before other commands; never block the message.
       require('./event-reaction-test').receive({roomId, senderId, text, isBotAccount});
       await ready;
@@ -155,12 +157,12 @@ if (await require('./event-settings').handle({
   client,roomId,msg,text,send:context.send
 })) return;
 
-if (text === '#이벤인원테스트') {
+if (text === '!이벤인원테스트') {
   await require('./event-member-test').handle({client, roomId, msg, send: context.send});
   return;
 }
 
-if (text === '#이벤추첨테스트') {
+if (text === '!이벤추첨테스트') {
   await require('./event-draw-test').handle({
     client, roomId, msg, send: context.send,
     mention: (id, name) => {
@@ -183,7 +185,7 @@ if (text === '#이벤추첨테스트') {
         return;
       }
 
-      if (text === '#이벤진행테스트') {
+      if (text === '!이벤진행테스트') {
         await require('./event-reaction-test').start({
           client, roomId, msg, send: context.send,
           mention: (id, name) => typeof chat?.mention === 'function' ? chat.mention(id, name, roomId) : null
