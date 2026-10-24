@@ -78,6 +78,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Retired # management aliases must not reach the old HZ handler.
       // Keep legacy #내아이디/#아이디/#출석확인 permission rules unchanged.
       if (/^#(?:출석|출석순위|채팅순위|채팅순위전체|채팅정보|경고|경고내역|경고삭제|경고초기화|kick|k|내풀|벤해제|벤기록|관리로그|입퇴장로그|입장변경|퇴장변경|프로필로그|관리작동|관리중지|관리자추가|관리자삭제|도배감지켜기|도배감지끄기|삭제감지켜기|삭제감지끄기)(?=$|\s)/.test(text))return;
+      // Manual KakaoTalk notice status/registration commands were retired.
+      // Actual room notice registration is available only via scheduled commands.
+      if (/^#이벤공지(?:상태|등록)(?=$|\s)/.test(text)) return;
       // Observe incoming responses before other commands; never block the message.
       require('./event-reaction-test').receive({roomId, senderId, text, isBotAccount});
       await ready;
@@ -142,10 +145,6 @@ if(gameAliases.isGameCommand(text) && text!=='!게임작동' && text!=='!게임�
     .catch(error=>console.error('[GAME CHAT COUNT]',error));
   return;
 }
-
-if (await require('./event-notice').handle({
-  client,roomId,msg,text,send:context.send
-})) return;
 
 if (await require('./event-settings').handle({
   client,roomId,msg,text,send:context.send
