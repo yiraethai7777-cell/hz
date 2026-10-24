@@ -73,6 +73,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         }
         return;
       }
+      // Old ! game toggles are retired; do not forward them to legacy handlers.
+      if (text === '!게임작동' || text === '!게임중지') {
+        await chat.sendText(roomId,'⚠️ 게임 ON/OFF 명령어가 변경되었습니다. !게임on / !게임off');
+        return;
+      }
       // Game commands now use !. Drop retired # game commands before any legacy listeners.
       if (gameAliases.isRetiredLegacyCommand(text)) return;
       // Retired # management aliases must not reach the old HZ handler.
