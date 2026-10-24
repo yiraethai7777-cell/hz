@@ -39,7 +39,7 @@ function fixture({image}={}){
   './attendance-image/automatic':{sendAttendanceImage:async(client,context)=>{state.images.push(context);return image?image(context):true;}},
   './chat-ranking-image/automatic':{sendRankingImage:async(db,ctx)=>{state.rankingImage=ctx;return true;}},
   './chat-ranking':{messages:async(db,room,all)=>[all?'전체 채팅 순위 20명':'채팅 순위 TOP 10']},
-  './targets':{mentions:msg=>msg.mentions||[],resolve:async({msg})=>msg.replyId?{id:msg.replyId,name:'답장 대상'}:null},
+  './targets':{mentions:msg=>msg.mentions||[],reference:msg=>msg.replyId?{userId:msg.replyId}:null,resolve:async({msg})=>msg.replyId?{id:msg.replyId,name:'답장 대상'}:null},
   '../shared/help':{formatCommandHelp:()=>'📜 명령어 안내'},
   './spam':{reset(){}},
   './profile-alerts':{setEnabled:async(db,room,on)=>{state.profileSetting={room,on};}},
@@ -173,13 +173,17 @@ test('only bot administrators can persist room profile alert toggles',async()=>{
 });
 
 
-test('!id preserves exact user ID and legacy room-manager restrictions',async()=>{
+test('!id shows self or selected target ID for submanagers only',async()=>{
  const f=fixture(),id='9007199254740993123';
- for(const role of [1,4])assert.equal((await f.emit('!id',{role,user:id})).sent[0],'🆔 내 아이디: '+id);
- assert.match((await f.emit('!id')).sent[0],/방장·부방장만/);
- assert.match((await f.emit('!id',{self:true})).sent[0],/방장·부방장만/);
- assert.match((await f.emit('!id',{user:'2000'})).sent[0],/방장·부방장만/);
- assert.match((await f.emit('!id 대상',{role:1})).sent[0],/사용법/);
- await f.emit('!관리off',{self:true});assert.match((await f.emit('!id',{role:1})).sent[0],/관리 기능 중지/);
+ assert.equal((await f.emit('!id',{role:4,user:id})).sent[0],'🆔 내 아이디: '+id);
+ for(const role of [1,2,8])assert.match((await f.emit('!id',{role})).sent[0],/부방장만/);
+ assert.match((await f.emit('!id '+id,{role:4})).sent[0],new RegExp(id));
+ assert.match((await f.emit('!id @대상',{role:4,mentions:[{id,name:'대상'}]})).sent[0],new RegExp(id));
+ assert.match((await f.emit('!id',{role:4,replyId:id})).sent[0],new RegExp(id));
+ assert.match((await f.emit('!id')).sent[0],/부방장만/);
+ assert.match((await f.emit('!id',{self:true})).sent[0],/부방장만/);
+ assert.match((await f.emit('!id',{user:'2000'})).sent[0],/부방장만/);
+ assert.match((await f.emit('!id 대상',{role:4})).sent[0],/대상을 확인할 수 없습니다/);
+ await f.emit('!관리off',{self:true});assert.match((await f.emit('!id',{role:4})).sent[0],/관리 기능 중지/);
  assert.ok(require('../shared/help').formatCommandHelp({manage:true},'관리').includes('!id'));
 });

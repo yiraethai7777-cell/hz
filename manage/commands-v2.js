@@ -2,7 +2,7 @@
 const {getPool}=require('../shared/db');
 const {attend}=require('./attendance');
 const {messages:chatRanks}=require('./chat-ranking');
-const {mentions,resolve:resolveReply}=require('./targets');
+const {mentions,reference,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
@@ -78,10 +78,16 @@ async function handle(ctx){
  }
  if(!await enabled(db,room)){await send('⏹️ 관리 기능 중지 · !관리on으로 작동할 수 있습니다.');return true;}
  if(cmd==='!id'){
-  if(![1,4].includes(Number(ctx.senderType))){await send('⛔ 방장·부방장만 사용할 수 있습니다.');return true;}
-  if(tail){await send('사용법: !id (본인 사용자 ID 확인)');return true;}
-  if(!/^\d+$/.test(user)){await send('❌ 사용자 ID를 확인할 수 없습니다.');return true;}
-  await send('🆔 내 아이디: '+user);return true;
+  if(Number(ctx.senderType)!==4){await send('⛔ 부방장만 사용할 수 있습니다.');return true;}
+  const tagged=mentions(ctx.msg),ref=reference(ctx.msg);
+  const hasTarget=tail||tagged.length||ref||Number(ctx.msg?.message?.type??ctx.msg?.type)===26;
+  if(!hasTarget){
+   if(!/^\d{4,}$/.test(user)){await send('❌ 사용자 ID를 확인할 수 없습니다.');return true;}
+   await send('🆔 내 아이디: '+user);return true;
+  }
+  const target=tagged.length>1?null:await targetOf(db,room,ctx.msg,tail,ctx.client);
+  if(!target){await send('❌ 대상을 확인할 수 없습니다. !id에 멘션·아이디를 지정하거나 대상 메시지에 답장해 주세요.');return true;}
+  await send('🆔 '+(target.name&&target.name!==target.id?target.name+'님의 ':'')+'사용자 ID: '+target.id);return true;
  }
  if(STAFF.has(cmd)&&!await isStaff(db,room,user,ctx.senderType,botOwner)){
   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
