@@ -1,7 +1,8 @@
 'use strict';
 
-// Scheduled notices are one-shot KakaoTalk chat messages, not pinned room notices.
-// Pending jobs live in PostgreSQL so Railway restarts do not erase them.
+// Schedule real KakaoTalk room notices, NOT ordinary chat messages.
+// External registration is verified before a notice is recorded as successful.
+// Do not retry an uncertain registration: the post may already have been created.
 const {randomUUID}=require('node:crypto');
 const KST=9*60*60*1000;
 const MAX_BODY=2000;
@@ -56,13 +57,15 @@ async function init(db){
         "next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_error TEXT,"+
         "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), sent_at TIMESTAMPTZ,"+
         "PRIMARY KEY (room_id,notice_no))");
+      await db.query('ALTER TABLE hz_scheduled_notices ADD COLUMN IF NOT EXISTS open_link_id TEXT');
+      await db.query('ALTER TABLE hz_scheduled_notices ADD COLUMN IF NOT EXISTS post_id TEXT');
       await db.query("CREATE INDEX IF NOT EXISTS hz_scheduled_notices_due_idx "+
         "ON hz_scheduled_notices(scheduled_at,next_attempt_at) WHERE state='pending'");
     })().catch(e=>{initPromise=null;throw e;});
   }
   await initPromise;
 }
-async function schedule(db,{roomId,userId,time,content,now}){
+async function schedule(db,{roomId,userId,time,content,linkId=null,now}){
   await init(db);
   const room=validRoom(roomId),creator=String(userId??'');
   const body=cleanContent(content),date=nextOccurrence(time,now);
@@ -80,8 +83,8 @@ async function schedule(db,{roomId,userId,time,content,now}){
       [room]);
     const number=Number(seq.rows[0].last_no);
     await connection.query(
-      'INSERT INTO hz_scheduled_notices(room_id,notice_no,creator_id,scheduled_at,content) '+
-      'VALUES($1,$2,$3,$4,$5)',[room,number,creator,date,body]);
+      'INSERT INTO hz_scheduled_notices(room_id,notice_no,creator_id,scheduled_at,content,open_link_id) '+
+      'VALUES($1,$2,$3,$4,$5,$6)',[room,number,creator,date,body,linkId]);
     await connection.query('COMMIT');
     return {noticeNo:number,scheduledAt:date,content:body};
   }catch(e){
@@ -119,18 +122,29 @@ function formatList(rows){
     entries.join('\n┣━━━━━━━━━━━━━━━━━━┫\n')+'\n┗━━━━━━━━━━━━━━━━━━┛'+
     '\n!공지삭제 (번호)로 예약을 삭제할 수 있습니다.';
 }
-function sendText(client,roomId,body){
-  const transport=typeof client?.chat?.sendText==='function'?client.chat:client;
-  if(typeof transport?.sendText!=='function')throw new Error('채팅 전송 기능을 사용할 수 없습니다.');
-  return transport.sendText(roomId,body);
+function noticeCapability(client,roomId,linkId){
+  const notice=require('../shared/event-notice');
+  const adapter=notice.capability(client,linkId||undefined);
+  if(!adapter)throw new Error('실제 채팅방 공지 등록 연동이 없습니다. #이벤공지상태를 확인해 주세요.');
+  if(adapter.experimental){
+    require('../shared/event-board-api').getLinkId(client,roomId,linkId||undefined);
+  }
+  return adapter;
 }
-async function tick({db,client,logger=console}){
+async function registerActualNotice(client,roomId,content,linkId,adapter){
+  const real=require('../shared/event-notice');
+  const selected=adapter||noticeCapability(client,roomId,linkId);
+  const result=await real.register({client,roomId,body:cleanContent(content),adapter:selected});
+  if(!result.registered)throw new Error('서버에서 실제 공지 등록을 확인하지 못했습니다: '+String(result.reason||'응답 미확인'));
+  return result;
+}
+async function tick({db,client,logger=console,adapter}){
   if(client?.connected===false)return 0;
   await init(db);
   // Mark a stale in-flight job failed rather than silently repeating a message
   // whose send may already have succeeded before a process crash.
   await db.query("UPDATE hz_scheduled_notices SET state='failed',claim_token=NULL,"+
-    "last_error='전송 도중 중단되어 결과 확인 불가' "+
+    "last_error='실제 공지 등록 중 중단: 카카오톡 공지 목록에서 확인 필요' "+
     "WHERE state='sending' AND claimed_at < NOW()-INTERVAL '5 minutes'");
   const token=randomUUID();
   const claimed=await db.query(
@@ -142,29 +156,26 @@ async function tick({db,client,logger=console}){
     "UPDATE hz_scheduled_notices n SET state='sending',claim_token=$1,claimed_at=NOW(),"+
     "attempts=n.attempts+1 FROM due "+
     "WHERE n.room_id=due.room_id AND n.notice_no=due.notice_no "+
-    "RETURNING n.room_id,n.notice_no,n.content,n.attempts",
+    "RETURNING n.room_id,n.notice_no,n.content,n.open_link_id,n.attempts",
     [token]);
   for(const notice of claimed.rows){
     try{
       if(client?.connected===false)throw Error('카카오톡 연결이 끊어졌습니다.');
-      const result=await sendText(client,notice.room_id,message(notice.content));
-      if(result?.status!==0||result?.body?.logId==null)
-        throw new Error('카카오톡 전송 확인 응답(logId)을 받지 못했습니다.');
+      const result=await registerActualNotice(client,notice.room_id,notice.content,notice.open_link_id,adapter);
       await db.query("UPDATE hz_scheduled_notices SET state='sent',sent_at=NOW(),claim_token=NULL,"+
-        "claimed_at=NULL,last_error=NULL WHERE room_id=$1 AND notice_no=$2 "+
+        "claimed_at=NULL,last_error=NULL,post_id=$4 WHERE room_id=$1 AND notice_no=$2 "+
         "AND state='sending' AND claim_token=$3",
-        [notice.room_id,notice.notice_no,token]);
-      logger.info?.('[NOTICE SCHEDULE] sent',notice.room_id,notice.notice_no);
+        [notice.room_id,notice.notice_no,token,result.postId||null]);
+      logger.info?.('[NOTICE SCHEDULE] real room notice registered',notice.room_id,notice.notice_no);
     }catch(error){
       logger.error?.('[NOTICE SCHEDULE] failed',notice.room_id,notice.notice_no,String(error?.message||error));
       try{
-        const exhausted=Number(notice.attempts)>=3;
+        // An API timeout may have registered the notice. Never retry automatically.
         await db.query(
-          "UPDATE hz_scheduled_notices SET state=$4,claim_token=NULL,claimed_at=NULL,"+
-          "last_error=$5,next_attempt_at=NOW()+INTERVAL '30 seconds' * $6 "+
-          "WHERE room_id=$1 AND notice_no=$2 AND state='sending' AND claim_token=$3",
-          [notice.room_id,notice.notice_no,token,exhausted?'failed':'pending',
-           String(error?.message||error).slice(0,500),Number(notice.attempts)]);
+          "UPDATE hz_scheduled_notices SET state='failed',claim_token=NULL,claimed_at=NULL,"+
+          "last_error=$4 WHERE room_id=$1 AND notice_no=$2 AND state='sending' AND claim_token=$3",
+          [notice.room_id,notice.notice_no,token,
+           '실제 공지 등록 결과 확인 필요: '+String(error?.message||error).slice(0,420)]);
       }catch(dbError){logger.error?.('[NOTICE SCHEDULE] DB state update failed',dbError);}
     }
   }
@@ -190,4 +201,4 @@ function stop(){
   timer=null;
 }
 module.exports={parseTime,nextOccurrence,formatKST,cleanContent,message,init,schedule,list,
-  remove,formatList,tick,start,stop};
+  remove,formatList,noticeCapability,registerActualNotice,tick,start,stop};
