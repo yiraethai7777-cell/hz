@@ -88,8 +88,34 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       if (/^#이벤공지(?:상태|등록)(?=$|\s)/.test(text)) return;
       // All APEX event commands now use !. Retire old # event aliases.
       if (/^#이벤(?:설정|속도|공지작성|공지|당첨문구|탈락문구|시간초과문구|초기화|인원테스트|추첨테스트|진행테스트)(?=$|\s)/.test(text)) return;
-      // Observe incoming responses before other commands; never block the message.
-      require('./event-reaction-test').receive({roomId, senderId, text, isBotAccount});
+      // Hide off-turn messages only while a live event is awaiting the
+      // currently selected person. Never substitute deleteMessage for BLIND.
+      const eventHandler=require('./event-reaction-test');
+      const hideOffTurn=eventHandler.shouldBlind({roomId,senderId,text,isBotAccount,msg});
+      eventHandler.receive({roomId,senderId,text,isBotAccount});
+      if(hideOffTurn){
+        const blind=typeof chat?.openChatBlind==='function'
+          ? chat.openChatBlind.bind(chat)
+          : typeof client?.openChatBlind==='function'
+            ? client.openChatBlind.bind(client):null;
+        if(!blind){
+          console.warn('[EVENT BLIND] KakaoForge openChatBlind unavailable:',String(roomId));
+          return;
+        }
+        try {
+          // Use the actual MessageEvent: KakaoForge BLIND needs the original
+          // log, author ID, openLinkId and chatLogInfo (not just a text string).
+          const result=await blind(roomId,msg,{report:false});
+          if(result===false||result?.success===false||result?.ok===false||
+            (typeof result?.status==='number'&&result.status!==0))
+            throw Error('BLIND response rejected: status='+String(result?.status));
+        }catch(error){
+          console.error('[EVENT BLIND] 가리기 실패:',String(roomId),
+            String(msg?.message?.logId??msg?.message?.id??msg?.logId??msg?.id??''),
+            String(error?.message||error));
+        }
+        return;
+      }
       await ready;
       // Serve the (static) game help before management and event pipelines.
       if(text==='!게임명령어'){
