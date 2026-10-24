@@ -23,7 +23,8 @@ async function sendAttendanceImage(client, context) {
   try {
     const data = await readSnapshot(getPool(), {
       roomId: room,
-      userId: user
+      userId: user,
+      attendanceDate: context.attendanceDate
     });
 
     if (!data.attendanceDate) {
@@ -39,7 +40,7 @@ async function sendAttendanceImage(client, context) {
     }
 
     const image = await renderAttendance({
-      name: data.name,
+      name: context.userName || data.name,
       today: data.today,
       attendanceDate: data.attendanceDate,
       streak: data.streak,
@@ -55,7 +56,7 @@ async function sendAttendanceImage(client, context) {
     });
 
     const result = await sendPng(client, room, image, {
-      caption: '📅 ' + data.name + '님의 출석 달력 · ' + data.attendanceDate
+      caption: '📅 ' + (context.userName || data.name) + '님의 출석 달력 · ' + data.attendanceDate
     });
 
     if (!result.confirmed) {

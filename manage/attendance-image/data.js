@@ -1,5 +1,5 @@
 'use strict';
-// Read-only preparation for the future image renderer. No live command imports this module.
+// Read-only snapshots shared by the live attendance command and preview renderer.
 function kstDate(now=new Date()){
  const date=new Date(now);if(!Number.isFinite(date.getTime()))throw Error('Invalid date');
  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);

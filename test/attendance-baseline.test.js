@@ -16,6 +16,8 @@ test('existing attendance rewards and duplicate protection remain authoritative 
   assert.equal(results.filter(x=>x.includes('출석 완료!')).length,1);assert.equal(results.filter(x=>x.includes('이미 출석')).length,1);
   let rows=(await query("SELECT balance FROM hz_wallets WHERE room_id='100' AND user_id='2001'")).rows;assert.equal(Number(rows[0].balance),30000);
   assert.equal((await query("SELECT * FROM hz_coin_logs WHERE type='ATTENDANCE'")).rows.length,1);
+  const detail=await attend('100','2001','변경된 이름',{detailed:true});
+  assert.equal(detail.isNew,false);assert.match(detail.message,/이미 출석/);assert.equal(detail.date,require('../manage/attendance-image/data').kstDate());
   const today=require('../manage/attendance-image/data').kstDate(),day=new Date(today+'T00:00:00Z');day.setUTCDate(day.getUTCDate()-1);const yesterday=day.toISOString().slice(0,10);
   await query("INSERT INTO hz_new_attendance(room_id,user_id,user_name,attend_date) VALUES('100','2002','연속출석자',$1::date)",[yesterday]);
   const reply=await attend('100','2002','연속출석자');assert.match(reply,/연속 출석: 2일/);assert.match(reply,/31,000코인/);

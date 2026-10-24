@@ -15,15 +15,15 @@ function createFixture({snapshot,render,deliver}={}){
  const deps={
   '../../shared/db':{getPool:()=>({})},
   './data':{readSnapshot:async(_pool,args)=>{
-   calls.reads++;
+   calls.reads++;calls.readArgs=args;
    assert.equal(args.roomId,'12345');assert.equal(args.userId,'67890');
    return expected;
   }},
-  './render':{renderAttendance:async input=>{calls.renders++;return render?render(input):buffer;}},
+  './render':{renderAttendance:async input=>{calls.renders++;if(render)render(input);return buffer;}},
   './send':{sendPng:async(client,room,image,opts)=>{
    calls.uploads++;
    assert.equal(room,'12345');
-   assert.equal(opts.caption,'📅 출석 회원님의 출석 달력 · 2026-10-24');
+   assert.match(opts.caption,/님의 출석 달력 · 2026-10-24$/);
    assert.equal(image,buffer);
    return deliver?deliver(client):{confirmed:true};
   }}
@@ -78,4 +78,15 @@ test('concurrent photo requests do not upload duplicate images',async()=>{
  assert.equal(f.calls.uploads,1);
  release();
  assert.equal(await first,true);
+});
+
+test('automatic rendering preserves the committed date and current nickname across midnight',async()=>{
+ const f=createFixture({render:input=>{
+  assert.equal(input.name,'새 닉네임');
+  assert.equal(input.attendanceDate,'2026-10-24');
+  return undefined;
+ }});
+
+ assert.equal(await f.sendAttendanceImage(f.client,{...f.context,attendanceDate:'2026-10-24',userName:'새 닉네임'}),true);
+ assert.equal(f.calls.readArgs.attendanceDate,'2026-10-24');assert.equal(f.calls.renders,1);
 });

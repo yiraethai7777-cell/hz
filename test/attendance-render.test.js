@@ -17,3 +17,10 @@ test('concurrent PNG generation does not share personal text or image buffers',a
  for(const b of buffers){assert.ok(b.length<1500000);assert.equal(PNG.sync.read(b).width,1448);}
 });
 module.exports={fixture};
+
+test('personal greeting and every rendered pixel stay monochrome',async()=>{
+ const input=fixture('민수');
+ const svg=buildSvg(input);assert.match(svg,/>민수님<\/text>/);assert.match(svg,/출석 완료되셨습니다!/);
+ const png=PNG.sync.read(await renderAttendance(input));
+ for(let i=0;i<png.data.length;i+=4){assert.equal(png.data[i],png.data[i+1]);assert.equal(png.data[i+1],png.data[i+2]);}
+});
