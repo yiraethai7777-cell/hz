@@ -49,7 +49,7 @@ async function kickCount(room, user){
   );
   return r.rows[0]?.n || 0;
 }
-async function init(){await initAttendance();const db=getPool();await require('./leave-reply').init(db);await db.query(`
+async function init(){await initAttendance();const db=getPool();await require('./leave-reply').init(db);await require('./mention-notify').init(db);await db.query(`
 CREATE TABLE IF NOT EXISTS gl_manage_rooms(room_id TEXT PRIMARY KEY,enabled BOOLEAN NOT NULL DEFAULT FALSE,spam_enabled BOOLEAN NOT NULL DEFAULT TRUE,deleted_enabled BOOLEAN NOT NULL DEFAULT FALSE);
 CREATE TABLE IF NOT EXISTS gl_manage_admins(room_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS gl_manage_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,reason TEXT NOT NULL,issuer_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),removed BOOLEAN NOT NULL DEFAULT FALSE);
