@@ -25,7 +25,7 @@ function renderMemberTemplate(template,{name,userId,joins=0,leaves=0,roomName=''
   '(입장횟수)':String(Number(joins)||0),
   '(퇴장횟수)':String(Number(leaves)||0)
  };
- return String(template).replace(/\\((?:입장횟수|퇴장횟수|이름|멘션|아이디|해시|방이름|날짜|옾링)\\)/g,variable=>values[variable]);
+ return String(template).replace(/\((?:입장횟수|퇴장횟수|이름|멘션|아이디|해시|방이름|날짜|옾링)\)/g,variable=>values[variable]);
 }
 function leaveNotice({
  name,userId,joins=0,leaves=0,time,detail='',
