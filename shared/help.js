@@ -1,5 +1,20 @@
 'use strict';
 const FOLD='\u200b'.repeat(1200);
+// Internal/destructive commands must never appear in user-facing command menus.
+const HIDDEN_HELP_COMMANDS=new Set(['!일괄강퇴']);
+function hidePrivateHelpCommands(body){
+ const visible=[];
+ let hideDetail=false;
+ for(const line of String(body).split('\n')){
+  const value=line.trim();
+  if([...HIDDEN_HELP_COMMANDS].some(cmd=>value===cmd||value.startsWith(cmd+' ')||value.startsWith(cmd+'('))){hideDetail=true;continue;}
+  if(hideDetail&&(value===''||value.startsWith('└─')))continue;
+  hideDetail=false;
+  visible.push(line);
+ }
+ return visible.join('\n');
+}
+
 const LINKS='🌐 웹사이트: https://hz-production-d530.up.railway.app/\n👤 개발자 오픈프로필: https://open.kakao.com/o/sOmp64Si\n';
 const group=(title,lines)=>title+'\n'+lines.map(s=>'  └─ '+s).join('\n');
 const bodies={
@@ -314,7 +329,7 @@ const bodies={
   "└─ 멘션 기록 및 알람을 끕니다",
  ].join('\n'),
 };
-const MANAGEMENT_MENU='📜 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 관리 명령어\n━━━━━━━━━━━━━━\n'+bodies.관리;
+const MANAGEMENT_MENU='📜 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 관리 명령어\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리);
 const GAME_MENU='📜 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 게임 명령어\n━━━━━━━━━━━━━━\n'+bodies.게임;
 function formatCommandHelp(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
@@ -350,4 +365,4 @@ async function handleExtraMessage(client,...args){
  return true;
 }
 async function attachExtraCommands(client){client.onMessage((...args)=>handleExtraMessage(client,...args));}
-module.exports={handleExtraMessage,attachExtraCommands,formatCommandHelp,commandLists};
+module.exports={handleExtraMessage,attachExtraCommands,formatCommandHelp,commandLists,hidePrivateHelpCommands};
