@@ -92,7 +92,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // currently selected person. Never substitute deleteMessage for BLIND.
       // Permission is scoped to this room and never changes the sender identity.
       let roomBotAdmin=false;
-      if(text.startsWith('!')&&!isBotAccount){
+      if(/^!(?:게임on|게임off|이벤트시작|이벤트중지|이벤)/.test(text)&&!isBotAccount){
         try{roomBotAdmin=await require('./room-bot-admin').isRoomBotAdmin(roomId,senderId);}
         catch(error){console.warn('[ROOM ADMIN] 권한 조회 실패:',String(error?.message||error));}
       }
