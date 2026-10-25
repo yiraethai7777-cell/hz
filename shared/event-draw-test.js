@@ -13,7 +13,7 @@ function isApex(name) {
     name.normalize('NFKC').replace(/\s+/g, '').toUpperCase().includes('APEX');
 }
 
-function getCandidates(members, botId) {
+function getCandidates(members, botId, {allMembers=false}={}) {
   if (!Array.isArray(members)) throw Error('Invalid cached member list');
   const unique = new Set();
   return members.filter(m => {
@@ -21,7 +21,7 @@ function getCandidates(members, botId) {
     if (!/^[1-9]\d*$/.test(id) ||
         id === String(botId) ||
         typeof m?.name !== 'string' || !m.name.trim() ||
-        !isApex(m.name) || unique.has(id)) return false;
+        (!allMembers && !isApex(m.name)) || unique.has(id)) return false;
     unique.add(id);
     return true;
   });
