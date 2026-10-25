@@ -66,7 +66,7 @@ async function handle(ctx){
  const raw=String(ctx.text||'').trim(),cmd=raw.split(/\s+/)[0];
  if(!ALL.has(cmd)||cmd==='!관리명령어'&&raw!=='!관리명령어')return false;
  const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId),tail=raw.slice(cmd.length).trim();
- const send=ctx.send,botOwner=owner(user,ctx.isBotAccount);
+ const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||await isStaff(db,room,user,ctx.senderType,false);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
  if(cmd==='!관리명령어'){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리'));return true;
@@ -89,7 +89,7 @@ async function handle(ctx){
   await send(on?'🔔 멘션 감지 ON · 부재중 멘션 기록과 알림을 시작합니다.':'⏹️ 멘션 감지 OFF · 새 멘션을 기록하거나 알리지 않습니다.');return true;
  }
  if(cmd==='!id'){
-  if(!ctx.isBotAccount&&![1,4].includes(Number(ctx.senderType))){await send('⛔ 방장·부방장·봇 계정만 사용할 수 있습니다.');return true;}
+  if(!botOwner&&![1,4].includes(Number(ctx.senderType))){await send('⛔ 방장·부방장·봇 계정만 사용할 수 있습니다.');return true;}
   const tagged=mentions(ctx.msg),ref=reference(ctx.msg);
   const hasTarget=tail||tagged.length||ref||Number(ctx.msg?.message?.type??ctx.msg?.type)===26;
   if(!hasTarget){
