@@ -247,6 +247,11 @@ async function join({roomId,userId,userName,send}){
   const bans = await kickCount(room,user);
 
   const saved=(await db.query('SELECT open_profile_link,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,user])).rows[0]||{};
+  const template=(await db.query("SELECT data->>'joinTemplate' AS value FROM hz_rooms WHERE room_id=$1",[room])).rows[0]?.value;
+  if(template){
+    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,time:formatKST(joinedAt),profileLink:saved.open_profile_link||''}));
+    return;
+  }
   await send(require('./leave-reply').joinNotice({
     name:userName,userId:user,joins,leaves,time:formatKST(joinedAt),bans,
     profileLink:saved.open_profile_link||'',profileImage:saved.last_profile_url||'',
@@ -297,6 +302,11 @@ async function leave({roomId,userId,userName,send}){
   const bans = await kickCount(room,user);
 
   const saved=(await db.query('SELECT open_profile_link,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,user])).rows[0]||{};
+  const template=(await db.query("SELECT data->>'leaveTemplate' AS value FROM hz_rooms WHERE room_id=$1",[room])).rows[0]?.value;
+  if(template){
+    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,time:formatKST(leftAt),profileLink:saved.open_profile_link||''}));
+    return;
+  }
   await send(require('./leave-reply').leaveNotice({
     name:userName,userId:user,joins,leaves,time:formatKST(leftAt),
     joinedAt:lastJoinedAt?formatKST(lastJoinedAt):'확인 불가',stay,bans,
