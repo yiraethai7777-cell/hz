@@ -208,7 +208,7 @@ async function handle(ctx){
   await send(on?'🗑️ 삭제 감지 ON':'⏹️ 삭제 감지 OFF');return true;
  }
  if(cmd==='!입장변경'||cmd==='!퇴장변경'){
-  if(!tail||tail.length>2000){await send('사용법: '+cmd+' (내용 · 기본으로 초기화, 최대 2000자)');return true;}
+  if(!tail||tail.length>2000){await send('사용법: '+cmd+' (내용 · 기본으로 초기화, 최대 2000자)'+(cmd==='!입장변경'?'\n사용 변수: (멘션) (아이디) (옾링) (이름) (해시) (방이름) (날짜)':''));return true;}
   const field=cmd==='!입장변경'?'joinTemplate':'leaveTemplate';
   await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object($2::text,$3::text)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,ARRAY[$2::text],to_jsonb($3::text),true),updated_at=NOW()",[room,field,tail==='기본'?'':tail]);
   await send('✅ '+(cmd==='!입장변경'?'입장':'퇴장')+' 인사말 변경 완료');return true;
