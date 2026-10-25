@@ -46,7 +46,7 @@ async function handle({client,roomId,msg,userId,send,kick,db,owner}){
    try{
     await db.query("INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,'KICK',$4)",[room,String(userId),member.id,'일괄강퇴 '+(success+failed)]);
    }catch(e){console.warn('[BULK KICK] 기록 실패:',String(e?.message||e));}
-   await pause(400);
+   await pause(30);
   }
   await send('🚫 일괄강퇴 처리 결과\n성공: '+success+'명\n실패·중단: '+failed+'명\n역할 확인 불가 제외: '+skipped.unknownRole+'명\n관리자·봇·실행자 제외: '+skipped.protected+'명\n※ 캐시 기반으로 현재 전체 인원을 보장하지 않습니다.');
  }finally{running.delete(room);}
