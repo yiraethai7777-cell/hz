@@ -16,6 +16,17 @@ function displayMember(name,userId){
  const id=exactId(userId),clean=String(name||id||'알 수 없음').replace(/[\u0002-\u0004]/g,'').trim()||id||'알 수 없음';
  return {id,clean,mention:id?'\u0002'+id+'\u0003'+clean+'\u0004':'@'+clean};
 }
+function renderMemberTemplate(template,{name,userId,joins=0,leaves=0,roomName='',time='',profileLink=''}){
+ const {id,clean,mention}=displayMember(name,userId);
+ const values={
+  '(이름)':clean,'(멘션)':mention,'(아이디)':id||'확인 불가',
+  '(해시)':id||'확인 불가','(방이름)':String(roomName||''),
+  '(날짜)':String(time||''),'(옾링)':String(profileLink||'확인 불가'),
+  '(입장횟수)':String(Number(joins)||0),
+  '(퇴장횟수)':String(Number(leaves)||0)
+ };
+ return String(template).replace(/\\((?:입장횟수|퇴장횟수|이름|멘션|아이디|해시|방이름|날짜|옾링)\\)/g,variable=>values[variable]);
+}
 function leaveNotice({
  name,userId,joins=0,leaves=0,time,detail='',
  profileLink='',profileType='확인 불가',profileImage='',
@@ -142,4 +153,4 @@ async function handle(context,db){
  }catch(e){console.error('[LEAVE K LOG]',String(e?.message||e));}
  await send(`🚫 ${row.target_name}님을 벤했습니다.\n사용자 ID: ${row.target_id}`);return true;
 }
-module.exports={init,leaveNotice,joinNotice,profileNotice,record,replyReference,handle};
+module.exports={init,leaveNotice,joinNotice,renderMemberTemplate,profileNotice,record,replyReference,handle};
