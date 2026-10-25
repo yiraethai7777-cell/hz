@@ -29,7 +29,7 @@ async function sendSafe(client, send, message) {
 // During the live countdown, only the selected participant may speak.
 // Return true only for a message that may safely be hidden. This does not run
 // during test events, between rounds, after a result or after cancellation.
-function shouldBlind({roomId,senderId,isBotAccount=false,msg,text=''}) {
+function shouldBlind({roomId,senderId,isBotAccount=false,roomBotAdmin=false,msg,text=''}) {
  const room=String(roomId??''),state=active.get(room);
  if(!state||!state.live||state.result||state.session?.cancelled)return false;
  if(state.phase!=='precountdown'&&state.phase!=='counting')return false;
@@ -38,7 +38,7 @@ function shouldBlind({roomId,senderId,isBotAccount=false,msg,text=''}) {
  if(!/^[1-9]\d*$/.test(sender)||sender===state.userId)return false;
  const command=String(text||'').trim();
  // Do not hide an authorized host's attempt to stop or configure the event.
- if([1,4].includes(Number(msg?.sender?.type)) &&
+ if((roomBotAdmin||[1,4].includes(Number(msg?.sender?.type))) &&
    /^!(?:이벤트시작|이벤트중지|이벤설정|이벤속도|이벤공지작성|이벤공지|이벤당첨문구|이벤탈락문구|이벤시간초과문구|이벤초기화)(?=$|\s)/.test(command))
    return false;
  // Do not attempt to blind events without a verifiable chat log ID.
@@ -69,13 +69,13 @@ function receive({roomId, senderId, text, isBotAccount = false, now = Date.now})
 async function start({
   client, roomId, msg, send, mention, pickRandom = randomInt,
   now = Date.now, sleep = delay, loadSettings = loadSettingsDefault,
-  testMode = true, session = null, announce = true, excludeId = null
+  testMode = true, session = null, announce = true, excludeId = null, roomBotAdmin=false
 }) {
   if (msg?.room?.isOpenChat !== true) {
     await sendSafe(client, send, '오픈채팅방에서만 사용할 수 있습니다.');
     return {outcome:'unavailable'};
   }
-  if (![1,4].includes(Number(msg?.sender?.type))) {
+  if (!roomBotAdmin && ![1,4].includes(Number(msg?.sender?.type))) {
     await sendSafe(client, send, '방장 또는 부방장만 실행할 수 있습니다.');
     return {outcome:'unauthorized'};
   }
@@ -199,7 +199,7 @@ async function startUntilWinner(args){
  if(msg?.room?.isOpenChat!==true){
   await sendSafe(client,send,'오픈채팅방에서만 사용할 수 있습니다.');return 'unavailable';
  }
- if(![1,4].includes(Number(msg?.sender?.type))){
+ if(!args.roomBotAdmin&&![1,4].includes(Number(msg?.sender?.type))){
   await sendSafe(client,send,'방장 또는 부방장만 실행할 수 있습니다.');return 'unauthorized';
  }
  if(sessions.has(room)||active.has(room)){
@@ -230,11 +230,11 @@ async function startUntilWinner(args){
   if(sessions.get(room)===session)sessions.delete(room);
  }
 }
-async function stopUntilWinner({client,roomId,msg,send}){
+async function stopUntilWinner({client,roomId,msg,send,roomBotAdmin=false}){
  if(msg?.room?.isOpenChat!==true){
   await sendSafe(client,send,'오픈채팅방에서만 사용할 수 있습니다.');return false;
  }
- if(![1,4].includes(Number(msg?.sender?.type))){
+ if(!roomBotAdmin&&![1,4].includes(Number(msg?.sender?.type))){
   await sendSafe(client,send,'방장 또는 부방장만 중지할 수 있습니다.');return false;
  }
  const room=String(roomId),session=sessions.get(room);
