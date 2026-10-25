@@ -90,8 +90,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       if (/^#이벤(?:설정|속도|공지작성|공지|당첨문구|탈락문구|시간초과문구|초기화|인원테스트|추첨테스트|진행테스트)(?=$|\s)/.test(text)) return;
       // Hide off-turn messages only while a live event is awaiting the
       // currently selected person. Never substitute deleteMessage for BLIND.
+      // Resolve delegated admin rights for sensitive commands and event controls.
+      const delegatedCommand=/^!(?:게임on|게임off|이벤트시작|이벤트중지|이벤)/.test(text);
+      const delegatedAdmin=delegatedCommand
+        ? await require('../manage/room-authority').isRoomAdmin(roomId,senderId,msg,client)
+        : false;
       const eventHandler=require('./event-reaction-test');
-      const hideOffTurn=eventHandler.shouldBlind({roomId,senderId,text,isBotAccount,msg});
+      const hideOffTurn=eventHandler.shouldBlind({roomId,senderId,text,isBotAccount,msg,roomAuthorized:delegatedAdmin});
       eventHandler.receive({roomId,senderId,text,isBotAccount});
       if(hideOffTurn){
         const blind=typeof chat?.openChatBlind==='function'
@@ -132,6 +137,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   text,
   isBotAccount,
   senderType: msg.sender?.type,
+  roomAuthorized: delegatedAdmin,
   botId: client.userId,
   msg,
   resolveTarget: () => require('../manage/targets').resolve({msg,text,roomId,client,db:require('./db').getPool()}),
@@ -180,17 +186,17 @@ if(gameAliases.isGameCommand(text) && text!=='!게임on' && text!=='!게임off')
 }
 
 if (await require('./event-settings').handle({
-  client,roomId,msg,text,send:context.send
+  client,roomId,msg,text,send:context.send,roomAuthorized:delegatedAdmin
 })) return;
 
 if (text === '!이벤인원테스트') {
-  await require('./event-member-test').handle({client, roomId, msg, send: context.send});
+  await require('./event-member-test').handle({client, roomId, msg, send: context.send,roomAuthorized:delegatedAdmin});
   return;
 }
 
 if (text === '!이벤추첨테스트') {
   await require('./event-draw-test').handle({
-    client, roomId, msg, send: context.send,
+    client, roomId, msg, send: context.send,roomAuthorized:delegatedAdmin,
     mention: (id, name) => {
       if (typeof chat?.mention !== 'function') return null;
       return chat.mention(id, name, roomId);
@@ -202,7 +208,7 @@ if (text === '!이벤추첨테스트') {
       if (text === '!이벤트시작' || text === '!이벤트중지') {
         const event=require('./event-reaction-test');
         const commandArgs={
-          client,roomId,msg,send:context.send,
+          client,roomId,msg,send:context.send,roomAuthorized:delegatedAdmin,
           mention:(id,name)=>typeof chat?.mention==='function'
             ?chat.mention(id,name,roomId):null
         };
@@ -213,7 +219,7 @@ if (text === '!이벤추첨테스트') {
 
       if (text === '!이벤진행테스트') {
         await require('./event-reaction-test').start({
-          client, roomId, msg, send: context.send,
+          client, roomId, msg, send: context.send,roomAuthorized:delegatedAdmin,
           mention: (id, name) => typeof chat?.mention === 'function' ? chat.mention(id, name, roomId) : null
         });
         return;
