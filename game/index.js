@@ -29,8 +29,8 @@ function createGame(client) {
       });
       await require('../shared/runtime').attachModules(adapter);
     },
-    async toggle({roomId,text,isBotAccount,send}) {
-      if (!isBotAccount) { await send('⛔ 봇 계정만 사용할 수 있습니다.'); return; }
+    async toggle({roomId,text,isBotAccount,roomBotAdmin=false,send}) {
+      if (!isBotAccount&&!roomBotAdmin) { await send('⛔ 봇 또는 해당 방의 지정 관리자만 사용할 수 있습니다.'); return; }
       const on = text === '!게임on';
       // Patch only the flag, retaining every existing player and setting.
       await getPool().query(`INSERT INTO hz_rooms(room_id,data)
@@ -44,7 +44,7 @@ function createGame(client) {
       const text = aliases.toLegacy(context.text);
       const msg = aliases.toLegacyMessage(context.msg,context.text,text);
       const normalized = text===context.text?context:{...context,text,msg};
-      const {roomId,chat,isBotAccount,send} = normalized;
+      const {roomId,chat,isBotAccount,roomBotAdmin=false,send} = normalized;
       // Retired commands must not mutate games or historical records.
       if (/^[!#](?:준개|전체준개)/.test(text)) return;
       if (/^[!#](?:주식|내주식)/.test(text) || ['!코인','!레벨','!내정보','#코인','#레벨','#내정보'].includes(text)) return;
@@ -61,7 +61,7 @@ function createGame(client) {
       if (text==='#정보') {if(await require('./info').handle(normalized,client))return;}
       if(await require('../promotion').handleCommand(normalized,client))return;
       if(await require('./privacy').command(normalized))return;
-      if (controls.test(text) && !isBotAccount) {
+      if (controls.test(text) && !isBotAccount && !roomBotAdmin) {
         await send('⛔ 봇 계정만 사용할 수 있습니다.'); return;
       }
       const r = await getPool().query('SELECT data FROM hz_rooms WHERE room_id=$1',[String(roomId)]);
