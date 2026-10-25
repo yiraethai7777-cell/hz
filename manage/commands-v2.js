@@ -66,7 +66,7 @@ async function handle(ctx){
  const raw=String(ctx.text||'').trim(),cmd=raw.split(/\s+/)[0];
  if(!ALL.has(cmd)||cmd==='!관리명령어'&&raw!=='!관리명령어')return false;
  const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId),tail=raw.slice(cmd.length).trim();
- const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||await isStaff(db,room,user,ctx.senderType,false);
+ const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
  if(cmd==='!관리명령어'){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리'));return true;
