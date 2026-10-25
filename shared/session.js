@@ -330,14 +330,32 @@ async function attachHZBot(client){
           const extracted=eventMember?ctx.extractProfile(eventMember):null;
           const imageUrl=snapshot?.imageUrl||extracted?.url||data.last_profile_url||'';
           const profileImage=typeof imageUrl==='string'&&/^https?:\/\//i.test(imageUrl)?imageUrl:'';
-          const detail=type==='join'
-            ?(f.joinTemplate?require('../manage/member-template').format(f.joinTemplate,{name,uid,roomName,profileLink,client,roomId:rid,base:ctx.formatMemberTemplate}):'')
-            :(f.leaveTemplate?ctx.formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):'');
           const leaveReply=require('../manage/leave-reply');
+          const template=type==='join'?f.joinTemplate:f.leaveTemplate;
+          let customNotice=null;
+          if(typeof template==='string'&&template.trim()){
+            let warnings=0;
+            if(template.includes('(경고횟수)')){
+              const warningResult=await ctx.pool.query(
+                'SELECT COUNT(*)::integer AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',
+                [rid,uid]);
+              warnings=Number(warningResult.rows[0]?.n||0);
+            }
+            const variables={name,userId:uid,joins,leaves,warnings,roomName,
+              time:formatKST(eventTime),profileLink};
+            if(type==='join'){
+              customNotice=require('../manage/member-template').format(template,{
+                name,uid,roomName,profileLink,client,roomId:rid,
+                base:body=>leaveReply.renderMemberTemplate(body,variables)
+              });
+            }else{
+              customNotice=leaveReply.renderMemberTemplate(template,variables);
+            }
+          }
 
           if(type==='join'){
             // joinNotice currently expects KakaoForge's numeric profile type.
-            const output=leaveReply.joinNotice({name,userId:uid,roomName,joins,leaves,time:formatKST(eventTime),profileLink,profileType,profileImage,bans,detail});
+            const output=customNotice??leaveReply.joinNotice({name,userId:uid,roomName,joins,leaves,time:formatKST(eventTime),profileLink,profileType,profileImage,bans});
             await ctx.send(ctx.globalChat,rid,output);
             // Rejoining also counts as returning for undelivered mentions.
             try{
@@ -350,7 +368,7 @@ async function attachHZBot(client){
           if(type==='leave'){
             const lastJoin=await ctx.pool.query("SELECT created_at FROM hz_events WHERE room_id=$1 AND user_id=$2 AND event_type='join' ORDER BY id DESC LIMIT 1",[rid,uid]);
             const joinedAt=lastJoin.rows[0]?.created_at||null;
-            const output=leaveReply.leaveNotice({name,userId:uid,joins,leaves,time:formatKST(eventTime),joinedAt:joinedAt?formatKST(joinedAt):null,stay:stayTime(joinedAt,eventTime),profileLink,profileType:profileName,profileImage,bans,detail});
+            const output=customNotice??leaveReply.leaveNotice({name,userId:uid,joins,leaves,time:formatKST(eventTime),joinedAt:joinedAt?formatKST(joinedAt):null,stay:stayTime(joinedAt,eventTime),profileLink,profileType:profileName,profileImage,bans});
             const result=await ctx.send(ctx.globalChat,rid,output);
             await leaveReply.record(ctx.pool,{roomId:rid,botId:ctx.globalBotId,userId:uid,name,result});
           }
