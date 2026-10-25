@@ -331,7 +331,7 @@ async function attachHZBot(client){
           const imageUrl=snapshot?.imageUrl||extracted?.url||data.last_profile_url||'';
           const profileImage=typeof imageUrl==='string'&&/^https?:\/\//i.test(imageUrl)?imageUrl:'';
           const detail=type==='join'
-            ?(f.joinTemplate?ctx.formatMemberTemplate(f.joinTemplate,{name,uid,roomName}):'')
+            ?(f.joinTemplate?require('../manage/member-template').format(f.joinTemplate,{name,uid,roomName,profileLink,client,roomId:rid,base:ctx.formatMemberTemplate}):'')
             :(f.leaveTemplate?ctx.formatMemberTemplate(f.leaveTemplate,{name,uid,roomName}):'');
           const leaveReply=require('../manage/leave-reply');
 
