@@ -95,6 +95,12 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       const delegatedAdmin=delegatedCommand
         ? await require('../manage/room-authority').isRoomAdmin(roomId,senderId,msg,client)
         : false;
+      // Permission is scoped to this room and never changes the sender identity.
+      let roomBotAdmin=false;
+      if(text.startsWith('!')&&!isBotAccount){
+        try{roomBotAdmin=await require('./room-bot-admin').isRoomBotAdmin(roomId,senderId);}
+        catch(error){console.warn('[ROOM ADMIN] 권한 조회 실패:',String(error?.message||error));}
+      }
       const eventHandler=require('./event-reaction-test');
       const hideOffTurn=eventHandler.shouldBlind({roomId,senderId,text,isBotAccount,msg,roomAuthorized:delegatedAdmin});
       eventHandler.receive({roomId,senderId,text,isBotAccount});
@@ -136,6 +142,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   messageId: msg.id ?? msg.message?.id ?? null,
   text,
   isBotAccount,
+  roomBotAdmin,
   senderType: msg.sender?.type,
   roomAuthorized: delegatedAdmin,
   botId: client.userId,
@@ -190,7 +197,7 @@ if (await require('./event-settings').handle({
 })) return;
 
 if (text === '!이벤인원테스트') {
-  await require('./event-member-test').handle({client, roomId, msg, send: context.send,roomAuthorized:delegatedAdmin});
+  await require('./event-member-test').handle({client, roomId, msg, roomBotAdmin, send: context.send,roomAuthorized:delegatedAdmin});
   return;
 }
 
@@ -208,7 +215,7 @@ if (text === '!이벤추첨테스트') {
       if (text === '!이벤트시작' || text === '!이벤트중지') {
         const event=require('./event-reaction-test');
         const commandArgs={
-          client,roomId,msg,send:context.send,roomAuthorized:delegatedAdmin,
+          client,roomId,msg,roomBotAdmin,send:context.send,roomAuthorized:delegatedAdmin,
           mention:(id,name)=>typeof chat?.mention==='function'
             ?chat.mention(id,name,roomId):null
         };
