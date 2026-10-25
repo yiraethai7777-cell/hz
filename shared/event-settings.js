@@ -115,7 +115,7 @@ const HELP=[
   '설정 속도: 35~10000ms (카카오 자체 전송 간격 별도)',
   '문구에 줄바꿈을 넣을 수 있습니다.'
 ].join('\n');
-async function handle({client,roomId,msg,text,send,store={load,save,reset}}) {
+async function handle({client,roomId,msg,text,send,roomBotAdmin=false,store={load,save,reset}}) {
   const str=String(text??'').trim();
   const commands=['!이벤설정','!이벤속도','!이벤공지작성','!이벤공지',
     '!이벤당첨문구','!이벤탈락문구','!이벤시간초과문구','!이벤초기화'];
@@ -124,7 +124,7 @@ async function handle({client,roomId,msg,text,send,store={load,save,reset}}) {
   if(msg?.room?.isOpenChat!==true) {
     await reply(client,send,'오픈채팅방에서만 설정할 수 있습니다.');return true;
   }
-  if(![1,4].includes(Number(msg?.sender?.type))) {
+  if(!roomBotAdmin&&![1,4].includes(Number(msg?.sender?.type))) {
     await reply(client,send,'방장 또는 부방장만 설정할 수 있습니다.');return true;
   }
   const value=str.slice(command.length).trim();
