@@ -39,7 +39,7 @@ function shouldBlind({roomId,senderId,isBotAccount=false,roomBotAdmin=false,msg,
  const command=String(text||'').trim();
  // Do not hide an authorized host's attempt to stop or configure the event.
  if((roomBotAdmin||[1,4].includes(Number(msg?.sender?.type))) &&
-   /^!(?:게임on|게임off|관리on|관리off|이벤트시작|이벤트중지|이벤설정|이벤속도|이벤공지작성|이벤공지|이벤당첨문구|이벤탈락문구|이벤시간초과문구|이벤초기화)(?=$|\s)/.test(command))
+   /^!(?:게임on|게임off|관리on|관리off|이벤트시작|이벤시작랜덤방|이벤트중지|이벤설정|이벤속도|이벤공지작성|이벤공지|이벤당첨문구|이벤탈락문구|이벤시간초과문구|이벤초기화)(?=$|\s)/.test(command))
    return false;
  // Do not attempt to blind events without a verifiable chat log ID.
  const logId=msg?.message?.logId??msg?.message?.id??msg?.logId??msg?.id;
