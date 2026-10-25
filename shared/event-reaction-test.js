@@ -69,7 +69,7 @@ function receive({roomId, senderId, text, isBotAccount = false, now = Date.now})
 async function start({
   client, roomId, msg, send, mention, pickRandom = randomInt,
   now = Date.now, sleep = delay, loadSettings = loadSettingsDefault,
-  testMode = true, session = null, announce = true, excludeId = null, roomBotAdmin=false
+  testMode = true, session = null, announce = true, excludeId = null, roomBotAdmin=false, randomRoom=false
 }) {
   if (msg?.room?.isOpenChat !== true) {
     await sendSafe(client, send, '오픈채팅방에서만 사용할 수 있습니다.');
@@ -103,9 +103,9 @@ async function start({
     if(!Number.isSafeInteger(tickMs)||tickMs<35||tickMs>10000)
       throw Error('Invalid event speed setting');
     const members = await client.getCachedMemberProfiles(roomId);
-    const candidates = getCandidates(members, client.userId);
+    const candidates = randomRoom ? getCandidates(members, client.userId, {allMembers:true}) : getCandidates(members, client.userId);
     if (!candidates.length) {
-      await sendSafe(client, send, '현재 확인된 APEX 참가자가 없습니다. 방 명단 동기화 중이거나 퇴장자가 제외된 상태일 수 있습니다. !이벤인원테스트로 확인해 주세요.');
+      await sendSafe(client, send, randomRoom?'현재 확인된 방 참가자가 없습니다. 방 명단 캐시를 확인해 주세요.':'현재 확인된 APEX 참가자가 없습니다. 방 명단 동기화 중이거나 퇴장자가 제외된 상태일 수 있습니다. !이벤인원테스트로 확인해 주세요.');
       return {outcome:'no-candidates'};
     }
     const eligible = excludeId && candidates.length>1 ? candidates.filter(p=>String(p.id)!==String(excludeId)) : candidates;
