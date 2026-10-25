@@ -41,12 +41,12 @@ async function safeSend(client, send, content) {
   }
 }
 
-async function handle({client, roomId, msg, send, mention, pickRandom = randomInt, now = Date.now}) {
+async function handle({client, roomId, msg, roomBotAdmin=false, send, mention, pickRandom = randomInt, now = Date.now}) {
   if (msg?.room?.isOpenChat !== true) {
     await safeSend(client,send,'오픈채팅방에서만 사용할 수 있습니다.');
     return;
   }
-  if (![1,4].includes(Number(msg?.sender?.type))) {
+  if (!roomBotAdmin && ![1,4].includes(Number(msg?.sender?.type))) {
     await safeSend(client,send,'방장 또는 부방장만 사용할 수 있습니다.');
     return;
   }
