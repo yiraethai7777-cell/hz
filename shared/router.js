@@ -3,6 +3,7 @@ const { handleExtraMessage } = require('./help');
 const gameAliases=require('../game/command-aliases');
 
 function attachRouter(client, { game, management, ready = Promise.resolve() }) {
+  require('./unicode-output').install(client);
   client.onMessage(async (...args) => {
     const msg = args.length === 1 ? args[0] : args[1];
     const chat = args.length === 1 ? (client.chat || client) : args[0];
