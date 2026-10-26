@@ -54,6 +54,26 @@ async function routes(req,res,url,body){
   const allowed=['game','manage','quizEnabled','fishEnabled'];if(!Object.keys(flags).length||Object.keys(flags).some(key=>!allowed.includes(key)||typeof flags[key]!=='boolean'))fail('변경할 기능 설정을 확인해 주세요.');
   await roomTransaction(room,async(d,db)=>{Object.assign(d,flags);if(typeof flags.manage==='boolean')await db.query('INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,$2) ON CONFLICT(room_id) DO UPDATE SET enabled=$2',[room,flags.manage]);await audit(db,s.user,'ROOM_FLAGS',room,null,flags);});return {ok:true};
  }
+ if(p==='/api/admin/room-admins'&&method==='GET'){
+  const room=id(url.searchParams.get('roomId'));
+  const r=await getPool().query('SELECT user_id FROM gl_manage_admins WHERE room_id=$1 ORDER BY user_id',[room]);
+  return {admins:r.rows};
+ }
+ if(p==='/api/admin/room-admins'&&method==='POST'){
+  const room=id(body.roomId),user=id(body.userId),action=String(body.action||'');
+  if(!['add','remove'].includes(action))fail('추가 또는 삭제 작업을 선택해 주세요.');
+  const db=getPool();
+  const exists=await db.query('SELECT 1 FROM hz_rooms WHERE room_id=$1',[room]);
+  if(!exists.rowCount)fail('등록되지 않은 채팅방입니다.',404);
+  return transaction(async c=>{
+   const q=action==='add'
+    ?'INSERT INTO gl_manage_admins(room_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING'
+    :'DELETE FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2';
+   const changed=await c.query(q,[room,user]);
+   await audit(c,s.user,action==='add'?'ROOM_ADMIN_ADD':'ROOM_ADMIN_REMOVE',room,user,{changed:changed.rowCount>0});
+   return {ok:true,changed:changed.rowCount>0};
+  });
+ }
  if(p==='/api/admin/users'&&method==='GET'){
   const room=id(url.searchParams.get('roomId')),search=String(url.searchParams.get('search')||'').slice(0,80);
   const r=await getPool().query('SELECT w.user_id,w.user_name,w.balance::text,r.data->\'players\'->w.user_id AS player FROM hz_wallets w LEFT JOIN hz_rooms r USING(room_id) WHERE w.room_id=$1 AND (w.user_id=$2 OR w.user_name ILIKE $3) ORDER BY w.user_name LIMIT 50',[room,search,'%'+search+'%']);return {users:r.rows};
