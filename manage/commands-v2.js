@@ -71,7 +71,7 @@ async function handle(ctx){
  if(cmd==='!관리명령어'){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리'));return true;
  }
- if(OWNER.has(cmd)&&!botOwner){await send('⛔ 봇 관리자만 사용할 수 있습니다.');return true;}
+ if(OWNER.has(cmd)&&!botOwner){return true;}
  if(cmd==='!일괄강퇴'){
   if(raw!=='!일괄강퇴'){await send('사용법: !일괄강퇴');return true;}
   const botAccountOwner=owner(user,ctx.isBotAccount);
@@ -82,7 +82,7 @@ async function handle(ctx){
   const on=cmd==='!관리on';await setEnabled(db,room,on);
   await send(on?'🛡️ 관리 기능이 작동되었습니다.':'⏹️ 관리 기능이 중지되었습니다.');return true;
  }
- if(!await enabled(db,room)){await send('⏹️ 관리 기능 중지 · !관리on으로 작동할 수 있습니다.');return true;}
+ if(!await enabled(db,room)){return true;}
  if(cmd==='!멘션감지on'||cmd==='!멘션감지off'||cmd==='!멘션감지상태'){
   const notifier=require('./mention-notify');
   if(cmd==='!멘션감지상태'){
