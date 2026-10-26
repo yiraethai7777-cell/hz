@@ -8,7 +8,7 @@ const { Pool } = require("pg");
 // Shared persistent state for the separated modules.
 
 const pool = suppliedPool || new Pool({connectionString:process.env.DATABASE_URL, ssl: process.env.DATABASE_URL && !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL) ? {rejectUnauthorized:false}:false});
-const QUIZ_REWARD=10000, QUIZ_SECONDS=60, FISHING_COOLDOWN_SECONDS=30, QUIZ_COOLDOWN_SECONDS=20, FISHING_WAIT_MS=0, QUIZ_XP=30, FISHING_XP=20, MAX_LEVEL=200;
+const QUIZ_REWARD=10000, QUIZ_SECONDS=60, FISHING_COOLDOWN_SECONDS=30, QUIZ_COOLDOWN_SECONDS=10, FISHING_WAIT_MS=0, QUIZ_XP=30, FISHING_XP=20, MAX_LEVEL=200;
 const MORE="\u200b".repeat(500);
 const PET_COST=10000, AUTO_COST=50000, AUTO_DURATION=600000;
 const PROMO_SPAM_WINDOW_MS=10000, PROMO_SPAM_LIMIT=3;
