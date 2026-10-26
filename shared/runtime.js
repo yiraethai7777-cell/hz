@@ -8,7 +8,7 @@ const { Pool } = require("pg");
 // Shared persistent state for the separated modules.
 
 const pool = suppliedPool || new Pool({connectionString:process.env.DATABASE_URL, ssl: process.env.DATABASE_URL && !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL) ? {rejectUnauthorized:false}:false});
-const QUIZ_REWARD=10000, QUIZ_SECONDS=60, FISHING_COOLDOWN_SECONDS=30, QUIZ_COOLDOWN_SECONDS=15, FISHING_WAIT_MS=0, QUIZ_XP=30, FISHING_XP=20, MAX_LEVEL=200;
+const QUIZ_REWARD=10000, QUIZ_SECONDS=60, FISHING_COOLDOWN_SECONDS=30, QUIZ_COOLDOWN_SECONDS=20, FISHING_WAIT_MS=0, QUIZ_XP=30, FISHING_XP=20, MAX_LEVEL=200;
 const MORE="\u200b".repeat(500);
 const PET_COST=10000, AUTO_COST=50000, AUTO_DURATION=600000;
 const PROMO_SPAM_WINDOW_MS=10000, PROMO_SPAM_LIMIT=3;
@@ -38,7 +38,7 @@ let globalClient=null,globalChat=null,globalBotId="";
 const OWNER_IDS = new Set(String(process.env.HZ_OWNER_IDS || process.env.HZ_OWNER_ID || "").split(/[\s,;]+/).map(x => x.trim()).filter(Boolean));
 
 const {n,norm,nowK,dayK,sleep,id,blankRoom,fixRoom,initDb,withRoom,roomFlags,send}=require('./state')(ctx);
-const {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,handleGame}=require('../game/features')(ctx);
+const {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,quizExpiryTick,handleGame}=require('../game/features')(ctx);
 const {formatMemberTemplate,isManagerType,isOwnerType,isSubManagerType,safeUserId,parseExactAttachment,exactId,attachmentRoots,rawMentions,targetFrom,resolveTarget,commandTarget,senderExactId,processMentionAlerts,deepFindUserId,replyTargetFrom,idCommandTarget,lastJoinAt,activeWarningCount,validOpenProfileLink,findOpenProfileLink,profileDiagnostic,saveOpenProfileLink,extractProfile,pickDeleteRoom,pickDeleteActor,pickDeletedText,originalMessageId,deletedMessageId,saveDeleteCache,lookupDeleteCache,manageHelp,profileObserve,addChatCount,chatInfo,chatRanking,messageFingerprint,kickMember,autoSpamCheck,handleManageStats,handleManage,promoSlot,promoTick}=require('../manage/features')(ctx);
 const {attachHZBot}=require('./session')(ctx);
 
@@ -133,6 +133,7 @@ Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
 "enhancementCost":{get:()=>enhancementCost},
 "enhancementNeed":{get:()=>enhancementNeed},
 "autoFishTick":{get:()=>autoFishTick},
+"quizExpiryTick":{get:()=>quizExpiryTick},
 "autoFishTimer":{get:()=>autoFishTimer,set:value=>{autoFishTimer=value;}},
 "autoFishBusy":{get:()=>autoFishBusy,set:value=>{autoFishBusy=value;}},
 "handleGame":{get:()=>handleGame},
