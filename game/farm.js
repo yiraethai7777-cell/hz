@@ -17,7 +17,7 @@ function cell(number,size){const n=integer(number,'칸 번호');if(n>size*size)f
 function mention(id,name){return `\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;}
 function shop(){return '상점\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
  '\n\n🌱 씨앗\n━━━━━━━━━━━━━━\n'+CROPS.map(c=>`${c.emoji} ${c.name} · ${fmt(c.price)}코인\n   성장 ${c.minutes}분 · 수확 ${fmt(c.sale)}코인`).join('\n')+
- '\n\n구매 안내\n└─ !낚시대구매 (이름)\n└─ !씨앗구매 (이름) (수량)\n└─ !농장\n└─ !농장정보';}
+ '\n\n구매 안내\n└─ !낚시대ㄱㅁ (이름)\n└─ !씨앗ㄱㅁ (이름) (수량)\n└─ !농장\n└─ !농장정보';}
 function formatFarm(f,user,now){
  const size=f.level+2;let empty=0,growing=0,ready=0;const rows=[];
  for(let r=0;r<size;r++){
@@ -64,7 +64,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    if(cmd==='#농장')result=formatFarm(f,{id:user,name},time);
    if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\n농장\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n!농장확장으로 한 단계씩 확장합니다.`;
    if(cmd==='#씨앗구매'){
-    if(parts.length!==3)fail('사용법: !씨앗구매 (이름) (수량)');
+    if(parts.length!==3)fail('사용법: !씨앗ㄱㅁ (이름) (수량)');
     const c=crop(parts[1]),quantity=integer(parts[2],'수량'),cost=c.price*quantity,total=(f.seeds[c.name]||0)+quantity;
     if(!Number.isSafeInteger(cost)||!Number.isSafeInteger(total))fail('구매 수량이 너무 큽니다.');
     spend(cost);f.seeds[c.name]=total;result=`🌱 ${c.name} 씨앗 ${fmt(quantity)}개를 구매했습니다.\n사용 코인: ${fmt(cost)}코인\n보유 씨앗: ${fmt(total)}개`;
@@ -114,7 +114,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     const owned=Number(f.seeds[c.name]||0);
 
     if(!Number.isSafeInteger(owned)||owned<=0)
-      fail(`${c.name} 씨앗이 없습니다. !씨앗구매로 구매해 주세요.`);
+      fail(`${c.name} 씨앗이 없습니다. !씨앗ㄱㅁ로 구매해 주세요.`);
 
     if(isAll){
       keys=keys.slice(0,owned);
