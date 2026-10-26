@@ -18,9 +18,31 @@ const titles={overview:'대시보드',rooms:'채팅방 관리',users:'사용자�
 async function show(panel){document.querySelectorAll('[data-section]').forEach(el=>el.hidden=el.dataset.section!==panel);document.querySelectorAll('[data-panel]').forEach(el=>el.classList.toggle('selected',el.dataset.panel===panel));$('#panel-title').textContent=titles[panel];feedback('');if(panel==='promo-members'){await loadRooms();await loadPromoMembers();}if(panel==='overview')await overview();if(panel==='rooms'||panel==='promotion')await loadRooms();if(panel==='promotion')await loadCommonPromo();if(panel==='notices')await loadNotices();if(panel==='audit'){const d=await api('/api/admin/audit');$('#audit-records').textContent=d.records.map(r=>`${new Date(r.created_at).toLocaleString('ko-KR')} · ${r.actor} · ${r.action}\n${r.room_id||''} ${r.target_id||''}\n${JSON.stringify(r.detail)}`).join('\n\n')||'작업 기록 없음';}}
 document.querySelectorAll('[data-panel]').forEach(b=>b.addEventListener('click',()=>task(()=>show(b.dataset.panel))));
 async function overview(){const d=await api('/api/admin/overview');$('#metrics').replaceChildren();for(const [label,value]of [['게임 사용자',d.users],['활성 게임방',d.active_rooms],['지갑 코인 합계',d.coins],['자동 홍보방',d.promotion_rooms]]){const box=document.createElement('div');box.className='metric';const p=document.createElement('p');p.textContent=label;const strong=document.createElement('strong');strong.textContent=format(value);box.append(p,strong);$('#metrics').append(box);}$('#daily-events').textContent=d.events.map(e=>`${e.kind}: ${e.n}회`).join(' · ')||'오늘 기록된 게임 활동 없음';$('#bot-info').textContent=`카카오톡 연결: ${d.bot.connected?'연결됨':'연결 끊김'}\n게임·DB 준비: ${d.bot.ready?'완료':'준비 중'}\n서버 가동: ${format(d.uptimeSeconds)}초\n${d.railwayStatus}\n최근 오류: ${d.errors.length?d.errors.join('\n'):'수집된 오류 없음'}`;}
-async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();}
+async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();}
 function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;$('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;}
 function selectPromo(){$('#promo-logs').textContent='채팅방을 선택하고 전송 기록을 조회해 주세요.';}
+async function loadRoomAdmins(){
+ const room=$('#room-admin-room').value,list=$('#room-admin-list');list.replaceChildren();
+ if(!room){list.textContent='선택할 채팅방이 없습니다.';return;}
+ const data=await api('/api/admin/room-admins?'+new URLSearchParams({roomId:room}));
+ if(!data.admins.length){list.textContent='지정된 관리자가 없습니다.';return;}
+ for(const admin of data.admins){
+  const row=document.createElement('div');row.className='notice-actions';
+  const name=document.createElement('span');name.textContent='ID: '+admin.user_id;
+  const remove=button('삭제',async()=>{
+   if(!confirm('관리자 '+admin.user_id+'의 권한을 삭제할까요?'))return;
+   await api('/api/admin/room-admins','POST',{roomId:room,userId:admin.user_id,action:'remove'});
+   await loadRoomAdmins();feedback('방 관리자 권한을 삭제했습니다.');
+  });row.append(name,remove);list.append(row);
+ }
+}
+$('#room-admin-room').addEventListener('change',()=>task(loadRoomAdmins));
+$('#room-admin-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
+ const room=$('#room-admin-room').value,userId=$('#room-admin-id').value.trim();
+ if(!room||! /^[1-9][0-9]*$/.test(userId))throw Error('채팅방과 숫자 사용자 ID를 확인해 주세요.');
+ await api('/api/admin/room-admins','POST',{roomId:room,userId,action:'add'});
+ $('#room-admin-id').value='';await loadRoomAdmins();feedback('방 관리자를 추가했습니다.');
+});});
 $('#room-select').addEventListener('change',selectRoom);$('#promo-room').addEventListener('change',selectPromo);
 $('#user-room').addEventListener('change',()=>{selected=null;$('#selected-user').textContent='사용자를 다시 검색해 주세요.';$('#user-detail').textContent='';$('#user-rows').replaceChildren();});
 $('#room-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/admin/rooms','POST',{roomId:$('#room-select').value,flags:{game:$('#flag-game').checked,manage:$('#flag-manage').checked,quizEnabled:$('#flag-quiz').checked,fishEnabled:$('#flag-fish').checked}});await loadRooms();feedback('방별 기능 설정을 저장했습니다.');});});
