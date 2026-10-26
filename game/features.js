@@ -91,6 +91,30 @@ async function autoFishTick(){
  }
 }
 
+
+let quizExpiryBusy=false;
+async function quizExpiryTick(){
+ if(quizExpiryBusy||!ctx.globalChat)return;
+ quizExpiryBusy=true;
+ try{
+  const result=await ctx.pool.query("SELECT room_id,data->'quiz' AS quiz FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'quizEnabled') IS DISTINCT FROM 'false' AND data->'quiz' IS NOT NULL");
+  for(const entry of result.rows){
+   if(!entry.quiz||!Number.isFinite(Number(entry.quiz.expiresAt))||Number(entry.quiz.expiresAt)>Date.now())continue;
+   try {
+    const room=String(entry.room_id);
+    const answer=await ctx.withRoom(room,'',async d=>{
+     const q=d.quiz;
+     if(!d.game||!d.quizEnabled||!q||!Array.isArray(q.answers)||!q.answers.length||Number(q.expiresAt)>Date.now())return null;
+     d.quizCooldownUntil=Math.max(Number(d.quizCooldownUntil)||0,Number(q.expiresAt)+ctx.QUIZ_COOLDOWN_SECONDS*1000);
+     d.quiz=null;
+     return String(q.answers[0]);
+    });
+    if(answer!==null)await ctx.send(ctx.globalChat,room,'⏰ 퀴즈 시간이 종료되었습니다.\n✅ 정답: '+answer);
+   } catch(error){console.error('[QUIZ TIMEOUT]',entry.room_id,error);}
+  }
+ }finally{quizExpiryBusy=false;}
+}
+
 async function handleGame(d,c,msg,isSelf){
  const text=String(msg.message?.text??msg.text??'').trim();
  const userId=ctx.id(msg.sender?.id??msg.senderId);
@@ -371,5 +395,5 @@ async function handleGameCore(d,c,msg,isSelf){
   m=/^#낚시장착\s+(.+)$/.exec(text);if(m){const x=m[1].trim();if(!p.rods.includes(x))return "보유하지 않은 낚시대입니다.";p.rod=x;return `🎣 ${x} 낚시대를 장착했습니다.`}
   return null
 }
-return {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,handleGame};
+return {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,quizExpiryTick,handleGame};
 };
