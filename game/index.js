@@ -30,7 +30,7 @@ function createGame(client) {
       await require('../shared/runtime').attachModules(adapter);
     },
     async toggle({roomId,text,isBotAccount,roomBotAdmin=false,send}) {
-      if (!isBotAccount&&!roomBotAdmin) { await send('⛔ 봇 또는 해당 방의 지정 관리자만 사용할 수 있습니다.'); return; }
+      if (!isBotAccount&&!roomBotAdmin) return;
       const on = text === '!게임on';
       // Patch only the flag, retaining every existing player and setting.
       await getPool().query(`INSERT INTO hz_rooms(room_id,data)
