@@ -2,9 +2,10 @@
 // Insert a zero-width character between syllables: looks like 구매,
 // but the underlying Unicode sequence is different.
 const INVISIBLE='\u200b';
-const DISPLAY='구'+INVISIBLE+'매';
+const PURCHASE_DISPLAY='구'+INVISIBLE+'매';
+const SALE_DISPLAY='판'+INVISIBLE+'매';
 function transform(value){
- return typeof value==='string'?value.replace(/구매/g,DISPLAY):value;
+ return typeof value==='string'?value.replace(/구매/g,PURCHASE_DISPLAY).replace(/판매/g,SALE_DISPLAY):value;
 }
 const installed=new WeakSet();
 function install(client){
