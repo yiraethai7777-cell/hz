@@ -82,7 +82,7 @@ async function autoFishTick(){
       ?await require('./economy').withPlayer({db:c,room:rid,user:p.id,p,botId:ctx.globalBotId,msg:{text:'자동낚시'},run:award})
       :award();
      if(!r)continue;
-     out.push(`🎣 자동낚시 @${String(p.name||p.id).replace(/^@/, '')}\n${ctx.MORE}\n━━━━━━━━━━━━━━━━━━\n🐟 획득 물고기: ${r.f.name} (${r.size}cm)\n💰 획득 코인: +${ctx.n(r.value)}\n⭐ 획득 경험치: +${r.xp} XP\n⏱️ 남은 시간: ${Math.max(0,Math.ceil((p.autoUntil-time)/60000))}분\n🍀 행운포션: ${p.luckUntil>time?'사용 중':'미사용'}\n━━━━━━━━━━━━━━━━━━`);
+     out.push(`🎣 자동낚시 @${String(p.name||p.id).replace(/^@/, '')}${ctx.MORE}\n━━━━━━━━━━━━━━━━━━\n🐟 획득 물고기: ${r.f.name} (${r.size}cm)\n💰 획득 코인: +${ctx.n(r.value)}\n⭐ 획득 경험치: +${r.xp} XP\n⏱️ 남은 시간: ${Math.max(0,Math.ceil((p.autoUntil-time)/60000))}분\n🍀 행운포션: ${p.luckUntil>time?'사용 중':'미사용'}\n━━━━━━━━━━━━━━━━━━`);
     }
     return out;
    });
