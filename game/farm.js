@@ -17,7 +17,7 @@ function cell(number,size){const n=integer(number,'칸 번호');if(n>size*size)f
 function mention(id,name){return `\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;}
 function shop(){return '상점\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
  '\n\n🌱 씨앗\n━━━━━━━━━━━━━━\n'+CROPS.map(c=>`${c.emoji} ${c.name} · ${fmt(c.price)}코인\n   성장 ${c.minutes}분 · 수확 ${fmt(c.sale)}코인`).join('\n')+
- '\n\n구매 안내\n└─ !낚시대ㄱㅁ (이름)\n└─ !씨앗ㄱㅁ (이름) (수량)\n└─ !농장\n└─ !농장정보';}
+ '\n\n🍀 행운 포션\n━━━━━━━━━━━━━━\n가격 · 40,000코인\n효과 · 10분간 낚시 행운 50% 상승\n└─ !ㄱㅁ행운\n\n🤖 자동낚시\n━━━━━━━━━━━━━━\n가격 · 50,000코인\n효과 · 10분간 30초마다 자동 낚시\n하루 최대 3회\n└─ !ㄱㅁ자동\n\n구매 안내\n└─ !낚시대ㄱㅁ (이름)\n└─ !씨앗ㄱㅁ (이름) (수량)\n└─ !농장\n└─ !농장정보';}
 function formatFarm(f,user,now){
  const size=f.level+2;let empty=0,growing=0,ready=0;const rows=[];
  for(let r=0;r<size;r++){
