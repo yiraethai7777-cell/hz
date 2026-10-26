@@ -10,6 +10,13 @@ async function attachHZBot(client){
   ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));
   if(ctx.autoFishTimer)clearInterval(ctx.autoFishTimer);ctx.autoFishTimer=setInterval(async()=>{if(ctx.autoFishBusy)return;ctx.autoFishBusy=true;try{await ctx.autoFishTick()}catch(e){console.error("[AUTO TICK]",e)}finally{ctx.autoFishBusy=false}},10000);if(ctx.autoFishTimer.unref)ctx.autoFishTimer.unref();
 
+  if(ctx.quizExpiryTimer)clearInterval(ctx.quizExpiryTimer);
+  ctx.quizExpiryTimer=setInterval(()=>{
+    ctx.quizExpiryTick().catch(e=>console.error('[QUIZ EXPIRE]',e));
+  },1000);
+  if(ctx.quizExpiryTimer.unref)ctx.quizExpiryTimer.unref();
+  ctx.quizExpiryTick().catch(e=>console.error('[QUIZ EXPIRE]',e));
+
   client.onMessage(async (...args)=>{
     try{
       const msg=args.length===1?args[0]:args[1];
