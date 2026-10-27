@@ -14,6 +14,14 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Intermediary alert commands and passive monitoring. Detection never replies in the watched room.
+      const junggae = require('./junggae-notify');
+      if (text === '!알람받기' || text === '!알람끄기') {
+        await junggae.handle({client,chat,msg,roomId,text,isBotAccount});
+        return;
+      }
+      void junggae.handle({client,chat,msg,roomId,text,isBotAccount})
+        .catch(error => console.error('[JUNGGAE] alert error:', error));
       // Voice-room help/status must remain responsive even if unrelated
       // game/database initialization is still pending or has failed.
       if (/^[#!]?(?:보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.test(text)) {
