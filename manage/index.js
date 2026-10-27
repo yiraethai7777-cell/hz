@@ -250,7 +250,10 @@ async function join({roomId,userId,userName,send}){
   const saved=(await db.query('SELECT open_profile_link,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,user])).rows[0]||{};
   const template=(await db.query("SELECT data->>'joinTemplate' AS value FROM hz_rooms WHERE room_id=$1",[room])).rows[0]?.value;
   if(template){
-    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,warnings,time:formatKST(joinedAt),profileLink:saved.open_profile_link||''}));
+    const summary=template.includes('(경고사유)')
+      ?await require('./warning-summary').read(db,room,user,{includeReasons:true})
+      :{warnings,warningReasons:[]};
+    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,...summary,time:formatKST(joinedAt),profileLink:saved.open_profile_link||''}));
     return;
   }
   await send(require('./leave-reply').joinNotice({
@@ -306,7 +309,10 @@ async function leave({roomId,userId,userName,send}){
   const saved=(await db.query('SELECT open_profile_link,last_profile_url FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,user])).rows[0]||{};
   const template=(await db.query("SELECT data->>'leaveTemplate' AS value FROM hz_rooms WHERE room_id=$1",[room])).rows[0]?.value;
   if(template){
-    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,warnings,time:formatKST(leftAt),profileLink:saved.open_profile_link||''}));
+    const summary=template.includes('(경고사유)')
+      ?await require('./warning-summary').read(db,room,user,{includeReasons:true})
+      :{warnings,warningReasons:[]};
+    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,...summary,time:formatKST(leftAt),profileLink:saved.open_profile_link||''}));
     return;
   }
   await send(require('./leave-reply').leaveNotice({

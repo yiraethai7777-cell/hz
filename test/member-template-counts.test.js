@@ -15,3 +15,10 @@ test('count variables default to zero and only replace supported names',()=>{
  const output=renderMemberTemplate('(입장횟수)/(퇴장횟수)/(경고횟수)/(알수없는변수)',{name:'가입자',userId:'2345'});
  assert.equal(output,'0/0/0/(알수없는변수)');
 });
+
+test('warning reasons default to none and are replaced in one pass with existing variables',()=>{
+ assert.equal(renderMemberTemplate('(경고사유)/(경고횟수)',{name:'가입자'}),'없음/0');
+ assert.equal(renderMemberTemplate('(이름):(경고횟수):(경고사유):(경고사유):(미지원)',{
+  name:'가입자',warnings:2,warningReasons:['도배','사유에 (멘션) 포함']
+ }),'가입자:2:도배\n사유에 (멘션) 포함:도배\n사유에 (멘션) 포함:(미지원)');
+});

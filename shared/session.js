@@ -341,14 +341,12 @@ async function attachHZBot(client){
           const template=type==='join'?f.joinTemplate:f.leaveTemplate;
           let customNotice=null;
           if(typeof template==='string'&&template.trim()){
-            let warnings=0;
-            if(template.includes('(경고횟수)')){
-              const warningResult=await ctx.pool.query(
-                'SELECT COUNT(*)::integer AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',
-                [rid,uid]);
-              warnings=Number(warningResult.rows[0]?.n||0);
+            let warnings=0,warningReasons=[];
+            if(template.includes('(경고횟수)')||template.includes('(경고사유)')){
+              ({warnings,warningReasons}=await require('../manage/warning-summary').read(
+                ctx.pool,rid,uid,{includeReasons:template.includes('(경고사유)')}));
             }
-            const variables={name,userId:uid,joins,leaves,warnings,roomName,
+            const variables={name,userId:uid,joins,leaves,warnings,warningReasons,roomName,
               time:formatKST(eventTime),profileLink};
             if(type==='join'){
               customNotice=require('../manage/member-template').format(template,{
