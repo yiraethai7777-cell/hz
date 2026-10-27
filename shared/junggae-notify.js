@@ -2,9 +2,18 @@
 const {getPool}=require('./db');
 const recent=new Map();
 let setup;
+let singletonSetup;
 async function db(){
   if(!setup) setup=getPool().query('CREATE TABLE IF NOT EXISTS junggae_subscriptions (room_id TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL, PRIMARY KEY(room_id,user_id))').catch(e=>{setup=null;throw e});
   await setup;return getPool();
+}
+async function singletonDb(){
+ const pool=await db();
+ if(!singletonSetup) singletonSetup=(async()=>{
+   await pool.query('CREATE TABLE IF NOT EXISTS junggae_single_receiver (singleton_key INTEGER PRIMARY KEY CHECK(singleton_key=1), room_id TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL)');
+   await pool.query('INSERT INTO junggae_single_receiver(singleton_key,room_id,user_id,user_name) SELECT 1,room_id,user_id,user_name FROM junggae_subscriptions ORDER BY room_id,user_id LIMIT 1 ON CONFLICT DO NOTHING');
+ })().catch(e=>{singletonSetup=null;throw e});
+ await singletonSetup;return pool;
 }
 function matches(input){
  const s=String(input||'').normalize('NFKC').trim();
@@ -24,15 +33,19 @@ async function handle({client,chat,msg,roomId,text,isBotAccount}){
  if(text==='!알람받기'||text==='!알람끄기'){
    if(isBotAccount||!sender)return true;
    try{
-     const pool=await db();
+     const pool=await singletonDb();
      if(text==='!알람받기'){
-       await pool.query('INSERT INTO junggae_subscriptions(room_id,user_id,user_name) VALUES($1,$2,$3) ON CONFLICT(room_id,user_id) DO UPDATE SET user_name=EXCLUDED.user_name',[id,sender,String(msg.sender?.name||'사용자')]);
-       await send(roomId,'🔔 준개 알림 등록 완료');
+       const result=await pool.query('INSERT INTO junggae_single_receiver(singleton_key,room_id,user_id,user_name) VALUES(1,$1,$2,$3) ON CONFLICT DO NOTHING RETURNING user_id',[id,sender,String(msg.sender?.name||'사용자')]);
+       if(result.rowCount) await send(roomId,'🔔 준개 알림 등록 완료');
+       else {
+         const {rows}=await pool.query('SELECT user_id FROM junggae_single_receiver WHERE singleton_key=1');
+         await send(roomId,rows[0]?.user_id===sender?'이미 알림을 받고 있습니다.':'이미 다른 사용자가 알림을 등록했습니다.');
+       }
      }else{
-       await pool.query('DELETE FROM junggae_subscriptions WHERE room_id=$1 AND user_id=$2',[id,sender]);
-       await send(roomId,'🔕 준개 알림 해제 완료');
+       const result=await pool.query('DELETE FROM junggae_single_receiver WHERE singleton_key=1 AND user_id=$1',[sender]);
+       await send(roomId,result.rowCount?'🔕 준개 알림 해제 완료':'알림 등록자만 해제할 수 있습니다.');
      }
-   }catch(e){console.error('[JUNGGAE] subscription:',e);await send(roomId,'알림 설정 실패. Railway 로그를 확인해 주세요.');}
+   }catch(e){console.error('[JUNGGAE] subscription:',e);try{await send(roomId,'알림 설정 실패. Railway 로그를 확인해 주세요.');}catch(_){}}
    return true;
  }
  if(!watch.includes(id)||isBotAccount||!matches(text))return false;
@@ -42,21 +55,15 @@ async function handle({client,chat,msg,roomId,text,isBotAccount}){
  if(recent.has(key))return false;
  recent.set(key,now);
  try{
-   const pool=await db();
-   const {rows}=await pool.query('SELECT room_id,user_id,user_name FROM junggae_subscriptions');
-   const byRoom=new Map();
-   for(const row of rows){
-     if(row.room_id===id)continue;
-     if(!byRoom.has(row.room_id))byRoom.set(row.room_id,[]);
-     byRoom.get(row.room_id).push(row);
-   }
-   for(const [target,users] of byRoom){
+   const pool=await singletonDb();
+   const {rows}=await pool.query('SELECT room_id,user_id,user_name FROM junggae_single_receiver WHERE singleton_key=1');
+   const receiver=rows[0];
+   if(receiver&&receiver.room_id!==id){
      const mention=typeof chat?.mention==='function'?chat.mention.bind(chat):typeof client?.mention==='function'?client.mention.bind(client):null;
-     if(!mention){console.warn('[JUNGGAE] mention unavailable');break;}
-     const tags=users.map(u=>mention(u.user_id,u.user_name,target)).filter(x=>typeof x==='string'&&x.startsWith('\u0002')&&x.includes('\u0003')&&x.endsWith('\u0004'));
-     if(!tags.length)continue;
-     try{await send(target,tags.join(' ')+' 준개감지');}
-     catch(e){console.error('[JUNGGAE] send:',e);}
+     const marker=mention?.(receiver.user_id,receiver.user_name,receiver.room_id);
+     if(typeof marker==='string'&&marker.startsWith('\u0002')&&marker.includes('\u0003')&&marker.endsWith('\u0004'))
+       await send(receiver.room_id,marker+' 준개감지');
+     else console.warn('[JUNGGAE] Real mention unavailable in receiver room');
    }
  }catch(e){console.error('[JUNGGAE] detection:',e);}
  return false;
