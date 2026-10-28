@@ -3,6 +3,8 @@ const {getPool}=require('./db');
 const recent=new Map();
 let setup;
 let singletonSetup;
+let watchReady;
+async function watchDb(){const p=await db();if(!watchReady)watchReady=p.query('CREATE TABLE IF NOT EXISTS junggae_watch_rooms (room_id TEXT PRIMARY KEY)').catch(e=>{watchReady=null;throw e});await watchReady;return p;}
 async function db(){
   if(!setup) setup=getPool().query('CREATE TABLE IF NOT EXISTS junggae_subscriptions (room_id TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL, PRIMARY KEY(room_id,user_id))').catch(e=>{setup=null;throw e});
   await setup;return getPool();
@@ -28,10 +30,19 @@ function matches(input){
 }
 async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription=false}){
  const id=String(roomId), sender=String(msg.sender?.id??msg.senderId??'');
- const watch=(process.env.JUNGGAE_WATCH_ROOM_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
- const roomName=String(msg?.room?.name??msg?.room?.title??'').normalize('NFKC').replace(/\s+/g,'').trim();
- const watchedByName=roomName==='통합중걔방'||roomName==='통합중개방';
  const send=(room,body)=>typeof chat?.sendText==='function'?chat.sendText(room,body):client.sendText(room,body);
+ if(/^!준개방(?:등록|삭제|목록)(?:\s|$)/.test(text)){
+  if(!isBotAccount)return true;
+  const [cmd,arg]=text.split(/\s+/,2);
+  if(cmd!=='!준개방목록'&&!/^\d{4,}$/.test(arg||'')){await send(roomId,'사용법: '+cmd+' (방ID)');return true;}
+  try{
+   const p=await watchDb();
+   if(cmd==='!준개방등록'){await p.query('INSERT INTO junggae_watch_rooms(room_id) VALUES($1) ON CONFLICT DO NOTHING',[arg]);await send(roomId,'준개 감지방 등록 완료: '+arg);}
+   else if(cmd==='!준개방삭제'){await p.query('DELETE FROM junggae_watch_rooms WHERE room_id=$1',[arg]);await send(roomId,'준개 감지방 삭제 완료: '+arg);}
+   else{const {rows}=await p.query('SELECT room_id FROM junggae_watch_rooms ORDER BY room_id');await send(roomId,rows.length?rows.map(x=>x.room_id).join('\n'):'등록된 준개 감지방이 없습니다.');}
+  }catch(e){console.error('[JUNGGAE] watch setup',e);await send(roomId,'감지방 설정 실패. Railway 로그 확인');}
+  return true;
+ }
  if(/^!준개알람(?:받기|끄기)(?:\s|$)/.test(text)){
    if(!isBotAccount)return true;
    const action=text.split(/\s+/,1)[0];
@@ -50,7 +61,8 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    }catch(e){console.error('[JUNGGAE] subscription:',e);await send(roomId,'❌ 알림 설정 실패. Railway 로그를 확인해 주세요.');}
    return true;
  }
- const watched=watch.includes(id)||watchedByName;
+ let watched=false;
+ try{const p=await watchDb();const r=await p.query('SELECT 1 FROM junggae_watch_rooms WHERE room_id=$1',[id]);watched=r.rowCount>0;}catch(e){console.error('[JUNGGAE] watch lookup',e);return false;}
  if(!watched||isBotAccount)return false;
  const matched=matches(text);
  console.log('[JUNGGAE] watched message',JSON.stringify({roomId:id,roomName,matched,preview:text.slice(0,100)}));
