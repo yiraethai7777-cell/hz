@@ -19,7 +19,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       if((text==='삭제'||text==='!삭제')&&await replyDelete.handle({client,chat,msg,roomId,senderId,text,isBotAccount}))return;
       // Intermediary alert commands and passive monitoring. Detection never replies in the watched room.
       const junggae = require('./junggae-notify');
-      if (text === '!알람받기' || text === '!알람끄기') {
+      if (/^!준개알람(?:받기|끄기)(?:\s|$)/.test(text)) {
         if(!isBotAccount)return;
         await junggae.handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription:true});
         return;
