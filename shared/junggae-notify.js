@@ -29,6 +29,8 @@ function matches(input){
 async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription=false}){
  const id=String(roomId), sender=String(msg.sender?.id??msg.senderId??'');
  const watch=(process.env.JUNGGAE_WATCH_ROOM_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
+ const roomName=String(msg?.room?.name??msg?.room?.title??'').normalize('NFKC').replace(/\s+/g,'').trim();
+ const watchedByName=msg?.room?.isOpenChat===true&&roomName==='통합중걔방';
  const send=(room,body)=>typeof chat?.sendText==='function'?chat.sendText(room,body):client.sendText(room,body);
  if(text==='!알람받기'||text==='!알람끄기'){
    if((!allowBotSubscription&&isBotAccount)||!sender)return true;
@@ -48,7 +50,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    }catch(e){console.error('[JUNGGAE] subscription:',e);try{await send(roomId,'알림 설정 실패. Railway 로그를 확인해 주세요.');}catch(_){}}
    return true;
  }
- if(!watch.includes(id)||isBotAccount||!matches(text))return false;
+ if((!watch.includes(id)&&!watchedByName)||isBotAccount||!matches(text))return false;
  const key=id+':'+String(msg.message?.logId??msg.logId??msg.id??sender+':'+text);
  const now=Date.now();
  for(const [k,t] of recent)if(now-t>120000)recent.delete(k);
