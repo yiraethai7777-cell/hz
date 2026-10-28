@@ -26,12 +26,12 @@ function matches(input){
  const item=/동타디|포세|승총|얼불수|아이템|템|구매|판매|거래/.test(s);
  return roles||(request&&(mentionCount>0||item||s.length<35))||(mentionCount>=2&&price&&item);
 }
-async function handle({client,chat,msg,roomId,text,isBotAccount}){
+async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription=false}){
  const id=String(roomId), sender=String(msg.sender?.id??msg.senderId??'');
  const watch=(process.env.JUNGGAE_WATCH_ROOM_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
  const send=(room,body)=>typeof chat?.sendText==='function'?chat.sendText(room,body):client.sendText(room,body);
  if(text==='!알람받기'||text==='!알람끄기'){
-   if(isBotAccount||!sender)return true;
+   if((!allowBotSubscription&&isBotAccount)||!sender)return true;
    try{
      const pool=await singletonDb();
      if(text==='!알람받기'){
