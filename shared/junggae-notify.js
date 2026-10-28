@@ -5,6 +5,13 @@ let setup;
 let singletonSetup;
 let watchReady;
 async function watchDb(){const p=await db();if(!watchReady)watchReady=p.query('CREATE TABLE IF NOT EXISTS junggae_watch_rooms (room_id TEXT PRIMARY KEY)').catch(e=>{watchReady=null;throw e});await watchReady;return p;}
+let botRoomReady;
+async function botRoomDb(){
+ const p=await db();
+ if(!botRoomReady)botRoomReady=p.query('CREATE TABLE IF NOT EXISTS junggae_bot_room (singleton_key INTEGER PRIMARY KEY CHECK(singleton_key=1), room_id TEXT NOT NULL)').catch(e=>{botRoomReady=null;throw e});
+ await botRoomReady;
+ return p;
+}
 async function db(){
   if(!setup) setup=getPool().query('CREATE TABLE IF NOT EXISTS junggae_subscriptions (room_id TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL, PRIMARY KEY(room_id,user_id))').catch(e=>{setup=null;throw e});
   await setup;return getPool();
@@ -31,8 +38,16 @@ function matches(input){
 async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription=false}){
  const id=String(roomId), sender=String(msg.sender?.id??msg.senderId??'');
  const send=(room,body)=>typeof chat?.sendText==='function'?chat.sendText(room,body):client.sendText(room,body);
+ if(text==='!봇방등록'){
+  try{
+   const p=await botRoomDb();
+   const result=await p.query('INSERT INTO junggae_bot_room(singleton_key,room_id) VALUES(1,$1) ON CONFLICT DO NOTHING RETURNING room_id',[id]);
+   await send(roomId,result.rowCount?'봇방 등록 완료. 이 방에서 준개방등록 명령어를 사용할 수 있습니다.':'이미 봇방이 등록되어 있어 변경할 수 없습니다.');
+  }catch(e){console.error('[JUNGGAE] bot room registration',e);await send(roomId,'봇방 등록 실패. Railway 로그를 확인해 주세요.');}
+  return true;
+ }
  if(/^!준개방(?:등록|삭제|목록)(?:\s|$)/.test(text)){
-  if(!isBotAccount)return true;
+  try{const p=await botRoomDb();const r=await p.query('SELECT room_id FROM junggae_bot_room WHERE singleton_key=1');if(r.rows[0]?.room_id!==id){await send(roomId,'등록된 봇방에서만 사용할 수 있습니다.');return true;}}catch(e){console.error('[JUNGGAE] bot room check',e);return true;}
   const [cmd,arg]=text.split(/\s+/,2);
   if(cmd!=='!준개방목록'&&!/^\d{4,}$/.test(arg||'')){await send(roomId,'사용법: '+cmd+' (방ID)');return true;}
   try{
