@@ -59,7 +59,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
   return true;
  }
  if(/^!준개알람(?:받기|끄기)(?:\s|$)/.test(text)){
-   if(!isBotAccount)return true;
+   try{const p=await botRoomDb();const result=await p.query('SELECT room_id FROM junggae_bot_room WHERE singleton_key=1');if(result.rows[0]?.room_id!==id){await send(roomId,'등록된 봇방에서만 사용할 수 있습니다.');return true;}}catch(e){console.error('[JUNGGAE] bot room check',e);return true;}
    const action=text.split(/\s+/,1)[0];
    const mentions=require('../manage/targets').mentions(msg);
    if(!mentions.length){await send(roomId,'❌ 실제 멘션으로 대상을 지정해 주세요. 예: !준개알람받기 @닉네임');return true;}
