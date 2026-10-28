@@ -23,14 +23,14 @@ function observe(msg){
 async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
  if(text!=='삭제'&&text!=='!삭제')return false;
  const source=sourceId(msg);
- if(!source)return false;
+ if(!source){console.warn('[REPLY DELETE] reply source not found',{roomId:String(roomId),type:msg?.message?.type??msg?.type});return true;}
  const type=Number(msg?.sender?.type);
  let authorized=isBotAccount||type===1||type===4;
  if(!authorized){try{authorized=await isRoomBotAdmin(roomId,senderId);}catch(e){console.error('[REPLY DELETE] admin lookup failed',e);}}
  if(!authorized)return true;
  const send=typeof chat?.sendText==='function'?chat.sendText.bind(chat):client?.sendText?.bind(client);
  const target=recent.get(String(roomId)+':'+source);
- if(!target){if(send)await send(roomId,'❌ 원본 메시지 기록이 없어 가릴 수 없습니다.');return true;}
+ if(!target){console.warn('[REPLY DELETE] original not cached',{roomId:String(roomId),source});if(send)await send(roomId,'❌ 원본 메시지 기록이 없습니다. 봇이 보낸 메시지 또는 재시작 전 메시지는 현재 가릴 수 없습니다.');return true;}
  const blind=typeof chat?.openChatBlind==='function'?chat.openChatBlind.bind(chat):client?.openChatBlind?.bind(client);
  if(!blind){if(send)await send(roomId,'❌ 메시지 가리기 기능을 사용할 수 없습니다.');return true;}
  try{
