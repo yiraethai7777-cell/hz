@@ -167,7 +167,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   },
   send: body => chat.sendText(roomId, body)
 };
-      if (text.startsWith('!')) {
+      if (text.startsWith('!') || text === 'ㅊㅅ') {
         try {
           if (await require('../manage/commands-v2').handle(context)) return;
         } catch (error) {
