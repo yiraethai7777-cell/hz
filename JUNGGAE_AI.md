@@ -5,7 +5,7 @@
 Railway Variables에 아래 항목을 설정하고 재배포하세요. 실제 키는 Git이나 채팅에 입력하지 마세요.
 
 - `DATABASE_URL`: 기존 Railway PostgreSQL 연결 주소
-- `JUNGGAE_AI_ENABLED=true`: 명시적으로 활성화. 기본값은 false(기존 규칙)
+- `JUNGGAE_AI_ENABLED=true`: 명시적으로 활성화. 기본값은 false(저장된 동일 원문 피드백 → 기존 규칙)
 - `JUNGGAE_AI_API_KEY`: OpenAI API 키
 - `JUNGGAE_AI_MODEL`: 계정에서 사용 가능한 Chat Completions JSON 모드 지원 모델 ID
 - `JUNGGAE_AI_THRESHOLD=0.9`: 허용 범위 0.8~1
@@ -25,3 +25,7 @@ Railway Variables에 아래 항목을 설정하고 재배포하세요. 실제 �
 API 형식 참고: https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
 
 전체 테스트 참고: 수정 전/후 동일한 80개 기존 실패를 관찰했으며 테스트가 종료되지 않았습니다(수정 전 실행은 90초 제한으로 중단). 전체 통과로 간주하지 않습니다. 신규 기능 테스트 4개와 기존 voice-router 테스트 10개, TypeScript 빌드는 통과했습니다.
+
+## API 비용 없는 피드백 감지
+
+`JUNGGAE_AI_ENABLED=false`이면 API 키나 모델 설정 없이도 기존 PostgreSQL 피드백을 먼저 확인합니다. NFKC 정규화와 공백 정리 후 동일한 원문에 대해 `!준개맞음`이면 감지, `!준개아님`이면 제외합니다. 정답이 없는 글은 기존 키워드 규칙을 사용합니다. 이전에 저장한 예시도 그대로 적용되며, 비슷한 문장으로 일반화하지는 않습니다. 템맡·완료/취소 등 공통 제외 조건은 피드백보다 우선합니다. DB 조회 실패 시 오탐 방지를 위해 알림을 건너뜁니다. 외부 AI 호출은 하지 않으므로 이 기능의 OpenAI API 비용은 없습니다(Railway 비용은 별도).

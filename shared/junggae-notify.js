@@ -59,7 +59,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    if(text!=='!준개맞음'&&text!=='!준개아님'){await send(roomId,'알림에 답장으로 !준개맞음 또는 !준개아님 을 입력하세요.');return true;}
    const ref=require('../manage/targets').reference(msg);
    const ok=ref?.logId&&await ai.feedback(id,ref.logId,text==='!준개맞음',sender);
-   await send(roomId,ok?'학습 예시 저장 완료. 다음 AI 판단에 반영합니다.':'준개 알림 또는 봇방에 새로 붙여 넣은 원문에 답장해 주세요.');
+   await send(roomId,ok?'학습 예시 저장 완료. 다음 감지부터 반영합니다.':'준개 알림 또는 봇방에 새로 붙여 넣은 원문에 답장해 주세요.');
   }catch{console.warn('[JUNGGAE] feedback unavailable');await send(roomId,'학습 저장 실패. 잠시 후 다시 시도해 주세요.');}
   return true;
  }

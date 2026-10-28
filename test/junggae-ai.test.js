@@ -56,6 +56,9 @@ test('existing commands, reply authorization, unalerted samples, duplicate messa
   await feature.handle(ctx('준개 요청','2000',m));assert.equal(sent.at(-1),alert);
   const reply={sender:{id:'7777',type:1},message:{type:26,attachment:JSON.stringify({src_logId:alert.log})}};
   await feature.handle(ctx('!준개아님','1000',reply));assert.match(sent.at(-1).text,/저장 완료/);
+  const afterNegative=sent.length;
+  await feature.handle(ctx('준개 요청','2000',{sender:{id:'7777'},message:{logId:'99002'}}));
+  assert.equal(sent.length,afterNegative);
   reply.sender.type=2;reply.sender.id='9999';
   await pool.query('CREATE TABLE gl_manage_admins(room_id TEXT,user_id TEXT)');
   await feature.handle(ctx('!준개맞음','1000',reply));assert.match(sent.at(-1).text,/관리자만/);
@@ -65,6 +68,9 @@ test('existing commands, reply authorization, unalerted samples, duplicate messa
   reply.message.attachment='{"src_logId":"54321"}';
   await feature.handle(ctx('!준개맞음','1000',reply));assert.match(sent.at(-1).text,/저장 완료/);
   await feature.handle(ctx('!준개학습검색 놓친'));assert.match(sent.at(-1).text,/놓친 원문/);
+  const beforePositive=sent.length;
+  await feature.handle(ctx('키워드 없는 놓친 원문','2000',{sender:{id:'7777'},message:{logId:'99003'}}));
+  assert.equal(sent.length,beforePositive+1);assert.match(sent.at(-1).text,/준개감지/);
   const n=sent.length;
   await feature.handle({...ctx('준개 요청','2000',{sender:{id:'7777'},message:{logId:'99001'}}),isBotAccount:true});
   await feature.handle(ctx('템맡 준개 요청','2000'));assert.equal(sent.length,n);
@@ -82,4 +88,37 @@ test('AI call budget, input exclusions and strict completion validation',async()
  await new Promise(r=>setImmediate(r));assert.equal(calls,3);resolve.forEach(r=>r());assert.deepEqual(await Promise.all(pending),[false,false,false]);
  for(const t of ['!준개맞음','템 맡 준개','거래 완료','중개 취소','x'.repeat(4001)])assert.equal(await a.classify(t,()=>true),false);
  assert.equal(calls,3);
+});
+
+test('offline PostgreSQL feedback overrides rules without API keys or calls and survives restart',async()=>{
+ const pg=new PGlite(),pool={query:(s,p)=>pg.query(s,p)};
+ let calls=0;const noAPI=async()=>{calls++;throw Error('offline must not call API');};
+ try{
+  const a=createService(()=>pool,noAPI,{JUNGGAE_AI_ENABLED:'false'});
+  assert.equal(await a.classify('준개 요청',()=>true),true);
+  assert.equal(await a.classify('처음 보는 글',()=>false),false);
+  await a.remember('1000','10001','준개 요청');
+  await a.feedback('1000','10001',false,'7777');
+  const b=createService(()=>pool,noAPI,{});
+  assert.equal(await b.classify('준개  요청',()=>{throw Error('negative must override rules');}),false);
+  await b.remember('1000','10002','원문 Ａ 도움');
+  await b.feedback('1000','10002',true,'7777');
+  assert.equal(await b.classify('원문 A  도움',()=>false),true);
+  assert.equal(await b.classify('원문 A 도움 주세요',()=>false),false);
+  await b.feedback('1000','10002',false,'7777');
+  assert.equal(await b.classify('원문 A 도움',()=>true),false);
+  await b.remember('1000','10003','템맡');await b.feedback('1000','10003',true,'7777');
+  assert.equal(await b.classify('템맡',()=>true),false);
+  assert.equal(calls,0);
+ }finally{await pg.close();}
+});
+test('offline feedback DB failure skips alert and schema setup retries',async()=>{
+ const pg=new PGlite();let fail=true,apiCalls=0;
+ const pool={query:(s,p)=>{if(fail){fail=false;throw Error('DB unavailable');}return pg.query(s,p);}};
+ const service=createService(()=>pool,async()=>{apiCalls++;},{JUNGGAE_AI_ENABLED:'false'});
+ try{
+  assert.equal(await service.classify('준개 요청',()=>true),false);
+  assert.equal(await service.classify('준개 요청',()=>true),true);
+  assert.equal(apiCalls,0);
+ }finally{await pg.close();}
 });

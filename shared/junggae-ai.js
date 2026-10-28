@@ -16,7 +16,18 @@ function createService(getPool,fetcher=(...args)=>fetch(...args),env=process.env
  async function examples(text){const p=await db();return (await p.query('SELECT text,label FROM junggae_examples ORDER BY (hash=$1) DESC, (strpos(text,$2)>0) DESC, updated_at DESC LIMIT 12',[hash(text),normalize(text).slice(0,80)])).rows;}
  async function classify(text,legacy){
   if(excluded(text)||text.length>4000)return false;
-  if(env.JUNGGAE_AI_ENABLED!=='true')return legacy(text);
+  if(env.JUNGGAE_AI_ENABLED!=='true'){
+   try{
+    const p=await db();
+    const {rows}=await p.query('SELECT label FROM junggae_examples WHERE hash=$1',[hash(text)]);
+    if(rows[0])return rows[0].label===true;
+   }catch{
+    // Do not emit a possible false positive while negative feedback is unavailable.
+    console.warn('[JUNGGAE] feedback lookup unavailable; alert skipped');
+    return false;
+   }
+   return legacy(text);
+  }
   if(!env.JUNGGAE_AI_API_KEY||!env.JUNGGAE_AI_MODEL||active>=3)return false;
   active++;
   try{
