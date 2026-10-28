@@ -45,13 +45,17 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
  const botId=id(client?.userId);
  const observedAuthor=id(target?.msg?.sender?.id??target?.msg?.senderId);
  // Never delete a message unless the reply or the cached original proves it belongs to the bot.
- const isOwn=!!botId&&(ref.author===botId||observedAuthor===botId);
+ const fetch=typeof chat?.fetchMessage==='function'?chat.fetchMessage.bind(chat):client?.fetchMessage?.bind(client);
+ let fetched=null;
+ if(!target&&fetch){try{fetched=await fetch(roomId,ref.log);}catch(error){console.warn('[REPLY DELETE] fetchMessage failed',String(error?.message||error));}}
+ const fetchedAuthor=id(fetched?.sender?.id??fetched?.senderId??fetched?.userId??fetched?.message?.userId??fetched?.raw?.chatLog?.userId);
+ const isOwn=!!botId&&(ref.author===botId||observedAuthor===botId||fetchedAuthor===botId);
+ console.log('[REPLY DELETE] reference lookup',JSON.stringify({roomId:String(roomId),logId:ref.log,botId,replyAuthor:ref.author,observedAuthor,fetchedAuthor,fetchAvailable:!!fetch,fetchFound:!!fetched,isOwn}));
  if(isOwn){
   const del=typeof chat?.deleteMessage==='function'?chat.deleteMessage.bind(chat):client?.deleteMessage?.bind(client);
   if(!del)return fail('현재 KakaoForge에 deleteMessage 기능이 없습니다.'),true;
   try{
-   const fetch=typeof chat?.fetchMessage==='function'?chat.fetchMessage.bind(chat):client?.fetchMessage?.bind(client);
-   const original=target?.msg||(fetch?await fetch(roomId,ref.log):null);
+   const original=target?.msg||fetched||(fetch?await fetch(roomId,ref.log):null);
    if(!original){await fail('원본 메시지를 조회할 수 없습니다.');return true;}
    const result=await del(roomId,original);
    if(result===false||result?.success===false||result?.ok===false||(typeof result?.status==='number'&&result.status!==0))throw Error('status='+String(result?.status));
@@ -60,7 +64,7 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
   }catch(error){console.error('[REPLY DELETE] deleteMessage failed',error);await fail('봇 메시지 삭제에 실패했습니다. Railway 로그를 확인해 주세요.');}
   return true;
  }
- if(!target){await fail('원본 메시지 기록이 없습니다. 봇 메시지라면 원본 작성자 정보가 포함된 답장이 필요합니다.');return true;}
+ if(!target){await fail('원본 메시지 작성자를 확인하지 못했습니다. Railway의 [REPLY DELETE] reference lookup 로그를 확인해 주세요.');return true;}
  const blind=typeof chat?.openChatBlind==='function'?chat.openChatBlind.bind(chat):client?.openChatBlind?.bind(client);
  if(!blind){await fail('메시지 가리기 기능을 사용할 수 없습니다.');return true;}
  try{
