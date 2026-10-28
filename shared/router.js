@@ -14,22 +14,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
-      const roomList=require('./room-list');
-      roomList.observe(msg);
       const replyDelete=require('./reply-delete');
       replyDelete.observe(msg);
       if((text==='삭제'||text==='!삭제')&&await replyDelete.handle({client,chat,msg,roomId,senderId,text,isBotAccount}))return;
-      if(/^!방목록\s*$/.test(text)){
-        if(!isBotAccount)return;
-        console.log('[ROOM LIST] command received',JSON.stringify({roomId:String(roomId),senderId:String(senderId??''),isBotAccount}));
-        try{
-          await roomList.handle({client,chat,roomId});
-          console.log('[ROOM LIST] response sent',String(roomId));
-        }catch(error){
-          console.error('[ROOM LIST] response failed',String(roomId),error);
-        }
-        return;
-      }
       // Intermediary alert commands and passive monitoring. Detection never replies in the watched room.
       const junggae = require('./junggae-notify');
       if (text === '!알람받기' || text === '!알람끄기') {
