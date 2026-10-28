@@ -14,6 +14,12 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      const roomList=require('./room-list');
+      roomList.observe(msg);
+      if(text==='!방목록'){
+        await roomList.handle({client,chat,roomId});
+        return;
+      }
       // Intermediary alert commands and passive monitoring. Detection never replies in the watched room.
       const junggae = require('./junggae-notify');
       if (text === '!알람받기' || text === '!알람끄기') {
