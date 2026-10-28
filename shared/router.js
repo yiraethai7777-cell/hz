@@ -16,8 +16,14 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     try {
       const roomList=require('./room-list');
       roomList.observe(msg);
-      if(text==='!방목록'){
-        await roomList.handle({client,chat,roomId});
+      if(/^!방목록\\s*$/.test(text)){
+        console.log('[ROOM LIST] command received',JSON.stringify({roomId:String(roomId),senderId:String(senderId??''),isBotAccount}));
+        try{
+          await roomList.handle({client,chat,roomId});
+          console.log('[ROOM LIST] response sent',String(roomId));
+        }catch(error){
+          console.error('[ROOM LIST] response failed',String(roomId),error);
+        }
         return;
       }
       // Intermediary alert commands and passive monitoring. Detection never replies in the watched room.
