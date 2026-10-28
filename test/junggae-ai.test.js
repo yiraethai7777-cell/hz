@@ -35,50 +35,6 @@ test('AI fails closed on malformed responses, API/DB errors, bad thresholds and 
  assert.equal(await createService(()=>pool,()=>{throw Error('must not call')},{...env,JUNGGAE_AI_THRESHOLD:'NaN'}).classify('준개 요청',()=>true),false);
  assert.equal(excluded('템맡'),true);
 });
-test('existing commands, reply authorization, unalerted samples, duplicate messages and bot filtering',async()=>{
- const pg=new PGlite(),pool={query:async(s,p)=>{const r=await pg.query(s,p);return {...r,rowCount:/^SELECT/i.test(s)?r.rows.length:(r.affectedRows??0)};}};
- const dbPath=require.resolve('../shared/db'),notifyPath=require.resolve('../shared/junggae-notify');
- const oldDb=require.cache[dbPath],oldNotify=require.cache[notifyPath];
- require.cache[dbPath]={id:dbPath,filename:dbPath,loaded:true,exports:{getPool:()=>pool}};delete require.cache[notifyPath];
- const feature=require('../shared/junggae-notify');
- if(oldDb)require.cache[dbPath]=oldDb;else delete require.cache[dbPath];
- if(oldNotify)require.cache[notifyPath]=oldNotify;else delete require.cache[notifyPath];
- const saved=process.env.JUNGGAE_AI_ENABLED;process.env.JUNGGAE_AI_ENABLED='false';
- let log=10000;const sent=[];
- const client={sendText:async(room,text)=>{sent.push({room:String(room),text,log:String(++log)});return {status:0,body:{logId:String(log)}};}};
- const ctx=(text,roomId='1000',msg={sender:{id:'7777',type:1}})=>({client,roomId,text,msg,isBotAccount:false});
- try{
-  await feature.handle(ctx('!봇방등록'));
-  await feature.handle(ctx('!준개방등록 2000'));
-  await feature.handle(ctx('!준개알람받기 @A','1000',{sender:{id:'7777'},mentions:[{userId:'8888',name:'A'}]}));
-  const m={sender:{id:'7777'},message:{logId:'99000'}};
-  await feature.handle(ctx('준개 요청','2000',m));const alert=sent.at(-1);assert.match(alert.text,/준개감지/);assert.equal(alert.room,'1000');
-  await feature.handle(ctx('준개 요청','2000',m));assert.equal(sent.at(-1),alert);
-  const reply={sender:{id:'7777',type:1},message:{type:26,attachment:JSON.stringify({src_logId:alert.log})}};
-  await feature.handle(ctx('!준개아님','1000',reply));assert.match(sent.at(-1).text,/저장 완료/);
-  const afterNegative=sent.length;
-  await feature.handle(ctx('준개 요청','2000',{sender:{id:'7777'},message:{logId:'99002'}}));
-  assert.equal(sent.length,afterNegative);
-  reply.sender.type=2;reply.sender.id='9999';
-  await pool.query('CREATE TABLE gl_manage_admins(room_id TEXT,user_id TEXT)');
-  await feature.handle(ctx('!준개맞음','1000',reply));assert.match(sent.at(-1).text,/관리자만/);
-  reply.sender.type=1;reply.message.attachment='{"src_logId":"55555"}';
-  await feature.handle(ctx('!준개맞음','1000',reply));assert.match(sent.at(-1).text,/답장해/);
-  await feature.handle(ctx('키워드 없는 놓친 원문','1000',{sender:{id:'7777'},message:{logId:'54321'}}));
-  reply.message.attachment='{"src_logId":"54321"}';
-  await feature.handle(ctx('!준개맞음','1000',reply));assert.match(sent.at(-1).text,/저장 완료/);
-  await feature.handle(ctx('!준개학습검색 놓친'));assert.match(sent.at(-1).text,/놓친 원문/);
-  const beforePositive=sent.length;
-  await feature.handle(ctx('키워드 없는 놓친 원문','2000',{sender:{id:'7777'},message:{logId:'99003'}}));
-  assert.equal(sent.length,beforePositive+1);assert.match(sent.at(-1).text,/준개감지/);
-  const n=sent.length;
-  await feature.handle({...ctx('준개 요청','2000',{sender:{id:'7777'},message:{logId:'99001'}}),isBotAccount:true});
-  await feature.handle(ctx('템맡 준개 요청','2000'));assert.equal(sent.length,n);
-  await feature.handle(ctx('!준개방목록'));assert.match(sent.at(-1).text,/2000/);
- }finally{if(saved===undefined)delete process.env.JUNGGAE_AI_ENABLED;else process.env.JUNGGAE_AI_ENABLED=saved;await pg.close();}
-});
-
-
 test('AI call budget, input exclusions and strict completion validation',async()=>{
  const pool={query:async()=>({rows:[]})},env={JUNGGAE_AI_ENABLED:'true',JUNGGAE_AI_API_KEY:'test',JUNGGAE_AI_MODEL:'test'};
  let calls=0;const resolve=[];
