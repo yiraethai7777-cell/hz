@@ -33,7 +33,10 @@ function matches(input){
  const request=/(?:준개|중개|ㅈㄱ)(?:ㅇ9|9|구함|구해|구합니다|신청|요청|부탁|필요|가능|해주세요|해주실|좀|$)/.test(compact);
  const price=/(?:^|[\s(（])\d+(?:\.\d+)?(?:만|원)?(?=$|[\s)）])/m.test(s);
  const item=/동타디|포세|승총|얼불수|아이템|템|구매|판매|거래/.test(s);
- return roles||(request&&(mentionCount>0||item||s.length<35))||(mentionCount>=2&&price&&item);
+ const handoff=/^\/?(?:템맡|템맡기|템맡아|템맡아요|템맡겠습니다|템맡을게요)(?:\s|$)/.test(s);
+ const tradeMention=mentionCount>=2&&/(?:거래|제석|템|아이템|\d+(?:\.\d+)?(?:만|원)?)/.test(s);
+ const shortRequest=/^(?:ㅈㄱ|준개|중개)(?:ㅇ|요|요청|신청)?\s*\d{1,6}$/.test(compact);
+ return roles||handoff||tradeMention||shortRequest||(request&&(mentionCount>0||item||s.length<35))||(mentionCount>=2&&price&&item);
 }
 async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription=false}){
  const id=String(roomId), sender=String(msg.sender?.id??msg.senderId??'');
