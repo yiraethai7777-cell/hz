@@ -14,12 +14,6 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
-      const roomList=require('./room-list');
-      roomList.observe(msg);
-      if(/^!방아이디검색(?:\s|$)/.test(text)){
-        await roomList.search({client,chat,roomId,query:text.replace(/^!방아이디검색/,'').trim()});
-        return;
-      }
       const replyDelete=require('./reply-delete');
       replyDelete.observe(msg);
       if((text==='삭제'||text==='!삭제')&&await replyDelete.handle({client,chat,msg,roomId,senderId,text,isBotAccount}))return;
