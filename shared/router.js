@@ -215,14 +215,14 @@ if (text === '!이벤추첨테스트') {
   return;
 }
 
-      if (text === '!이벤트시작' || text === '!이벤시작랜덤방' || text === '!이벤트중지') {
+      if (['!이벤시작','!이벤트시작','!이벤시작랜덤방','!이벤종료','!이벤트중지'].includes(text)) {
         const event=require('./event-reaction-test');
         const commandArgs={
-          client,roomId,msg,roomBotAdmin,send:context.send,
+          client,roomId,msg,roomBotAdmin,isBotAccount,send:context.send,
           mention:(id,name)=>typeof chat?.mention==='function'
             ?chat.mention(id,name,roomId):null
         };
-        if(text==='!이벤트시작'||text==='!이벤시작랜덤방')await event.startUntilWinner({...commandArgs,randomRoom:text==='!이벤시작랜덤방'});
+        if(text==='!이벤시작'||text==='!이벤트시작'||text==='!이벤시작랜덤방')await event.startUntilWinner({...commandArgs,randomRoom:text==='!이벤시작랜덤방'});
         else await event.stopUntilWinner(commandArgs);
         return;
       }
