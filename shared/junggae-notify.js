@@ -26,19 +26,7 @@ async function singletonDb(){
  })().catch(e=>{singletonSetup=null;throw e});
  await singletonSetup;return pool;
 }
-function matches(input){
- const s=String(input||'').normalize('NFKC').trim();
- if(aiModule.excluded(s))return false;
- const compact=s.replace(/\s+/g,'');
- const roles=/구매자\s*[:：]/.test(s)&&/판매자\s*[:：]/.test(s);
- const mentionCount=(s.match(/@\S+/g)||[]).length;
- const request=/(?:준개|중개|ㅈㄱ)(?:ㅇ9|9|구함|구해|구합니다|신청|요청|부탁|필요|가능|해주세요|해주실|좀|$)/.test(compact);
- const price=/(?:^|[\s(（])\d+(?:\.\d+)?(?:만|원)?(?=$|[\s)）])/m.test(s);
- const item=/동타디|포세|승총|얼불수|아이템|템|구매|판매|거래/.test(s);
- const tradeMention=mentionCount>=2&&/(?:거래|제석|템|아이템|\d+(?:\.\d+)?(?:만|원)?)/.test(s);
- const shortRequest=/^(?:ㅈㄱ|준개|중개)(?:ㅇ|요|요청|신청)?\s*\d{1,6}$/.test(compact);
- return roles||tradeMention||shortRequest||(request&&(mentionCount>0||item||s.length<35))||(mentionCount>=2&&price&&item);
-}
+const {matches}=require('./junggae-rule');
 async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription=false}){
  const id=String(roomId), sender=String(msg.sender?.id??msg.senderId??'');
  const send=(room,body)=>typeof chat?.sendText==='function'?chat.sendText(room,body):client.sendText(room,body);
@@ -59,7 +47,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    if(text!=='!준개맞음'&&text!=='!준개아님'){await send(roomId,'알림에 답장으로 !준개맞음 또는 !준개아님 을 입력하세요.');return true;}
    const ref=require('../manage/targets').reference(msg);
    const ok=ref?.logId&&await ai.feedback(id,ref.logId,text==='!준개맞음',sender);
-   await send(roomId,ok?'학습 예시 저장 완료. 다음 AI 판단에 반영합니다.':'준개 알림 또는 봇방에 새로 붙여 넣은 원문에 답장해 주세요.');
+   await send(roomId,ok?'피드백 저장 완료. 현재 감지는 멘션 규칙을 사용합니다.':'준개 알림 또는 봇방에 새로 붙여 넣은 원문에 답장해 주세요.');
   }catch{console.warn('[JUNGGAE] feedback unavailable');await send(roomId,'학습 저장 실패. 잠시 후 다시 시도해 주세요.');}
   return true;
  }
@@ -113,15 +101,17 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
  let watched=false;
  try{const p=await watchDb();const r=await p.query('SELECT 1 FROM junggae_watch_rooms WHERE room_id=$1',[id]);watched=r.rowCount>0;}catch(e){console.error('[JUNGGAE] watch lookup',e);return false;}
  if(!watched||isBotAccount)return false;
- if(aiModule.excluded(text)||text.length>4000)return false;
+ if(!Number(msg.sender?.type)&&typeof client?._ensureMemberType==='function'){
+  try{await client._ensureMemberType(roomId,sender);msg={...msg,sender:{...msg.sender,type:client._resolveMemberType?.(roomId,sender)}};}catch{return false;}
+ }
+ if(!matches(text,msg))return false;
  const key=id+':'+String(msg.message?.logId??msg.logId??msg.id??sender+':'+aiModule.hash(text));
  const now=Date.now();
  for(const [k,t] of recent)if(now-t>120000)recent.delete(k);
  if(recent.has(key))return false;
  recent.set(key,now);
  if(recent.size>3000)recent.delete(recent.keys().next().value);
- const matched=await ai.classify(text,matches);
- if(!matched)return false;
+ // Explicit mention rule is the sole detection criterion; no external AI call.
  try{
   const pool=await botRoomDb();
   const {rows}=await pool.query('SELECT s.room_id,s.user_id,s.user_name FROM junggae_subscriptions s JOIN junggae_bot_room b ON b.room_id=s.room_id WHERE s.room_id<>$1 ORDER BY s.room_id,s.user_id',[id]);
