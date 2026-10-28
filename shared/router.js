@@ -16,6 +16,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     try {
       const roomList=require('./room-list');
       roomList.observe(msg);
+      const replyDelete=require('./reply-delete');
+      replyDelete.observe(msg);
+      if((text==='삭제'||text==='!삭제')&&await replyDelete.handle({client,chat,msg,roomId,senderId,text,isBotAccount}))return;
       if(/^!방목록\\s*$/.test(text)){
         console.log('[ROOM LIST] command received',JSON.stringify({roomId:String(roomId),senderId:String(senderId??''),isBotAccount}));
         try{
