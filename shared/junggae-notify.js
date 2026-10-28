@@ -1,6 +1,8 @@
 'use strict';
 const {getPool}=require('./db');
 const recent=new Map();
+const aiModule=require('./junggae-ai');
+const ai=aiModule.createService(getPool);
 let setup;
 let singletonSetup;
 let watchReady;
@@ -26,7 +28,7 @@ async function singletonDb(){
 }
 function matches(input){
  const s=String(input||'').normalize('NFKC').trim();
- if(!s||s.startsWith('!')||s.startsWith('#'))return false;
+ if(aiModule.excluded(s))return false;
  const compact=s.replace(/\s+/g,'');
  const roles=/구매자\s*[:：]/.test(s)&&/판매자\s*[:：]/.test(s);
  const mentionCount=(s.match(/@\S+/g)||[]).length;
@@ -40,7 +42,29 @@ function matches(input){
 async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscription=false}){
  const id=String(roomId), sender=String(msg.sender?.id??msg.senderId??'');
  const send=(room,body)=>typeof chat?.sendText==='function'?chat.sendText(room,body):client.sendText(room,body);
+ if(/^!준개(?:맞음|아님|학습검색)(?:\s|$)/.test(text)){
+  try{
+   const p=await botRoomDb();
+   const r=await p.query('SELECT room_id FROM junggae_bot_room WHERE singleton_key=1');
+   if(r.rows[0]?.room_id!==id){await send(roomId,'등록된 봇방에서만 사용할 수 있습니다.');return true;}
+   const type=Number(msg.sender?.type);
+   if(!isBotAccount&&type!==1&&type!==4&&!await require('./room-bot-admin').isRoomBotAdmin(id,sender,p)){
+    await send(roomId,'봇방 관리자만 학습 피드백을 사용할 수 있습니다.');return true;
+   }
+   if(text.startsWith('!준개학습검색')){
+    const query=text.replace(/^!준개학습검색\s*/,'').slice(0,80);
+    const rows=await ai.examples(query);
+    await send(roomId,rows.length?rows.map(x=>(x.label?'[준개] ':'[아님] ')+x.text.slice(0,250)).join('\n'):'저장된 예시가 없습니다.');return true;
+   }
+   if(text!=='!준개맞음'&&text!=='!준개아님'){await send(roomId,'알림에 답장으로 !준개맞음 또는 !준개아님 을 입력하세요.');return true;}
+   const ref=require('../manage/targets').reference(msg);
+   const ok=ref?.logId&&await ai.feedback(id,ref.logId,text==='!준개맞음',sender);
+   await send(roomId,ok?'학습 예시 저장 완료. 다음 AI 판단에 반영합니다.':'준개 알림 또는 봇방에 새로 붙여 넣은 원문에 답장해 주세요.');
+  }catch{console.warn('[JUNGGAE] feedback unavailable');await send(roomId,'학습 저장 실패. 잠시 후 다시 시도해 주세요.');}
+  return true;
+ }
  if(text==='!봇방등록'){
+
   try{
    const p=await botRoomDb();
    const result=await p.query('INSERT INTO junggae_bot_room(singleton_key,room_id) VALUES(1,$1) ON CONFLICT DO NOTHING RETURNING room_id',[id]);
@@ -78,31 +102,41 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    }catch(e){console.error('[JUNGGAE] subscription:',e);await send(roomId,'❌ 알림 설정 실패. Railway 로그를 확인해 주세요.');}
    return true;
  }
+ // Persist bot-room originals too: paste a missed request here, then reply with feedback.
+ if(!isBotAccount&&!aiModule.excluded(text)&&text.length<=4000){
+  try{
+   const p=await botRoomDb();const r=await p.query('SELECT room_id FROM junggae_bot_room WHERE singleton_key=1');
+   const log=require('../manage/targets').exact(msg.message?.logId??msg.logId??msg.id);
+   if(r.rows[0]?.room_id===id&&log)await ai.remember(id,String(log),text);
+  }catch{console.warn('[JUNGGAE] sample storage unavailable');}
+ }
  let watched=false;
  try{const p=await watchDb();const r=await p.query('SELECT 1 FROM junggae_watch_rooms WHERE room_id=$1',[id]);watched=r.rowCount>0;}catch(e){console.error('[JUNGGAE] watch lookup',e);return false;}
  if(!watched||isBotAccount)return false;
- const matched=matches(text);
- console.log('[JUNGGAE] watched message',JSON.stringify({roomId:id,matched,preview:text.slice(0,100)}));
- if(!matched)return false;
- const key=id+':'+String(msg.message?.logId??msg.logId??msg.id??sender+':'+text);
+ if(aiModule.excluded(text)||text.length>4000)return false;
+ const key=id+':'+String(msg.message?.logId??msg.logId??msg.id??sender+':'+aiModule.hash(text));
  const now=Date.now();
  for(const [k,t] of recent)if(now-t>120000)recent.delete(k);
  if(recent.has(key))return false;
  recent.set(key,now);
+ if(recent.size>3000)recent.delete(recent.keys().next().value);
+ const matched=await ai.classify(text,matches);
+ if(!matched)return false;
  try{
-   const pool=await db();
-   const {rows}=await pool.query('SELECT room_id,user_id,user_name FROM junggae_subscriptions WHERE room_id<>$1 ORDER BY room_id,user_id',[id]);
-   console.log('[JUNGGAE] recipients',rows.length);
-   const mention=typeof chat?.mention==='function'?chat.mention.bind(chat):typeof client?.mention==='function'?client.mention.bind(client):null;
-   for(const receiver of rows){
-     try{
-       const marker=mention?.(receiver.user_id,receiver.user_name,receiver.room_id);
-       if(typeof marker==='string'&&marker.startsWith('\u0002')&&marker.includes('\u0003')&&marker.endsWith('\u0004'))
-         {await send(receiver.room_id,marker+' 준개감지');console.log('[JUNGGAE] alert sent',receiver.room_id,receiver.user_id);}
-       else {console.warn('[JUNGGAE] real mention unavailable; sending text fallback',receiver.room_id);await send(receiver.room_id,'🔔 준개 신청 감지\n@'+receiver.user_name+' 준개감지');}
-     }catch(e){console.error('[JUNGGAE] notify receiver failed',receiver.room_id,e);}
-   }
- }catch(e){console.error('[JUNGGAE] detection:',e);}
+  const pool=await botRoomDb();
+  const {rows}=await pool.query('SELECT s.room_id,s.user_id,s.user_name FROM junggae_subscriptions s JOIN junggae_bot_room b ON b.room_id=s.room_id WHERE s.room_id<>$1 ORDER BY s.room_id,s.user_id',[id]);
+  const mention=typeof chat?.mention==='function'?chat.mention.bind(chat):typeof client?.mention==='function'?client.mention.bind(client):null;
+  for(const receiver of rows){
+   try{
+    const marker=mention?.(receiver.user_id,receiver.user_name,receiver.room_id);
+    const prefix=typeof marker==='string'&&marker.startsWith('\u0002')&&marker.includes('\u0003')&&marker.endsWith('\u0004')?marker:'@'+receiver.user_name;
+    const result=await send(receiver.room_id,prefix+' 준개감지\n방: '+id+'\n'+text.slice(0,1000)+'\n답장: !준개맞음 / !준개아님');
+    const log=require('../manage/targets').exact(result?.body?.logId);
+    if(result?.status===0&&log)await ai.remember(receiver.room_id,String(log),text);
+    else console.warn('[JUNGGAE] unconfirmed alert; feedback unavailable');
+   }catch{console.warn('[JUNGGAE] receiver unavailable');}
+  }
+ }catch{console.warn('[JUNGGAE] detection storage unavailable');}
  return false;
 }
 module.exports={handle,matches};
