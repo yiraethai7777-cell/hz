@@ -32,9 +32,9 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
  const roomName=String(msg?.room?.name??msg?.room?.title??'').normalize('NFKC').replace(/\s+/g,'').trim();
  const watchedByName=msg?.room?.isOpenChat===true&&roomName==='통합중걔방';
  const send=(room,body)=>typeof chat?.sendText==='function'?chat.sendText(room,body):client.sendText(room,body);
- if(/^!준개알람(?:받기|끄기)(?:\\s|$)/.test(text)){
+ if(/^!준개알람(?:받기|끄기)(?:\s|$)/.test(text)){
    if(!isBotAccount)return true;
-   const action=text.split(/\\s+/,1)[0];
+   const action=text.split(/\s+/,1)[0];
    const mentions=require('../manage/targets').mentions(msg);
    if(!mentions.length){await send(roomId,'❌ 실제 멘션으로 대상을 지정해 주세요. 예: !준개알람받기 @닉네임');return true;}
    try{
@@ -63,7 +63,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    for(const receiver of rows){
      try{
        const marker=mention?.(receiver.user_id,receiver.user_name,receiver.room_id);
-       if(typeof marker==='string'&&marker.startsWith('\\u0002')&&marker.includes('\\u0003')&&marker.endsWith('\\u0004'))
+       if(typeof marker==='string'&&marker.startsWith('\u0002')&&marker.includes('\u0003')&&marker.endsWith('\u0004'))
          await send(receiver.room_id,marker+' 준개감지');
        else console.warn('[JUNGGAE] real mention unavailable',receiver.room_id);
      }catch(e){console.error('[JUNGGAE] notify receiver failed',receiver.room_id,e);}
