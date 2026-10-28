@@ -80,7 +80,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
  try{const p=await watchDb();const r=await p.query('SELECT 1 FROM junggae_watch_rooms WHERE room_id=$1',[id]);watched=r.rowCount>0;}catch(e){console.error('[JUNGGAE] watch lookup',e);return false;}
  if(!watched||isBotAccount)return false;
  const matched=matches(text);
- console.log('[JUNGGAE] watched message',JSON.stringify({roomId:id,roomName,matched,preview:text.slice(0,100)}));
+ console.log('[JUNGGAE] watched message',JSON.stringify({roomId:id,matched,preview:text.slice(0,100)}));
  if(!matched)return false;
  const key=id+':'+String(msg.message?.logId??msg.logId??msg.id??sender+':'+text);
  const now=Date.now();
@@ -97,7 +97,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
        const marker=mention?.(receiver.user_id,receiver.user_name,receiver.room_id);
        if(typeof marker==='string'&&marker.startsWith('\u0002')&&marker.includes('\u0003')&&marker.endsWith('\u0004'))
          {await send(receiver.room_id,marker+' 준개감지');console.log('[JUNGGAE] alert sent',receiver.room_id,receiver.user_id);}
-       else console.warn('[JUNGGAE] real mention unavailable',receiver.room_id);
+       else {console.warn('[JUNGGAE] real mention unavailable; sending text fallback',receiver.room_id);await send(receiver.room_id,'🔔 준개 신청 감지\n@'+receiver.user_name+' 준개감지');}
      }catch(e){console.error('[JUNGGAE] notify receiver failed',receiver.room_id,e);}
    }
  }catch(e){console.error('[JUNGGAE] detection:',e);}
