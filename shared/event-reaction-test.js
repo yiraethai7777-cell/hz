@@ -69,14 +69,14 @@ function receive({roomId, senderId, text, isBotAccount = false, now = Date.now})
 async function start({
   client, roomId, msg, send, mention, pickRandom = randomInt,
   now = Date.now, sleep = delay, loadSettings = loadSettingsDefault,
-  testMode = true, session = null, announce = true, excludeId = null, roomBotAdmin=false, randomRoom=false
+  testMode = true, session = null, announce = true, excludeId = null, roomBotAdmin=false, isBotAccount=false, randomRoom=false
 }) {
   if (msg?.room?.isOpenChat !== true) {
     await sendSafe(client, send, '오픈채팅방에서만 사용할 수 있습니다.');
     return {outcome:'unavailable'};
   }
-  if (!roomBotAdmin && ![1,4].includes(Number(msg?.sender?.type))) {
-    await sendSafe(client, send, '방장 또는 부방장만 실행할 수 있습니다.');
+  if (!roomBotAdmin && !isBotAccount) {
+    return {outcome:'unauthorized'}; // Unauthorized event commands are silent.
     return {outcome:'unauthorized'};
   }
   if (typeof client?.getCachedMemberProfiles !== 'function' || typeof mention !== 'function') {
@@ -199,8 +199,8 @@ async function startUntilWinner(args){
  if(msg?.room?.isOpenChat!==true){
   await sendSafe(client,send,'오픈채팅방에서만 사용할 수 있습니다.');return 'unavailable';
  }
- if(!args.roomBotAdmin&&![1,4].includes(Number(msg?.sender?.type))){
-  await sendSafe(client,send,'방장 또는 부방장만 실행할 수 있습니다.');return 'unauthorized';
+ if(!args.roomBotAdmin&&!args.isBotAccount){
+  return 'unauthorized';
  }
  if(sessions.has(room)||active.has(room)){
   await sendSafe(client,send,'이미 이벤트가 진행 중입니다.');return 'busy';
@@ -230,12 +230,12 @@ async function startUntilWinner(args){
   if(sessions.get(room)===session)sessions.delete(room);
  }
 }
-async function stopUntilWinner({client,roomId,msg,send,roomBotAdmin=false}){
+async function stopUntilWinner({client,roomId,msg,send,roomBotAdmin=false,isBotAccount=false}){
  if(msg?.room?.isOpenChat!==true){
   await sendSafe(client,send,'오픈채팅방에서만 사용할 수 있습니다.');return false;
  }
- if(!roomBotAdmin&&![1,4].includes(Number(msg?.sender?.type))){
-  await sendSafe(client,send,'방장 또는 부방장만 중지할 수 있습니다.');return false;
+ if(!roomBotAdmin&&!isBotAccount){
+  return false;
  }
  const room=String(roomId),session=sessions.get(room);
  if(!session){
