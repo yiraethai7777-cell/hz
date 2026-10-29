@@ -135,6 +135,14 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       await ready;
+      // Cache only messages in rooms with deletion detection enabled.
+      try {
+        await management.saveDeletedMessage({
+          roomId, userId: senderId, userName: msg.sender?.name,
+          messageId: msg.message?.logId ?? msg.logId ?? msg.message?.id ?? msg.id,
+          text, botId: client.userId
+        });
+      } catch (error) { console.error('[DELETE MESSAGE CACHE]', error); }
       // Serve the (static) game help before management and event pipelines.
       if(text==='!게임명령어'){
         await handleExtraMessage(client,...args);
