@@ -412,25 +412,9 @@ async function attachHZBot(client){
   client.onLeave(memberEvent("leave"));
   client.onKick(memberEvent("kick"));
 
-  if(typeof client.onDelete==="function"){
-    client.onDelete(async (...args)=>{
-      try{
-        const evt=args.length===1?args[0]:args[1];
-        const chat=args.length===1?(client.chat||client):args[0];
-        if(!evt)return;
-        const rid=ctx.pickDeleteRoom(evt); if(!rid)return;
-        const flags=await ctx.roomFlags(rid); if(!flags.manage||flags.locked)return;
-        const setting=await ctx.pool.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[rid]);
-        if(setting.rows[0]?.deleted_enabled!==true)return;
-        const actor=ctx.pickDeleteActor(evt);
-        await ctx.pool.query("INSERT INTO hz_deleted_messages(room_id,deleter_id,deleter_name,message_text,meta) VALUES($1,$2,$3,$4,$5::jsonb)",
-          [rid,actor.id||null,actor.name||null,null,JSON.stringify({event:"delete"})]);
-        await ctx.send(chat,rid,actor.name||actor.id
-          ?`🗑️ ${actor.name||actor.id}님이 메시지를 삭제했습니다.`
-          :'🗑️ 누군가 메시지를 삭제했습니다.');
-      }catch(e){console.error("[HZ DELETE]",e)}
-    });
-  }
+  // Deletion events are exclusively handled by hz-new.js via manage.deleted.
+  // Do not register another onDelete here: KakaoForge stores only one handler,
+  // so the legacy handler would overwrite the unified original-text/warning handler.
   return {botUserId:ctx.globalBotId}
 }
 return {attachHZBot};
