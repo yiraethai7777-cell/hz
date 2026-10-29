@@ -324,53 +324,9 @@ async function leave({roomId,userId,userName,send}){
   }));
 }
 
-async function saveDeletedMessage({roomId,userId,userName,messageId,text,botId}){
- const room=String(roomId??''),user=String(userId??''),id=String(messageId??'');
- if(!/^[1-9]\d*$/.test(room)||!/^[1-9]\d*$/.test(user)||!/^[1-9]\d*$/.test(id))return false;
- if(user===String(botId))return false;
- if(!await enabled(room))return false;
- const db=getPool();
- const setting=await db.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
- if(setting.rows[0]?.deleted_enabled!==true)return false;
- await db.query(`INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body)
- VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING`,
- [room,id,user,String(userName||user),String(text||'').slice(0,10000)]);
- return true;
-}
-// Unified deletion handler: original notice + 24h original text + one warning.
-async function deleted({roomId,userId,userName,messageId,botId,send}){
- const room=String(roomId??''),logId=String(messageId??'');
- if(!/^[1-9]\d*$/.test(room)||!/^[1-9]\d*$/.test(logId))return false;
- if(!await enabled(room))return false;
- const db=getPool();
- const setting=await db.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
- if(setting.rows[0]?.deleted_enabled!==true)return false;
- const c=await db.connect();
- let count,original=null,authorName='',authorId='';
- try{
-  await c.query('BEGIN');
-  const cached=await c.query("SELECT user_id,user_name,body FROM gl_manage_temp_messages WHERE room_id=$1 AND message_id=$2 AND created_at >= NOW()-INTERVAL '24 hours'",[room,logId]);
-  const saved=cached.rows[0];
-  // Prefer the author of the original message, not the person who issued deletion.
-  authorId=String(saved?.user_id||userId||'');
-  authorName=String(saved?.user_name||userName||authorId);
-  original=saved?.body??null;
-  if(!/^[1-9]\d*$/.test(authorId)||authorId===String(botId)){
-   await c.query('ROLLBACK');return false;
-  }
-  const once=await c.query('INSERT INTO gl_manage_deleted_processed(room_id,message_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING message_id',[room,logId]);
-  if(!once.rowCount){await c.query('ROLLBACK');return false;}
-  await c.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',[room,authorId,authorName,'메시지 삭제',String(botId||'0')]);
-  const result=await c.query('SELECT count(*)::int AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',[room,authorId]);
-  count=result.rows[0].n;
-  await c.query('COMMIT');
- }catch(error){await c.query('ROLLBACK');throw error}finally{c.release()}
- await send(`🗑️ ${authorName}님이 메시지를 삭제했습니다.\n💬 삭제된 내용: ${original===null?'확인 불가':original||'(텍스트 없음)'}\n⚠️ 경고 1회 지급 (누적 ${count}회)`);
- return true;
-}
-async function cleanup(){
- const db=getPool();
- await db.query("DELETE FROM gl_manage_temp_messages WHERE created_at < NOW()-INTERVAL '24 hours'");
- await db.query("DELETE FROM gl_manage_deleted_processed WHERE created_at < NOW()-INTERVAL '30 days'");
-}
+// One deletion implementation only; shared by router and event listener.
+const deletionWatch=require('./delete-watch');
+const saveDeletedMessage=deletionWatch.observe;
+const deleted=deletionWatch.onDelete;
+const cleanup=deletionWatch.cleanup;
 module.exports={init,enabled,message,join,leave,deleted,saveDeletedMessage,cleanup};
