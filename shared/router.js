@@ -14,15 +14,6 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
-      // Cache before early returns; deletion events use the same logId.
-      try {
-        await ready;
-        await management.saveDeletedMessage({
-          roomId, userId: senderId, userName: msg.sender?.name,
-          messageId: msg.message?.logId ?? msg.logId ?? msg.message?.id ?? msg.id,
-          text, botId: client.userId
-        });
-      } catch (error) { console.error('[DELETE MESSAGE CACHE]', error); }
       // Intermediary alert commands and passive monitoring. Detection never replies in the watched room.
       const junggae = require('./junggae-notify');
       if (/^!준개감지(?:on|off|상태)$/.test(text)||text==='!봇방등록'||/^!(?:준개방(?:등록|삭제|목록)|준개알람(?:받기|끄기)|준개(?:맞음|아님|학습검색))(?:\s|$)/.test(text)) {
