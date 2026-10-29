@@ -32,6 +32,9 @@ function start() {
   ready.catch(err => console.error('[HZ NEW] 초기화 실패:', err));
 
   attachRouter(client, { game, management: manage, ready });
+  const recentMessages = new Map();
+  const keyFor = (room, log) => String(room) + ':' + String(log);
+
   // Independent listener: persist every incoming message before it can be deleted.
   // EventEmitter 'message' is emitted by KakaoForge regardless of onMessage handlers.
   client.on('message', (...args) => {
@@ -40,6 +43,9 @@ function start() {
     const messageId = msg.message?.logId ?? msg.logId ?? msg.message?.id ?? msg.id;
     const userId = msg.sender?.id ?? msg.senderId;
     const text = String(msg.message?.text ?? msg.text ?? '');
+    recentMessages.set(keyFor(msg.room.id, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
+    if(recentMessages.size>5000){for(const [key,item] of recentMessages){if(Date.now()-item.at>86400000)recentMessages.delete(key);}if(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);}
+
     void ready.then(() => manage.saveDeletedMessage({
       roomId: msg.room.id, messageId, userId,
       userName: msg.sender?.name, text, botId: client.userId
@@ -68,7 +74,9 @@ function start() {
       console.log('[DELETE V2] callback entered', JSON.stringify({roomId:String(roomId),messageId:String(messageId)}));
       await ready;
       console.log('[DELETE V2] received', JSON.stringify({roomId:String(roomId),messageId:String(messageId),authorAvailable:!!userId}));
+      const cached = recentMessages.get(keyFor(roomId,messageId));
       const handled = await manage.deleted({
+        cached,
         roomId, userId, userName, messageId, botId: client.userId,
         send: async body => {
           console.log('[DELETE V2] sending unified alert', JSON.stringify({roomId:String(roomId),chars:body.length}));
