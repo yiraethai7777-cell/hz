@@ -1312,10 +1312,29 @@ export class KakaoForgeClient extends EventEmitter {
 
   async _emitDeleteEventFromPush(packet: any): Promise<boolean> {
     if (!resolveDeleteActionFromPush(packet?.method)) return false;
-    const event = await this._buildModerationEventFromPush('delete', packet);
-    if (!event || event.type !== 'delete') return false;
-    this._emitDeleteEvent(event);
-    return true;
+    const body = packet?.body || {};
+    console.log('[DELETE V2] push recognized', JSON.stringify({
+      method: String(packet?.method || ''),
+      hasChatId: !!(body.chatId || body.c || body.roomId),
+      hasLogId: !!(body.logId || body.chatLog?.logId || body.chatlog?.logId)
+    }));
+    try {
+      const event = await this._buildModerationEventFromPush('delete', packet);
+      if (!event || event.type !== 'delete') {
+        console.warn('[DELETE V2] event build returned empty', String(packet?.method || ''));
+        return false;
+      }
+      console.log('[DELETE V2] event built', JSON.stringify({
+        roomId: String(event.chatId ?? event.room?.id ?? ''),
+        logId: String(event.logId ?? event.message?.logId ?? ''),
+        authorAvailable: !!event.member?.ids?.[0]
+      }));
+      this._emitDeleteEvent(event);
+      return true;
+    } catch (error) {
+      console.error('[DELETE V2] event build failed', error);
+      return false;
+    }
   }
 
   async _emitHideEventFromPush(packet: any): Promise<boolean> {
