@@ -159,29 +159,17 @@ test('game and management help remain separate, folded and unnamed',()=>{
  assert.match(formatCommandHelp({manage:true,game:false},'게임'),/게임 기능은 중지/);
 });
 
-test('deletion alerts identify the actor only, without content, warnings or kicks',async()=>{
- const room={game:false,manage:true,deleteCacheEnabled:true};
- const queries=[],replies=[],handlers={};let kicks=0;
- const pool={query:async(sql,params)=>{
-  queries.push({sql,params});return {rows:sql.startsWith('SELECT data')?[{data:room}]:[],rowCount:0};
- }};
+test('legacy session never replaces the unified deletion listener',async()=>{
+ const handlers={deleted:()=> 'unified'};
+ let registrations=0;
+ const pool={query:async()=>({rows:[],rowCount:0})};
  const runtime=createRuntime({pool,economyEnabled:false});
- const chat={sendText:async(id,text)=>replies.push(text),openChatKick:async()=>{kicks++;}};
- const client={userId:'1001',chat,onMessage:fn=>handlers.message=fn,
-  onJoin(){},onLeave(){},onKick(){},onDelete:fn=>handlers.deleted=fn};
+ const client={userId:'1001',chat:{sendText:async()=>{}},
+  onMessage(){},onJoin(){},onLeave(){},onKick(){},
+  onDelete:fn=>{registrations++;handlers.deleted=fn;}};
  try{
-  await runtime.attachHZBot(client);queries.length=0;
-  await handlers.deleted({room:{id:'1'},actor:{id:'2002',name:'Alice'},message:{text:'PRIVATE ORIGINAL'}});
-  assert.deepEqual(replies,['🗑️ Alice님이 메시지를 삭제했습니다.']);
-  const record=queries.find(q=>q.sql.startsWith('INSERT INTO hz_deleted_messages'));
-  assert.equal(record.params[3],null);
-  assert.ok(!JSON.stringify(queries).includes('PRIVATE ORIGINAL'));
-  assert.ok(!queries.some(q=>q.sql.includes('hz_warnings')||q.sql.includes('hz_message_cache')));
-  assert.equal(kicks,0);
-  await handlers.deleted(chat,{room:{id:'1'},text:'PRIVATE ORIGINAL'});
-  assert.equal(replies.at(-1),'🗑️ 누군가 메시지를 삭제했습니다.');
-  room.manage=false;const count=replies.length;
-  await handlers.deleted({room:{id:'1'},actor:{id:'2002',name:'Alice'}});
-  assert.equal(replies.length,count);
+  await runtime.attachHZBot(client);
+  assert.equal(registrations,0);
+  assert.equal(handlers.deleted(),'unified');
  }finally{clearInterval(runtime.promoTimer);clearInterval(runtime.autoFishTimer);}
 });
