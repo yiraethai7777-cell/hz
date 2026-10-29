@@ -7,6 +7,12 @@ let setup;
 let singletonSetup;
 let watchReady;
 async function watchDb(){const p=await db();if(!watchReady)watchReady=p.query('CREATE TABLE IF NOT EXISTS junggae_watch_rooms (room_id TEXT PRIMARY KEY)').catch(e=>{watchReady=null;throw e});await watchReady;return p;}
+let toggleReady;
+async function toggleDb(){
+ const p=await db();
+ if(!toggleReady)toggleReady=p.query('CREATE TABLE IF NOT EXISTS junggae_settings (singleton_key INTEGER PRIMARY KEY CHECK(singleton_key=1), enabled BOOLEAN NOT NULL DEFAULT TRUE)').catch(e=>{toggleReady=null;throw e});
+ await toggleReady;return p;
+}
 let botRoomReady;
 async function botRoomDb(){
  const p=await db();
@@ -49,6 +55,23 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    const ok=ref?.logId&&await ai.feedback(id,ref.logId,text==='!준개맞음',sender);
    await send(roomId,ok?'피드백 저장 완료. 현재 감지는 멘션 규칙을 사용합니다.':'준개 알림 또는 봇방에 새로 붙여 넣은 원문에 답장해 주세요.');
   }catch{console.warn('[JUNGGAE] feedback unavailable');await send(roomId,'학습 저장 실패. 잠시 후 다시 시도해 주세요.');}
+  return true;
+ }
+ if(/^!준개감지(?:on|off|상태)$/.test(text)){
+  try{
+   const p=await botRoomDb();
+   const room=await p.query('SELECT room_id FROM junggae_bot_room WHERE singleton_key=1');
+   if(room.rows[0]?.room_id!==id){await send(roomId,'등록된 봇방에서만 사용할 수 있습니다.');return true;}
+   await toggleDb();
+   if(text==='!준개감지상태'){
+    const state=await p.query('SELECT enabled FROM junggae_settings WHERE singleton_key=1');
+    await send(roomId,'준개 감지 상태: '+(state.rows[0]?.enabled===false?'OFF':'ON'));
+   }else{
+    const enabled=text==='!준개감지on';
+    await p.query('INSERT INTO junggae_settings(singleton_key,enabled) VALUES(1,$1) ON CONFLICT(singleton_key) DO UPDATE SET enabled=EXCLUDED.enabled',[enabled]);
+    await send(roomId,'준개 감지 '+(enabled?'ON':'OFF')+' 완료 (모든 등록된 준개방에 적용)');
+   }
+  }catch(e){console.error('[JUNGGAE] toggle',e);await send(roomId,'준개 감지 설정 실패. Railway 로그를 확인해 주세요.');}
   return true;
  }
  if(text==='!봇방등록'){
@@ -101,6 +124,12 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
  let watched=false;
  try{const p=await watchDb();const r=await p.query('SELECT 1 FROM junggae_watch_rooms WHERE room_id=$1',[id]);watched=r.rowCount>0;}catch(e){console.error('[JUNGGAE] watch lookup',e);return false;}
  if(!watched||isBotAccount)return false;
+ try{
+  const p=await toggleDb();
+  const state=await p.query('SELECT enabled FROM junggae_settings WHERE singleton_key=1');
+  if(state.rows[0]?.enabled===false)return false;
+ }catch(e){console.error('[JUNGGAE] toggle lookup',e);return false;}
+
  if(!Number(msg.sender?.type)&&typeof client?._ensureMemberType==='function'){
   try{await client._ensureMemberType(roomId,sender);msg={...msg,sender:{...msg.sender,type:client._resolveMemberType?.(roomId,sender)}};}catch{return false;}
  }
@@ -120,7 +149,7 @@ async function handle({client,chat,msg,roomId,text,isBotAccount,allowBotSubscrip
    try{
     const marker=mention?.(receiver.user_id,receiver.user_name,receiver.room_id);
     const prefix=typeof marker==='string'&&marker.startsWith('\u0002')&&marker.includes('\u0003')&&marker.endsWith('\u0004')?marker:'@'+receiver.user_name;
-    const result=await send(receiver.room_id,prefix+' 준개감지\n방: '+id+'\n'+text.slice(0,1000)+'\n답장: !준개맞음 / !준개아님');
+    const result=await send(receiver.room_id,prefix+'님 준개신청이 왔습니다.');
     const log=require('../manage/targets').exact(result?.body?.logId);
     if(result?.status===0&&log)await ai.remember(receiver.room_id,String(log),text);
     else console.warn('[JUNGGAE] unconfirmed alert; feedback unavailable');
