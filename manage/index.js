@@ -324,6 +324,19 @@ async function leave({roomId,userId,userName,send}){
   }));
 }
 
+async function saveDeletedMessage({roomId,userId,userName,messageId,text,botId}){
+ const room=String(roomId??''),user=String(userId??''),id=String(messageId??'');
+ if(!/^[1-9]\\d*$/.test(room)||!/^[1-9]\\d*$/.test(user)||!/^[1-9]\\d*$/.test(id))return false;
+ if(user===String(botId))return false;
+ if(!await enabled(room))return false;
+ const db=getPool();
+ const setting=await db.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
+ if(setting.rows[0]?.deleted_enabled!==true)return false;
+ await db.query(`INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body)
+ VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING`,
+ [room,id,user,String(userName||user),String(text||'').slice(0,10000)]);
+ return true;
+}
 async function deleted({roomId,userId,userName,messageId,botId,send}){
  const room=key(roomId),user=String(userId??''),logId=String(messageId??'');
  if(!await enabled(room))return false;
@@ -333,18 +346,20 @@ async function deleted({roomId,userId,userName,messageId,botId,send}){
  const setting=await db.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
  if(setting.rows[0]?.deleted_enabled!==true)return false;
  const c=await db.connect();
- let count;
+ let count,original=null;
  try{
   await c.query('BEGIN');
   const once=await c.query('INSERT INTO gl_manage_deleted_processed(room_id,message_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING message_id',[room,logId]);
   if(!once.rowCount){await c.query('ROLLBACK');return false;}
+  const cached=await c.query("SELECT body,user_name FROM gl_manage_temp_messages WHERE room_id=$1 AND message_id=$2 AND user_id=$3 AND created_at >= NOW()-INTERVAL '24 hours'",[room,logId,user]);
+  original=cached.rows[0]?.body??null;
   await c.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',[room,user,String(userName||user),'메시지 삭제',String(botId||'0')]);
   const result=await c.query('SELECT count(*)::int AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',[room,user]);
   count=result.rows[0].n;
   await c.query('COMMIT');
  }catch(error){await c.query('ROLLBACK');throw error}finally{c.release()}
- await send(`🗑️ ${userName||user}님이 메시지를 삭제했습니다.\\n⚠️ 경고 1회 지급 (누적 ${count}회)`);
+ await send(`🗑️ ${userName||user}님이 메시지를 삭제했습니다.\\n💬 삭제된 내용: ${original===null?'확인 불가':original||'(텍스트 없음)'}\\n⚠️ 경고 1회 지급 (누적 ${count}회)`);
  return true;
 }
-async function cleanup(){await getPool().query("DELETE FROM gl_manage_temp_messages WHERE created_at < NOW()-INTERVAL '12 hours'")}
-module.exports={init,enabled,message,join,leave,deleted,cleanup};
+async function cleanup(){await getPool().query("DELETE FROM gl_manage_temp_messages WHERE created_at < NOW()-INTERVAL '24 hours'")}
+module.exports={init,enabled,message,join,leave,deleted,saveDeletedMessage,cleanup};
