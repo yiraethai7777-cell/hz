@@ -11,6 +11,7 @@ const { createGame } = require('./game');
 
 
 function start() {
+  console.log('[DELETE V2] unified deletion handler loaded');
 
   const client = createClient({
 
@@ -40,16 +41,24 @@ function start() {
     const userId = event?.member?.ids?.[0];
     const userName = event?.member?.names?.[0] || String(userId || '');
     const messageId = event?.message?.logId ?? event?.logId;
-    if (!roomId || !userId || !messageId) return;
+    if (!roomId || !messageId) {
+      console.warn('[DELETE V2] missing room or message ID');
+      return;
+    }
     if (event?.room?.isOpenChat === false) return;
     try {
       await ready;
-      await manage.deleted({
+      console.log('[DELETE V2] received', JSON.stringify({roomId:String(roomId),messageId:String(messageId),authorAvailable:!!userId}));
+      const handled = await manage.deleted({
         roomId, userId, userName, messageId, botId: client.userId,
-        send: body => client.chat.sendText(roomId, body)
+        send: async body => {
+          console.log('[DELETE V2] sending unified alert', JSON.stringify({roomId:String(roomId),chars:body.length}));
+          return client.chat.sendText(roomId, body);
+        }
       });
+      console.log('[DELETE V2] result', JSON.stringify({roomId:String(roomId),handled:!!handled}));
     } catch (error) {
-      console.error('[DELETE WARNING]', error);
+      console.error('[DELETE V2] failed', error);
     }
   });
 
