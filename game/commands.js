@@ -1,4 +1,3 @@
-
 'use strict';
 
 const { handleCoinCommand } = require('./coin');
@@ -51,7 +50,7 @@ async function message({ text, msg, chat, isBotAccount = false }) {
 
         await chat.sendText(
             roomId,
-            ' 메시지 전송 속도 측정 중...'
+            ' 귀찮은데 핑 측정중...'
         );
 
         const messageLatency =
@@ -60,7 +59,7 @@ async function message({ text, msg, chat, isBotAccount = false }) {
         // 3. 측정 결과 출력
         
 const result =
-    'STATUS\n' +
+    '핑이다 봐라\n' +
     '━━━━━━━━━━━━━━\n' +
     'Server Latency : ' + serverLatency + 'ms\n' +
     'Message Latency: ' + messageLatency + 'ms\n' +
