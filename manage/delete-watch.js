@@ -1,5 +1,33 @@
 'use strict';
 const {getPool}=require('../shared/db');
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const ROOT=process.env.DELETE_LOG_DIR||path.join(process.cwd(),'message-logs');
+const fileFor=room=>path.join(ROOT,room+'.jsonl');
+const queues=new Map();
+function writeRoom(room,line){
+ const previous=queues.get(room)||Promise.resolve();
+ const next=previous.catch(()=>{}).then(async()=>{
+  await fs.mkdir(ROOT,{recursive:true});
+  await fs.appendFile(fileFor(room),JSON.stringify(line)+'\n','utf8');
+ });
+ queues.set(room,next);
+ next.finally(()=>{if(queues.get(room)===next)queues.delete(room);}).catch(()=>{});
+ return next;
+}
+async function readRoom(room,mid){
+ await (queues.get(room)||Promise.resolve()).catch(()=>{});
+ let contents;
+ try{contents=await fs.readFile(fileFor(room),'utf8');}
+ catch(e){if(e.code==='ENOENT')return null;throw e;}
+ const lines=contents.split('\n');
+ for(let i=lines.length-1;i>=0;i--){
+  if(!lines[i])continue;
+  try{const item=JSON.parse(lines[i]);if(String(item.message_id)===mid&&!isDeletionFeed(item.body))return item;}
+  catch{}
+ }
+ return null;
+}
 const id=v=>{const s=String(v??'');return /^[1-9]\d*$/.test(s)?s:null};
 async function active(db,room){
  const q=await db.query('SELECT enabled,deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
@@ -7,8 +35,9 @@ async function active(db,room){
 }
 async function observe({roomId,messageId,userId,userName,text,botId}){
  const room=id(roomId),mid=id(messageId),uid=id(userId);
- if(!room||!mid||!uid||uid===id(botId))return false;
+ if(!room||!mid||!uid||uid===id(botId)||isDeletionFeed(text))return false;
  const db=getPool();if(!await active(db,room))return false;
+ await writeRoom(room,{message_id:mid,user_id:uid,user_name:String(userName||uid),body:String(text??'').slice(0,10000),at:Date.now()});
  await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',
  [room,mid,uid,String(userName||uid),String(text??'').slice(0,10000)]);
  return true;
@@ -27,6 +56,7 @@ async function onDelete({roomId,messageId,userId,userName,botId,send,cached,fetc
   const found=await c.query("SELECT user_id,user_name,body FROM gl_manage_temp_messages WHERE room_id=$1 AND message_id=$2 AND created_at >= NOW()-INTERVAL '24 hours'",[room,mid]);
   let saved=found.rows[0] || (cached ? {user_id:cached.userId,user_name:cached.userName,body:cached.text}:null);
   if(saved && isDeletionFeed(saved.body))saved=null;
+  if(!saved)saved=await readRoom(room,mid);
   if(!saved && typeof fetchOriginal==='function'){
     try {
       const msg=await fetchOriginal(room,mid);
