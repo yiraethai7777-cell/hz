@@ -8,8 +8,8 @@ const queues=new Map();
 function writeRoom(room,line){
  const previous=queues.get(room)||Promise.resolve();
  const next=previous.catch(()=>{}).then(async()=>{
-  await fs.mkdir(ROOT,{recursive:true});
-  await fs.appendFile(fileFor(room),JSON.stringify(line)+'\n','utf8');
+  await fs.mkdir(ROOT,{recursive:true,mode:0o700});
+  await fs.appendFile(fileFor(room),JSON.stringify(line)+'\n',{encoding:'utf8',mode:0o600});
  });
  queues.set(room,next);
  next.finally(()=>{if(queues.get(room)===next)queues.delete(room);}).catch(()=>{});
@@ -54,9 +54,10 @@ async function onDelete({roomId,messageId,userId,userName,botId,send,cached,fetc
  try{
   await c.query('BEGIN');
   const found=await c.query("SELECT user_id,user_name,body FROM gl_manage_temp_messages WHERE room_id=$1 AND message_id=$2 AND created_at >= NOW()-INTERVAL '24 hours'",[room,mid]);
-  let saved=found.rows[0] || (cached ? {user_id:cached.userId,user_name:cached.userName,body:cached.text}:null);
+  let saved=found.rows[0] || (cached && !isDeletionFeed(cached.text) ? {user_id:cached.userId,user_name:cached.userName,body:cached.text}:null);
   if(saved && isDeletionFeed(saved.body))saved=null;
   if(!saved)saved=await readRoom(room,mid);
+  console.log('[DELETE WATCH LOOKUP]',JSON.stringify({room,log:mid,db:!!found.rows[0],cache:!!cached,found:!!saved,hasBody:!!saved?.body}));
   if(!saved && typeof fetchOriginal==='function'){
     try {
       const msg=await fetchOriginal(room,mid);
