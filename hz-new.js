@@ -32,6 +32,20 @@ function start() {
   ready.catch(err => console.error('[HZ NEW] 초기화 실패:', err));
 
   attachRouter(client, { game, management: manage, ready });
+  // Independent listener: persist every incoming message before it can be deleted.
+  // EventEmitter 'message' is emitted by KakaoForge regardless of onMessage handlers.
+  client.on('message', (...args) => {
+    const msg = args.length === 1 ? args[0] : args[1];
+    if (!msg?.room?.id) return;
+    const messageId = msg.message?.logId ?? msg.logId ?? msg.message?.id ?? msg.id;
+    const userId = msg.sender?.id ?? msg.senderId;
+    const text = String(msg.message?.text ?? msg.text ?? '');
+    void ready.then(() => manage.saveDeletedMessage({
+      roomId: msg.room.id, messageId, userId,
+      userName: msg.sender?.name, text, botId: client.userId
+    })).catch(error => console.error('[DELETE WATCH] message persistence failed', error));
+  });
+
 
   // Deleted-message events identify the original message author via event.member.
   // Never treat the deletion actor as the warned user.
