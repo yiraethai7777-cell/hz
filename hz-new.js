@@ -47,6 +47,7 @@ function start() {
     }
     if (event?.room?.isOpenChat === false) return;
     try {
+      console.log('[DELETE V2] callback entered', JSON.stringify({roomId:String(roomId),messageId:String(messageId)}));
       await ready;
       console.log('[DELETE V2] received', JSON.stringify({roomId:String(roomId),messageId:String(messageId),authorAvailable:!!userId}));
       const handled = await manage.deleted({
