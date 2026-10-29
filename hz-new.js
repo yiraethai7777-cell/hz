@@ -44,6 +44,7 @@ function start() {
     const userId = msg.sender?.id ?? msg.senderId;
     const text = String(msg.message?.text ?? msg.text ?? '');
     console.log('[DELETE DIAG RECEIVE]', JSON.stringify({room:String(msg.room.id),log:String(messageId),valid:/^[1-9]\d*$/.test(String(messageId)),hasText:!!text}));
+    if (!/^[1-9]\d*$/.test(String(messageId)) || !/^[1-9]\d*$/.test(String(userId)) || !text) return;
     recentMessages.set(keyFor(msg.room.id, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
     if(recentMessages.size>5000){for(const [key,item] of recentMessages){if(Date.now()-item.at>86400000)recentMessages.delete(key);}if(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);}
 
