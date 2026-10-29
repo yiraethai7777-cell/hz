@@ -49,14 +49,12 @@ function createGame(client) {
       if (/^[!#](?:준개|전체준개)/.test(text)) return;
       if (/^[!#](?:주식|내주식)/.test(text) || ['!코인','!레벨','!내정보','#코인','#레벨','#내정보'].includes(text)) return;
       
-      // 퀴즈 명령어는 기존 퀴즈 처리기로 바로 전달
-      if (text === '#퀴즈') {
-        if (legacyMessage) {
-          await legacyMessage(chat, msg);
-        }
+      // Route quiz commands directly to the legacy game handler. Other
+      // game features still pass through their existing permission checks.
+      if ((text === '#퀴즈' || /^#정답(?:\\s|$)/.test(text)) && legacyMessage) {
+        await legacyMessage(chat, msg);
         return;
       }
-
 
       if (text==='#정보') {if(await require('./info').handle(normalized,client))return;}
       if(await require('../promotion').handleCommand(normalized,client))return;
