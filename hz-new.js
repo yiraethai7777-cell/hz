@@ -1,6 +1,7 @@
 "use strict";
 
 const { createClient } = require('./dist');
+const {id,original,safeError}=require('./shared/delete-message');
 
 const { attachRouter } = require('./shared/router');
 
@@ -39,19 +40,17 @@ function start() {
   // EventEmitter 'message' is emitted by KakaoForge regardless of onMessage handlers.
   client.on('message', (...args) => {
     const msg = args.length === 1 ? args[0] : args[1];
-    if (!msg?.room?.id) return;
-    const messageId = msg.message?.logId ?? msg.logId ?? msg.message?.id ?? msg.id;
-    const userId = msg.sender?.id ?? msg.senderId;
-    const text = String(msg.message?.text ?? msg.text ?? '');
-    console.log('[DELETE DIAG RECEIVE]', JSON.stringify({room:String(msg.room.id),log:String(messageId),valid:/^[1-9]\d*$/.test(String(messageId)),hasText:!!text}));
-    if (!/^[1-9]\d*$/.test(String(messageId)) || !/^[1-9]\d*$/.test(String(userId)) || !text) return;
-    recentMessages.set(keyFor(msg.room.id, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
+    const record=original(msg);
+    const {roomId,messageId,userId,text}=record;
+    console.log('[DELETE DIAG RECEIVE]',JSON.stringify({...record.comparison,valid:!!(roomId&&messageId&&userId),hasText:typeof text==='string'&&!!text}));
+    if(!roomId||!messageId||!userId||typeof text!=='string'||!text||record.comparison.idLogMatch===false||record.comparison.idMatch===false||record.comparison.roomMatch===false)return;
+    recentMessages.set(keyFor(roomId, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
     if(recentMessages.size>5000){for(const [key,item] of recentMessages){if(Date.now()-item.at>86400000)recentMessages.delete(key);}if(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);}
 
     void ready.then(() => manage.saveDeletedMessage({
-      roomId: msg.room.id, messageId, userId,
+      roomId, messageId, userId,
       userName: msg.sender?.name, text, botId: client.userId
-    })).catch(error => console.error('[DELETE WATCH] message persistence failed', error));
+    })).catch(error => console.error('[DELETE WATCH] message persistence failed',safeError(error)));
   });
 
 
@@ -59,10 +58,10 @@ function start() {
   // Never treat the deletion actor as the warned user.
   client.onDelete(async (...args) => {
     const event = args.length === 1 ? args[0] : args[1];
-    const roomId = event?.room?.id ?? event?.chatId;
+    const roomId = id(event?.room?.id ?? event?.chatId);
     const userId = event?.member?.ids?.[0];
     const userName = event?.member?.names?.[0] || String(userId || '');
-    const messageId = event?.message?.logId ?? event?.logId;
+    const messageId = id(event?.message?.logId ?? event?.logId);
     if (!roomId || !messageId) {
       console.warn('[DELETE V2] missing room or message ID');
       return;
@@ -70,26 +69,26 @@ function start() {
     // Deletion pushes can lack reliable room-type metadata.
     // manage.deleted() independently requires this room to be explicitly enabled.
     if (event?.room?.isOpenChat === false) {
-      console.log('[DELETE V2] room metadata says non-open; checking configured room', String(roomId));
+      console.log('[DELETE V2] room metadata says non-open; checking configured room', 'configured room');
     }
     try {
-      console.log('[DELETE V2] callback entered', JSON.stringify({roomId:String(roomId),messageId:String(messageId)}));
+      console.log('[DELETE V2] callback entered', JSON.stringify({valid:true}));
       await ready;
-      console.log('[DELETE V2] received', JSON.stringify({roomId:String(roomId),messageId:String(messageId),authorAvailable:!!userId}));
+      console.log('[DELETE V2] received', JSON.stringify({valid:true,authorAvailable:!!userId}));
       const cached = recentMessages.get(keyFor(roomId,messageId));
-      console.log('[DELETE DIAG MATCH]', JSON.stringify({room:String(roomId),log:String(messageId),cacheHit:!!cached,roomCacheCount:[...recentMessages.keys()].filter(k=>k.startsWith(String(roomId)+':')).length}));
+      console.log('[DELETE DIAG MATCH]', JSON.stringify({cacheHit:!!cached,roomCacheCount:[...recentMessages.keys()].filter(k=>k.startsWith(String(roomId)+':')).length}));
       const handled = await manage.deleted({
         cached,
         fetchOriginal: (room, log) => client.fetchMessage(room, log),
         roomId, userId, userName, messageId, botId: client.userId,
         send: async body => {
-          console.log('[DELETE V2] sending unified alert', JSON.stringify({roomId:String(roomId),chars:body.length}));
+          console.log('[DELETE V2] sending unified alert', JSON.stringify({chars:body.length}));
           return client.chat.sendText(roomId, body);
         }
       });
-      console.log('[DELETE V2] result', JSON.stringify({roomId:String(roomId),handled:!!handled}));
+      console.log('[DELETE V2] result', JSON.stringify({handled:!!handled}));
     } catch (error) {
-      console.error('[DELETE V2] failed', error);
+      console.error('[DELETE V2] failed',safeError(error));
     }
   });
 

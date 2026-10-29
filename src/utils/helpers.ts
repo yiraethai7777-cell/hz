@@ -97,7 +97,7 @@ export function formatKstTimestamp(date = new Date()) {
 
 export function normalizeIdValue(value: any): number | string {
   if (value === undefined || value === null) return 0;
-  if (Long.isLong(value)) {
+  if (Long.isLong(value) || LosslessJSON.isLosslessNumber(value)) {
     const str = value.toString();
     const num = Number(str);
     if (Number.isSafeInteger(num) && num >= 0) return num;
@@ -111,7 +111,8 @@ export function normalizeIdValue(value: any): number | string {
   }
   if (typeof value === 'number') {
     if (Number.isSafeInteger(value) && value >= 0) return value;
-    return String(value);
+    // The original integer cannot be recovered from an unsafe Number.
+    return 0;
   }
   if (typeof value === 'string') {
     const trimmed = value.trim();

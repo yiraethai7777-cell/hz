@@ -1325,14 +1325,14 @@ export class KakaoForgeClient extends EventEmitter {
         return false;
       }
       console.log('[DELETE V2] event built', JSON.stringify({
-        roomId: String(event.chatId ?? event.room?.id ?? ''),
-        logId: String(event.logId ?? event.message?.logId ?? ''),
+        hasRoomId: !!(event.chatId ?? event.room?.id),
+        hasLogId: !!(event.logId ?? event.message?.logId),
         authorAvailable: !!event.member?.ids?.[0]
       }));
       this._emitDeleteEvent(event);
       return true;
     } catch (error) {
-      console.error('[DELETE V2] event build failed', error);
+      console.error('[DELETE V2] event build failed');
       return false;
     }
   }
@@ -1370,7 +1370,7 @@ export class KakaoForgeClient extends EventEmitter {
       }
     }
     const roomIdValue = normalizeIdValue(
-      body.chatId || body.c || body.roomId || body.chatRoomId || chatLog?.chatId || chatLog?.c || 0
+      body.chatId || body.c || body.roomId || body.chatRoomId || chatLog?.chatId || chatLog?.chatRoomId || chatLog?.c || 0
     ) || this._activeChatId || 0;
     if (!roomIdValue) return null;
 
@@ -1739,7 +1739,7 @@ export class KakaoForgeClient extends EventEmitter {
     );
     const text = chatLog.message || chatLog.msg || chatLog.text || '';
     const type = safeNumber(chatLog.type || chatLog.msgType || 1, 1);
-    const logIdValue = normalizeIdValue(chatLog.logId || chatLog.msgId || 0);
+    const logIdValue = normalizeIdValue(chatLog.logId ?? chatLog.id ?? chatLog.msgId ?? 0);
     const logIdNumeric = safeNumber(logIdValue, 0);
     this._recordLogAlias(roomIdValue, logIdValue);
     const attachmentsRaw = parseAttachments(

@@ -1,5 +1,6 @@
 'use strict';
 const {getPool}=require('../shared/db');
+const {id,original,safeError}=require('../shared/delete-message');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const ROOT=process.env.DELETE_LOG_DIR||path.join(process.cwd(),'message-logs');
@@ -28,7 +29,6 @@ async function readRoom(room,mid){
  }
  return null;
 }
-const id=v=>{const s=String(v??'');return /^[1-9]\d*$/.test(s)?s:null};
 async function active(db,room,requireDelete=true){
  const q=await db.query('SELECT enabled,deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
  return q.rows[0]?.enabled===true&&(!requireDelete||q.rows[0]?.deleted_enabled===true);
@@ -36,10 +36,22 @@ async function active(db,room,requireDelete=true){
 async function observe({roomId,messageId,userId,userName,text,botId}){
  const room=id(roomId),mid=id(messageId),uid=id(userId);
  if(!room||!mid||!uid||uid===id(botId)||!String(text??'').length||isDeletionFeed(text))return false;
- const db=getPool();if(!await active(db,room,false))return false;
- await writeRoom(room,{message_id:mid,user_id:uid,user_name:String(userName||uid),body:String(text??'').slice(0,10000),at:Date.now()});
- await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',
- [room,mid,uid,String(userName||uid),String(text??'').slice(0,10000)]);
+ let stage='active';
+ try{
+  const db=getPool();
+  if(!await active(db,room,false)){
+   console.log('[DELETE WATCH STORE]',JSON.stringify({status:'skipped',reason:'room_disabled'}));return false;
+  }
+  // A local disk failure must not prevent durable PostgreSQL persistence.
+  try{await writeRoom(room,{message_id:mid,user_id:uid,user_name:String(userName||uid),body:String(text).slice(0,10000),at:Date.now()});}
+  catch(error){console.warn('[DELETE WATCH FILE]',JSON.stringify({status:'failed',code:safeError(error)}));}
+  stage='insert';
+  const result=await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',
+   [room,mid,uid,String(userName||uid),String(text).slice(0,10000)]);
+  console.log('[DELETE WATCH STORE]',JSON.stringify({status:result.rowCount?'inserted':'duplicate'}));
+ }catch(error){
+  console.error('[DELETE WATCH STORE]',JSON.stringify({status:'failed',stage,code:safeError(error)}));throw error;
+ }
  return true;
 }
 function isDeletionFeed(body){
@@ -57,18 +69,18 @@ async function onDelete({roomId,messageId,userId,userName,botId,send,cached,fetc
   let saved=found.rows[0] || (cached && !isDeletionFeed(cached.text) ? {user_id:cached.userId,user_name:cached.userName,body:cached.text}:null);
   if(saved && isDeletionFeed(saved.body))saved=null;
   if(!saved)saved=await readRoom(room,mid);
-  console.log('[DELETE WATCH LOOKUP]',JSON.stringify({room,log:mid,db:!!found.rows[0],cache:!!cached,found:!!saved,hasBody:!!saved?.body}));
+  console.log('[DELETE WATCH LOOKUP]',JSON.stringify({db:!!found.rows[0],cache:!!cached,found:!!saved,hasBody:!!saved?.body}));
   if(!saved && typeof fetchOriginal==='function'){
     try {
       const msg=await fetchOriginal(room,mid);
-      const author=id(msg?.sender?.id??msg?.senderId);
-      const body=msg?.message?.text??msg?.text;
-      if(author && typeof body==='string' && !isDeletionFeed(body))saved={user_id:author,user_name:msg?.sender?.name||author,body};
+      const record=original(msg);
+      const author=record.userId,body=record.text;
+      if(record.roomId===room && record.messageId===mid && record.comparison.idLogMatch!==false && record.comparison.idMatch!==false && record.comparison.roomMatch!==false && author && typeof body==='string' && !isDeletionFeed(body))saved={user_id:author,user_name:record.userName||author,body};
     } catch(error) {
-      console.warn('[DELETE WATCH] fetchMessage unavailable',error?.message||String(error));
+      console.warn('[DELETE WATCH] fetchMessage unavailable',safeError(error));
     }
   }
-  console.log('[DELETE WATCH] lookup',JSON.stringify({room,mid,foundOriginal:!!saved?.body}));
+  console.log('[DELETE WATCH] lookup',JSON.stringify({foundOriginal:!!saved?.body}));
   const uid=id(saved?.user_id)||id(userId);
   if(!uid||uid===id(botId)){await c.query('ROLLBACK');return false;}
   const name=String(saved?.user_name||userName||uid);
