@@ -7,11 +7,10 @@ async function active(db,room){
 }
 async function observe({roomId,messageId,userId,userName,text,botId}){
  const room=id(roomId),mid=id(messageId),uid=id(userId);
- if(!room||!mid||!uid||uid===id(botId)){console.log('[DELETE CACHE] skipped',JSON.stringify({validRoom:!!room,validLogId:!!mid,validUser:!!uid,isBot:!!uid&&uid===id(botId)}));return false;}
- const db=getPool();if(!await active(db,room)){console.log('[DELETE CACHE] disabled',JSON.stringify({room}));return false;}
+ if(!room||!mid||!uid||uid===id(botId))return false;
+ const db=getPool();if(!await active(db,room))return false;
  await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',
  [room,mid,uid,String(userName||uid),String(text??'').slice(0,10000)]);
- console.log('[DELETE CACHE] saved',JSON.stringify({room,mid,uid,chars:String(text??'').length}));
  return true;
 }
 async function onDelete({roomId,messageId,userId,userName,botId,send}){
@@ -22,7 +21,6 @@ async function onDelete({roomId,messageId,userId,userName,botId,send}){
   await c.query('BEGIN');
   const found=await c.query("SELECT user_id,user_name,body FROM gl_manage_temp_messages WHERE room_id=$1 AND message_id=$2 AND created_at >= NOW()-INTERVAL '24 hours'",[room,mid]);
   const saved=found.rows[0];
-  console.log('[DELETE CACHE] lookup',JSON.stringify({room,mid,found:!!saved,chars:saved?.body?.length??0}));
   const uid=id(saved?.user_id)||id(userId);
   if(!uid||uid===id(botId)){await c.query('ROLLBACK');return false;}
   const name=String(saved?.user_name||userName||uid);
