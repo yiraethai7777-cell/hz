@@ -77,6 +77,7 @@ function start() {
       const cached = recentMessages.get(keyFor(roomId,messageId));
       const handled = await manage.deleted({
         cached,
+        fetchOriginal: (room, log) => client.fetchMessage(room, log),
         roomId, userId, userName, messageId, botId: client.userId,
         send: async body => {
           console.log('[DELETE V2] sending unified alert', JSON.stringify({roomId:String(roomId),chars:body.length}));
