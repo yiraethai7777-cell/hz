@@ -35,7 +35,7 @@ async function active(db,room,requireDelete=true){
 }
 async function observe({roomId,messageId,userId,userName,text,botId}){
  const room=id(roomId),mid=id(messageId),uid=id(userId);
- if(!room||!mid||!uid||uid===id(botId)||isDeletionFeed(text))return false;
+ if(!room||!mid||!uid||uid===id(botId)||!String(text??'').length||isDeletionFeed(text))return false;
  const db=getPool();if(!await active(db,room,false))return false;
  await writeRoom(room,{message_id:mid,user_id:uid,user_name:String(userName||uid),body:String(text??'').slice(0,10000),at:Date.now()});
  await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',
@@ -68,15 +68,16 @@ async function onDelete({roomId,messageId,userId,userName,botId,send,cached,fetc
       console.warn('[DELETE WATCH] fetchMessage unavailable',error?.message||String(error));
     }
   }
+  console.log('[DELETE WATCH] lookup',JSON.stringify({room,mid,foundOriginal:!!saved?.body}));
   const uid=id(saved?.user_id)||id(userId);
   if(!uid||uid===id(botId)){await c.query('ROLLBACK');return false;}
   const name=String(saved?.user_name||userName||uid);
   const once=await c.query('INSERT INTO gl_manage_deleted_processed(room_id,message_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING message_id',[room,mid]);
   if(!once.rowCount){await c.query('ROLLBACK');return false;}
-  await c.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',[room,uid,name,'메시지 삭제',id(botId)||'0']);
+  if(saved?.body)await c.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',[room,uid,name,'메시지 삭제',id(botId)||'0']);
   const q=await c.query('SELECT count(*)::int AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',[room,uid]);
   await c.query('COMMIT');
-  alert=`🗑️ ${name}님이 메시지를 삭제했습니다.\n💬 삭제된 내용: ${saved?.body??'확인 불가'}\n⚠️ 경고 1회 지급 (누적 ${q.rows[0].n}회)`;
+  alert=`🗑️ ${name}님이 메시지를 삭제했습니다.\n💬 삭제된 내용: ${saved?.body??'확인 불가'}\n${saved?.body ? `⚠️ 경고 1회 지급 (누적 ${q.rows[0].n}회)` : '⚠️ 원문 미확인으로 경고 미지급'}`;
  }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
  await send(alert);return true;
 }
