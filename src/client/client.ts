@@ -959,7 +959,7 @@ export class KakaoForgeClient extends EventEmitter {
       return;
     }
 
-    if (packet.method === 'MSG') {
+    if (packet.method === 'MSG' || packet.method === 'SYNCM') {
       const { chatId, chatLog } = packet.body || {};
       if (chatLog) {
         this._emitMessage({ ...packet.body, chatId, chatLog });
