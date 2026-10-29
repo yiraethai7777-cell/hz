@@ -11,7 +11,7 @@ const { createGame } = require('./game');
 
 
 function start() {
-  console.log('[DELETE V2] unified deletion handler loaded');
+  console.log('[DELETE WATCH] rebuilt deletion watcher loaded');
 
   const client = createClient({
 
