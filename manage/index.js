@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS gl_manage_rooms(room_id TEXT PRIMARY KEY,enabled BOOL
 CREATE TABLE IF NOT EXISTS gl_manage_admins(room_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS gl_manage_warnings(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,reason TEXT NOT NULL,issuer_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),removed BOOLEAN NOT NULL DEFAULT FALSE);
 CREATE INDEX IF NOT EXISTS gl_warning_lookup ON gl_manage_warnings(room_id,user_id,removed);
+CREATE TABLE IF NOT EXISTS gl_manage_deleted_processed(room_id TEXT NOT NULL,message_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));
 CREATE TABLE IF NOT EXISTS gl_manage_bans(room_id TEXT NOT NULL,user_id TEXT NOT NULL,added_by TEXT NOT NULL,added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS gl_manage_members(room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,joins INTEGER NOT NULL DEFAULT 0,leaves INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(room_id,user_id));
 CREATE TABLE IF NOT EXISTS gl_manage_chat_counts(room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,count BIGINT NOT NULL DEFAULT 0,PRIMARY KEY(room_id,user_id));
@@ -323,11 +324,27 @@ async function leave({roomId,userId,userName,send}){
   }));
 }
 
-async function deleted({roomId,userId,userName,send}){
- if(!await enabled(key(roomId)))return;
-  const setting=await getPool().query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[key(roomId)]);
-  if(setting.rows[0]?.deleted_enabled!==true)return;
- await send(userName||userId?`🗑️ ${userName||userId}님이 메시지를 삭제했습니다.`:'🗑️ 누군가 메시지를 삭제했습니다.');
+async function deleted({roomId,userId,userName,messageId,botId,send}){
+ const room=key(roomId),user=String(userId??''),logId=String(messageId??'');
+ if(!await enabled(room))return false;
+ if(!/^[1-9]\\d*$/.test(user)||!/^[1-9]\\d*$/.test(logId))return false;
+ if(user===String(botId))return false;
+ const db=getPool();
+ const setting=await db.query('SELECT deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
+ if(setting.rows[0]?.deleted_enabled!==true)return false;
+ const c=await db.connect();
+ let count;
+ try{
+  await c.query('BEGIN');
+  const once=await c.query('INSERT INTO gl_manage_deleted_processed(room_id,message_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING message_id',[room,logId]);
+  if(!once.rowCount){await c.query('ROLLBACK');return false;}
+  await c.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',[room,user,String(userName||user),'메시지 삭제',String(botId||'0')]);
+  const result=await c.query('SELECT count(*)::int AS n FROM gl_manage_warnings WHERE room_id=$1 AND user_id=$2 AND NOT removed',[room,user]);
+  count=result.rows[0].n;
+  await c.query('COMMIT');
+ }catch(error){await c.query('ROLLBACK');throw error}finally{c.release()}
+ await send(`🗑️ ${userName||user}님이 메시지를 삭제했습니다.\\n⚠️ 경고 1회 지급 (누적 ${count}회)`);
+ return true;
 }
 async function cleanup(){await getPool().query("DELETE FROM gl_manage_temp_messages WHERE created_at < NOW()-INTERVAL '12 hours'")}
 module.exports={init,enabled,message,join,leave,deleted,cleanup};
