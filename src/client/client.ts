@@ -936,6 +936,19 @@ export class KakaoForgeClient extends EventEmitter {
       }
     }
 
+    // Kakao may deliver message deletion through a sync envelope rather than
+    // a dedicated DELETEMSG push. Log metadata only (never message contents).
+    if (['SYNCACTION', 'SYNCDLMSG', 'DELETEMSG', 'DELMSG', 'DELM', 'DELMESSAGE', 'MSGDEL'].includes(String(packet?.method || '').toUpperCase())) {
+      const b = packet?.body || {};
+      console.log('[DELETE PUSH TRACE]', JSON.stringify({
+        method: String(packet.method),
+        bodyKeys: Object.keys(b).slice(0, 25),
+        action: String(b.action ?? b.actionType ?? b.type ?? b.cmd ?? ''),
+        syncType: String(b.syncType ?? b.eventType ?? ''),
+        hasChatLog: !!(b.chatLog || b.chatlog),
+        hasLogId: !!(b.logId || b.messageId)
+      }));
+    }
     const deleteHandled = await this._emitDeleteEventFromPush(packet);
     if (deleteHandled) {
       return;
