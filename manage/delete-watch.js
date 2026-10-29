@@ -13,14 +13,14 @@ async function observe({roomId,messageId,userId,userName,text,botId}){
  [room,mid,uid,String(userName||uid),String(text??'').slice(0,10000)]);
  return true;
 }
-async function onDelete({roomId,messageId,userId,userName,botId,send}){
+async function onDelete({roomId,messageId,userId,userName,botId,send,cached}){
  const room=id(roomId),mid=id(messageId);if(!room||!mid)return false;
  const db=getPool();if(!await active(db,room))return false;
  const c=await db.connect();let alert=null;
  try{
   await c.query('BEGIN');
   const found=await c.query("SELECT user_id,user_name,body FROM gl_manage_temp_messages WHERE room_id=$1 AND message_id=$2 AND created_at >= NOW()-INTERVAL '24 hours'",[room,mid]);
-  const saved=found.rows[0];
+  const saved=found.rows[0] || (cached ? {user_id:cached.userId,user_name:cached.userName,body:cached.text}:null);
   const uid=id(saved?.user_id)||id(userId);
   if(!uid||uid===id(botId)){await c.query('ROLLBACK');return false;}
   const name=String(saved?.user_name||userName||uid);
