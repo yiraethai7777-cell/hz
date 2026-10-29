@@ -29,14 +29,14 @@ async function readRoom(room,mid){
  return null;
 }
 const id=v=>{const s=String(v??'');return /^[1-9]\d*$/.test(s)?s:null};
-async function active(db,room){
+async function active(db,room,requireDelete=true){
  const q=await db.query('SELECT enabled,deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
- return q.rows[0]?.enabled===true&&q.rows[0]?.deleted_enabled===true;
+ return q.rows[0]?.enabled===true&&(!requireDelete||q.rows[0]?.deleted_enabled===true);
 }
 async function observe({roomId,messageId,userId,userName,text,botId}){
  const room=id(roomId),mid=id(messageId),uid=id(userId);
  if(!room||!mid||!uid||uid===id(botId)||isDeletionFeed(text))return false;
- const db=getPool();if(!await active(db,room))return false;
+ const db=getPool();if(!await active(db,room,false))return false;
  await writeRoom(room,{message_id:mid,user_id:uid,user_name:String(userName||uid),body:String(text??'').slice(0,10000),at:Date.now()});
  await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',
  [room,mid,uid,String(userName||uid),String(text??'').slice(0,10000)]);
