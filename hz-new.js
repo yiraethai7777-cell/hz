@@ -45,7 +45,11 @@ function start() {
       console.warn('[DELETE V2] missing room or message ID');
       return;
     }
-    if (event?.room?.isOpenChat === false) return;
+    // Deletion pushes can lack reliable room-type metadata.
+    // manage.deleted() independently requires this room to be explicitly enabled.
+    if (event?.room?.isOpenChat === false) {
+      console.log('[DELETE V2] room metadata says non-open; checking configured room', String(roomId));
+    }
     try {
       console.log('[DELETE V2] callback entered', JSON.stringify({roomId:String(roomId),messageId:String(messageId)}));
       await ready;
