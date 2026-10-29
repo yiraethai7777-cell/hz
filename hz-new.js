@@ -43,6 +43,7 @@ function start() {
     const messageId = msg.message?.logId ?? msg.logId ?? msg.message?.id ?? msg.id;
     const userId = msg.sender?.id ?? msg.senderId;
     const text = String(msg.message?.text ?? msg.text ?? '');
+    console.log('[DELETE DIAG RECEIVE]', JSON.stringify({room:String(msg.room.id),log:String(messageId),valid:/^[1-9]\d*$/.test(String(messageId)),hasText:!!text}));
     recentMessages.set(keyFor(msg.room.id, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
     if(recentMessages.size>5000){for(const [key,item] of recentMessages){if(Date.now()-item.at>86400000)recentMessages.delete(key);}if(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);}
 
@@ -75,6 +76,7 @@ function start() {
       await ready;
       console.log('[DELETE V2] received', JSON.stringify({roomId:String(roomId),messageId:String(messageId),authorAvailable:!!userId}));
       const cached = recentMessages.get(keyFor(roomId,messageId));
+      console.log('[DELETE DIAG MATCH]', JSON.stringify({room:String(roomId),log:String(messageId),cacheHit:!!cached,roomCacheCount:[...recentMessages.keys()].filter(k=>k.startsWith(String(roomId)+':')).length}));
       const handled = await manage.deleted({
         cached,
         fetchOriginal: (room, log) => client.fetchMessage(room, log),
