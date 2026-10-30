@@ -22,8 +22,8 @@ function player(d,uid,name){
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
 function nextQuiz(d){
- if(d.quizBankVersion!=='difficulty-mix-v1'){
-  d.quizQueues={};d.quizDifficultyQueue=[];d.quizBankVersion='difficulty-mix-v1';
+ if(d.quizBankVersion!=='subject-mix-20-v2'){
+  d.quizQueues={};d.quizDifficultyQueue=[];d.quizBankVersion='subject-mix-20-v2';
  }
  return require('./quiz-difficulty').next(d,ctx.QUIZZES,ctx.shuffle);
 }
