@@ -2,20 +2,6 @@
 // Persistent state is supplied explicitly; this module registers no client listener.
 module.exports = function createFeatures(ctx) {
 const quizAnswerCache=new Map();
-async function sendPersonalReply(chat,rid,output,msg){
- if(!output)return;
- const replyChat=typeof chat?.sendReply==='function'?chat:typeof ctx.globalChat?.sendReply==='function'?ctx.globalChat:null;
- const target={logId:msg?.logId??msg?.message?.logId??msg?.raw?.logId,
-  userId:msg?.sender?.id??msg?.senderId,
-  type:msg?.type??msg?.message?.type??1,
-  message:msg?.message?.text??msg?.text??''};
- if(replyChat&&target.logId&&target.userId){
-  try{return await replyChat.sendReply(rid,output,target)}
-  catch(e){console.error('[PERSONAL REPLY ERROR]',e.message)}
- }
- console.warn('[PERSONAL REPLY TARGET MISSING]',{hasMethod:!!replyChat,hasLogId:!!target.logId,hasUserId:!!target.userId});
- return ctx.send(chat,rid,output);
-}
 const fastQuizRooms=new Map();
 const fastQuizJobs=new Map();
 function queueQuizSave(rid,job){
@@ -113,11 +99,7 @@ async function attachHZBot(client){
           if(!d.game||d.locked)return null;
           return ctx.handleGame(d,c,msg,isSelf);
         });
-        if(out){
-          const personal=/^#(?:채팅정보|낚시정보|퀴즈정보|인벤|펫인벤|농장정보)(?:\s|$)/.test(text);
-          if(personal)await sendPersonalReply(chat,rid,out,msg);
-          else await ctx.send(chat,rid,out);
-        };
+        if(out)await ctx.send(chat,rid,out);;
       }
 
       // Plain-text quiz answers are latency-sensitive. Check them before
@@ -163,7 +145,7 @@ async function attachHZBot(client){
           await ctx.send(chat,rid,"⛔ 방장·부방장만 사용할 수 있습니다.");
           return;
         }
-        await sendPersonalReply(chat,rid,`[ MY ID ]\n닉네임: ${name}\n사용자 ID: ${uid}`,msg);
+        await ctx.send(chat,rid,`[ MY ID ]\n닉네임: ${name}\n사용자 ID: ${uid}`);
         return;
       }
       if(flags.manage&&!flags.locked&&!isSelf&&exactSender){
@@ -363,11 +345,7 @@ async function attachHZBot(client){
         if(flags.game)r=await ctx.handleGame(d,c,msg,isSelf);
         return r
       });
-      if(out){
-        const personal=/^#(?:채팅정보|낚시정보|퀴즈정보|인벤|펫인벤|농장정보)(?:\s|$)/.test(text);
-        if(personal)await sendPersonalReply(chat,rid,out,msg);
-        else await ctx.send(chat,rid,out);
-      }
+      if(out)await ctx.send(chat,rid,out);
     }catch(e){console.error("[GAME]",e)}
   });
 
