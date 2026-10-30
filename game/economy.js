@@ -18,19 +18,24 @@ async function link(db,room,user,p){
      ON CONFLICT(room_id,user_id) DO UPDATE SET
        user_name=CASE WHEN EXCLUDED.user_name IN ('멘션 사용자','알 수 없음','')
          THEN hz_wallets.user_name ELSE EXCLUDED.user_name END
-     RETURNING room_id,user_id
+     RETURNING room_id,user_id,balance
    )
-   INSERT INTO gl_economy_links(room_id,user_id,legacy_amount)
-   SELECT room_id,user_id,$3 FROM wallet
-   ON CONFLICT DO NOTHING RETURNING user_id
+   , linked AS (
+     INSERT INTO gl_economy_links(room_id,user_id,legacy_amount)
+     SELECT room_id,user_id,$3 FROM wallet
+     ON CONFLICT DO NOTHING RETURNING user_id
+   )
+   SELECT wallet.balance, EXISTS(SELECT 1 FROM linked) AS newly_linked FROM wallet
  `,[room,user,legacy,p.name||user]);
- if(added.rowCount&&legacy){
+ if(added.rows[0].newly_linked&&legacy){
   const result=await db.query('UPDATE hz_wallets SET balance=balance+$3 WHERE room_id=$1 AND user_id=$2 AND balance<=$4::bigint-$3::bigint RETURNING balance',[room,user,legacy,LIMIT]);
   if(!result.rowCount)throw Error('코인 합산 한도를 초과했습니다.');
   await db.query("INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,'LEGACY_GAME_MERGE',$3,'기존 게임 코인과 지갑 코인 연결: 1회만 합산')",[room,user,legacy]);
  }
- const balance=await db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user]);
- p.points=safe(balance.rows[0].balance);
+ if(added.rows[0].newly_linked&&legacy){
+  const balance=await db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user]);
+  p.points=safe(balance.rows[0].balance);
+ }else p.points=safe(added.rows[0].balance);
  return p.points;
 }
 async function withPlayer({db,room,user,p,msg,botId,run}){
