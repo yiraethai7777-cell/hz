@@ -108,10 +108,10 @@ async function attachHZBot(client){
           return ctx.handleGame(d,c,msg,isSelf);
         });
         if(out){
-        const personal=/^#(?:채팅정보|낚시정보|퀴즈정보|인벤|펫인벤|농장정보|내정보|내아이디)(?:\\s|$)/.test(text);
-        if(personal)await sendPersonalReply(chat,rid,out,msg);
-        else await ctx.send(chat,rid,out);
-      };
+          const personal=/^#(?:채팅정보|낚시정보|퀴즈정보|인벤|펫인벤|농장정보)(?:\s|$)/.test(text);
+          if(personal)await sendPersonalReply(chat,rid,out,msg);
+          else await ctx.send(chat,rid,out);
+        };
       }
 
       // Plain-text quiz answers are latency-sensitive. Check them before
@@ -357,7 +357,11 @@ async function attachHZBot(client){
         if(flags.game)r=await ctx.handleGame(d,c,msg,isSelf);
         return r
       });
-      if(out)await ctx.send(chat,rid,out)
+      if(out){
+        const personal=/^#(?:채팅정보|낚시정보|퀴즈정보|인벤|펫인벤|농장정보)(?:\s|$)/.test(text);
+        if(personal)await sendPersonalReply(chat,rid,out,msg);
+        else await ctx.send(chat,rid,out);
+      }
     }catch(e){console.error("[GAME]",e)}
   });
 
