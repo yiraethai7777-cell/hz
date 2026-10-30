@@ -7,9 +7,9 @@ async function handle(ctx,enabled){
   if(!enabled)return true;
   if(rounds.has(id)){await ctx.send('이미 진행 중인 게임입니다.');return true;}
   const phrase=phrases[Math.floor(Math.random()*phrases.length)];
-  const shown=Array.from(phrase).map((ch,i)=>ch!==' '&&i%3===1?ch+'\u200b':ch).join('');
+  const shown=Array.from(phrase).map(ch=>ch===' '?'　':ch).join('·');
   const round={phrase,start:0,timer:null};rounds.set(id,round);
-  try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초\n보이는 문장을 직접 입력하세요.');}
+  try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초\n가운데 · 기호를 빼고 띄어쓰기는 일반 공백으로 입력하세요.\n복사한 출제 문장은 정답으로 인정되지 않습니다.');}
   catch(e){rounds.delete(id);throw e;}
   round.start=process.hrtime.bigint();
   round.timer=setTimeout(()=>{if(rounds.get(id)!==round)return;rounds.delete(id);Promise.resolve(ctx.send('[ 타자 게임 종료 ]\n정답: '+phrase)).catch(console.error);},30000);
