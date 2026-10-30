@@ -3,6 +3,7 @@
 module.exports = function createFeatures(ctx) {
 const quizAnswerCache=new Map();
 const fastQuizRooms=new Map();
+const claimedQuizRounds=new Map();
 const fastQuizJobs=new Map();
 function queueQuizSave(rid,job){
  const previous=fastQuizJobs.get(rid)||Promise.resolve();
@@ -79,6 +80,9 @@ async function attachHZBot(client){
         fastRoom.quiz.answers?.some(a=>require('../game/quiz').answerMatches(a,attempt));
       if(fastCorrect){
         const wonQuiz=fastRoom.quiz;
+        const claimed=claimedQuizRounds.get(rid);
+        if(claimed===wonQuiz.expiresAt)return;
+        claimedQuizRounds.set(rid,wonQuiz.expiresAt);
         fastRoom.quiz=null;
         fastRoom.quizCooldownUntil=Date.now()+ctx.QUIZ_COOLDOWN_SECONDS*1000;
         await ctx.send(chat,rid,fastQuizResult(wonQuiz,uid,name));
@@ -107,6 +111,7 @@ async function attachHZBot(client){
       // serializes winners and persists rewards atomically.
       let quickFlags = null;
       if (!priorityGame && !isSelf && text && !text.startsWith('#') && !text.startsWith('!') && text.length <= 120) {
+        if(!fastRoom?.quiz && claimedQuizRounds.has(rid))return;
         const cached=quizAnswerCache.get(rid);
         const cachedMatch=cached&&cached.expiresAt>Date.now()&&require('../game/quiz').plainAnswer(cached.quiz,text);
         if(!cachedMatch)quickFlags = await ctx.roomFlags(rid);
