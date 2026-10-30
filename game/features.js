@@ -115,6 +115,52 @@ async function quizExpiryTick(){
  }finally{quizExpiryBusy=false;}
 }
 
+function issueQuizOnly(d){
+ const now=Date.now();
+ const ctxQuiz=ctx;
+   if(text==="#퀴즈"){
+     if(d.quiz&&d.quiz.expiresAt<=now){
+       d.quizCooldownUntil=Math.max(
+         Number(d.quizCooldownUntil)||0,
+         d.quiz.expiresAt+ctx.QUIZ_COOLDOWN_SECONDS*1000
+       );
+       d.quiz=null;
+     }
+
+     if(d.quiz&&d.quiz.expiresAt>now){
+       return `[ # ] QUIZ\n\n`+
+         `Q. ${d.quiz.question}\n`+
+         `${'\u200b'.repeat(1200)}`+
+         `\n[ ${d.quiz.difficulty||'혼합'} · ${d.quiz.kind} ]\n`+
+         `\n━━━━━━━━━━━━━━━━━━━━\n`+
+         `[ QUIZ STATUS ]\n`+
+         `이미 진행 중인 문제입니다.\n`+
+         `남은 시간 | ${Math.ceil((d.quiz.expiresAt-now)/1000)}초`;
+     }
+
+     const remain=Math.ceil(
+       ((Number(d.quizCooldownUntil)||0)-now)/1000
+     );
+
+     if(remain>0)
+       return `[ ! ] 다음 퀴즈까지 ${remain}초 남았습니다.`;
+
+     const {q,difficulty}=ctx.nextQuiz(d);
+
+     d.quiz={
+       kind:q[0],
+       difficulty,
+       question:q[1],
+       answers:q[2],
+       expiresAt:now+ctx.QUIZ_SECONDS*1000
+     };
+
+     return `🧩 퀴즈\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
+   }
+
+
+}
+
 async function handleGame(d,c,msg,isSelf){
  const text=String(msg.message?.text??msg.text??'').trim();
  const userId=ctx.id(msg.sender?.id??msg.senderId);
@@ -125,7 +171,7 @@ async function handleGame(d,c,msg,isSelf){
  if(new Set(['#퀴즈정보','#퀴즈순위','#낚시정보','#인벤','#물고기도감','#보호권','#펫인벤','#펫도감','#펫기능','#상점']).has(command))
    return handleGameCore(d,c,msg,isSelf);
  // Starting or viewing a quiz does not modify the wallet.
- if(command==='#퀴즈')return handleGameCore(d,c,msg,isSelf);
+ if(command==='#퀴즈')return d.quizEnabled?issueQuizOnly(d):'[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
  if(!ctx.economyEnabled)return handleGameCore(d,c,msg,isSelf);
  const user=ctx.id(msg.sender?.id??msg.senderId),p=ctx.player(d,user,msg.sender?.name||user);
  return require('./economy').withPlayer({db:c,room:ctx.id(msg.room.id),user,p,msg,botId:ctx.globalBotId,run:()=>handleGameCore(d,c,msg,isSelf)});
