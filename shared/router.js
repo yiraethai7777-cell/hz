@@ -14,6 +14,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Reply "삭제" to a bot-authored message: true DELETEMSG, never BLIND.
+      const replyDelete=require('./reply-delete');
+      replyDelete.observe(msg,client.userId);
+      if((text==='삭제'||text==='!삭제')&&!isBotAccount){
+        await ready;
+        if(await replyDelete.handle({client,chat,msg,roomId,senderId,text,isBotAccount}))return;
+      }
       // Intermediary alert commands and passive monitoring. Detection never replies in the watched room.
       const junggae = require('./junggae-notify');
       if (/^!준개감지(?:on|off|상태)$/.test(text)||text==='!봇방등록'||/^!(?:준개방(?:등록|삭제|목록)|준개알람(?:받기|끄기)|준개(?:맞음|아님|학습검색))(?:\s|$)/.test(text)) {
