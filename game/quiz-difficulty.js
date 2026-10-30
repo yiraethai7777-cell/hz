@@ -27,18 +27,20 @@ function pools(quizzes){
 }
 function next(d,quizzes,shuffle){
  const available=pools(quizzes);
- if(!d.quizDifficultyQueue?.length){
-  // Three approachable questions for every two challenge questions,
-  // in a shuffled order so difficulty does not follow a fixed pattern.
+ // Independently balance subject (20% math, 80% general knowledge)
+ // and difficulty (60% easy, 40% challenge) over each 10-question cycle.
+ if(!Array.isArray(d.quizSubjectQueue)||!d.quizSubjectQueue.length)
+  d.quizSubjectQueue=shuffle(['수학','수학','일반상식','일반상식','일반상식','일반상식','일반상식','일반상식','일반상식','일반상식']);
+ if(!Array.isArray(d.quizDifficultyQueue)||!d.quizDifficultyQueue.length)
   d.quizDifficultyQueue=shuffle(['쉬움','쉬움','쉬움','도전','도전']);
- }
+ const subject=d.quizSubjectQueue.shift();
  const tier=d.quizDifficultyQueue.shift();
  if(!d.quizQueues||typeof d.quizQueues!=='object')d.quizQueues={};
- const choices=available[tier].length?available[tier]:available[tier==='쉬움'?'도전':'쉬움'];
- const key='difficulty:'+tier;
+ const matching=available[tier].filter(i=>String(quizzes[i]?.[0])===subject);
+ const choices=matching.length?matching:available[tier];
+ const key='subject-v2:'+subject+':'+tier;
  if(!Array.isArray(d.quizQueues[key])||!d.quizQueues[key].length)
   d.quizQueues[key]=shuffle(choices.slice());
- // Avoid immediately repeating the previous question when refilling the pool.
  if(d.quizQueues[key].length>1&&d.quizQueues[key][0]===d.lastQuiz){
   const first=d.quizQueues[key].shift();d.quizQueues[key].push(first);
  }
