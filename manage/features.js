@@ -389,16 +389,16 @@ async function handleManageStats(d,c,msg){
   const uid=ctx.senderExactId(msg),name=String(msg.sender?.name||uid);
   if(text==="#채팅순위"){
     const a=await ctx.chatRanking(msg.room.id);
-    return "💬 채팅 순위 TOP 10\n\n"+(a.length?a.map((x,i)=>`${i+1}위 ${x.name||x.user_id} · ${ctx.n(x.chat_count)}회`).join("\n"):"아직 채팅 기록이 없습니다.");
+    return "[ CHAT RANKING ] TOP 10\n\n"+(a.length?a.map((x,i)=>`${i+1}위 ${x.name||x.user_id} · ${ctx.n(x.chat_count)}회`).join("\n"):"아직 채팅 기록이 없습니다.");
   }
   if(text==="#채팅정보"){
     const s=await ctx.chatInfo(msg.room.id,uid);
-    return `💬 ${name}님의 채팅 정보\n\n🏆 채팅 순위: ${s.rank?s.rank+"위":"기록 없음"}\n💬 총 채팅: ${ctx.n(s.count)}회\n📅 활동 일수: ${ctx.n(s.days)}일\n📊 일평균: ${s.avg.toFixed(1)}회`;
+    return `[ CHAT INFO ] ${name}님\n\n순위 │ ${s.rank?s.rank+"위":"기록 없음"}\n총 채팅 │ ${ctx.n(s.count)}회\n활동 일수 │ ${ctx.n(s.days)}일\n일평균 │ ${s.avg.toFixed(1)}회`;
   }
   if(text==="#출석" || text==="#출석순위" || /^#출석확인(?:\s|$)/.test(text)){
      if(/^#출석확인(?:\s|$)/.test(text) &&
        !ctx.isManagerType(msg.sender?.type) && ctx.senderExactId(msg)!==ctx.globalBotId)
-       return "⛔ 방장·부방장 또는 봇 계정만 사용할 수 있습니다.";
+       return "[ X ] 방장·부방장 또는 봇 계정만 사용할 수 있습니다.";
     const today=ctx.dayK();
     // Import legacy JSON attendance once, preserving original order and check-in time.
     const legacy=Array.isArray(d.attendance?.[today])?d.attendance[today]:[];
@@ -438,7 +438,7 @@ async function handleManageStats(d,c,msg){
         `SELECT user_id,ROW_NUMBER() OVER(ORDER BY checked_at,user_id) AS place
          FROM hz_attendance WHERE room_id=$1 AND day_key=$2`,[roomId,today]);
       const place=ranking.rows.find(x=>x.user_id===uid)?.place;
-      return `✅ ${name}님 출석 완료!\n오늘 ${place}번째입니다.`;
+      return `✓ ${name}님 출석 완료!\n오늘 ${place}번째입니다.`;
     }
     if(text==="#출석순위"){
       const q=await c.query(
@@ -446,7 +446,7 @@ async function handleManageStats(d,c,msg){
          WHERE room_id=$1 AND day_key=$2 ORDER BY checked_at,user_id LIMIT 10`,
         [roomId,today]
       );
-      return "📅 오늘의 출석 순위\n"+(q.rows.length
+      return "[ ATTENDANCE ] 오늘의 출석 순위\n"+(q.rows.length
         ?q.rows.map((x,i)=>`${i+1}등 ${x.name} · ${x.display_time||new Date(x.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`).join("\n")
         :"아직 출석자가 없습니다.");
     }
