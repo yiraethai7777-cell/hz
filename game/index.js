@@ -45,6 +45,17 @@ function createGame(client) {
       const msg = aliases.toLegacyMessage(context.msg,context.text,text);
       const normalized = text===context.text?context:{...context,text,msg};
       const {roomId,chat,isBotAccount,roomBotAdmin=false,send} = normalized;
+      // Handle rod purchases explicitly. The legacy event adapter could finish
+      // without an actionable reply; this always sends the transaction result.
+      if(/^#낚시대구매(?:\\s|$)/.test(text)){
+        try {
+          await send(await require('../shared/runtime').buyRod(normalized));
+        } catch(error) {
+          console.error('[ROD PURCHASE]',String(error?.code||error?.message||error));
+          await send('❌ 낚시대 구매 처리 중 오류가 발생했습니다. Railway 로그를 확인해 주세요.');
+        }
+        return;
+      }
       // Retired commands must not mutate games or historical records.
       if (/^[!#](?:준개|전체준개)/.test(text)) return;
       if (/^[!#](?:주식|내주식)/.test(text) || ['!코인','!레벨','!내정보','#코인','#레벨','#내정보'].includes(text)) return;
