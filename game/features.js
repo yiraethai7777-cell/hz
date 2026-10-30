@@ -231,16 +231,16 @@ async function handleGameCore(d,c,msg,isSelf){
    }
 
   const blockedFishing=/^#(?:어망|낚시|낚시정보|인벤|물고기도감|물고기|물고기판매|상점|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동)(?:\s|$)/.test(text)||text==='네'||text==='아니요';
-  if(blockedFishing&&!d.fishEnabled)return '🎣 이 방은 낚시 기능이 꺼져 있습니다.';
+  if(blockedFishing&&!d.fishEnabled)return '[ ! ] 이 방은 낚시 기능이 꺼져 있습니다.';
   if(p.rodRestore&&now>p.rodRestore.expires){const old=p.rodRestore;p.rodRestore=null;p.rod="나무";p.rods=p.rods.filter(x=>x!==old.rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[old.rod];}
-  if(p.rodRestore&&text!=="네"&&text!=="아니요")return "🛡️ 낚시대 파괴 복구 대기 중입니다. 60초 이내 네 또는 아니요를 입력하세요.";
+  if(p.rodRestore&&text!=="네"&&text!=="아니요")return "[ ! ] 낚시대 파괴 복구 대기 중입니다. 60초 이내 네 또는 아니요를 입력하세요.";
 
   
    if((text==="#퀴즈"||text.startsWith("#정답"))&&!d.quizEnabled)
      return '[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
 
    if(text==="#낚시"&&!d.fishEnabled)
-     return "🎣 이 방은 낚시 기능이 꺼져 있습니다.";
+     return "[ ! ] 이 방은 낚시 기능이 꺼져 있습니다.";
 
    if(text==="#퀴즈"){
      if(d.quiz&&d.quiz.expiresAt<=now){
@@ -279,7 +279,7 @@ async function handleGameCore(d,c,msg,isSelf){
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
-     return `🧩 퀴즈\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
+     return `[ QUIZ ]\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
    }
 
    const m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);
@@ -347,7 +347,7 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
   if(text==="#낚시"){
     const remain=ctx.FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);
-    if(remain>0)return `🎣 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;
+    if(remain>0)return `[ ! ] 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;
     const r=ctx.awardFish(p,Date.now());
     const mention=`\u0002${uid}\u0003${name.replace(/[\u0000-\u001f]/g,'')}\u0004`;
     return `🎣 ${mention}님의 낚시 결과\n🐟 ${r.f.name} [${r.f.tier}] · ${r.size}cm\n${'\u200b'.repeat(1200)}\n💰 낚시 보상 · +${ctx.n(r.value)}코인\n`+
