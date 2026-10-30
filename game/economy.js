@@ -34,10 +34,23 @@ async function withPlayer({db,room,user,p,msg,botId,run}){
  const runMs=Date.now()-started-linkMs;
  const delta=safe(p.points)-before;
  if(delta){
-  await db.query('UPDATE hz_wallets SET balance=$3 WHERE room_id=$1 AND user_id=$2',[String(room),String(user),p.points]);
   const cmd=String(msg?.text??msg?.message?.text??'자동낚시').split(/\s/)[0];
-  await db.query('INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,$3,$4,$5)',[String(room),String(user),delta>0?'GAME_REWARD':'GAME_SPEND',delta,cmd]);
-  await db.query('INSERT INTO gl_game_events(room_id,user_id,kind,amount) VALUES($1,$2,$3,$4)',[String(room),String(user),cmd,delta]);
+  // One PostgreSQL round trip for the balance update and both audit records.
+  // The caller's existing transaction still commits or rolls back all three together.
+  await db.query(`
+    WITH updated AS (
+      UPDATE hz_wallets SET balance=$3
+      WHERE room_id=$1 AND user_id=$2
+      RETURNING room_id,user_id
+    ), coin_log AS (
+      INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
+      SELECT room_id,user_id,$4,$5,$6 FROM updated
+      RETURNING id
+    )
+    INSERT INTO gl_game_events(room_id,user_id,kind,amount)
+    SELECT updated.room_id,updated.user_id,$6,$5
+    FROM updated CROSS JOIN coin_log
+  `,[String(room),String(user),p.points,delta>0?'GAME_REWARD':'GAME_SPEND',delta,cmd]);
  }
  const totalMs=Date.now()-started;
  if(totalMs>=800)console.warn('[GAME ECONOMY SLOW]',{linkMs,runMs,writeMs:totalMs-linkMs-runMs,totalMs});
