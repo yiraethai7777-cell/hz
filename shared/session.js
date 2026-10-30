@@ -2,6 +2,14 @@
 // Persistent state is supplied explicitly; this module registers no client listener.
 module.exports = function createFeatures(ctx) {
 const quizAnswerCache=new Map();
+async function sendPersonalReply(chat,rid,output,msg){
+ if(!output)return;
+ if(typeof chat?.sendReply==='function'){
+  try{return await chat.sendReply(rid,output,msg)}
+  catch(e){console.warn('[PERSONAL REPLY FALLBACK]',e.message)}
+ }
+ return ctx.send(chat,rid,output);
+}
 const fastQuizRooms=new Map();
 const fastQuizJobs=new Map();
 function queueQuizSave(rid,job){
@@ -145,7 +153,7 @@ async function attachHZBot(client){
           await ctx.send(chat,rid,"⛔ 방장·부방장만 사용할 수 있습니다.");
           return;
         }
-        await ctx.send(chat,rid,`🔎 내 계정 정보\n닉네임: ${name}\n사용자 ID: ${uid}`);
+        await sendPersonalReply(chat,rid,`[ MY ID ]\n닉네임: ${name}\n사용자 ID: ${uid}`,msg);
         return;
       }
       if(flags.manage&&!flags.locked&&!isSelf&&exactSender){
