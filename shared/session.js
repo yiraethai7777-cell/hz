@@ -44,8 +44,9 @@ async function attachHZBot(client){
       // Plain-text quiz answers are latency-sensitive. Check them before
       // profile, mention and chat-stat queries; the room transaction still
       // serializes winners and persists rewards atomically.
+      let quickFlags = null;
       if (!priorityGame && !isSelf && text && !text.startsWith('#') && !text.startsWith('!') && text.length <= 120) {
-        const quickFlags = await ctx.roomFlags(rid);
+        quickFlags = await ctx.roomFlags(rid);
         if (quickFlags.game && quickFlags.quizEnabled && !quickFlags.locked &&
             require('../game/quiz').plainAnswer(quickFlags.quiz, text)) {
           const started = Date.now();
@@ -74,7 +75,7 @@ async function attachHZBot(client){
         // Some KakaoForge versions expose sender profile fields in raw sender.
         await ctx.saveOpenProfileLink(rid,uid,name,msg.raw?.sender);
       }
-      let flags=await ctx.roomFlags(rid);
+      let flags=quickFlags || await ctx.roomFlags(rid);
       if(text==="#내아이디"){
         if(!flags.manage||flags.locked)return;
         if(!ctx.isManagerType(msg.sender?.type)){
