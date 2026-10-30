@@ -8,9 +8,22 @@ async function init(){await getPool().query(`
  CREATE TABLE IF NOT EXISTS gl_game_events(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,kind TEXT NOT NULL,amount BIGINT NOT NULL DEFAULT 0,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());`);}
 function safe(n){n=Number(n);if(!Number.isSafeInteger(n)||n<0||n>LIMIT)throw Error('기존 코인 값을 안전하게 처리할 수 없습니다.');return n;}
 async function link(db,room,user,p){
- await ensureWallet(db,room,user,p.name||user);
  const legacy=safe(p.points||0);
- const added=await db.query('INSERT INTO gl_economy_links(room_id,user_id,legacy_amount) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING user_id',[room,user,legacy]);
+ // Combine wallet upsert and one-time legacy link creation in one DB round trip.
+ // The wallet row is returned before the link is attempted, preserving ordering.
+ const added=await db.query(`
+   WITH wallet AS (
+     INSERT INTO hz_wallets(room_id,user_id,user_name,balance,signup_bonus_eligible)
+     VALUES($1,$2,$4,0,TRUE)
+     ON CONFLICT(room_id,user_id) DO UPDATE SET
+       user_name=CASE WHEN EXCLUDED.user_name IN ('멘션 사용자','알 수 없음','')
+         THEN hz_wallets.user_name ELSE EXCLUDED.user_name END
+     RETURNING room_id,user_id
+   )
+   INSERT INTO gl_economy_links(room_id,user_id,legacy_amount)
+   SELECT room_id,user_id,$3 FROM wallet
+   ON CONFLICT DO NOTHING RETURNING user_id
+ `,[room,user,legacy,p.name||user]);
  if(added.rowCount&&legacy){
   const result=await db.query('UPDATE hz_wallets SET balance=balance+$3 WHERE room_id=$1 AND user_id=$2 AND balance<=$4::bigint-$3::bigint RETURNING balance',[room,user,legacy,LIMIT]);
   if(!result.rowCount)throw Error('코인 합산 한도를 초과했습니다.');
