@@ -4,10 +4,16 @@ module.exports = function createFeatures(ctx) {
 const quizAnswerCache=new Map();
 async function sendPersonalReply(chat,rid,output,msg){
  if(!output)return;
- if(typeof chat?.sendReply==='function'){
-  try{return await chat.sendReply(rid,output,msg)}
-  catch(e){console.warn('[PERSONAL REPLY FALLBACK]',e.message)}
+ const replyChat=typeof chat?.sendReply==='function'?chat:typeof ctx.globalChat?.sendReply==='function'?ctx.globalChat:null;
+ const target={logId:msg?.logId??msg?.message?.logId??msg?.raw?.logId,
+  userId:msg?.sender?.id??msg?.senderId,
+  type:msg?.type??msg?.message?.type??1,
+  message:msg?.message?.text??msg?.text??''};
+ if(replyChat&&target.logId&&target.userId){
+  try{return await replyChat.sendReply(rid,output,target)}
+  catch(e){console.error('[PERSONAL REPLY ERROR]',e.message)}
  }
+ console.warn('[PERSONAL REPLY TARGET MISSING]',{hasMethod:!!replyChat,hasLogId:!!target.logId,hasUserId:!!target.userId});
  return ctx.send(chat,rid,output);
 }
 const fastQuizRooms=new Map();
