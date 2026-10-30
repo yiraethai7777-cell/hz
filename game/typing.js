@@ -10,7 +10,7 @@ async function handle(ctx,enabled){
   const invisible=['\u2063','\u200b','\u034f','\u2060'];
   const shown=Array.from(phrase).map((ch,i)=>ch+(i%2===0?invisible[i%invisible.length]:invisible[(i+1)%invisible.length])).join('');
   const round={phrase,start:0,timer:null};rounds.set(id,round);
-  try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초\n보이는 문장 그대로 입력하세요.\n출제 문장에는 복사 방지용 보이지 않는 문자가 포함되어 있습니다.');}
+  try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초');}
   catch(e){rounds.delete(id);throw e;}
   round.start=process.hrtime.bigint();
   round.timer=setTimeout(()=>{if(rounds.get(id)!==round)return;rounds.delete(id);Promise.resolve(ctx.send('[ 타자 게임 종료 ]\n정답: '+phrase)).catch(console.error);},30000);
