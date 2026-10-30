@@ -38,7 +38,7 @@ let globalClient=null,globalChat=null,globalBotId="";
 const OWNER_IDS = new Set(String(process.env.HZ_OWNER_IDS || process.env.HZ_OWNER_ID || "").split(/[\s,;]+/).map(x => x.trim()).filter(Boolean));
 
 const {n,norm,nowK,dayK,sleep,id,blankRoom,fixRoom,initDb,withRoom,roomFlags,send}=require('./state')(ctx);
-const {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,quizExpiryTick,handleGame}=require('../game/features')(ctx);
+const {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,quizExpiryTick,handleGame,issueQuizOnly}=require('../game/features')(ctx);
 const {formatMemberTemplate,isManagerType,isOwnerType,isSubManagerType,safeUserId,parseExactAttachment,exactId,attachmentRoots,rawMentions,targetFrom,resolveTarget,commandTarget,senderExactId,processMentionAlerts,deepFindUserId,replyTargetFrom,idCommandTarget,lastJoinAt,activeWarningCount,validOpenProfileLink,findOpenProfileLink,profileDiagnostic,saveOpenProfileLink,extractProfile,pickDeleteRoom,pickDeleteActor,pickDeletedText,originalMessageId,deletedMessageId,saveDeleteCache,lookupDeleteCache,manageHelp,profileObserve,addChatCount,chatInfo,chatRanking,messageFingerprint,kickMember,autoSpamCheck,handleManageStats,handleManage,promoSlot,promoTick}=require('../manage/features')(ctx);
 const {attachHZBot}=require('./session')(ctx);
 
@@ -137,6 +137,7 @@ Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
 "autoFishTimer":{get:()=>autoFishTimer,set:value=>{autoFishTimer=value;}},
 "autoFishBusy":{get:()=>autoFishBusy,set:value=>{autoFishBusy=value;}},
 "handleGame":{get:()=>handleGame},
+"issueQuizOnly":{get:()=>issueQuizOnly},
 "handleManageStats":{get:()=>handleManageStats},
 "handleManage":{get:()=>handleManage},
 "promoSlot":{get:()=>promoSlot},
