@@ -116,6 +116,7 @@ async function quizExpiryTick(){
 }
 
 function issueQuizOnly(d){
+ const text='#퀴즈';
  const now=Date.now();
  const ctxQuiz=ctx;
    if(text==="#퀴즈"){
