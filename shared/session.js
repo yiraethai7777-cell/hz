@@ -41,6 +41,27 @@ async function attachHZBot(client){
         if(out)await ctx.send(chat,rid,out);
       }
 
+      // Plain-text quiz answers are latency-sensitive. Check them before
+      // profile, mention and chat-stat queries; the room transaction still
+      // serializes winners and persists rewards atomically.
+      if (!priorityGame && !isSelf && text && !text.startsWith('#') && !text.startsWith('!') && text.length <= 120) {
+        const quickFlags = await ctx.roomFlags(rid);
+        if (quickFlags.game && quickFlags.quizEnabled && !quickFlags.locked &&
+            require('../game/quiz').plainAnswer(quickFlags.quiz, text)) {
+          const started = Date.now();
+          const out = await ctx.withRoom(rid, rname, async (d,c) => {
+            if (!d.game || !d.quizEnabled || d.locked) return null;
+            return ctx.handleGame(d,c,msg,isSelf);
+          });
+          if (out) await ctx.send(chat,rid,out);
+          const elapsed = Date.now()-started;
+          if (elapsed >= 800) console.warn('[QUIZ ANSWER SLOW]', { elapsedMs:elapsed });
+          // Stats are noncritical for sending the quiz result; update later.
+          void ctx.addChatCount(rid,uid,name).catch(e=>console.error('[QUIZ CHAT COUNT]',e));
+          return;
+        }
+      }
+
       const exactSender=ctx.senderExactId(msg);
       if(exactSender && !isSelf){
         const mentionFlags=await ctx.roomFlags(rid);
