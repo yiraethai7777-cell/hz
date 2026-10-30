@@ -218,21 +218,7 @@ async function handleGameCore(d,c,msg,isSelf){
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
-     return `[ # ] QUIZ\n\n`+
-       `Q. ${q[1]}\n`+
-       `${'\u200b'.repeat(1200)}`+
-       `\n[ ${difficulty} · ${q[0]} ]\n`+
-       `\n━━━━━━━━━━━━━━━━━━━━\n`+
-       `[ QUIZ INFORMATION ]\n\n`+
-       `제한 시간  | ${ctx.QUIZ_SECONDS}초\n`+
-       `정답 보상  | ${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
-       `경험치     | +${ctx.QUIZ_XP} XP\n\n`+
-       `[ ANSWER GUIDE ]\n\n`+
-       `정답을 채팅에 입력하세요.\n`+
-       `첫 번째 정답자에게 보상이 지급됩니다.\n`+
-       `!정답 (답) 명령어도 사용 가능합니다.\n\n`+
-       `━━━━━━━━━━━━━━━━━━━━\n`+
-       `QUIZ SYSTEM`;
+     return `🧩 퀴즈\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
    }
 
    const m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);
