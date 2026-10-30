@@ -54,7 +54,13 @@ async function handle(ctx,client) {
  const saved=profileResult.rows[0]?.open_profile_link;
  const valid=v=>/^https:\/\/open\.kakao\.com\/o\/[A-Za-z0-9_-]+(?:[?#][^\s]*)?$/.test(v||'');
  const link=valid(saved)?saved:'';
- await ctx.send(format({id,name,bot:ctx.isBotAccount,player,balance,chat,link}));
+ const output=format({id,name,bot:ctx.isBotAccount,player,balance,chat,link});
+ const chatClient=client?.chat||client;
+ if(typeof chatClient?.sendReply==='function'){
+   try{await chatClient.sendReply(room,output,ctx.msg);return true;}
+   catch(e){console.warn('[INFO REPLY FALLBACK]',e.message);}
+ }
+ await ctx.send(output);
  return true;
 }
 module.exports={format,handle};
