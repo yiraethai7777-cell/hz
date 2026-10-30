@@ -1,7 +1,9 @@
 'use strict';
 const {isRoomBotAdmin}=require('./room-bot-admin');
-const LosslessJSON=require('lossless-json');
+const {roots}=require('../manage/targets');
 const recent=new Map();
+const active=new Set();
+
 function id(v){
  if(typeof v==='bigint')return v>0n?String(v):'';
  if(typeof v==='number')return Number.isSafeInteger(v)&&v>0?String(v):'';
@@ -9,70 +11,88 @@ function id(v){
  if(v&&typeof v==='object'&&typeof v.toString==='function')return id(v.toString());
  return '';
 }
-function parse(v){if(typeof v!=='string')return v;try{return LosslessJSON.parse(v);}catch{return null;}}
 function reference(msg){
- const raw=msg?.raw?.chatLog??msg?.raw?.chatlog??msg?.raw?.chat??msg?.raw;
- const roots=[...(msg?.attachmentsRaw||[]),msg?.message?.attachment,raw?.attachment,raw?.extra];
- if(Number(msg?.message?.type??msg?.type)===26){
-  for(let root of roots){
-   root=parse(root);
-   for(const v of Array.isArray(root)?root:[root]){
-    const log=id(v?.src_logId??v?.srcLogId);
-    if(log)return {log,author:id(v?.src_userId??v?.srcUserId)};
-   }
-  }
+ // A reply is type 26. Thread comments and normal messages must not trigger deletion.
+ if(Number(msg?.message?.type??msg?.type)!==26)return null;
+ for(const attachment of roots(msg)){
+  const source=attachment?.reply??attachment?.quote??attachment?.replyTo??attachment;
+  const log=id(source?.src_logId??source?.srcLogId??source?.src_log_id??source?.logId);
+  const author=id(source?.src_userId??source?.srcUserId??source?.src_user_id??source?.userId);
+  if(log)return {log,author};
  }
- const log=id(raw?.threadId??raw?.tid??raw?.thread??msg?.message?.threadId??msg?.threadId);
- return log?{log,author:''}:null;
+ return null;
 }
-function observe(msg){
- const room=id(msg?.room?.id),log=id(msg?.message?.logId??msg?.logId??msg?.raw?.chatLog?.logId);
- if(!room||!log)return;
- recent.set(room+':'+log,{msg,at:Date.now()});
- if(recent.size>3000)recent.delete(recent.keys().next().value);
+function info(msg){
+ return {
+  room:id(msg?.room?.id??msg?.chatId??msg?.raw?.chatLog?.chatRoomId),
+  log:id(msg?.message?.logId??msg?.logId??msg?.raw?.chatLog?.logId??msg?.raw?.chatLog?.id),
+  author:id(msg?.sender?.id??msg?.senderId??msg?.raw?.chatLog?.userId)
+ };
+}
+function observe(msg,botId){
+ const value=info(msg);
+ if(!botId||!value.room||!value.log||value.author!==id(botId))return;
+ recent.set(value.room+':'+value.log,{msg,at:Date.now()});
+ if(recent.size>2000)recent.delete(recent.keys().next().value);
 }
 async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
  if(text!=='삭제'&&text!=='!삭제')return false;
  const ref=reference(msg);
- if(!ref){console.warn('[REPLY DELETE] no reply reference',String(roomId));return true;}
- const type=Number(msg?.sender?.type);
- let authorized=isBotAccount||type===1||type===4;
- if(!authorized){try{authorized=await isRoomBotAdmin(roomId,senderId);}catch(e){console.error('[REPLY DELETE] admin check error',e);}}
- if(!authorized)return true;
- const send=typeof chat?.sendText==='function'?chat.sendText.bind(chat):client?.sendText?.bind(client);
- const fail=async reason=>{console.warn('[REPLY DELETE]',reason,String(roomId),ref.log);if(send)await send(roomId,'❌ '+reason);};
- const target=recent.get(String(roomId)+':'+ref.log);
- const botId=id(client?.userId);
- const observedAuthor=id(target?.msg?.sender?.id??target?.msg?.senderId);
- // Never delete a message unless the reply or the cached original proves it belongs to the bot.
- const fetch=typeof chat?.fetchMessage==='function'?chat.fetchMessage.bind(chat):client?.fetchMessage?.bind(client);
- let fetched=null;
- if(!target&&fetch){try{fetched=await fetch(roomId,ref.log);}catch(error){console.warn('[REPLY DELETE] fetchMessage failed',String(error?.message||error));}}
- const fetchedAuthor=id(fetched?.sender?.id??fetched?.senderId??fetched?.userId??fetched?.message?.userId??fetched?.raw?.chatLog?.userId);
- const isOwn=!!botId&&(ref.author===botId||observedAuthor===botId||fetchedAuthor===botId);
- console.log('[REPLY DELETE] reference lookup',JSON.stringify({roomId:String(roomId),logId:ref.log,botId,replyAuthor:ref.author,observedAuthor,fetchedAuthor,fetchAvailable:!!fetch,fetchFound:!!fetched,isOwn}));
- if(isOwn){
-  const del=typeof chat?.deleteMessage==='function'?chat.deleteMessage.bind(chat):client?.deleteMessage?.bind(client);
-  if(!del)return fail('현재 KakaoForge에 deleteMessage 기능이 없습니다.'),true;
+ if(!ref)return false;
+ if(msg?.room?.isOpenChat===false||isBotAccount)return true;
+ const room=id(roomId),user=id(senderId),bot=id(client?.userId);
+ if(!room||!user||!bot)return true;
+ let type=Number(msg?.sender?.type);
+ // A missing role is not permission. Look up the current cached member type when available.
+ if(![1,4].includes(type)&&typeof client?._resolveMemberType==='function'){
   try{
-   const original=target?.msg||fetched||(fetch?await fetch(roomId,ref.log):null);
-   if(!original){await fail('원본 메시지를 조회할 수 없습니다.');return true;}
-   const result=await del(roomId,original);
-   if(result===false||result?.success===false||result?.ok===false||(typeof result?.status==='number'&&result.status!==0))throw Error('status='+String(result?.status));
-   recent.delete(String(roomId)+':'+ref.log);
-   console.log('[REPLY DELETE] bot message deleted',String(roomId),ref.log);
-  }catch(error){console.error('[REPLY DELETE] deleteMessage failed',error);await fail('봇 메시지 삭제에 실패했습니다. Railway 로그를 확인해 주세요.');}
-  return true;
+   if(typeof client?._ensureMemberType==='function')await client._ensureMemberType(room,user);
+   type=Number(client._resolveMemberType(room,user));
+  }catch(error){console.warn('[REPLY DELETE] member role unavailable');}
  }
- if(!target){await fail('원본 메시지 작성자를 확인하지 못했습니다. Railway의 [REPLY DELETE] reference lookup 로그를 확인해 주세요.');return true;}
- const blind=typeof chat?.openChatBlind==='function'?chat.openChatBlind.bind(chat):client?.openChatBlind?.bind(client);
- if(!blind){await fail('메시지 가리기 기능을 사용할 수 없습니다.');return true;}
+ let authorized=[1,4].includes(type);
+ if(!authorized){
+  try{authorized=await isRoomBotAdmin(room,user);}
+  catch(error){console.error('[REPLY DELETE] admin check failed');}
+ }
+ if(!authorized)return true;
+ const send=typeof chat?.sendText==='function'?chat.sendText.bind(chat):
+   typeof client?.sendText==='function'?client.sendText.bind(client):null;
+ const fail=async message=>{console.warn('[REPLY DELETE]',message);if(send)await send(room,'❌ '+message);};
+ // A reply declaring a different author cannot be used to delete the bot's message.
+ if(ref.author&&ref.author!==bot)return true;
+ const key=room+':'+ref.log;
+ if(active.has(key))return true;
+ active.add(key);
  try{
-  const result=await blind(roomId,target.msg,{report:false});
-  if(result===false||result?.success===false||result?.ok===false||(typeof result?.status==='number'&&result.status!==0))throw Error('status='+String(result?.status));
-  recent.delete(String(roomId)+':'+ref.log);
-  console.log('[REPLY DELETE] original blinded',String(roomId),ref.log);
- }catch(error){console.error('[REPLY DELETE] blind failed',error);await fail('원본 메시지 가리기에 실패했습니다.');}
+  let original=recent.get(key)?.msg;
+  if(!original){
+   const fetch=typeof chat?.fetchMessage==='function'?chat.fetchMessage.bind(chat):
+     typeof client?.fetchMessage==='function'?client.fetchMessage.bind(client):null;
+   if(fetch){
+    try{original=await fetch(room,ref.log);}
+    catch(error){console.warn('[REPLY DELETE] original fetch failed');}
+   }
+  }
+  const found=info(original);
+  // Verify exact room, log ID and sender. Never trust only the quoted author field.
+  if(found.room!==room||found.log!==ref.log||found.author!==bot){
+   await fail('봇이 보낸 원본 메시지를 확인할 수 없어 삭제하지 않았습니다.');
+   return true;
+  }
+  const del=typeof chat?.deleteMessage==='function'?chat.deleteMessage.bind(chat):
+    typeof client?.deleteMessage==='function'?client.deleteMessage.bind(client):null;
+  if(!del){await fail('현재 KakaoForge에 실제 메시지 삭제 API가 없습니다.');return true;}
+  const result=await del(room,ref.log);
+  if(result===false||result?.success===false||result?.ok===false||
+     (typeof result?.status==='number'&&result.status!==0))
+   throw Error('DELETEMSG was rejected');
+  recent.delete(key);
+  console.log('[REPLY DELETE] DELETEMSG succeeded');
+ }catch(error){
+  console.error('[REPLY DELETE] DELETEMSG failed',String(error?.message||error));
+  await fail('봇 메시지 삭제에 실패했습니다. Railway 로그를 확인해 주세요.');
+ }finally{active.delete(key);}
  return true;
 }
-module.exports={observe,handle};
+module.exports={observe,handle,reference,info};
