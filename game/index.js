@@ -47,7 +47,7 @@ function createGame(client) {
       const {roomId,chat,isBotAccount,roomBotAdmin=false,send} = normalized;
       // Handle rod purchases explicitly. The legacy event adapter could finish
       // without an actionable reply; this always sends the transaction result.
-      if(/^#낚시대구매(?:\\s|$)/.test(text)){
+      if(/^#낚시대구매(?:\s|$)/.test(text)){
         try {
           await send(await require('../shared/runtime').buyRod(normalized));
         } catch(error) {
