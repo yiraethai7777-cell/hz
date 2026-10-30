@@ -7,10 +7,9 @@ async function handle(ctx,enabled){
   if(!enabled)return true;
   if(rounds.has(id)){await ctx.send('이미 진행 중인 게임입니다.');return true;}
   const phrase=phrases[Math.floor(Math.random()*phrases.length)];
-  // Display the phrase without invisible characters between Korean syllables.
-  // Invisible suffix prevents an exact copy of the displayed challenge from matching.
-  // Avoid inserting invisible characters between Korean glyphs (PC spacing bug).
-  const shown=phrase+String.fromCharCode(0x2063);
+  // Replace ordinary spaces with non-breaking spaces in the displayed challenge.
+  // Exact pasted text retains different code points from a manually typed answer.
+  const shown=phrase.replace(/ /g,String.fromCharCode(0x00a0));
   const round={phrase,start:0,timer:null};rounds.set(id,round);
   try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초');}
   catch(e){rounds.delete(id);throw e;}
