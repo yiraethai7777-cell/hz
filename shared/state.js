@@ -96,7 +96,8 @@ async function withRoom(rid,rname,fn){
     // Read-only commands should not write huge room JSON documents.
     if(after!==original)
       await c.query('UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1',[rid,after]);
-    await c.query('COMMIT');
+    if(after!==original)await c.query('COMMIT');
+    else await c.query('ROLLBACK');
     const finished=Date.now();
     if(finished-started>=800)console.warn('[GAME ROOM SLOW]',{
       poolMs:connected-started,lockMs:locked-connected,
