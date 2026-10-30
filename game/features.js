@@ -436,9 +436,9 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==="#게임순위"||text==="#퀴즈순위"){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>b.points-a.points).slice(0,10);return "🏆 게임 순위\n"+(a.length?a.map((x,i)=>`${i+1}등 ${x.name} · ${ctx.n(x.points)}코인`).join("\n"):"아직 기록이 없습니다.")}
   if(text==="#상점")return "🛒 낚시대 상점\n"+ctx.RODS.map(x=>`${x.name} 낚시대 · ${ctx.n(x.price)}코인${p.rods.includes(x.name)?" [보유]":""}`).join("\n");
 
-  m=/^#낚시대구매\s+(.+)$/.exec(text);
-  if(m){
-    const wanted=m[1].trim().normalize("NFC");
+  const buyMatch=/^#낚시대구매\s+(.+)$/.exec(text);
+  if(buyMatch){
+    const wanted=buyMatch[1].trim().normalize("NFC");
     const r=ctx.RODS.find(x=>x.name===wanted);
     if(!r)return "❌ 존재하지 않는 낚시대입니다. !상점에서 판매 목록을 확인해 주세요.";
     if(p.rods.includes(r.name))return `🎣 ${r.name} 낚시대는 이미 보유 중입니다.\n장착: !낚시장착 ${r.name}`;
@@ -447,7 +447,7 @@ async function handleGameCore(d,c,msg,isSelf){
     p.rods.push(r.name);
     return `✅ ${r.name} 낚시대 구매 완료\n사용 코인: ${ctx.n(r.price)}\n남은 코인: ${isSelf?"∞":ctx.n(p.points)}\n장착 명령어: !낚시장착 ${r.name}`;
   }
-  m=/^#낚시장착\s+(.+)$/.exec(text);if(m){const x=m[1].trim();if(!p.rods.includes(x))return "보유하지 않은 낚시대입니다.";p.rod=x;return `🎣 ${x} 낚시대를 장착했습니다.`}
+  const equipMatch=/^#낚시장착\s+(.+)$/.exec(text);if(equipMatch){const x=equipMatch[1].trim();if(!p.rods.includes(x))return "보유하지 않은 낚시대입니다.";p.rod=x;return `🎣 ${x} 낚시대를 장착했습니다.`}
   return null
 }
 return {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,quizExpiryTick,handleGame,issueQuizOnly};
