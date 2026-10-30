@@ -2,7 +2,7 @@
 // Public game command names. The legacy feature modules still parse # internally,
 // but users send ! commands. Do not normalize management or unrelated commands.
 const COMMANDS=new Set(`
-게임가입 정보 코인순위 코인내역 코인아이디 코인송금 코인지급
+게임가입 정보 타자게임 코인순위 코인내역 코인아이디 코인송금 코인지급
 낚시 낚시정보 어망 인벤 물고기도감 물고기판매 상점 낚시대ㄱㅁ 낚시장착
 강화 보호권ㄱㅁ 보호권 ㄱㅁ행운 ㄱㅁ자동
 펫뽑기 펫인벤 펫도감 펫기능 펫장착 펫강화
