@@ -153,6 +153,21 @@ return ctx;
 }
 let runtime;
 async function attachModules(client){runtime ||= createRuntime();return runtime.attachHZBot(client);}
+// Run rod purchases through the same persistent game runtime, but with an
+// explicit response path instead of depending on the legacy event adapter.
+async function buyRod(context){
+ if(!runtime)throw Error('게임 시스템 초기화가 완료되지 않았습니다.');
+ const room=String(context.roomId);
+ return runtime.withRoom(room,String(context.msg?.room?.name||''),async(d,c)=>{
+  if(!d.game)return '🎮 이 방의 게임 기능이 꺼져 있습니다. !게임on 이후 이용해 주세요.';
+  if(d.locked)return '⛔ 현재 이 방의 봇 기능이 잠겨 있습니다.';
+  if(!d.fishEnabled)return '🎣 이 방의 낚시 기능이 꺼져 있습니다.';
+  const text=String(context.text||'').trim();
+  if(!/^#낚시대구매\s+\S/.test(text))return '사용법: !낚시대ㄱㅁ (낚시대 이름)\n예: !낚시대ㄱㅁ 천상';
+  const result=await runtime.handleGame(d,c,context.msg,!!context.isBotAccount);
+  return result??'❌ 이미 처리된 명령이거나 구매 결과를 확인할 수 없습니다.';
+ });
+}
 let profileWatcher;
 function startProfileWatch(client){if(!runtime)return;profileWatcher ||= require('../manage/profile-watch').createWatcher(runtime,client);profileWatcher.start();}
-module.exports={attachModules,createRuntime,startProfileWatch};
+module.exports={attachModules,createRuntime,startProfileWatch,buyRod};
