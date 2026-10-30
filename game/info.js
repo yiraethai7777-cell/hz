@@ -55,11 +55,16 @@ async function handle(ctx,client) {
  const valid=v=>/^https:\/\/open\.kakao\.com\/o\/[A-Za-z0-9_-]+(?:[?#][^\s]*)?$/.test(v||'');
  const link=valid(saved)?saved:'';
  const output=format({id,name,bot:ctx.isBotAccount,player,balance,chat,link});
- const chatClient=client?.chat||client;
- if(typeof chatClient?.sendReply==='function'){
-   try{await chatClient.sendReply(room,output,ctx.msg);return true;}
-   catch(e){console.warn('[INFO REPLY FALLBACK]',e.message);}
- }
+ const chatClient=ctx.chat?.sendReply ? ctx.chat : client?.chat||client;
+ const source=ctx.msg;
+ const target={logId:source?.logId??source?.message?.logId??source?.raw?.logId,
+   userId:source?.sender?.id??ctx.userId,
+   type:source?.type??source?.message?.type??1,
+   message:source?.message?.text??source?.text??''};
+ if(typeof chatClient?.sendReply==='function'&&target.logId&&target.userId){
+   try{await chatClient.sendReply(room,output,target);return true;}
+   catch(e){console.error('[INFO REPLY ERROR]',e.message);}
+ }else console.warn('[INFO REPLY TARGET MISSING]',{hasMethod:typeof chatClient?.sendReply,hasLogId:!!target.logId,hasUserId:!!target.userId});
  await ctx.send(output);
  return true;
 }
