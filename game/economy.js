@@ -29,7 +29,7 @@ async function link(db,room,user,p){
   if(!result.rowCount)throw Error('코인 합산 한도를 초과했습니다.');
   await db.query("INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,'LEGACY_GAME_MERGE',$3,'기존 게임 코인과 지갑 코인 연결: 1회만 합산')",[room,user,legacy]);
  }
- const balance=await db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[room,user]);
+ const balance=await db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user]);
  p.points=safe(balance.rows[0].balance);
  return p.points;
 }
