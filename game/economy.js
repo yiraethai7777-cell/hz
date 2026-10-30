@@ -22,13 +22,16 @@ async function link(db,room,user,p){
 }
 async function withPlayer({db,room,user,p,msg,botId,run}){
  if(user===String(botId))return run();
+ const started=Date.now();
  const before=await link(db,String(room),String(user),p);
+ const linkMs=Date.now()-started;
  const messageId=msg?.id??msg?.message?.id??msg?.raw?.chat?.logId??msg?.logId;
  if(messageId!=null){
   const claim=await db.query('INSERT INTO gl_game_requests(room_id,message_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING message_id',[String(room),String(messageId)]);
   if(!claim.rowCount)return null;
  }
  const result=await run();
+ const runMs=Date.now()-started-linkMs;
  const delta=safe(p.points)-before;
  if(delta){
   await db.query('UPDATE hz_wallets SET balance=$3 WHERE room_id=$1 AND user_id=$2',[String(room),String(user),p.points]);
@@ -36,6 +39,8 @@ async function withPlayer({db,room,user,p,msg,botId,run}){
   await db.query('INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,$3,$4,$5)',[String(room),String(user),delta>0?'GAME_REWARD':'GAME_SPEND',delta,cmd]);
   await db.query('INSERT INTO gl_game_events(room_id,user_id,kind,amount) VALUES($1,$2,$3,$4)',[String(room),String(user),cmd,delta]);
  }
+ const totalMs=Date.now()-started;
+ if(totalMs>=800)console.warn('[GAME ECONOMY SLOW]',{linkMs,runMs,writeMs:totalMs-linkMs-runMs,totalMs});
  return result;
 }
 async function ensureLinked(room,user,name){
