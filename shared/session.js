@@ -12,14 +12,14 @@ function queueQuizSave(rid,job){
  return next;
 }
 function fastQuizResult(q,uid,name){
- const clean=String(name).replace(/[\\u0000-\\u001f]/g,'');
- const mention=/^\\d+$/.test(uid)?String.fromCharCode(2)+uid+String.fromCharCode(3)+clean+String.fromCharCode(4):'@'+clean;
- return '[ ✓ ] '+mention+' 님이 정답을 맞혔습니다.\\n'
-  +'\\u200b'.repeat(1200)+'\\n━━━━━━━━━━━━━━━━━━━━\\n[ QUIZ RESULT ]\\n\\n'
-  +'정답        | '+q.answers[0]+'\\n'
-  +'획득 코인   | +'+ctx.n(ctx.QUIZ_REWARD)+'코인\\n'
-  +'획득 경험치 | +'+ctx.QUIZ_XP+' XP\\n\\n'
-  +'━━━━━━━━━━━━━━━━━━━━\\nQUIZ SYSTEM';
+ const clean=String(name).replace(/[\u0000-\u001f]/g,'');
+ const mention=/^\d+$/.test(uid)?String.fromCharCode(2)+uid+String.fromCharCode(3)+clean+String.fromCharCode(4):'@'+clean;
+ return '[ ✓ ] '+mention+' 님이 정답을 맞혔습니다.\n'
+  +'\u200b'.repeat(1200)+'\n━━━━━━━━━━━━━━━━━━━━\n[ QUIZ RESULT ]\n\n'
+  +'정답        | '+q.answers[0]+'\n'
+  +'획득 코인   | +'+ctx.n(ctx.QUIZ_REWARD)+'코인\n'
+  +'획득 경험치 | +'+ctx.QUIZ_XP+' XP\n\n'
+  +'━━━━━━━━━━━━━━━━━━━━\nQUIZ SYSTEM';
 }
 
 async function attachHZBot(client){
