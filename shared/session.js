@@ -2,9 +2,33 @@
 // Persistent state is supplied explicitly; this module registers no client listener.
 module.exports = function createFeatures(ctx) {
 const quizAnswerCache=new Map();
+const fastQuizRooms=new Map();
+const fastQuizJobs=new Map();
+function queueQuizSave(rid,job){
+ const previous=fastQuizJobs.get(rid)||Promise.resolve();
+ const next=previous.catch(()=>{}).then(job);
+ fastQuizJobs.set(rid,next);
+ next.finally(()=>{if(fastQuizJobs.get(rid)===next)fastQuizJobs.delete(rid)}).catch(e=>console.error('[QUIZ SAVE FAILED]',rid,e));
+ return next;
+}
+function fastQuizResult(q,uid,name){
+ const clean=String(name).replace(/[\\u0000-\\u001f]/g,'');
+ const mention=/^\\d+$/.test(uid)?String.fromCharCode(2)+uid+String.fromCharCode(3)+clean+String.fromCharCode(4):'@'+clean;
+ return '[ ✓ ] '+mention+' 님이 정답을 맞혔습니다.\\n'
+  +'\\u200b'.repeat(1200)+'\\n━━━━━━━━━━━━━━━━━━━━\\n[ QUIZ RESULT ]\\n\\n'
+  +'정답        | '+q.answers[0]+'\\n'
+  +'획득 코인   | +'+ctx.n(ctx.QUIZ_REWARD)+'코인\\n'
+  +'획득 경험치 | +'+ctx.QUIZ_XP+' XP\\n\\n'
+  +'━━━━━━━━━━━━━━━━━━━━\\nQUIZ SYSTEM';
+}
+
 async function attachHZBot(client){
   ctx.globalClient=client;ctx.globalChat=client.chat||client;ctx.globalBotId=ctx.id(client.userId);await ctx.initDb();
   await require('../manage/leave-reply').init(ctx.pool);
+  // Warm all active quiz rooms once at startup. Per-message issue/answer has no DB read.
+  const initialQuizRooms=await ctx.pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true'");
+  for(const row of initialQuizRooms.rows)fastQuizRooms.set(String(row.room_id),ctx.fixRoom(row.data,''));
+
   if(ctx.promoTimer)clearInterval(ctx.promoTimer);
   ctx.promoTimer=setInterval(()=>{ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));},10000);
   if(ctx.promoTimer.unref)ctx.promoTimer.unref();
@@ -33,6 +57,42 @@ async function attachHZBot(client){
       // run after the game response and cannot delay its delivery.
       const priorityGame=msg.__gameCommandFastPath===true &&
         /^#(?:퀴즈|정답|퀴즈정보|퀴즈순위|낚시|낚시정보|어망|인벤|물고기도감|물고기판매|낚시대구매|낚시장착|강화|보호권구매|보호권|구매행운|구매자동|펫뽑기|펫인벤|펫도감|펫기능|펫장착|펫강화)(?:\s|$)/.test(text);
+      const quizCommand=priorityGame&&text==='#퀴즈';
+      const answerCommand=priorityGame&&/^#정답(?:\\s|$)/.test(text);
+      const fastRoom=fastQuizRooms.get(rid);
+      if(quizCommand&&fastRoom){
+        if(!fastRoom.game||fastRoom.locked)return;
+        const output=fastRoom.quizEnabled?ctx.issueQuizOnly(fastRoom):'[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
+        if(output)await ctx.send(chat,rid,output);
+        if(fastRoom.quiz&&fastRoom.quiz.expiresAt>Date.now()){
+          const quiz={...fastRoom.quiz};
+          const cooldown=fastRoom.quizCooldownUntil;
+          void queueQuizSave(rid,()=>ctx.withRoom(rid,rname,async d=>{
+            d.quiz=quiz;d.quizCooldownUntil=cooldown;
+          }));
+        }
+        return;
+      }
+      const attempt=answerCommand?text.replace(/^#정답\\s*/,'').trim():text;
+      const fastCorrect=!isSelf&&fastRoom&&fastRoom.game&&fastRoom.quizEnabled&&!fastRoom.locked&&
+        fastRoom.quiz&&fastRoom.quiz.expiresAt>Date.now()&&
+        fastRoom.quiz.answers?.some(a=>require('../game/quiz').answerMatches(a,attempt));
+      if(fastCorrect){
+        const wonQuiz=fastRoom.quiz;
+        fastRoom.quiz=null;
+        fastRoom.quizCooldownUntil=Date.now()+ctx.QUIZ_COOLDOWN_SECONDS*1000;
+        await ctx.send(chat,rid,fastQuizResult(wonQuiz,uid,name));
+        void queueQuizSave(rid,async()=>{
+          const result=await ctx.withRoom(rid,rname,async(d,c)=>{
+            if(!d.game||!d.quizEnabled||d.locked)return null;
+            if(!d.quiz||d.quiz.expiresAt!==wonQuiz.expiresAt)return null;
+            return ctx.handleGame(d,c,{...msg,text:'#정답 '+attempt,message:{...msg.message,text:'#정답 '+attempt}},isSelf);
+          });
+          if(!result)console.error('[QUIZ REWARD NOT COMMITTED]',rid,uid);
+        });
+        void ctx.addChatCount(rid,uid,name).catch(e=>console.error('[QUIZ CHAT COUNT]',e));
+        return;
+      }
       if(priorityGame){
         // One locked room read is sufficient; avoid a separate roomFlags query.
         const out=await ctx.withRoom(rid,rname,async(d,c)=>{
