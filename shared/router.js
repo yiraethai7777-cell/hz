@@ -177,6 +177,10 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           return;
         }
       }
+      if (text === '!타자게임') {
+        await game.message({...context,msg,chat});
+        return;
+      }
       if (text === "!테스트") {
         await require("../manage/attendance-image/command")
           .handleTest(client, context);
