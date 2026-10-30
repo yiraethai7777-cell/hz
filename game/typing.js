@@ -7,8 +7,8 @@ async function handle(ctx,enabled){
   if(!enabled)return true;
   if(rounds.has(id)){await ctx.send('이미 진행 중인 게임입니다.');return true;}
   const phrase=phrases[Math.floor(Math.random()*phrases.length)];
-  const invisible=['\u2063','\u200b','\u034f','\u2060'];
-  const shown=Array.from(phrase).map((ch,i)=>ch+(i%2===0?invisible[i%invisible.length]:invisible[(i+1)%invisible.length])).join('');
+  // Display the phrase without invisible characters between Korean syllables.
+  const shown=phrase;
   const round={phrase,start:0,timer:null};rounds.set(id,round);
   try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초');}
   catch(e){rounds.delete(id);throw e;}
