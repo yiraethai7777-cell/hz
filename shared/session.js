@@ -1,6 +1,7 @@
 "use strict";
 // Persistent state is supplied explicitly; this module registers no client listener.
 module.exports = function createFeatures(ctx) {
+const quizAnswerCache=new Map();
 async function attachHZBot(client){
   ctx.globalClient=client;ctx.globalChat=client.chat||client;ctx.globalBotId=ctx.id(client.userId);await ctx.initDb();
   await require('../manage/leave-reply').init(ctx.pool);
@@ -46,9 +47,11 @@ async function attachHZBot(client){
       // serializes winners and persists rewards atomically.
       let quickFlags = null;
       if (!priorityGame && !isSelf && text && !text.startsWith('#') && !text.startsWith('!') && text.length <= 120) {
-        quickFlags = await ctx.roomFlags(rid);
-        if (quickFlags.game && quickFlags.quizEnabled && !quickFlags.locked &&
-            require('../game/quiz').plainAnswer(quickFlags.quiz, text)) {
+        const cached=quizAnswerCache.get(rid);
+        const cachedMatch=cached&&cached.expiresAt>Date.now()&&require('../game/quiz').plainAnswer(cached.quiz,text);
+        if(!cachedMatch)quickFlags = await ctx.roomFlags(rid);
+        if (cachedMatch || (quickFlags.game && quickFlags.quizEnabled && !quickFlags.locked &&
+            require('../game/quiz').plainAnswer(quickFlags.quiz, text))) {
           const started = Date.now();
           const out = await ctx.withRoom(rid, rname, async (d,c) => {
             if (!d.game || !d.quizEnabled || d.locked) return null;
