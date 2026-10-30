@@ -173,3 +173,22 @@ test('legacy session never replaces the unified deletion listener',async()=>{
   assert.equal(handlers.deleted(),'unified');
  }finally{clearInterval(runtime.promoTimer);clearInterval(runtime.autoFishTimer);}
 });
+
+test('buying and equipping a celestial rod preserves the balance and works exactly once',async()=>{
+  const runtime=createRuntime({economyEnabled:false,pool:{query:async()=>({rows:[]})}});
+  const room=runtime.blankRoom('test');
+  room.game=true;
+  const user=runtime.player(room,'1001','Alice');
+  user.points=15000000;
+  const msg={room:{id:'1'},sender:{id:'1001',name:'Alice'},text:'#낚시대구매 천상'};
+  const first=await runtime.handleGame(room,{},msg,false);
+  assert.match(first,/천상 낚시대 구매 완료/);
+  assert.equal(user.points,0);
+  assert.equal(user.rods.filter(v=>v==='천상').length,1);
+  const repeated=await runtime.handleGame(room,{},msg,false);
+  assert.match(repeated,/이미 보유 중/);
+  assert.equal(user.points,0);
+  msg.text='#낚시장착 천상';
+  assert.match(await runtime.handleGame(room,{},msg,false),/장착했습니다/);
+  assert.equal(user.rod,'천상');
+});
