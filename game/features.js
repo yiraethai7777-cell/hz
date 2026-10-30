@@ -339,10 +339,6 @@ async function handleGameCore(d,c,msg,isSelf){
        `정답        | ${answer}\n`+
        `획득 코인   | +${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
        `획득 경험치 | +${ctx.QUIZ_XP} XP\n\n`+
-       `[ PLAYER STATUS ]\n\n`+
-       `현재 레벨   | Lv.${p.level}\n`+
-       `보유 코인   | ${ctx.n(p.points)}코인\n`+
-       `누적 정답   | ${p.wins}회\n`+
        `${up?`\n[ LEVEL UP ] Lv.${p.level}\n`:''}`+
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
        `QUIZ SYSTEM`;
