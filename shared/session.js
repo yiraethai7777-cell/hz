@@ -107,7 +107,11 @@ async function attachHZBot(client){
           if(!d.game||d.locked)return null;
           return ctx.handleGame(d,c,msg,isSelf);
         });
-        if(out)await ctx.send(chat,rid,out);
+        if(out){
+        const personal=/^#(?:채팅정보|낚시정보|퀴즈정보|인벤|펫인벤|농장정보|내정보|내아이디)(?:\\s|$)/.test(text);
+        if(personal)await sendPersonalReply(chat,rid,out,msg);
+        else await ctx.send(chat,rid,out);
+      };
       }
 
       // Plain-text quiz answers are latency-sensitive. Check them before
