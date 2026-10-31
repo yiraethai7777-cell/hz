@@ -145,7 +145,7 @@ async function catalog(fetcher=globalThis.fetch){
 }
 function pricing(skin){
  const title=skin.tier||'등급 미확인';
- const melee=/\bmelee\b|근접|칼|knife/i.test(skin.englishName);
+ const melee=/\/Melee\//i.test(skin.data?.assetPath||'')||/\b(?:melee|knife|karambit|axe|dagger|blade|sword|hammer|katana|kukri|fan|gauntlets|baton|claw)\b|근접|칼/i.test(skin.englishName);
  const tier=tierPrices.find(([re])=>re.test(title));
  if(melee)return {tier:tier?.[1]?.name||title,price:'개별 가격 확인 필요',notice:'근접무기는 같은 등급이어도 VP 가격이 다를 수 있습니다.'};
  return {
