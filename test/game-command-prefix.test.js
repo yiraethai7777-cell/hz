@@ -53,7 +53,7 @@ function createFixture(){
 }
 test('all game help commands use ! prefix and map to real command handlers',()=>{
  const body=help.formatCommandHelp({game:true,manage:false},'게임');
- assert.ok(body.startsWith('📜 명령어 안내\n작동 중인 기능 · 게임'+'\u200b'.repeat(1200)));
+ assert.ok(body.startsWith('📜 명령어 안내 · NEXI\n작동 중인 기능 · 게임'+'\u200b'.repeat(1200)));
  const names=[...new Set([...body.matchAll(/^!(\S+)/gm)].map(v=>v[1]))];
  assert.equal(names.length,52);
  for(const name of names)assert.equal(aliases.isGameCommand('!'+name),true,name);
@@ -120,4 +120,15 @@ test('router routes ! game commands but refuses retired # commands',async()=>{
    calls.findIndex(x=>x[0]==='game'&&x[1]==='!낚시'));
  await emit('#게임작동');assert.equal(calls.some(x=>x[0]==='toggle'),false);
  await emit('!게임작동');assert.equal(calls.some(x=>x[0]==='toggle'&&x[1]==='!게임작동'),true);
+});
+
+test('NEXI brand and official support room appear in both command menus',()=>{
+ for(const section of ['게임','관리']){
+  const body=help.formatCommandHelp({game:true,manage:true},section);
+  assert.ok(body.startsWith('📜 명령어 안내 · NEXI\\n작동 중인 기능 · '+section+'\\u200b'.repeat(1200)));
+  assert.match(body,section==='게임'?/🎮 게임 명령어 · NEXI/:/🛡️ 관리 명령어 · NEXI/);
+  assert.match(body,/💬 NEXI 봇 문의방\\nhttps:\/\/open\\.kakao\\.com\/o\/gK32HUUi/);
+  assert.equal(body.split('https://open.kakao.com/o/gK32HUUi').length-1,1);
+  assert.match(body,/✦ NEXI · 게임 & 관리 도우미$/);
+ }
 });
