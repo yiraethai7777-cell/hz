@@ -38,7 +38,7 @@ test('Only the connected Kakao bot account may toggle the Valorant feature',asyn
  assert.equal(await settings.handle({text:'!발로on',roomId:'room-A',isBotAccount:false,send,db}),true);
  assert.equal(await settings.isEnabled('room-A',db),false);
  assert.equal(db.rooms.size,0);
- assert.match(messages[0],/봇 계정만/);
+ assert.equal(messages.length,0,'unauthorized toggles must be silently ignored');
  assert.equal(await settings.handle({text:'!발로off',roomId:'room-A',isBotAccount:false,send,db}),true);
  assert.equal(db.rooms.size,0);
  assert.equal(await settings.handle({text:'!게임on',roomId:'room-A',isBotAccount:true,send,db}),false);
@@ -128,10 +128,14 @@ test('Router gates every Valorant command, independently of normal game flags',a
  assert.equal(lookups.length,related.length);
  await emit('room-A','!발로on');
  assert.equal(await settings.isEnabled('room-A',db),false,'ordinary user cannot enable');
- assert.match(messages.at(-1)[1],/봇 계정만/);
+ assert.equal(messages.length,0,'ordinary user toggle must not generate replies');
  await emit('room-A','!발로on','9999');
  assert.equal(await settings.isEnabled('room-A',db),true);
  assert.match(messages.at(-1)[1],/기능이 켜졌습니다/);
+ const repliesAfterEnable=messages.length;
+ await emit('room-A','!발로off','1234');
+ assert.equal(await settings.isEnabled('room-A',db),true,'ordinary user cannot disable');
+ assert.equal(messages.length,repliesAfterEnable,'unauthorized off must not generate replies');
  await emit('room-A','!스킨 싱귤 밴달');
  await emit('room-A','!발로전적 Demo#KR1');
  assert.deepEqual(handled,[['skin','room-A'],['stats','room-A']]);

@@ -19,10 +19,8 @@ async function isEnabled(roomId,db=getPool()){
 async function handle({text,roomId,isBotAccount,send,db}){
  if(!COMMANDS.has(text))return false;
  // Only the actual connected Kakao bot account may modify the room setting.
- if(!isBotAccount){
-  await send('⛔ !발로on / !발로off는 봇 계정만 사용할 수 있습니다.');
-  return true;
- }
+ // Silently consume unauthorized attempts; do not change state or reply.
+ if(!isBotAccount)return true;
  const enabled=text==='!발로on';
  const pool=db||getPool();
  await pool.query(
