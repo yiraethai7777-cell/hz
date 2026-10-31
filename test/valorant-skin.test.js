@@ -192,7 +192,7 @@ test('Kakao type-26 reply without src_logId selects a skin from an abbreviated q
  })}};
  assert.equal(await skins.handleReply({msg,text:'2',client,roomId:'8812',userId:'chooser-no-log',
   send:async text=>messages.push(text),sendImage:async info=>images.push(info)}),true);
- assert.ok(messages[1].includes('🔫 '+messages[0].split('\\n').find(line=>line.startsWith('2. ')).slice(3)));
+ assert.ok(messages[1].includes('🔫 '+messages[0].split('\n').find(line=>line.startsWith('2. ')).slice(3)));
  assert.equal(images.length,1);
 });
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
