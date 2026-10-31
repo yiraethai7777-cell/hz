@@ -351,7 +351,8 @@ async function handleReply({msg,text,client,roomId,userId,send,fetcher=globalThi
  // Verify the exact source message by its Kakao log ID when available. Without
  // a send receipt, accept Kakao's abbreviated quotation from the current list.
  // An unrelated quoted bot message or other user's pending search is not valid.
- const verifiedByMessage=await originalMessageMatches({client,roomId,ref,body:entry.body});
+ const verifiedByMessage=(!matchedQuote||!author||(bot&&author!==bot))
+  ?await originalMessageMatches({client,roomId,ref,body:entry.body}):false;
  if(author&&bot&&author!==bot&&!verifiedByMessage)return false;
  if(!entry.log&&!verifiedByMessage&&!matchedQuote)return false;
  if(!entry.log&&!verifiedByMessage&&!author)return false;
