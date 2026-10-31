@@ -98,7 +98,9 @@ test('All five commands produce scoped data from mocked provider API',async()=>{
  assert.match(outputs[2],/Haven/);
  assert.match(outputs[3],/1승 1패/);
  assert.match(outputs[4],/17.5%/);
- assert.equal(calls.length,2,'two API calls cached for subsequent commands');
+ assert.equal(calls.length,3,'MMR, competitive and all-mode matches are cached across commands');
+ assert.ok(calls.some(c=>c.url.includes('mode=competitive&size=20')));
+ assert.ok(calls.some(c=>c.url.endsWith('?size=20')));
  assert.ok(calls.every(c=>c.authorization==='test-key'));
 });
 test('Router recognizes VALORANT commands before waiting for game initialization',async()=>{
@@ -143,4 +145,46 @@ test('!발로전적 responds with tier RR win rate headshots KDA and recent resu
   assert.ok(sent[0].includes(value),value);
  assert.ok(calls.some(c=>c.url.includes('/v3/mmr/')));
  assert.ok(calls.some(c=>c.url.includes('/v4/matches/')));
+});
+
+test('!발로전적 lists 20 recent games across all modes and keeps competitive stats separate',async()=>{
+ const calls=[],replies=[];
+ const player=(i)=>({
+  name:'Recent Tester',tag:'KR2',puuid:'recent-puuid',team_id:'Red',
+  agent:{name:i%2?'Jett':'Omen'},
+  stats:{kills:10+i,deaths:8,assists:4,headshots:10,bodyshots:30,legshots:10}
+ });
+ const makeMatch=(i,mode)=>({
+  metadata:{map:{name:'Map'+i},mode:{name:mode}},
+  players:[player(i)],teams:[{team_id:'Red',won:i%2===0}]
+ });
+ const competitive=Array.from({length:20},(_,i)=>makeMatch(i,'Competitive'));
+ const mixed=Array.from({length:23},(_,i)=>makeMatch(i,i%2?'Deathmatch':'Competitive'));
+ const fetcher=async url=>{
+  calls.push(url);
+  const data=url.includes('/mmr/')?{
+   account:{puuid:'recent-puuid'},current:{tier:{name:'Gold 3'},rr:19},
+   peak:{tier:{name:'Platinum 1'}}
+  }:url.includes('mode=competitive')?competitive:mixed;
+  return {ok:true,status:200,json:async()=>({status:200,data})};
+ };
+ await valorant.handle({
+  text:'!발로전적 Recent Tester#KR2',roomId:'1',userId:'87670002',
+  env:{HENRIKDEV_API_KEY:'fake-key',VALORANT_APPROVED_PLAYERS:'Recent Tester#KR2'},
+  fetcher,send:async x=>replies.push(x)
+ });
+ assert.equal(replies.length,1);
+ const output=replies[0];
+ assert.match(output,/최근 경쟁전 20경기/);
+ assert.match(output,/승패: 10승 10패/);
+ assert.match(output,/📋 최근 경기 \(최대 20경기 · 전체 모드\)/);
+ assert.match(output,/1\. 🟢 승리 · \[경쟁전\] Map0/);
+ assert.match(output,/2\. 🔴 패배 · \[데스매치\] Map1/);
+ assert.match(output,/20\. 🔴 패배 · \[데스매치\] Map19/);
+ assert.doesNotMatch(output,/21\. /);
+ assert.doesNotMatch(output,/Map20|Map21|Map22/);
+ assert.equal((output.match(/\n\d+\. /g)||[]).length,20);
+ assert.ok(calls.some(url=>url.includes('mode=competitive&size=20')));
+ assert.ok(calls.some(url=>url.endsWith('?size=20')));
+ assert.equal(calls.length,3);
 });
