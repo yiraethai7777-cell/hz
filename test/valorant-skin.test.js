@@ -75,8 +75,8 @@ test('Info includes price qualifier, upgrades, effects, chromas and preview imag
  assert.match(info.text,/레디어나이트 비용은 공개 API로 확인할 수 없습니다/);
  assert.equal(info.photos.length,6);
  assert.equal(info.photos[0].label,'기본형 / Lv.1');
- assert.equal(info.photos[1].label,'최종 업그레이드 / Lv.3');
- assert.equal(info.photos.at(-1).label,'색상 4');
+ assert.equal(info.photos[1].label,'최종 단계 제공 이미지 / Lv.3');
+ assert.match(info.photos.at(-1).label,/^색상 4 · 파랑$/);
 });
 test('Do not label repeated upgrade image as a distinct preview',()=>{
  const data={name:'테스트 밴달',englishName:'Test Vandal',tier:'Premium Edition',
