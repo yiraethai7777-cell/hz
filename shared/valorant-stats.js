@@ -7,6 +7,7 @@ const COMMANDS=new Set(['!발로전적','!전적','!티어','!최근전적','!�
 const REGIONS=new Set(['kr','ap','eu','na','br','latam']);
 const TTL=120000;
 const COOLDOWN=12000;
+const RECENT_MATCH_LIMIT=20;
 const REQUEST_LIMIT=24; // HenrikDev basic keys currently allow 30/minute.
 const cached=new Map(),pending=new Map(),lastUsed=new Map(),requestTimes=[];
 const rankKorean=[
@@ -114,10 +115,12 @@ function matchInfo(match,name,tag,puuid){
  const team=player.team_id??player.team??player.teamId;
  const result=winner(match.teams,team);
  const agent=clean(player.agent?.name??player.character?.name??player.character??player.agent) || '요원 미확인';
+ const rawMode=clean(match.metadata?.mode?.name??match.metadata?.mode?.id??match.metadata?.mode??match.metadata?.queue?.name);
+ const modeName={competitive:'경쟁전',unrated:'일반전',deathmatch:'데스매치',team_deathmatch:'팀 데스매치',swiftplay:'신속 플레이',spikerush:'스파이크 러시',spike_rush:'스파이크 러시',escalation:'에스컬레이션',replication:'복제전',snowballfight:'눈싸움',premier:'프리미어'}[rawMode.toLowerCase()]||rawMode||'모드 미확인';
  const map=clean(match.metadata?.map?.name??match.metadata?.map??match.map?.name) || '맵 미확인';
  const kills=number(stats.kills),deaths=number(stats.deaths),assists=number(stats.assists);
  const hit=shots(player,match);
- return {result,agent,map,kills,deaths,assists,hit};
+ return {result,agent,map,mode:modeName,kills,deaths,assists,hit};
 }
 function aggregate(matches,name,tag,puuid){
  const rows=(Array.isArray(matches)?matches:[]).map(m=>matchInfo(m,name,tag,puuid)).filter(Boolean);
@@ -136,14 +139,14 @@ function aggregate(matches,name,tag,puuid){
 }
 function percent(v){return v===null?'확인 불가':v.toFixed(1)+'%';}
 function kda(row){return [row.kills,row.deaths,row.assists].map(fmt).join('/');}
-function lines(stats,limit=5){
+function lines(stats,limit=RECENT_MATCH_LIMIT){
  if(!stats.rows.length)return '경쟁전 기록이 없습니다.';
  return stats.rows.slice(0,limit).map((row,i)=>{
   const outcome=row.result===null?'➖ 결과 미확인':row.result?'🟢 승리':'🔴 패배';
-  return (i+1)+'. '+outcome+' · '+row.map+'\n   '+row.agent+' · K/D/A '+kda(row);
+  return (i+1)+'. '+outcome+' · ['+(row.mode||'모드 미확인')+'] '+row.map+'\n   '+row.agent+' · K/D/A '+kda(row);
  }).join('\n');
 }
-function format(cmd,target,ranked,stats){
+function format(cmd,target,ranked,stats,recent=null){
  const id=target.name+'#'+target.tag;
  const header='🎯 NEXI | VALORANT\n👤 '+id+' · '+target.region.toUpperCase()+' 서버\n━━━━━━━━━━━━━━';
  const tier='🏅 현재 티어: '+(ranked?.current??'조회 실패')+
@@ -161,9 +164,9 @@ function format(cmd,target,ranked,stats){
  if(cmd==='!승률')return header+'\n'+(stats?'📈 최근 경쟁전 '+stats.count+'경기 승률: '+percent(stats.winrate)+
   '\n승패: '+stats.wins+'승 '+stats.losses+'패':'경쟁전 기록을 확인할 수 없습니다.')+note;
  if(cmd==='!헤드샷')return header+'\n'+(stats?'🎯 최근 경쟁전 헤드샷률: '+percent(stats.hs)+'\n조회 경기: '+stats.count+'경기':'경쟁전 기록을 확인할 수 없습니다.')+note;
- if(cmd==='!최근전적')return header+'\n📋 최근 경쟁전\n'+(stats?lines(stats):'조회 실패')+note;
- return header+'\n'+tier+'\n━━━━━━━━━━━━━━\n'+record+'\n━━━━━━━━━━━━━━\n📋 최근 5경기\n'+
-  (stats?lines(stats):'조회 실패')+note;
+ if(cmd==='!최근전적')return header+'\n📋 최근 경기 (최대 20경기 · 전체 모드)\n'+(recent?lines(recent):'조회 실패')+note;
+ return header+'\n'+tier+'\n━━━━━━━━━━━━━━\n'+record+'\n━━━━━━━━━━━━━━\n📋 최근 경기 (최대 20경기 · 전체 모드)\n'+
+  (recent?lines(recent):'조회 실패')+note;
 }
 function trimMaps(map,max=200){
  while(map.size>max)map.delete(map.keys().next().value);
@@ -219,21 +222,27 @@ async function get(path,options={}){
 async function lookup(target,cmd,options={}){
  const path=[target.region,'pc',encodeURIComponent(target.name),encodeURIComponent(target.tag)].join('/');
  const needMmr=cmd==='!티어'||cmd==='!전적'||cmd==='!발로전적';
- const needMatches=cmd!=='!티어';
+ const needCompetitive=cmd==='!전적'||cmd==='!발로전적'||cmd==='!승률'||cmd==='!헤드샷';
+ const needRecent=cmd==='!전적'||cmd==='!발로전적'||cmd==='!최근전적';
  const jobs=[];
  if(needMmr)jobs.push(get('/valorant/v3/mmr/'+path,options));
- if(needMatches)jobs.push(get('/valorant/v4/matches/'+path+'?mode=competitive&size=10',options));
+ if(needCompetitive)jobs.push(get('/valorant/v4/matches/'+path+'?mode=competitive&size='+RECENT_MATCH_LIMIT,options));
+ if(needRecent)jobs.push(get('/valorant/v4/matches/'+path+'?size='+RECENT_MATCH_LIMIT,options));
  const responses=await Promise.allSettled(jobs);
- let mmrData=null,matchData=null,index=0;
+ let mmrData=null,competitiveData=null,recentData=null,index=0;
  const mmrOutcome=needMmr?responses[index++]:null;
- const matchOutcome=needMatches?responses[index++]:null;
+ const competitiveOutcome=needCompetitive?responses[index++]:null;
+ const recentOutcome=needRecent?responses[index++]:null;
  if(mmrOutcome?.status==='fulfilled')mmrData=mmrOutcome.value;
- if(matchOutcome?.status==='fulfilled')matchData=matchOutcome.value;
- if(!mmrData&&!matchData)throw (matchOutcome?.reason||mmrOutcome?.reason||Error('조회 가능한 데이터가 없습니다.'));
+ if(competitiveOutcome?.status==='fulfilled')competitiveData=competitiveOutcome.value;
+ if(recentOutcome?.status==='fulfilled')recentData=recentOutcome.value;
+ if(!mmrData&&!competitiveData&&!recentData)
+  throw (recentOutcome?.reason||competitiveOutcome?.reason||mmrOutcome?.reason||Error('조회 가능한 데이터가 없습니다.'));
  const ranked=mmrData?mmr(mmrData):null;
  const puuid=clean(mmrData?.account?.puuid);
- const stats=matchData?aggregate(matchData,target.name,target.tag,puuid):null;
- return format(cmd,target,ranked,stats);
+ const stats=competitiveData?aggregate(competitiveData,target.name,target.tag,puuid):null;
+ const recent=recentData?aggregate(recentData,target.name,target.tag,puuid):null;
+ return format(cmd,target,ranked,stats,recent);
 }
 async function handle({text,roomId,userId,send,env=process.env,fetcher}){
  const target=parse(text);
