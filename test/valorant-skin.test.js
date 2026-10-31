@@ -182,6 +182,19 @@ test('Reply selection fallback accepts truncated Kakao quote when send acknowled
   userId:'skin-no-receipt',send:async s=>msgs.push(s),sendImage:async()=>{}}),true);
  assert.ok(msgs[1].includes('🔫 '+msgs[0].split('\n').find(l=>l.startsWith('1. ')).slice(3)));
 });
+test('Kakao type-26 reply without src_logId selects a skin from an abbreviated quote',async()=>{
+ const messages=[],images=[];
+ const client={userId:'990001',connected:true};
+ await skins.handle({text:'!스킨 싱귤',roomId:'8812',userId:'chooser-no-log',client,
+  fetcher:fetchMock([]),send:async text=>messages.push(text),sendImage:async()=>{}});
+ const msg={message:{type:26,attachment:JSON.stringify({
+  src_userId:'990001',src_message:'🔎 비슷한 스킨이 여러 개 있습니다...'
+ })}};
+ assert.equal(await skins.handleReply({msg,text:'2',client,roomId:'8812',userId:'chooser-no-log',
+  send:async text=>messages.push(text),sendImage:async info=>images.push(info)}),true);
+ assert.ok(messages[1].includes('🔫 '+messages[0].split('\\n').find(line=>line.startsWith('2. ')).slice(3)));
+ assert.equal(images.length,1);
+});
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
  for(const value of ['http://media.valorant-api.com/weaponskins/a/displayicon.png',
   'https://internal.example.com/weaponskins/a/displayicon.png',
