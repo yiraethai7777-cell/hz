@@ -15,6 +15,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // The public support link is available even before the game/DB initializes.
+      if(text==='!문의방'){
+        await handleExtraMessage(client,...args);
+        return;
+      }
       // Reply "삭제" to a bot-authored message: true DELETEMSG, never BLIND.
       const replyDelete=require('./reply-delete');
       replyDelete.observe(msg,client.userId);
