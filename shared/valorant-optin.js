@@ -42,8 +42,9 @@ function consentUrl(env,state){
  return callback.origin+'/api/valorant/consent?state='+encodeURIComponent(state);
 }
 async function requestLink(target,options={}){
- const env=options.env||process.env,db=options.db||getPool(),userId=String(options.userId||'');
+ const env=options.env||process.env;
  if(!configured(env))return null;
+ const db=options.db||getPool(),userId=String(options.userId||'');
  const now=Date.now();
  if(userId&&now-(recent.get(userId)||0)<RATE_MS)return {rateLimited:true};
  if(userId){recent.set(userId,now);if(recent.size>1000)recent.delete(recent.keys().next().value);}
@@ -113,9 +114,10 @@ async function callback(state,code,env,db){
  return requested;
 }
 async function http(req,res,url,options={}){
- const env=options.env||process.env,db=options.db||getPool();
+ const env=options.env||process.env;
  if(req.method!=='GET'){html(res,405,'요청 방식이 올바르지 않습니다.');return;}
  if(!configured(env)){html(res,503,'Riot 계정 연결이 아직 설정되지 않았습니다.');return;}
+ const db=options.db||getPool();
  const state=url.searchParams.get('state')||'';
  if(!/^[a-f0-9]{64}$/.test(state)){html(res,400,'잘못된 연결 요청입니다.');return;}
  try{
