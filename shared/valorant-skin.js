@@ -10,6 +10,38 @@ const COOLDOWN=7000;
 const MAX_CHARS=70;
 let catalogCache=null,loading=null;
 const last=new Map();
+
+// Five-minute, per-user/per-room selection cache for ambiguous skin replies.
+const selections=new Map(),CHOICES_HEADER='🔎 비슷한 스킨이 여러 개 있습니다.';
+function selectionKey(room,user){return String(room??'')+':'+String(user??'');}
+function logId(v){
+ if(typeof v==='bigint')return v>0n?String(v):'';
+ if(typeof v==='number')return Number.isSafeInteger(v)&&v>0?String(v):'';
+ if(typeof v==='string')return /^[1-9]\d*$/.test(v)?v:'';
+ if(v&&typeof v==='object'&&typeof v.toString==='function')return logId(v.toString());
+ return '';
+}
+function receiptId(r){return logId(r?.body?.logId??r?.body?.chatLog?.logId??r?.logId??r?.chatLog?.logId);}
+function quotedText(msg){
+ const vals=[msg?.message?.attachment,msg?.raw?.chatLog?.attachment,msg?.raw?.chatlog?.attachment,
+  msg?.raw?.attachment,msg?.message?.reply,msg?.reply];
+ for(let a of vals){
+  if(typeof a==='string'){try{a=JSON.parse(a);}catch{continue;}}
+  if(!a||typeof a!=='object')continue;
+  for(const o of [a.reply,a.quote,a.replyTo,a]){
+   if(!o||typeof o!=='object')continue;
+   for(const t of [o.src_message,o.srcMessage,o.src_msg,o.message])
+    if(typeof t==='string'&&t.startsWith(CHOICES_HEADER))return t;
+  }
+ }
+ return '';
+}
+function recordSelection(room,user,choices,body,ack){
+ for(const [key,item] of selections)if(item.expires<Date.now())selections.delete(key);
+ selections.set(selectionKey(room,user),{choices,body,log:receiptId(ack),expires:Date.now()+300000});
+ if(selections.size>500)selections.delete(selections.keys().next().value);
+}
+
 const ALIASES=[
  ['싱귤래리티','singularity'],['싱귤라리티','singularity'],['싱귤','singularity'],['싱굴','singularity'],
  ['약탈자','reaver'],['약탈','reaver'],['리버','reaver'],['프라임','prime'],['용','elderflame'],
@@ -258,6 +290,46 @@ function imageFallback(info){
  return '⚠️ 스킨 비교 사진을 전송하지 못했습니다. 원본 이미지 링크를 확인해 주세요.\n'+
   (lines.length?lines.join('\n'):'공개된 스킨 이미지가 없습니다.');
 }
+async function sendResult({skin,client,roomId,send,fetcher,sendImage}){
+ const info=explain(skin);
+ await send(info.text);
+ if(info.photos.length){
+  try{
+   const action=sendImage||require('./valorant-skin-image').sendPreview;
+   await action({client,roomId,skin,photos:info.photos,fetcher});
+  }catch(error){
+   console.warn('[NEXI SKIN PHOTO]',clean(error?.message,140));
+   await send(imageFallback(info));
+  }
+ }else await send('🖼️ 공개 API에 등록된 스킨 이미지가 없습니다.');
+}
+async function handleReply({msg,text,client,roomId,userId,send,fetcher=globalThis.fetch,sendImage}){
+ if(!/^[1-5]$/.test(String(text??'').trim()))return false;
+ const key=selectionKey(roomId,userId),entry=selections.get(key);
+ if(!entry)return false;
+ if(entry.expires<Date.now()){selections.delete(key);return false;}
+ const {reference}=require('./reply-delete');
+ const ref=reference(msg);
+ if(!ref)return false;
+ const bot=logId(client?.userId);
+ if(ref.author&&bot&&ref.author!==bot)return false;
+ if(entry.log){
+  if(ref.log!==entry.log)return false;
+ }else if(!bot||ref.author!==bot||quotedText(msg)!==entry.body)return false;
+ const index=Number(String(text).trim())-1;
+ if(index>=entry.choices.length){
+  await send('❌ 목록에 있는 번호를 입력해 주세요. (1~'+entry.choices.length+')');
+  return true;
+ }
+ selections.delete(key);
+ try{
+  await sendResult({skin:entry.choices[index],client,roomId,send,fetcher,sendImage});
+ }catch(error){
+  console.warn('[NEXI SKIN CHOICE]',clean(error?.message,140));
+  await send('❌ 스킨 정보를 전송하지 못했습니다. 다시 검색해 주세요.');
+ }
+ return true;
+}
 async function handle({text,client,roomId,userId,send,fetcher=globalThis.fetch,sendImage}){
  if(!/^!스킨(?:\s|$)/.test(String(text||'')))return false;
  const rawQuery=String(text).replace(/^!스킨(?:\s|$)/,'').trim();
@@ -272,25 +344,23 @@ async function handle({text,client,roomId,userId,send,fetcher=globalThis.fetch,s
   const available=await catalog(fetcher);
   const found=matchSkin(query,available);
   if(!found.skin){
-   const suggestions=found.choices.slice(0,5).map((x,i)=>(i+1)+'. '+x.name);
-   await send(suggestions.length?'🔎 비슷한 스킨이 여러 개 있습니다.\n원하는 스킨 이름을 더 정확히 입력해 주세요.\n'+suggestions.join('\n'):'❌ 검색 결과가 없습니다. 다른 이름으로 입력해 주세요.');
+   const choices=found.choices.slice(0,5);
+   if(choices.length){
+    const body=CHOICES_HEADER+'\n원하는 스킨 이름을 더 정확히 입력하거나 이 메시지에 답장으로 번호를 보내주세요.\n'+choices.map((x,i)=>(i+1)+'. '+x.name).join('\n');
+    const ack=await send(body);
+    recordSelection(roomId,userId,choices,body,ack);
+   }else{
+    selections.delete(selectionKey(roomId,userId));
+    await send('❌ 검색 결과가 없습니다. 다른 이름으로 입력해 주세요.');
+   }
    return true;
   }
-  const info=explain(found.skin);
-  await send(info.text);
-  if(info.photos.length){
-   try{
-    const action=sendImage||require('./valorant-skin-image').sendPreview;
-    await action({client,roomId,skin:found.skin,photos:info.photos,fetcher});
-   }catch(error){
-    console.warn('[NEXI SKIN PHOTO]',clean(error?.message,140));
-    await send(imageFallback(info));
-   }
-  }else await send('🖼️ 공개 API에 등록된 스킨 이미지가 없습니다.');
+  selections.delete(selectionKey(roomId,userId));
+  await sendResult({skin:found.skin,client,roomId,send,fetcher,sendImage});
  }catch(error){
   console.warn('[NEXI SKIN]',clean(error?.message,140));
   await send('❌ 스킨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
  }
  return true;
 }
-module.exports={handle,canonical,score,rankSkins,matchSkin,downloadCatalog,catalog,pricing,variants,explain,safeMedia,safeVideo,usage};
+module.exports={handle,handleReply,sendResult,canonical,score,rankSkins,matchSkin,downloadCatalog,catalog,pricing,variants,explain,safeMedia,safeVideo,usage};
