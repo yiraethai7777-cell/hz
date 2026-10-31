@@ -125,9 +125,9 @@ test('router routes ! game commands but refuses retired # commands',async()=>{
 test('NEXI brand and official support room appear in both command menus',()=>{
  for(const section of ['게임','관리']){
   const body=help.formatCommandHelp({game:true,manage:true},section);
-  assert.ok(body.startsWith('📜 명령어 안내 · NEXI\\n작동 중인 기능 · '+section+'\\u200b'.repeat(1200)));
+  assert.ok(body.startsWith('📜 명령어 안내 · NEXI\n작동 중인 기능 · '+section+'\u200b'.repeat(1200)));
   assert.match(body,section==='게임'?/🎮 게임 명령어 · NEXI/:/🛡️ 관리 명령어 · NEXI/);
-  assert.match(body,/💬 NEXI 봇 문의방\\nhttps:\/\/open\\.kakao\\.com\/o\/gK32HUUi/);
+  assert.ok(body.includes('💬 NEXI 봇 문의방\nhttps://open.kakao.com/o/gK32HUUi'));
   assert.equal(body.split('https://open.kakao.com/o/gK32HUUi').length-1,1);
   assert.match(body,/✦ NEXI · 게임 & 관리 도우미$/);
  }
