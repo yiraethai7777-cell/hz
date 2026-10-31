@@ -5,7 +5,7 @@ const crypto=require('node:crypto');
 const {getPool}=require('./db');
 const RATE_MS=30000;
 const recent=new Map();
-let initialized=null;
+const initialized=new WeakMap();
 function identity(name,tag){
  return (String(name).trim()+'#'+String(tag).trim()).normalize('NFC').toLocaleLowerCase('en-US');
 }
@@ -18,17 +18,19 @@ function configured(env=process.env){
  }catch{return false;}
 }
 async function init(db=getPool()){
- if(!initialized){
-  initialized=db.query(
+ let job=initialized.get(db);
+ if(!job){
+  job=db.query(
    "CREATE TABLE IF NOT EXISTS hz_valorant_verified ("+
    "riot_id TEXT PRIMARY KEY, puuid TEXT NOT NULL, verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
   ).then(()=>db.query(
    "CREATE TABLE IF NOT EXISTS hz_valorant_pending ("+
    "state_hash TEXT PRIMARY KEY, riot_id TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL)"+
    "; CREATE INDEX IF NOT EXISTS hz_valorant_pending_expiry ON hz_valorant_pending(expires_at)"
-  )).catch(error=>{initialized=null;throw error;});
+  )).catch(error=>{initialized.delete(db);throw error;});
+  initialized.set(db,job);
  }
- return initialized;
+ return job;
 }
 async function isVerified(riotId,db=getPool()){
  await init(db);
