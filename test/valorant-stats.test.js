@@ -84,6 +84,18 @@ test('Unregistered accounts can receive a link without an API key; unsafe name c
  assert.match(sent[0],/Player%20A%23K%251\/overview/);
  assert.doesNotMatch(sent[0],/HENRIKDEV_API_KEY/);
 });
+test('!발로전적확인 cannot mark an arbitrary searched Riot ID as opted in',async()=>{
+ const sent=[],calls=[];
+ assert.equal(valorant.parse('!발로전적확인 Unknown#KR1 ap').cmd,'!발로전적확인');
+ await valorant.handle({
+  text:'!발로전적확인 Unknown#KR1 ap',roomId:'1',userId:'990',
+  env:{HENRIKDEV_API_KEY:'test-key'},
+  fetcher:fetchMock(calls),send:async s=>sent.push(s)
+ });
+ assert.equal(calls.length,0);
+ assert.match(sent[0],/RSO 설정/);
+ assert.match(sent[0],/공개 동의/);
+});
 test('API key missing returns actionable configuration notice',async()=>{
  const sent=[];
  await valorant.handle({text:'!전적 Demo User#KR1',roomId:'1',userId:'92',
