@@ -1,4 +1,5 @@
 'use strict';
+const {fold}=require('./valorant-more');
 
 // Public cosmetic catalog: no Riot login, player ID, or account credentials are needed.
 // The community Valorant-API exposes names/tiers/levels/chromas/images,
@@ -205,16 +206,16 @@ function variants(skin){
 }
 function explain(skin){
  const price=pricing(skin),variant=variants(skin);
- const label=skin.name+(skin.name!==skin.englishName?'\n🇺🇸 '+skin.englishName:'');
  const levelCount=variant.levels.length;
  const colorLines=variant.chromas.map((item,i)=>{
   const name=clean(item.displayName,72);
   return '  '+(i+1)+'. '+(name||('색상 '+(i+1)));
  });
+ // Keep only the title and skin name in the KakaoTalk message preview.
+ const header='🎨 NEXI | 발로란트 스킨 도감\n🔫 '+skin.name;
  const lines=[
-  '🎨 NEXI | 발로란트 스킨 도감',
   '━━━━━━━━━━━━━━',
-  '🔫 '+label,
+  skin.name!==skin.englishName?'🇺🇸 '+skin.englishName:'',
   '💎 등급: '+price.tier,
   '💰 VP 가격: '+price.price,
   '⚡ 업그레이드: '+(levelCount?levelCount+'단계 (기본 Lv.1 포함)':'정보 없음'),
@@ -222,18 +223,12 @@ function explain(skin){
   '🎨 색상: '+variant.chromas.length+'종',
   ...colorLines.slice(0,12),
   '🖼️ 기본형 / 업그레이드 / 색상별 외형: 사진 참조',
-  '🎬 스킨 미리보기 영상: '+(variant.previewVideo||'공개 영상 없음'),
-  '━━━━━━━━━━━━━━',
-  '※ '+price.notice,
-  '※ 업그레이드에 필요한 레디어나이트 비용은 공개 API로 확인할 수 없습니다.',
-  !variant.hasDistinctUpgrade&&variant.previewVideo?'※ 업그레이드된 게임 내 외형/효과는 위 미리보기 영상에서 확인할 수 있습니다.':'',
-  !variant.hasDistinctUpgrade?'※ 단계별 외형 이미지가 분리되어 있지 않으면 업그레이드 전후 사진이 같을 수 있습니다.':'',
-  '※ 비공식 Valorant-API 데이터이며 실제 판매 화면과 차이가 있을 수 있습니다.'
+  '🎬 스킨 미리보기 영상: '+(variant.previewVideo||'공개 영상 없음')
  ].filter(Boolean);
- return {text:lines.join('\n'),...variant};
+ return {text:fold(header,lines.join('\n')),...variant};
 }
 function usage(){
- return '🎨 NEXI | 스킨 검색\n사용법: !스킨 (스킨 이름)\n예: !스킨 싱귤 밴달\n예: !스킨 프라임 팬텀\n※ 정확한 이름이 아니어도 검색합니다.';
+ return '🎨 NEXI | 스킨 검색\n사용법: !스킨 (스킨 이름)\n예: !스킨 싱귤 밴달\n예: !스킨 프라임 팬텀';
 }
 function imageFallback(info){
  const lines=[];

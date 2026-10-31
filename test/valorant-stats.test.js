@@ -54,6 +54,16 @@ test('MMR rank and RR, weighted headshot rate and matches are calculated',()=>{
  assert.match(valorant.format('!전적',{name:'Demo User',tag:'KR1',region:'kr'},p,stats),/헤드샷률: 17.5%/);
  assert.match(valorant.format('!최근전적',{name:'Demo User',tag:'KR1',region:'kr'},null,stats),/1\. 🟢 승리/);
 });
+test('All Valorant report formats fold after exactly the Riot ID header and omit footer notices',()=>{
+ const stats=valorant.aggregate(MATCHES.data,'Demo User','KR1','demo-puuid');
+ const ranked=valorant.mmr(MMRS.data);
+ const header='🎯 NEXI | VALORANT\n👤 Demo User#KR1 · KR 서버';
+ for(const cmd of ['!발로전적','!전적','!티어','!최근전적','!승률','!헤드샷']){
+  const output=valorant.format(cmd,{name:'Demo User',tag:'KR1',region:'kr'},ranked,stats,stats);
+  assert.ok(output.startsWith(header+'\u200b'.repeat(1200)+'\n━━━━━━━━━━━━━━'),cmd);
+  assert.doesNotMatch(output,/※|공식 Riot 전적 통계가 아닙니다|최근 경기 목록에는 전체 모드가 포함됩니다/,cmd);
+ }
+});
 test('Unknown users, unknown outcomes and absent shots do not produce fabricated win/HS rates',()=>{
  const stats=valorant.aggregate([
   {players:[{name:'Demo User',tag:'KR1',team_id:'Blue',stats:{kills:12,deaths:9,assists:3}}],

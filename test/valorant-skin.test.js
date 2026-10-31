@@ -61,18 +61,19 @@ test('Catalog merges localized names with English aliases and tiers',async()=>{
  assert.ok(calls.some(u=>u.includes('language=ko-KR')));
  assert.ok(calls.some(u=>u.includes('language=en-US')));
 });
-test('Info includes price qualifier, upgrades, effects, chromas and preview images',()=>{
+test('Skin info folds after two lines and omits advisory notices while preserving details',()=>{
  const data={
   name:'싱귤래리티 밴달',englishName:'Singularity Vandal',
   data:KO[0],tier:'Premium Edition'
  };
  const info=skins.explain(data);
  assert.match(info.text,/1,775 VP \(등급 일반가\)/);
- assert.match(info.text,/정확한 개별 가격은 공개 스킨 API에서 제공하지 않습니다/);
+ assert.ok(info.text.startsWith('🎨 NEXI | 발로란트 스킨 도감\n🔫 싱귤래리티 밴달'+'\u200b'.repeat(1200)+'\n━━━━━━━━━━━━━━'));
+ assert.doesNotMatch(info.text,/※|정확한 개별 가격은 공개 스킨 API/);
  assert.match(info.text,/3단계 \(기본 Lv.1 포함\)/);
  assert.match(info.text,/마무리 연출/);
  assert.match(info.text,/4종/);
- assert.match(info.text,/레디어나이트 비용은 공개 API로 확인할 수 없습니다/);
+ assert.doesNotMatch(info.text,/레디어나이트 비용은 공개 API로 확인할 수 없습니다/);
  assert.equal(info.photos.length,6);
  assert.equal(info.photos[0].label,'기본형 / Lv.1');
  assert.equal(info.photos[1].label,'최종 단계 제공 이미지 / Lv.3');
@@ -93,7 +94,7 @@ test('Official upgrade preview videos are used when no separate upgrade photo ex
  const info=skins.explain(item);
  assert.equal(info.hasDistinctUpgrade,false);
  assert.equal(info.photos.length,1);
- assert.match(info.text,/업그레이드된 게임 내 외형\/효과는 위 미리보기 영상/);
+ assert.doesNotMatch(info.text,/업그레이드된 게임 내 외형\/효과는 위 미리보기 영상/);
  assert.ok(info.text.includes(riotVideo));
 });
 test('Do not label repeated upgrade image as a distinct preview',()=>{
@@ -105,7 +106,7 @@ test('Do not label repeated upgrade image as a distinct preview',()=>{
  const result=skins.explain(data);
  assert.equal(result.hasDistinctUpgrade,false);
  assert.equal(result.photos.length,1);
- assert.match(result.text,/단계별 외형 이미지가 분리되어 있지 않으면/);
+ assert.doesNotMatch(result.text,/단계별 외형 이미지가 분리되어 있지 않으면/);
 });
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
  for(const value of ['http://media.valorant-api.com/weaponskins/a/displayicon.png',
@@ -126,6 +127,7 @@ test('!스킨 sends a single complete info reply and one photo sheet request',as
  assert.match(messages[0],/싱귤래리티 밴달/);
  assert.match(messages[0],/업그레이드/);
  assert.match(messages[0],/VP 가격/);
+ assert.doesNotMatch(messages[0],/※/);
  assert.equal(uploads.length,1);
  assert.equal(uploads[0].photos.length,6);
  assert.equal(calls.length,3);

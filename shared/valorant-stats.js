@@ -4,6 +4,7 @@
 // Only Riot IDs whose public-stat sharing consent was verified by the operator
 // and listed in VALORANT_APPROVED_PLAYERS may be requested.
 const COMMANDS=new Set(['!발로전적','!전적','!티어','!최근전적','!승률','!헤드샷']);
+const {fold}=require('./valorant-more');
 const REGIONS=new Set(['kr','ap','eu','na','br','latam']);
 const TTL=120000;
 const COOLDOWN=12000;
@@ -148,7 +149,9 @@ function lines(stats,limit=RECENT_MATCH_LIMIT){
 }
 function format(cmd,target,ranked,stats,recent=null){
  const id=target.name+'#'+target.tag;
- const header='🎯 NEXI | VALORANT\n👤 '+id+' · '+target.region.toUpperCase()+' 서버\n━━━━━━━━━━━━━━';
+ // First two lines remain visible; the rest is behind KakaoTalk's native 더보기.
+ const header='🎯 NEXI | VALORANT\n👤 '+id+' · '+target.region.toUpperCase()+' 서버';
+ const divider='━━━━━━━━━━━━━━';
  const tier='🏅 현재 티어: '+(ranked?.current??'조회 실패')+
   '\n💎 RR: '+(ranked?.rr!=null?ranked.rr:'확인 불가')+
   '\n🏆 최고 티어: '+(ranked?.peak??'조회 실패');
@@ -159,14 +162,18 @@ function format(cmd,target,ranked,stats,recent=null){
   '\n🎯 헤드샷률: '+percent(stats.hs)+
   '\n⚔️ K/D/A 합계: '+fmt(stats.totalKills)+'/'+fmt(stats.totalDeaths)+'/'+fmt(stats.totalAssists):
   '📊 최근 경기 정보를 조회하지 못했습니다.';
- const note='\n━━━━━━━━━━━━━━\n※ 승률·HS%는 조회된 최근 경쟁전 기준입니다.\n※ 최근 경기 목록에는 전체 모드가 포함됩니다.\n※ 공식 Riot 전적 통계가 아닙니다.';
- if(cmd==='!티어')return header+'\n'+tier;
- if(cmd==='!승률')return header+'\n'+(stats?'📈 최근 경쟁전 '+stats.count+'경기 승률: '+percent(stats.winrate)+
-  '\n승패: '+stats.wins+'승 '+stats.losses+'패':'경쟁전 기록을 확인할 수 없습니다.')+note;
- if(cmd==='!헤드샷')return header+'\n'+(stats?'🎯 최근 경쟁전 헤드샷률: '+percent(stats.hs)+'\n조회 경기: '+stats.count+'경기':'경쟁전 기록을 확인할 수 없습니다.')+note;
- if(cmd==='!최근전적')return header+'\n📋 최근 경기 (최대 20경기 · 전체 모드)\n'+(recent?lines(recent):'조회 실패')+note;
- return header+'\n'+tier+'\n━━━━━━━━━━━━━━\n'+record+'\n━━━━━━━━━━━━━━\n📋 최근 경기 (최대 20경기 · 전체 모드)\n'+
-  (recent?lines(recent):'조회 실패')+note;
+ if(cmd==='!티어')return fold(header,divider+'\n'+tier);
+ if(cmd==='!승률')return fold(header,divider+'\n'+(stats?
+  '📈 최근 경쟁전 '+stats.count+'경기 승률: '+percent(stats.winrate)+
+  '\n승패: '+stats.wins+'승 '+stats.losses+'패':'경쟁전 기록을 확인할 수 없습니다.'));
+ if(cmd==='!헤드샷')return fold(header,divider+'\n'+(stats?
+  '🎯 최근 경쟁전 헤드샷률: '+percent(stats.hs)+'\n조회 경기: '+stats.count+'경기':
+  '경쟁전 기록을 확인할 수 없습니다.'));
+ if(cmd==='!최근전적')return fold(header,divider+'\n📋 최근 경기 (최대 20경기 · 전체 모드)\n'+
+  (recent?lines(recent):'조회 실패'));
+ return fold(header,divider+'\n'+tier+'\n'+divider+'\n'+record+
+  '\n'+divider+'\n📋 최근 경기 (최대 20경기 · 전체 모드)\n'+
+  (recent?lines(recent):'조회 실패'));
 }
 function trimMaps(map,max=200){
  while(map.size>max)map.delete(map.keys().next().value);
