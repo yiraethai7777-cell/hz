@@ -29,7 +29,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       // Gate EVERY Valorant-related command before contacting external APIs.
-      if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
+      if(/^(?:!스킨|!발로전적|!발로전적확인|!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
         let enabled=false;
         try{
           enabled=await require('./valorant-settings').isEnabled(roomId);
