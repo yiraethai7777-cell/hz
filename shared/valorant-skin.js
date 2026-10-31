@@ -38,6 +38,22 @@ function quotedText(msg){
  }
  return '';
 }
+function quotedAuthor(msg){
+ const attachments=[msg?.message?.attachment,msg?.raw?.chatLog?.attachment,
+  msg?.raw?.chatlog?.attachment,msg?.raw?.attachment,msg?.message?.reply,msg?.reply];
+ for(let attachment of attachments){
+  if(typeof attachment==='string'){
+   try{attachment=require('lossless-json').parse(attachment);}catch{continue;}
+  }
+  if(!attachment||typeof attachment!=='object')continue;
+  for(const a of [attachment.reply,attachment.quote,attachment.replyTo,attachment]){
+   if(!a||typeof a!=='object')continue;
+   const raw=a.src_userId??a.srcUserId??a.src_user_id??(a!==attachment?a.userId:undefined);
+   if(raw!=null&&String(raw).trim())return String(raw).trim();
+  }
+ }
+ return '';
+}
 function quoteMatches(quote,original){
  if(!quote||!original)return false;
  if(quote===original)return true;
@@ -340,18 +356,21 @@ async function handleReply({msg,text,client,roomId,userId,send,fetcher=globalThi
  const ref=reference(msg);
  const quote=quotedText(msg);
  const bot=String(client?.userId??'');
- const author=String(ref?.author??'');
+ const author=String(ref?.author||quotedAuthor(msg)||'');
  const matchedQuote=quoteMatches(quote,entry.body);
  console.log('[NEXI SKIN REPLY]',JSON.stringify({
   pending:true,ref:!!ref,bot:!!bot,author:!!author,receipt:!!entry.log,
   matchedQuote,quoted:!!quote,replyType:Number(msg?.message?.type??msg?.type)===26
  }));
- if(!ref)return false;
- if(entry.log&&ref.log!==entry.log)return false;
+ if(!ref&&Number(msg?.message?.type??msg?.type)!==26)return false;
+ // Some Kakao reply formats carry src_userId + quoted text but omit src_logId.
+ // Only use this fallback for a real reply with an identifiable bot author.
+ if(!ref&&(!author||!bot||author!==bot||!matchedQuote))return false;
+ if(entry.log&&ref?.log!==entry.log)return false;
  // Verify the exact source message by its Kakao log ID when available. Without
  // a send receipt, accept Kakao's abbreviated quotation from the current list.
  // An unrelated quoted bot message or other user's pending search is not valid.
- const verifiedByMessage=(!matchedQuote||!author||(bot&&author!==bot))
+ const verifiedByMessage=ref&&(!matchedQuote||!author||(bot&&author!==bot))
   ?await originalMessageMatches({client,roomId,ref,body:entry.body}):false;
  if(author&&bot&&author!==bot&&!verifiedByMessage)return false;
  if(!entry.log&&!verifiedByMessage&&!matchedQuote)return false;
