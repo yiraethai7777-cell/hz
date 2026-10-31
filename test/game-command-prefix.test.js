@@ -132,3 +132,31 @@ test('NEXI brand and official support room appear in both command menus',()=>{
   assert.match(body,/✦ NEXI · 게임 & 관리 도우미$/);
  }
 });
+
+test('!문의방 responds once even when the game database is not ready',async()=>{
+ const sent=[],calls=[];
+ let handler;
+ const client={
+  userId:'9999',
+  chat:{sendText:async(room,body)=>sent.push([String(room),body])},
+  onMessage(fn){handler=fn;}
+ };
+ const router=load('shared/router.js',{
+  './help':help,
+  '../game/command-aliases':aliases,
+  './unicode-output':{install(){}},
+  './reply-delete':{install(){},observe(){}}
+ });
+ router.attachRouter(client,{
+  game:{message:async()=>calls.push('game')},
+  management:{message:async()=>calls.push('management')},
+  ready:new Promise(()=>{})
+ });
+ await handler({
+  room:{id:'1849',isOpenChat:true},
+  sender:{id:'5555',name:'테스트'},
+  message:{text:'!문의방'}
+ });
+ assert.deepEqual(sent,[['1849','💬 NEXI 봇 문의방\nhttps://open.kakao.com/o/gK32HUUi']]);
+ assert.deepEqual(calls,[]);
+});
