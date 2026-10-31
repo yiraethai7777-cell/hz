@@ -26,15 +26,40 @@ function quotedText(msg){
  const vals=[msg?.message?.attachment,msg?.raw?.chatLog?.attachment,msg?.raw?.chatlog?.attachment,
   msg?.raw?.attachment,msg?.message?.reply,msg?.reply];
  for(let a of vals){
-  if(typeof a==='string'){try{a=JSON.parse(a);}catch{continue;}}
+  if(typeof a==='string'){
+   try{a=require('lossless-json').parse(a);}catch{continue;}
+  }
   if(!a||typeof a!=='object')continue;
   for(const o of [a.reply,a.quote,a.replyTo,a]){
    if(!o||typeof o!=='object')continue;
-   for(const t of [o.src_message,o.srcMessage,o.src_msg,o.message])
-    if(typeof t==='string'&&t.startsWith(CHOICES_HEADER))return t;
+   for(const t of [o.src_message,o.srcMessage,o.src_msg,o.message,o.text])
+    if(typeof t==='string'&&t.startsWith(CHOICES_HEADER.slice(0,-1)))return t;
   }
  }
  return '';
+}
+function quoteMatches(quote,original){
+ if(!quote||!original)return false;
+ if(quote===original)return true;
+ // KakaoTalk may abbreviate a quoted message to the first line + "..."
+ // even though the original suggestion contains the numbered list.
+ const shortened=quote.replace(/(?:\.{3}|\u2026)\s*$/,'').trimEnd();
+ return shortened.length>=CHOICES_HEADER.length-1&&original.startsWith(shortened);
+}
+async function originalMessageMatches({client,roomId,ref,body}){
+ if(!ref?.log||typeof client?.fetchMessage!=='function')return false;
+ try{
+  const fetched=await client.fetchMessage(roomId,ref.log);
+  const {info}=require('./reply-delete');
+  const metadata=info(fetched);
+  if(metadata.room!==String(roomId)||metadata.log!==ref.log||
+     (client?.userId!=null&&metadata.author!==String(client.userId)))return false;
+  const text=String(fetched?.message?.text??fetched?.text??'');
+  return text===body;
+ }catch(error){
+  console.warn('[NEXI SKIN QUOTE FETCH]',String(error?.code||'FAILED'));
+  return false;
+ }
 }
 function recordSelection(room,user,choices,body,ack){
  for(const [key,item] of selections)if(item.expires<Date.now())selections.delete(key);
@@ -306,16 +331,30 @@ async function sendResult({skin,client,roomId,send,fetcher,sendImage}){
 async function handleReply({msg,text,client,roomId,userId,send,fetcher=globalThis.fetch,sendImage}){
  if(!/^[1-5]$/.test(String(text??'').trim()))return false;
  const key=selectionKey(roomId,userId),entry=selections.get(key);
- if(!entry)return false;
+ if(!entry){
+  console.log('[NEXI SKIN REPLY]',JSON.stringify({pending:false}));
+  return false;
+ }
  if(entry.expires<Date.now()){selections.delete(key);return false;}
  const {reference}=require('./reply-delete');
  const ref=reference(msg);
+ const quote=quotedText(msg);
+ const bot=String(client?.userId??'');
+ const author=String(ref?.author??'');
+ const matchedQuote=quoteMatches(quote,entry.body);
+ console.log('[NEXI SKIN REPLY]',JSON.stringify({
+  pending:true,ref:!!ref,bot:!!bot,author:!!author,receipt:!!entry.log,
+  matchedQuote,quoted:!!quote,replyType:Number(msg?.message?.type??msg?.type)===26
+ }));
  if(!ref)return false;
- const bot=logId(client?.userId);
- if(ref.author&&bot&&ref.author!==bot)return false;
- if(entry.log){
-  if(ref.log!==entry.log)return false;
- }else if(!bot||ref.author!==bot||quotedText(msg)!==entry.body)return false;
+ if(entry.log&&ref.log!==entry.log)return false;
+ // Verify the exact source message by its Kakao log ID when available. Without
+ // a send receipt, accept Kakao's abbreviated quotation from the current list.
+ // An unrelated quoted bot message or other user's pending search is not valid.
+ const verifiedByMessage=await originalMessageMatches({client,roomId,ref,body:entry.body});
+ if(author&&bot&&author!==bot&&!verifiedByMessage)return false;
+ if(!entry.log&&!verifiedByMessage&&!matchedQuote)return false;
+ if(!entry.log&&!verifiedByMessage&&!author)return false;
  const index=Number(String(text).trim())-1;
  if(index>=entry.choices.length){
   await send('❌ 목록에 있는 번호를 입력해 주세요. (1~'+entry.choices.length+')');
