@@ -201,6 +201,7 @@ test('!스킨 is routed before game and DB readiness',async()=>{
    if(name==='./help')return {handleExtraMessage:async()=>false};
    if(name==='../game/command-aliases')return {isRetiredLegacyCommand:()=>false,isGameCommand:()=>false};
    if(name==='./unicode-output'||name==='./reply-delete')return {install(){}};
+   if(name==='./valorant-settings')return {isEnabled:async()=>true};
    if(name==='./valorant-skin')return {handle:async args=>{
     calls.push(args.text);await args.send('스킨 검색 성공');return true;
    }};
