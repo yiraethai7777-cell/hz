@@ -139,6 +139,49 @@ test('Do not label repeated upgrade image as a distinct preview',()=>{
  assert.equal(result.photos.length,1);
  assert.doesNotMatch(result.text,/단계별 외형 이미지가 분리되어 있지 않으면/);
 });
+test('Replying 1-5 to the original bot suggestion shows that exact skin and its photos once',async()=>{
+ const messages=[],uploads=[],calls=[];
+ const client={userId:'990001',connected:true};
+ const send=async body=>{
+  messages.push(body);
+  return {body:{logId:'900001'}};
+ };
+ await skins.handle({text:'!스킨 싱귤',client,roomId:'888',userId:'skin-chooser-one',send,
+  fetcher:fetchMock(calls),sendImage:async args=>uploads.push(args)});
+ const suggestion=messages[0];
+ assert.match(suggestion,/1\. 싱귤래리티 (밴달|팬텀)/);
+ assert.match(suggestion,/2\. 싱귤래리티 (밴달|팬텀)/);
+ assert.match(suggestion,/답장으로 번호/);
+ const quoted=(log='900001',author='990001')=>({
+  room:{id:'888'},sender:{id:'skin-chooser-one'},
+  message:{type:26,text:'2',attachment:JSON.stringify({src_logId:log,src_userId:author,src_message:suggestion})}
+ });
+ assert.equal(await skins.handleReply({msg:quoted('900002'),text:'2',client,roomId:'888',
+  userId:'skin-chooser-one',send,sendImage:async a=>uploads.push(a)}),false);
+ assert.equal(await skins.handleReply({msg:quoted('900001','990002'),text:'2',client,roomId:'888',
+  userId:'skin-chooser-one',send,sendImage:async a=>uploads.push(a)}),false);
+ assert.equal(await skins.handleReply({msg:quoted(),text:'2',client,roomId:'888',
+  userId:'another-user',send,sendImage:async a=>uploads.push(a)}),false);
+ assert.equal(await skins.handleReply({msg:quoted(),text:'2',client,roomId:'888',
+  userId:'skin-chooser-one',send,sendImage:async a=>uploads.push(a)}),true);
+ assert.match(messages[1],/🎨 NEXI \| 발로란트 스킨 도감/);
+ assert.ok(messages[1].includes('🔫 '+suggestion.split('\n').find(l=>l.startsWith('2. ')).slice(3)));
+ assert.equal(uploads.length,1);
+ assert.equal(await skins.handleReply({msg:quoted(),text:'2',client,roomId:'888',
+  userId:'skin-chooser-one',send,sendImage:async a=>uploads.push(a)}),false);
+});
+test('Reply selection fallback matches the exact quoted bot list when send acknowledgements are absent',async()=>{
+ const msgs=[],client={userId:'990001',connected:true};
+ await skins.handle({text:'!스킨 싱귤',client,roomId:'881',userId:'skin-no-receipt',
+  send:async s=>{msgs.push(s);return undefined;},fetcher:fetchMock([]),
+  sendImage:async()=>{}});
+ const quote={room:{id:'881'},message:{type:26,attachment:JSON.stringify({
+  src_logId:'900331',src_userId:'990001',src_message:msgs[0]
+ })}};
+ assert.equal(await skins.handleReply({msg:quote,text:'1',client,roomId:'881',
+  userId:'skin-no-receipt',send:async s=>msgs.push(s),sendImage:async()=>{}}),true);
+ assert.ok(msgs[1].includes('🔫 '+msgs[0].split('\n').find(l=>l.startsWith('1. ')).slice(3)));
+});
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
  for(const value of ['http://media.valorant-api.com/weaponskins/a/displayicon.png',
   'https://internal.example.com/weaponskins/a/displayicon.png',

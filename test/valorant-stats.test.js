@@ -24,6 +24,11 @@ const MATCHES={status:200,data:[
   teams:[{team_id:'Blue',won:false}]}
 ]};
 
+const unapprovedDb={async query(sql){
+ if(sql.includes('CREATE TABLE IF NOT EXISTS'))return {rows:[]};
+ if(sql.startsWith('SELECT EXISTS('))return {rows:[{approved:false}]};
+ throw Error('Unexpected approval DB query: '+sql);
+}};
 function fetchMock(calls){
  return async(url,options)=>{
   calls.push({url,authorization:options.headers.Authorization});
@@ -76,7 +81,7 @@ test('Unknown users, unknown outcomes and absent shots do not produce fabricated
 test('Unregistered Riot IDs receive a safe public profile link without any API request',async()=>{
  const calls=[],sent=[];
  await valorant.handle({text:'!전적 Demo User#KR1',roomId:'1',userId:'91',
-  env:{HENRIKDEV_API_KEY:'test-key'},
+  env:{HENRIKDEV_API_KEY:'test-key'},db:unapprovedDb,
   fetcher:fetchMock(calls),send:async s=>sent.push(s)});
  assert.equal(calls.length,0);
  assert.match(sent[0],/공개 동의/);
@@ -88,7 +93,7 @@ test('Unregistered accounts can receive a link without an API key; unsafe name c
  const calls=[];
  await valorant.handle({
   text:'!발로전적 Player A#K%1',roomId:'1',userId:'94',
-  env:{},fetcher:fetchMock(calls),send:async s=>sent.push(s)
+  env:{},db:unapprovedDb,fetcher:fetchMock(calls),send:async s=>sent.push(s)
  });
  assert.equal(calls.length,0);
  assert.match(sent[0],/Player%20A%23K%251\/overview/);

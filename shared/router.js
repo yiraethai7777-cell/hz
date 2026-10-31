@@ -28,8 +28,22 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         }
         return;
       }
+      // A numbered reply to the bot's own ambiguous !스킨 list selects that skin.
+      // Never intercept ordinary 1-5 messages or replies to unrelated messages.
+      if(/^[1-5]$/.test(text)&&require('./reply-delete').reference(msg)){
+        let enabled=false;
+        try{enabled=await require('./valorant-settings').isEnabled(roomId);}
+        catch(error){console.error('[VALORANT SKIN REPLY GATE]',String(error?.code||'DB_ERROR'));}
+        if(enabled){
+          const handled=await require('./valorant-skin').handleReply({
+            msg,text,client,roomId,userId:senderId,
+            send:body=>chat.sendText(roomId,body)
+          });
+          if(handled)return;
+        }
+      }
       // Gate EVERY Valorant-related command before contacting external APIs.
-      if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷|!발로저장|!발로전적확인|!발로삭제|!챔스노래)(?=\s|$)/.test(text)){
+      if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷|!발로저장|!발로전적확인|!발로삭제|!챔스노래|!발로승인|!발로승인해제)(?=\s|$)/.test(text)){
         let enabled=false;
         try{
           enabled=await require('./valorant-settings').isEnabled(roomId);
@@ -39,7 +53,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           return;
         }
         if(!enabled)return; // Do not answer or call the skin/stats APIs when disabled.
-        if(/^!스킨(?=\s|$)/.test(text)){
+        if(/^!(?:발로승인|발로승인해제)(?=\s|$)/.test(text)){
+          await require('./valorant-approvals').handle({
+            text,isBotAccount,userId:senderId,send:body=>chat.sendText(roomId,body)
+          });
+        }else if(/^!스킨(?=\s|$)/.test(text)){
           await require('./valorant-skin').handle({
             text,client,roomId,userId:senderId,
             send:body=>chat.sendText(roomId,body)

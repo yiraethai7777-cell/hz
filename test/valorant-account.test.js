@@ -9,6 +9,7 @@ function fakeDb(){
  const data=new Map();
  return {data,async query(sql,params=[]){
   if(sql.includes('CREATE TABLE IF NOT EXISTS'))return {rows:[]};
+  if(sql.startsWith('SELECT EXISTS('))return {rows:[{approved:false}]};
   if(sql.startsWith('INSERT INTO')){data.set(params[0],{riot_name:params[1],riot_tag:params[2],region:params[3]});return {rows:[],rowCount:1};}
   if(sql.startsWith('SELECT riot_name'))return {rows:data.has(params[0])?[data.get(params[0])]:[]};
   if(sql.startsWith('DELETE FROM')){const count=Number(data.delete(params[0]));return {rows:[],rowCount:count};}
