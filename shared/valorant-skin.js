@@ -162,6 +162,15 @@ function safeMedia(url){
   return parsed.href;
  }catch{return '';}
 }
+function safeVideo(url){
+ try{
+  const parsed=new URL(String(url||''));
+  if(parsed.protocol!=='https:')return '';
+  if(parsed.hostname==='valorant.dyn.riotcdn.net'&&/^\/x\/videos\/.+\.mp4$/i.test(parsed.pathname))return parsed.href;
+  if(parsed.hostname==='media.valorant-api.com'&&/^\/streamedvideos\/.+\.mp4$/i.test(parsed.pathname))return parsed.href;
+  return '';
+ }catch{return '';}
+}
 function effects(levels){
  const items=[];
  for(let i=0;i<levels.length;i++){
@@ -187,7 +196,7 @@ function variants(skin){
  const entries=[baseEntry,maxEntry,...colors].filter(Boolean);
  const seen=new Set();
  const photos=entries.filter(x=>{if(seen.has(x.url))return false;seen.add(x.url);return true;}).slice(0,8);
- const videos=[...levels.slice().reverse(),...chromas].map(x=>safeMedia(x?.streamedVideo)).filter(Boolean);
+ const videos=[...levels.slice().reverse(),...chromas].map(x=>safeVideo(x?.streamedVideo)).filter(Boolean);
  return {
   levels,chromas,photos,baseImage:base,hasDistinctUpgrade:!!maxEntry,
   previewVideo:videos[0]||'',
@@ -217,6 +226,7 @@ function explain(skin){
   '━━━━━━━━━━━━━━',
   '※ '+price.notice,
   '※ 업그레이드에 필요한 레디어나이트 비용은 공개 API로 확인할 수 없습니다.',
+  !variant.hasDistinctUpgrade&&variant.previewVideo?'※ 업그레이드된 게임 내 외형/효과는 위 미리보기 영상에서 확인할 수 있습니다.':'',
   !variant.hasDistinctUpgrade?'※ 단계별 외형 이미지가 분리되어 있지 않으면 업그레이드 전후 사진이 같을 수 있습니다.':'',
   '※ 비공식 Valorant-API 데이터이며 실제 판매 화면과 차이가 있을 수 있습니다.'
  ].filter(Boolean);
@@ -266,4 +276,4 @@ async function handle({text,client,roomId,userId,send,fetcher=globalThis.fetch,s
  }
  return true;
 }
-module.exports={handle,canonical,score,rankSkins,matchSkin,downloadCatalog,catalog,pricing,variants,explain,safeMedia,usage};
+module.exports={handle,canonical,score,rankSkins,matchSkin,downloadCatalog,catalog,pricing,variants,explain,safeMedia,safeVideo,usage};
