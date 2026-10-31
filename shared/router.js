@@ -15,6 +15,14 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // VALORANT lookups are independent of game/manage flags and DB readiness.
+      if(/^(?:!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
+        await require('./valorant-stats').handle({
+          text,roomId,userId:senderId,
+          send:body=>chat.sendText(roomId,body)
+        });
+        return;
+      }
       // The public support link is available even before the game/DB initializes.
       if(text==='!문의방'){
         await handleExtraMessage(client,...args);
