@@ -170,13 +170,13 @@ test('Replying 1-5 to the original bot suggestion shows that exact skin and its 
  assert.equal(await skins.handleReply({msg:quoted(),text:'2',client,roomId:'888',
   userId:'skin-chooser-one',send,sendImage:async a=>uploads.push(a)}),false);
 });
-test('Reply selection fallback matches the exact quoted bot list when send acknowledgements are absent',async()=>{
+test('Reply selection fallback accepts truncated Kakao quote when send acknowledgements are absent',async()=>{
  const msgs=[],client={userId:'990001',connected:true};
  await skins.handle({text:'!스킨 싱귤',client,roomId:'881',userId:'skin-no-receipt',
   send:async s=>{msgs.push(s);return undefined;},fetcher:fetchMock([]),
   sendImage:async()=>{}});
  const quote={room:{id:'881'},message:{type:26,attachment:JSON.stringify({
-  src_logId:'900331',src_userId:'990001',src_message:msgs[0]
+  src_logId:'900331',src_userId:'990001',src_message:'🔎 비슷한 스킨이 여러 개 있습니다...'
  })}};
  assert.equal(await skins.handleReply({msg:quote,text:'1',client,roomId:'881',
   userId:'skin-no-receipt',send:async s=>msgs.push(s),sendImage:async()=>{}}),true);
