@@ -79,6 +79,37 @@ test('Skin info folds after two lines and omits advisory notices while preservin
  assert.equal(info.photos[1].label,'최종 단계 제공 이미지 / Lv.3');
  assert.match(info.photos.at(-1).label,/^색상 4 · 파랑$/);
 });
+test('Shows separately sourced unupgraded and upgraded videos at their true levels, without duplicates',()=>{
+ const base='https://valorant.dyn.riotcdn.net/x/videos/release-06.08/base.mp4';
+ const upgraded='https://valorant.dyn.riotcdn.net/x/videos/release-06.08/upgrade.mp4';
+ const chroma='https://media.valorant-api.com/streamedvideos/red.mp4';
+ const skin={
+  name:'테스트 밴달',englishName:'Test Vandal',tier:'Premium Edition',
+  data:{levels:[
+   {streamedVideo:base},
+   {streamedVideo:upgraded},
+   {streamedVideo:upgraded}
+  ],chromas:[{streamedVideo:chroma},{streamedVideo:base}]}
+ };
+ const info=skins.explain(skin);
+ assert.equal(info.baseVideo,base);
+ assert.equal(info.videoEntries.length,3);
+ assert.deepEqual(info.videoEntries.map(v=>v.label),['기본형 (Lv.1)','업그레이드 (Lv.2)','색상 1 영상']);
+ assert.match(info.text,/🎬 기본형 \(Lv\.1\): https:/);
+ assert.match(info.text,/🎬 업그레이드 \(Lv\.2\): https:/);
+ assert.match(info.text,/🎬 색상 1 영상: https:/);
+ assert.equal(info.text.split(upgraded).length-1,1);
+});
+test('Does not mislabel upgrade footage as an unupgraded video when Lv.1 asset is missing',()=>{
+ const upgraded='https://valorant.dyn.riotcdn.net/x/videos/release-06.08/upgradeonly.mp4';
+ const info=skins.explain({name:'업그레이드 전용',englishName:'Upgrade Only',data:{
+  levels:[{}, {streamedVideo:upgraded}],chromas:[]
+ }});
+ assert.equal(info.baseVideo,'');
+ assert.match(info.text,/🎬 기본형 \(Lv\.1\): 공개 영상 없음/);
+ assert.match(info.text,/🎬 업그레이드 \(Lv\.2\): https:/);
+ assert.ok(info.text.includes(upgraded));
+});
 test('Official upgrade preview videos are used when no separate upgrade photo exists',()=>{
  const riotVideo='https://valorant.dyn.riotcdn.net/x/videos/release-06.08/test_default_universal.mp4';
  const otherVideo='https://media.valorant-api.com/streamedvideos/preview.mp4';
