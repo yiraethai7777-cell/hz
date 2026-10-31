@@ -78,6 +78,24 @@ test('Info includes price qualifier, upgrades, effects, chromas and preview imag
  assert.equal(info.photos[1].label,'최종 단계 제공 이미지 / Lv.3');
  assert.match(info.photos.at(-1).label,/^색상 4 · 파랑$/);
 });
+test('Official upgrade preview videos are used when no separate upgrade photo exists',()=>{
+ const riotVideo='https://valorant.dyn.riotcdn.net/x/videos/release-06.08/test_default_universal.mp4';
+ const otherVideo='https://media.valorant-api.com/streamedvideos/preview.mp4';
+ assert.equal(skins.safeVideo(riotVideo),riotVideo);
+ assert.equal(skins.safeVideo(otherVideo),otherVideo);
+ assert.equal(skins.safeVideo('https://not-riot.example.com/x/videos/foo.mp4'),'');
+ const base='https://media.valorant-api.com/weaponskinlevels/same/displayicon.png';
+ const item={name:'테스트 밴달',englishName:'Test Vandal',tier:'Premium Edition',
+  data:{levels:[
+   {displayIcon:base,levelItem:null},
+   {displayIcon:null,levelItem:'EEquippableSkinLevelItem::VFX',streamedVideo:riotVideo}
+  ],chromas:[]}};
+ const info=skins.explain(item);
+ assert.equal(info.hasDistinctUpgrade,false);
+ assert.equal(info.photos.length,1);
+ assert.match(info.text,/업그레이드된 게임 내 외형\/효과는 위 미리보기 영상/);
+ assert.ok(info.text.includes(riotVideo));
+});
 test('Do not label repeated upgrade image as a distinct preview',()=>{
  const data={name:'테스트 밴달',englishName:'Test Vandal',tier:'Premium Edition',
   data:{...KO[0],levels:[
