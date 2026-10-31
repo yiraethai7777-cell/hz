@@ -81,7 +81,7 @@ test('Unregistered Riot IDs receive a safe public profile link without any API r
  assert.equal(calls.length,0);
  assert.match(sent[0],/공개 동의/);
  assert.match(sent[0],/https:\/\/tracker\.gg\/valorant\/profile\/riot\/Demo%20User%23KR1\/overview/);
- assert.match(sent[0],/비공개 계정/);
+ assert.doesNotMatch(sent[0],/※/);
 });
 test('Unregistered accounts can receive a link without an API key; unsafe name characters are URL encoded',async()=>{
  const sent=[];

@@ -197,10 +197,29 @@ function variants(skin){
  const entries=[baseEntry,maxEntry,...colors].filter(Boolean);
  const seen=new Set();
  const photos=entries.filter(x=>{if(seen.has(x.url))return false;seen.add(x.url);return true;}).slice(0,8);
- const videos=[...levels.slice().reverse(),...chromas].map(x=>safeVideo(x?.streamedVideo)).filter(Boolean);
+ // Collect independently published video assets by level, not just the last one.
+ // The level-1 asset is the ONLY video we may label "unupgraded".
+ const seenVideos=new Set();
+ const videoEntries=[];
+ const baseVideo=safeVideo(levels[0]?.streamedVideo);
+ if(baseVideo){seenVideos.add(baseVideo);videoEntries.push({label:'기본형 (Lv.1)',url:baseVideo});}
+ for(let i=1;i<levels.length;i++){
+  const url=safeVideo(levels[i]?.streamedVideo);
+  if(!url||seenVideos.has(url))continue;
+  seenVideos.add(url);
+  videoEntries.push({label:'업그레이드 (Lv.'+(i+1)+')',url});
+ }
+ for(let i=0;i<chromas.length;i++){
+  const url=safeVideo(chromas[i]?.streamedVideo);
+  if(!url||seenVideos.has(url))continue;
+  seenVideos.add(url);
+  videoEntries.push({label:'색상 '+(i+1)+' 영상',url});
+ }
  return {
   levels,chromas,photos,baseImage:base,hasDistinctUpgrade:!!maxEntry,
-  previewVideo:videos[0]||'',
+  baseVideo,
+  videoEntries,
+  previewVideo:videoEntries.find(v=>v.label.startsWith('업그레이드'))?.url||videoEntries[0]?.url||'',
   effectNames:effects(levels)
  };
 }
@@ -223,7 +242,10 @@ function explain(skin){
   '🎨 색상: '+variant.chromas.length+'종',
   ...colorLines.slice(0,12),
   '🖼️ 기본형 / 업그레이드 / 색상별 외형: 사진 참조',
-  '🎬 스킨 미리보기 영상: '+(variant.previewVideo||'공개 영상 없음')
+  '🎬 기본형 (Lv.1): '+(variant.baseVideo||'공개 영상 없음'),
+  ...(variant.videoEntries.filter(v=>v.label!=='기본형 (Lv.1)').length?
+   variant.videoEntries.filter(v=>v.label!=='기본형 (Lv.1)').map(v=>'🎬 '+v.label+': '+v.url):
+   ['🎬 업그레이드 영상: 공개 영상 없음'])
  ].filter(Boolean);
  return {text:fold(header,lines.join('\n')),...variant};
 }

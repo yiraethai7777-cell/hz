@@ -268,9 +268,7 @@ async function handle({text,roomId,userId,send,env=process.env,fetcher}){
  if(!allowedPlayers(env).has(target.player)){
   await send('🔎 전적 공개 동의가 확인되지 않은 계정입니다.\n'+
    '외부 사이트에서 공개된 경우 아래 링크에서 확인할 수 있습니다.\n'+
-   publicProfileUrl(target)+'\n'+
-   '※ 비공개 계정이거나 공개 이력이 없으면 표시되지 않습니다.\n'+
-   '※ 봇에서 상세 전적을 보려면 해당 플레이어의 확인된 동의가 필요합니다.');
+   publicProfileUrl(target));
   return true;
  }
  const key=apiKey(env);
