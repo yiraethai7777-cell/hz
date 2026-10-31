@@ -257,16 +257,21 @@ async function lookup(target,cmd,options={}){
  const recent=recentData?aggregate(recentData,target.name,target.tag,puuid):null;
  return format(cmd,target,ranked,stats,recent);
 }
-async function handle({text,roomId,userId,send,env=process.env,fetcher,db}){
+async function handle({text,roomId,userId,send,env=process.env,fetcher,db,allowSavedAccount=false}){
  const target=parse(text);
  if(!target)return false;
  const usage='사용법: '+target.cmd+' 닉네임#태그 [서버]\n예: '+target.cmd+' Player#KR1\n서버: kr(기본) / ap / na / eu';
  if(target.usage||target.error){await send(target.error?'❌ '+target.error+'\n'+usage:usage);return true;}
- // Check both the original Railway allowlist and operator-managed DB entries.
- // A saved account is not authorization, and a failed DB query must never allow API access.
+ // Normal explicit Riot-ID requests use the operator's env/DB approval list.
+ // !발로전적확인 is a separate personal shortcut: query only the ID saved by
+ // this same Kakao sender, and only data the external API actually returns.
  let approved=false;
  try{
-  approved=await require('./valorant-approvals').isApproved(target,{env,db});
+  if(allowSavedAccount&&userId!=null){
+   const saved=await require('./valorant-account').load({userId,db});
+   approved=!!saved&&identity(saved.name,saved.tag)===target.player&&saved.region===target.region;
+  }
+  if(!approved)approved=await require('./valorant-approvals').isApproved(target,{env,db});
  }catch(error){
   console.warn('[NEXI VALORANT APPROVAL CHECK]',String(error?.code||'DB_ERROR'));
   await send('❌ 전적 조회 허용 목록을 확인할 수 없습니다. 데이터베이스를 확인해 주세요.');

@@ -26,20 +26,38 @@ test('!발로저장 persists a per-Kakao-user shortcut, replace and remove are i
  await account.handle({text:'!발로저장 Other Player#AP1 ap',userId:'kakao-a',db,
   send:async x=>sent.push(x),env:{VALORANT_APPROVED_PLAYERS:'bsh#3333'}});
  assert.equal((await account.load({db,userId:'kakao-a'})).name,'Other Player');
- assert.match(sent[1],/저장만 완료/);
+ assert.match(sent[1],/!발로전적확인으로 저장한 계정을 바로 조회/);
  await account.handle({text:'!발로삭제',userId:'kakao-a',db,send:async x=>sent.push(x)});
  assert.equal(await account.load({db,userId:'kakao-a'}),null);
  assert.match(sent[2],/삭제했습니다/);
 });
-test('Unapproved saved Riot ID never bypasses stats public-data consent gate',async()=>{
+test('Saved Riot ID is immediately queryable by its own Kakao user without !발로승인',async()=>{
  const db=fakeDb(),sent=[],calls=[];
- await account.handle({text:'!발로저장 Someone#NA2 na',userId:'kakao-private',db,send:async x=>sent.push(x),
-  env:{HENRIKDEV_API_KEY:'fake-key'}});
- await account.handle({text:'!발로전적확인',userId:'kakao-private',db,
-  send:async x=>sent.push(x),env:{HENRIKDEV_API_KEY:'fake-key'},
-  fetcher:async()=>{calls.push('API');throw Error('No request permitted');}});
- assert.equal(calls.length,0);
- assert.match(sent.at(-1),/공개 동의가 확인되지 않은 계정/);
+ const env={HENRIKDEV_API_KEY:'fake-key'};
+ await account.handle({text:'!발로저장 Someone#NA2 na',userId:'kakao-private',db,send:async x=>sent.push(x),env});
+ assert.match(sent[0],/바로 조회할 수 있습니다/);
+ const fetcher=async url=>{
+  calls.push(url);
+  const data=url.includes('/mmr/')?
+   {account:{puuid:'saved-puuid'},current:{tier:{name:'Silver 2'},rr:21},peak:{tier:{name:'Gold 1'}}}:
+   [{metadata:{map:{name:'Haven'},mode:{name:'Competitive'}},
+     players:[{name:'Someone',tag:'NA2',puuid:'saved-puuid',team_id:'Red',agent:{name:'Jett'},
+       stats:{kills:10,deaths:12,assists:6,headshots:8,bodyshots:18,legshots:4}}],
+     teams:[{team_id:'Red',won:true}]}];
+  return {ok:true,status:200,json:async()=>({status:200,data})};
+ };
+ await account.handle({text:'!발로전적확인',userId:'kakao-private',db,env,
+  fetcher,send:async x=>sent.push(x)});
+ assert.equal(calls.length,3);
+ assert.ok(calls.every(url=>url.includes('/na/pc/Someone/NA2')));
+ assert.match(sent.at(-1),/현재 티어: 실버 2/);
+ assert.match(sent.at(-1),/Haven/);
+ // Deleting personal shortcut immediately ends the access path.
+ await account.handle({text:'!발로삭제',userId:'kakao-private',db,send:async x=>sent.push(x)});
+ await account.handle({text:'!발로전적확인',userId:'kakao-private',db,env,fetcher,
+  send:async x=>sent.push(x)});
+ assert.match(sent.at(-1),/등록된 발로란트 계정이 없습니다/);
+ assert.equal(calls.length,3);
 });
 test('Approved saved Riot ID invokes existing stats lookup with saved region',async()=>{
  const db=fakeDb(),sent=[],calls=[];

@@ -61,16 +61,8 @@ async function handle({text,userId,send,env=process.env,db,fetcher,roomId}){
     return true;
    }
    await save({userId:user,target,db});
-   let approvalStatus='전적 조회 허용 목록 확인이 필요합니다.';
-   try{
-    const approved=await require('./valorant-approvals').isApproved(target,{env,db});
-    approvalStatus=approved?'!발로전적확인으로 전적을 조회할 수 있습니다.':
-     '전적 공개 동의가 확인되지 않아 저장만 완료됐습니다. 상세 전적은 승인 후 조회할 수 있습니다.';
-   }catch(error){
-    console.warn('[NEXI VALORANT SAVE APPROVAL CHECK]',String(error?.code||'DB_ERROR'));
-   }
    await send('✅ 발로란트 계정 저장: '+target.name+'#'+target.tag+' · '+target.region.toUpperCase()+' 서버\n'+
-    approvalStatus);
+    '!발로전적확인으로 저장한 계정을 바로 조회할 수 있습니다.');
    return true;
   }
   if(trimmed!==command){
@@ -87,9 +79,10 @@ async function handle({text,userId,send,env=process.env,db,fetcher,roomId}){
    await send('등록된 발로란트 계정이 없습니다.\n!발로저장 닉네임#태그 [서버]로 먼저 저장해 주세요.');
    return true;
   }
-  // Existing stats handler enforces DB/legacy approvals, rate limits and errors.
+  // Saved shortcut is only valid for this sender's exact DB record;
+  // stats.handle re-verifies it and retains external API rate limits.
   await stats.handle({text:'!발로전적 '+target.name+'#'+target.tag+' '+target.region,
-   roomId,userId:user,send,env,fetcher,db});
+   roomId,userId:user,send,env,fetcher,db,allowSavedAccount:true});
   return true;
  }catch(error){
   console.warn('[NEXI VALORANT SAVE]',String(error?.code||'DB_ERROR'));
