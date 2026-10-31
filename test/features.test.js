@@ -148,7 +148,7 @@ test('game and management help remain separate, folded and unnamed',()=>{
  assert.doesNotMatch(gameOnly,/!출석|!경고/);
  for(const [menu,heading] of [[gameOnly,'게임'],[manageOnly,'관리']]){
   assert.equal(menu.split('\u200b'.repeat(1200))[0],
-    '📜 명령어 안내\n작동 중인 기능 · '+heading);
+    '📜 명령어 안내 · NEXI\n작동 중인 기능 · '+heading);
   assert.equal([...menu].filter(ch=>ch==='\u200b').length,1200);
  }
  const generic=formatCommandHelp({manage:true,game:true});
