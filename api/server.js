@@ -13,6 +13,10 @@ async function handler(req,res){
  try{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/health'){json(res,status.ready?200:503,{ready:status.ready,connected:status.connected});return;}
+  if(url.pathname.startsWith('/api/valorant/')){
+   await require('../shared/valorant-optin').http(req,res,url);
+   return;
+  }
   if(url.pathname.startsWith('/api/')){
    const key=req.socket.remoteAddress||'unknown',now=Date.now();let bucket=rate.get(key);if(!bucket||now-bucket.start>60000){bucket={start:now,count:0};rate.set(key,bucket);}if(++bucket.count>(url.pathname==='/api/promo/qr/poll'?3000:600)){json(res,429,{error:'잠시 후 다시 시도해 주세요.'});return;}if(rate.size>10000)rate.delete(rate.keys().next().value);
    let data={};if(req.method!=='GET'){
