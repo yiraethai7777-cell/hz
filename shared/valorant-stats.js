@@ -159,7 +159,7 @@ function format(cmd,target,ranked,stats,recent=null){
   '\n🎯 헤드샷률: '+percent(stats.hs)+
   '\n⚔️ K/D/A 합계: '+fmt(stats.totalKills)+'/'+fmt(stats.totalDeaths)+'/'+fmt(stats.totalAssists):
   '📊 최근 경기 정보를 조회하지 못했습니다.';
- const note='\n━━━━━━━━━━━━━━\n※ 승률·HS%는 조회된 최근 경쟁전 기준입니다.\n※ 공식 Riot 전적 통계가 아닙니다.';
+ const note='\n━━━━━━━━━━━━━━\n※ 승률·HS%는 조회된 최근 경쟁전 기준입니다.\n※ 최근 경기 목록에는 전체 모드가 포함됩니다.\n※ 공식 Riot 전적 통계가 아닙니다.';
  if(cmd==='!티어')return header+'\n'+tier;
  if(cmd==='!승률')return header+'\n'+(stats?'📈 최근 경쟁전 '+stats.count+'경기 승률: '+percent(stats.winrate)+
   '\n승패: '+stats.wins+'승 '+stats.losses+'패':'경쟁전 기록을 확인할 수 없습니다.')+note;
