@@ -1,8 +1,8 @@
 'use strict';
 
-// NEXI VALORANT lookup. Uses HenrikDev's API; no Riot credentials are collected.
-// Only Riot IDs whose public-stat sharing consent was verified by the operator
-// and listed in VALORANT_APPROVED_PLAYERS may be requested.
+// NEXI VALORANT lookup. Uses HenrikDev's API; no Riot passwords are collected.
+// Access is limited to operator-approved Riot IDs or RSO-verified accounts
+// whose opt-in is stored in PostgreSQL.
 const COMMANDS=new Set(['!발로전적','!발로전적확인','!전적','!티어','!최근전적','!승률','!헤드샷']);
 const optin=require('./valorant-optin');
 const REGIONS=new Set(['kr','ap','eu','na','br','latam']);
