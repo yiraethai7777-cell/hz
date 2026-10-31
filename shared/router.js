@@ -15,20 +15,41 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
-      // Skin catalog and photo previews do not require the game to be enabled.
-      if(/^!스킨(?=\s|$)/.test(text)){
-        await require('./valorant-skin').handle({
-          text,client,roomId,userId:senderId,
-          send:body=>chat.sendText(roomId,body)
-        });
+      // VALORANT is OFF by default in each room; only this bot account may toggle it.
+      // This switch is independent of the game and management flags.
+      if(text==='!발로on'||text==='!발로off'){
+        try{
+          await require('./valorant-settings').handle({
+            text,roomId,isBotAccount,send:body=>chat.sendText(roomId,body)
+          });
+        }catch(error){
+          console.error('[VALORANT SWITCH]',String(error?.message||error));
+          await chat.sendText(roomId,'❌ 발로란트 설정을 저장하지 못했습니다. 데이터베이스를 확인해 주세요.');
+        }
         return;
       }
-      // VALORANT lookups are independent of game/manage flags and DB readiness.
-      if(/^(?:!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
-        await require('./valorant-stats').handle({
-          text,roomId,userId:senderId,
-          send:body=>chat.sendText(roomId,body)
-        });
+      // Gate EVERY Valorant-related command before contacting external APIs.
+      if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
+        let enabled=false;
+        try{
+          enabled=await require('./valorant-settings').isEnabled(roomId);
+        }catch(error){
+          // Fail closed if PostgreSQL is unavailable.
+          console.error('[VALORANT SWITCH CHECK]',String(error?.message||error));
+          return;
+        }
+        if(!enabled)return; // Do not answer or call the skin/stats APIs when disabled.
+        if(/^!스킨(?=\s|$)/.test(text)){
+          await require('./valorant-skin').handle({
+            text,client,roomId,userId:senderId,
+            send:body=>chat.sendText(roomId,body)
+          });
+        }else{
+          await require('./valorant-stats').handle({
+            text,roomId,userId:senderId,
+            send:body=>chat.sendText(roomId,body)
+          });
+        }
         return;
       }
       // The public support link is available even before the game/DB initializes.
