@@ -15,6 +15,14 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Skin catalog and photo previews do not require the game to be enabled.
+      if(/^!스킨(?=\s|$)/.test(text)){
+        await require('./valorant-skin').handle({
+          text,client,roomId,userId:senderId,
+          send:body=>chat.sendText(roomId,body)
+        });
+        return;
+      }
       // VALORANT lookups are independent of game/manage flags and DB readiness.
       if(/^(?:!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
         await require('./valorant-stats').handle({
