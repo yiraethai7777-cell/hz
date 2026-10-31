@@ -55,12 +55,14 @@ test('all game help commands use ! prefix and map to real command handlers',()=>
  const body=help.formatCommandHelp({game:true,manage:false},'게임');
  assert.ok(body.startsWith('📜 명령어 안내 · NEXI\n작동 중인 기능 · 게임'+'\u200b'.repeat(1200)));
  const names=[...new Set([...body.matchAll(/^!(\S+)/gm)].map(v=>v[1]))];
- assert.equal(names.length,52);
+ assert.equal(names.length,57);
  for(const name of names)assert.equal(aliases.isGameCommand('!'+name),true,name);
  assert.doesNotMatch(body,/^#\S+/m);
  assert.match(body,/!낚시\n└─[^\n]+\n\n!낚시정보/);
  assert.match(body,/!물고기판매 \(이름\) \(수량\)/);
  assert.match(body,/!씨앗구매 \(이름\) \(수량\)/);
+ assert.match(body,/!전적 \(닉네임#태그\)/);
+ assert.match(body,/!헤드샷 \(닉네임#태그\)/);
  assert.doesNotMatch(body,/!게임순위/);
 });
 test('legacy # inputs are retired without affecting management !',()=>{
