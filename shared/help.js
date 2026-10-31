@@ -344,6 +344,10 @@ async function handleExtraMessage(client,...args){
  const msg=args.length===1?args[0]:args[1],chat=args.length===1?(client.chat||client):args[0];
  if(msg?.room?.id==null)return false;
  const text=String(msg.message?.text??msg.text??'').trim();
+ if(text==='!문의방'){
+  await chat.sendText(msg.room.id,NEXI_CONTACT);
+  return true;
+ }
  if(text==='!게임명령어'){
   const start=Date.now();
   const {getPool}=require('./db');
