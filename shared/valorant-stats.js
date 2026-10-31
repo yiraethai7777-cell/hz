@@ -1,8 +1,8 @@
 'use strict';
 
 // NEXI VALORANT lookup. Uses HenrikDev's API; no Riot credentials are collected.
-// Only Riot IDs whose public-stat sharing consent was verified by the operator
-// and listed in VALORANT_APPROVED_PLAYERS may be requested.
+// Only operator-approved Riot IDs (PostgreSQL or legacy environment allowlist)
+// may be requested. Merely saving a Riot ID never constitutes approval.
 const COMMANDS=new Set(['!발로전적','!전적','!티어','!최근전적','!승률','!헤드샷']);
 const {fold}=require('./valorant-more');
 const REGIONS=new Set(['kr','ap','eu','na','br','latam']);
@@ -257,15 +257,22 @@ async function lookup(target,cmd,options={}){
  const recent=recentData?aggregate(recentData,target.name,target.tag,puuid):null;
  return format(cmd,target,ranked,stats,recent);
 }
-async function handle({text,roomId,userId,send,env=process.env,fetcher}){
+async function handle({text,roomId,userId,send,env=process.env,fetcher,db}){
  const target=parse(text);
  if(!target)return false;
  const usage='사용법: '+target.cmd+' 닉네임#태그 [서버]\n예: '+target.cmd+' Player#KR1\n서버: kr(기본) / ap / na / eu';
  if(target.usage||target.error){await send(target.error?'❌ '+target.error+'\n'+usage:usage);return true;}
- // A guessed Riot ID is not proof of consent. For unregistered IDs, give the
- // user a link to the independent public-profile provider instead of calling
- // HenrikDev (which requires prior player consent).
- if(!allowedPlayers(env).has(target.player)){
+ // Check both the original Railway allowlist and operator-managed DB entries.
+ // A saved account is not authorization, and a failed DB query must never allow API access.
+ let approved=false;
+ try{
+  approved=await require('./valorant-approvals').isApproved(target,{env,db});
+ }catch(error){
+  console.warn('[NEXI VALORANT APPROVAL CHECK]',String(error?.code||'DB_ERROR'));
+  await send('❌ 전적 조회 허용 목록을 확인할 수 없습니다. 데이터베이스를 확인해 주세요.');
+  return true;
+ }
+ if(!approved){
   await send('🔎 전적 공개 동의가 확인되지 않은 계정입니다.\n'+
    '외부 사이트에서 공개된 경우 아래 링크에서 확인할 수 있습니다.\n'+
    publicProfileUrl(target));
