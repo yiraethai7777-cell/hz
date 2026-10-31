@@ -16,7 +16,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       senderId != null && String(client.userId) === String(senderId);
     try {
       // VALORANT lookups are independent of game/manage flags and DB readiness.
-      if(/^(?:!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
+      if(/^(?:!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
         await require('./valorant-stats').handle({
           text,roomId,userId:senderId,
           send:body=>chat.sendText(roomId,body)
