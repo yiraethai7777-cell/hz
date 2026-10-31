@@ -1,9 +1,10 @@
 'use strict';
 
-// NEXI VALORANT lookup. Uses HenrikDev's API; no Riot credentials are collected.
-// Only Riot IDs whose public-stat sharing consent was verified by the operator
-// and listed in VALORANT_APPROVED_PLAYERS may be requested.
-const COMMANDS=new Set(['!발로전적','!전적','!티어','!최근전적','!승률','!헤드샷']);
+// NEXI VALORANT lookup. Uses HenrikDev's API; no Riot passwords are collected.
+// Access is limited to operator-approved Riot IDs or RSO-verified accounts
+// whose opt-in is stored in PostgreSQL.
+const COMMANDS=new Set(['!발로전적','!발로전적확인','!전적','!티어','!최근전적','!승률','!헤드샷']);
+const optin=require('./valorant-optin');
 const REGIONS=new Set(['kr','ap','eu','na','br','latam']);
 const TTL=120000;
 const COOLDOWN=12000;
@@ -255,17 +256,48 @@ async function handle({text,roomId,userId,send,env=process.env,fetcher}){
  if(!target)return false;
  const usage='사용법: '+target.cmd+' 닉네임#태그 [서버]\n예: '+target.cmd+' Player#KR1\n서버: kr(기본) / ap / na / eu';
  if(target.usage||target.error){await send(target.error?'❌ '+target.error+'\n'+usage:usage);return true;}
- // A guessed Riot ID is not proof of consent. For unregistered IDs, give the
- // user a link to the independent public-profile provider instead of calling
- // HenrikDev (which requires prior player consent).
- if(!allowedPlayers(env).has(target.player)){
-  await send('🔎 전적 공개 동의가 확인되지 않은 계정입니다.\n'+
-   '외부 사이트에서 공개된 경우 아래 링크에서 확인할 수 있습니다.\n'+
-   publicProfileUrl(target)+'\n'+
-   '※ 비공개 계정이거나 공개 이력이 없으면 표시되지 않습니다.\n'+
-   '※ 봇에서 상세 전적을 보려면 해당 플레이어의 확인된 동의가 필요합니다.');
+ // An arbitrary requester cannot consent on behalf of the Riot ID owner.
+ // Opted-in accounts are stored in PostgreSQL after verified Riot login.
+ let approved=allowedPlayers(env).has(target.player);
+ if(!approved&&optin.configured(env)){
+  try{approved=await optin.isVerified(target.player);}
+  catch(error){
+   console.warn('[VALORANT VERIFY DB]',String(error?.code||error?.message||error));
+   await send('❌ 전적 등록 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
+   return true;
+  }
+ }
+ if(target.cmd==='!발로전적확인'&&approved){
+  await send('✅ 이미 등록된 Riot ID입니다.\n!발로전적 '+target.name+'#'+target.tag+' '+target.region);
   return true;
  }
+ if(!approved){
+  let registration=null;
+  try{registration=await optin.requestLink(target,{env,userId});}
+  catch(error){
+   console.warn('[VALORANT RSO REQUEST]',String(error?.code||error?.message||error));
+   await send('❌ 계정 연결 요청을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+   return true;
+  }
+  if(registration?.rateLimited){
+   await send('⏳ 계정 연결 요청은 30초 후 다시 시도할 수 있습니다.');
+   return true;
+  }
+  if(registration?.url){
+   await send('🔐 이 Riot ID의 전적 공개 등록이 필요합니다.\n'+
+    '계정 소유자가 아래 링크에서 공개 동의 및 Riot 로그인을 완료하면 자동 등록됩니다.\n'+
+    registration.url+'\n※ 다른 사람의 검색은 계정 소유자의 동의를 대신할 수 없습니다.\n'+
+    '등록 후 !발로전적 '+target.name+'#'+target.tag+' '+target.region+' 을 입력해 주세요.');
+  }else{
+   await send('🔎 전적 공개 동의가 확인되지 않은 계정입니다.\n'+
+    'Riot 계정 자동 연결을 사용하려면 운영자의 RSO 설정이 필요합니다.\n'+
+    '외부에서 공개된 전적은 아래에서 확인할 수 있습니다.\n'+
+    publicProfileUrl(target)+'\n'+
+    '※ 비공개 계정이거나 공개 이력이 없으면 표시되지 않습니다.');
+  }
+  return true;
+ }
+ if(target.cmd==='!발로전적확인')return true;
  const key=apiKey(env);
  if(!key){await send('⚙️ 발로란트 전적 API가 아직 설정되지 않았습니다.\n운영자가 Railway에 HENRIKDEV_API_KEY를 등록해야 합니다.');return true;}
  const user=clean(userId),last=lastUsed.get(user)||0,now=Date.now();
