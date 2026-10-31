@@ -3,7 +3,7 @@
 // NEXI VALORANT lookup. Uses HenrikDev's API; no Riot credentials are collected.
 // Only Riot IDs whose public-stat sharing consent was verified by the operator
 // and listed in VALORANT_APPROVED_PLAYERS may be requested.
-const COMMANDS=new Set(['!전적','!티어','!최근전적','!승률','!헤드샷']);
+const COMMANDS=new Set(['!발로전적','!전적','!티어','!최근전적','!승률','!헤드샷']);
 const REGIONS=new Set(['kr','ap','eu','na','br','latam']);
 const TTL=120000;
 const COOLDOWN=12000;
@@ -218,7 +218,7 @@ async function get(path,options={}){
 }
 async function lookup(target,cmd,options={}){
  const path=[target.region,'pc',encodeURIComponent(target.name),encodeURIComponent(target.tag)].join('/');
- const needMmr=cmd==='!티어'||cmd==='!전적';
+ const needMmr=cmd==='!티어'||cmd==='!전적'||cmd==='!발로전적';
  const needMatches=cmd!=='!티어';
  const jobs=[];
  if(needMmr)jobs.push(get('/valorant/v3/mmr/'+path,options));
