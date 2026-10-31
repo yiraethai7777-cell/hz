@@ -240,12 +240,12 @@ async function handle({text,roomId,userId,send,env=process.env,fetcher}){
  if(!target)return false;
  const usage='사용법: '+target.cmd+' 닉네임#태그 [서버]\n예: '+target.cmd+' Player#KR1\n서버: kr(기본) / ap / na / eu';
  if(target.usage||target.error){await send(target.error?'❌ '+target.error+'\n'+usage:usage);return true;}
+ const key=apiKey(env);
+ if(!key){await send('⚙️ 발로란트 전적 API가 아직 설정되지 않았습니다.\n운영자가 Railway에 HENRIKDEV_API_KEY를 등록해야 합니다.');return true;}
  if(!allowedPlayers(env).has(target.player)){
   await send('🔒 전적 공개 동의가 확인되지 않은 Riot ID입니다.\n해당 플레이어가 전적 공개에 동의한 경우 NEXI 운영자에게 등록을 요청해 주세요.\n문의: !문의방');
   return true;
  }
- const key=apiKey(env);
- if(!key){await send('⚙️ 발로란트 전적 API가 아직 설정되지 않았습니다.\n운영자가 Railway에 HENRIKDEV_API_KEY를 등록해야 합니다.');return true;}
  const user=clean(userId),last=lastUsed.get(user)||0,now=Date.now();
  if(user&&now-last<COOLDOWN){await send('⏳ 전적 조회는 '+Math.ceil((COOLDOWN-(now-last))/1000)+'초 후 다시 이용할 수 있습니다.');return true;}
  if(user){lastUsed.set(user,now);trimMaps(lastUsed,1000);}
