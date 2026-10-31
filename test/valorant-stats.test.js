@@ -116,6 +116,7 @@ test('Router recognizes VALORANT commands before waiting for game initialization
    if(name==='./help')return {handleExtraMessage:async()=>false};
    if(name==='../game/command-aliases')return {isRetiredLegacyCommand:()=>false,isGameCommand:()=>false};
    if(name==='./unicode-output'||name==='./reply-delete')return {install(){}};
+   if(name==='./valorant-settings')return {isEnabled:async()=>true};
    if(name==='./valorant-stats')return {handle:async args=>{calls.push(args.text);await args.send('발로란트 응답 테스트');return true;}};
    throw Error('Unexpected require: '+name);
   }
