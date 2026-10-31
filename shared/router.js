@@ -29,7 +29,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       // Gate EVERY Valorant-related command before contacting external APIs.
-      if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷)(?=\s|$)/.test(text)){
+      if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷|!발로저장|!발로전적확인|!발로삭제)(?=\s|$)/.test(text)){
         let enabled=false;
         try{
           enabled=await require('./valorant-settings').isEnabled(roomId);
@@ -42,6 +42,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         if(/^!스킨(?=\s|$)/.test(text)){
           await require('./valorant-skin').handle({
             text,client,roomId,userId:senderId,
+            send:body=>chat.sendText(roomId,body)
+          });
+        }else if(/^!(?:발로저장|발로전적확인|발로삭제)(?=\s|$)/.test(text)){
+          await require('./valorant-account').handle({
+            text,roomId,userId:senderId,
             send:body=>chat.sendText(roomId,body)
           });
         }else{
