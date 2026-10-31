@@ -178,16 +178,16 @@ function variants(skin){
  const base=safeMedia(levels[0]?.displayIcon)||safeMedia(data.displayIcon)||safeMedia(chromas[0]?.fullRender)||'';
  const max=safeMedia(levels.at(-1)?.displayIcon)||'';
  const baseEntry=base?{label:'기본형 / Lv.1',url:base}:null;
- const maxEntry=max&&max!==base?{label:'최종 업그레이드 / Lv.'+levels.length,url:max}:null;
+ const maxEntry=max&&max!==base?{label:'최종 단계 제공 이미지 / Lv.'+levels.length,url:max}:null;
  const colors=chromas.map((ch,i)=>({
-  label:'색상 '+(i+1)+(i===0?' · 기본':''),
+  label:'색상 '+(i+1)+(i===0?' · 기본':'')+(ch?.displayName?' · '+clean(ch.displayName,18):''),
   name:clean(ch?.displayName,85),
   url:safeMedia(ch?.fullRender)||safeMedia(ch?.displayIcon)||''
  })).filter(x=>x.url);
  const entries=[baseEntry,maxEntry,...colors].filter(Boolean);
  const seen=new Set();
  const photos=entries.filter(x=>{if(seen.has(x.url))return false;seen.add(x.url);return true;}).slice(0,8);
- const videos=[...levels,...chromas].map(x=>safeMedia(x?.streamedVideo)).filter(Boolean);
+ const videos=[...levels.slice().reverse(),...chromas].map(x=>safeMedia(x?.streamedVideo)).filter(Boolean);
  return {
   levels,chromas,photos,baseImage:base,hasDistinctUpgrade:!!maxEntry,
   previewVideo:videos[0]||'',
@@ -233,9 +233,10 @@ function imageFallback(info){
 }
 async function handle({text,client,roomId,userId,send,fetcher=globalThis.fetch,sendImage}){
  if(!/^!스킨(?:\s|$)/.test(String(text||'')))return false;
- const query=clean(String(text).replace(/^!스킨(?:\s|$)/,'').trim());
+ const rawQuery=String(text).replace(/^!스킨(?:\s|$)/,'').trim();
+ const query=clean(rawQuery);
  if(!query){await send(usage());return true;}
- if(query.length>MAX_CHARS||query.length<2){await send('❌ 스킨 이름은 2~70자 사이로 입력해 주세요.');return true;}
+ if(rawQuery.length>MAX_CHARS||query.length<2){await send('❌ 스킨 이름은 2~70자 사이로 입력해 주세요.');return true;}
  const who=String(userId??'');
  const now=Date.now(),old=last.get(who)||0;
  if(who&&now-old<COOLDOWN){await send('⏳ 스킨 검색은 '+Math.ceil((COOLDOWN-(now-old))/1000)+'초 후 다시 이용할 수 있습니다.');return true;}
