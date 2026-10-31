@@ -19,6 +19,15 @@ const LINKS='🌐 웹사이트: https://hz-production-d530.up.railway.app/\n👤
 const group=(title,lines)=>title+'\n'+lines.map(s=>'  └─ '+s).join('\n');
 const bodies={
  게임:[
+  "🎯 발로란트 기능 · 방별 기본 OFF",
+  "",
+  "⚙️ 봇 계정 전용 설정",
+  "!발로on",
+  "└─ 이 방의 발로란트 전적 조회·스킨 검색을 켭니다.",
+  "!발로off",
+  "└─ 이 방의 발로란트 기능을 다시 끕니다.",
+  "※ 봇 계정만 설정할 수 있으며, 재시작 후에도 상태가 유지됩니다.",
+  "",
   "🎨 발로란트 스킨 · NEXI",
   "",
   "!스킨 (이름)",
