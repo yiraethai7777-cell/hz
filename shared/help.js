@@ -329,8 +329,10 @@ const bodies={
   "└─ 멘션 기록 및 알람을 끕니다",
  ].join('\n'),
 };
-const MANAGEMENT_MENU='📜 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 관리 명령어\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리);
-const GAME_MENU='📜 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 게임 명령어\n━━━━━━━━━━━━━━\n'+bodies.게임;
+const NEXI_CONTACT='💬 NEXI 봇 문의방\nhttps://open.kakao.com/o/gK32HUUi';
+const NEXI_SIGNOFF='\n\n━━━━━━━━━━━━━━\n✦ NEXI · 게임 & 관리 도우미';
+const MANAGEMENT_MENU='📜 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 관리 명령어 · NEXI\n━━━━━━━━━━━━━━\n'+NEXI_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리)+NEXI_SIGNOFF;
+const GAME_MENU='📜 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 게임 명령어 · NEXI\n━━━━━━━━━━━━━━\n'+NEXI_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임+NEXI_SIGNOFF;
 function formatCommandHelp(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
