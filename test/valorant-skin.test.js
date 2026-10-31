@@ -170,17 +170,30 @@ test('Replying 1-5 to the original bot suggestion shows that exact skin and its 
  assert.equal(await skins.handleReply({msg:quoted(),text:'2',client,roomId:'888',
   userId:'skin-chooser-one',send,sendImage:async a=>uploads.push(a)}),false);
 });
-test('Reply selection fallback matches the exact quoted bot list when send acknowledgements are absent',async()=>{
+test('Reply selection fallback accepts truncated Kakao quote when send acknowledgements are absent',async()=>{
  const msgs=[],client={userId:'990001',connected:true};
  await skins.handle({text:'!스킨 싱귤',client,roomId:'881',userId:'skin-no-receipt',
   send:async s=>{msgs.push(s);return undefined;},fetcher:fetchMock([]),
   sendImage:async()=>{}});
  const quote={room:{id:'881'},message:{type:26,attachment:JSON.stringify({
-  src_logId:'900331',src_userId:'990001',src_message:msgs[0]
+  src_logId:'900331',src_userId:'990001',src_message:'🔎 비슷한 스킨이 여러 개 있습니다...'
  })}};
  assert.equal(await skins.handleReply({msg:quote,text:'1',client,roomId:'881',
   userId:'skin-no-receipt',send:async s=>msgs.push(s),sendImage:async()=>{}}),true);
  assert.ok(msgs[1].includes('🔫 '+msgs[0].split('\n').find(l=>l.startsWith('1. ')).slice(3)));
+});
+test('Kakao type-26 reply without src_logId selects a skin from an abbreviated quote',async()=>{
+ const messages=[],images=[];
+ const client={userId:'990001',connected:true};
+ await skins.handle({text:'!스킨 싱귤',roomId:'8812',userId:'chooser-no-log',client,
+  fetcher:fetchMock([]),send:async text=>messages.push(text),sendImage:async()=>{}});
+ const msg={message:{type:26,attachment:JSON.stringify({
+  src_userId:'990001',src_message:'🔎 비슷한 스킨이 여러 개 있습니다...'
+ })}};
+ assert.equal(await skins.handleReply({msg,text:'2',client,roomId:'8812',userId:'chooser-no-log',
+  send:async text=>messages.push(text),sendImage:async info=>images.push(info)}),true);
+ assert.ok(messages[1].includes('🔫 '+messages[0].split('\n').find(line=>line.startsWith('2. ')).slice(3)));
+ assert.equal(images.length,1);
 });
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
  for(const value of ['http://media.valorant-api.com/weaponskins/a/displayicon.png',

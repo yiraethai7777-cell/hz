@@ -30,7 +30,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       }
       // A numbered reply to the bot's own ambiguous !스킨 list selects that skin.
       // Never intercept ordinary 1-5 messages or replies to unrelated messages.
-      if(/^[1-5]$/.test(text)&&require('./reply-delete').reference(msg)){
+      if(/^[1-5]$/.test(text)&&(Number(msg?.message?.type??msg?.type)===26||require('./reply-delete').reference(msg))){
         let enabled=false;
         try{enabled=await require('./valorant-settings').isEnabled(roomId);}
         catch(error){console.error('[VALORANT SKIN REPLY GATE]',String(error?.code||'DB_ERROR'));}
