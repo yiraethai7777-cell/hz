@@ -19,6 +19,11 @@ const LINKS='🌐 웹사이트: https://hz-production-d530.up.railway.app/\n👤
 const group=(title,lines)=>title+'\n'+lines.map(s=>'  └─ '+s).join('\n');
 const bodies={
  게임:[
+  "🎨 발로란트 스킨 · NEXI",
+  "",
+  "!스킨 (이름)",
+  "└─ 비슷한 이름도 검색하여 VP 가격 기준·업그레이드·색상과 기본형/색상별 외형 사진을 보여줍니다.",
+  "",
   "🎯 발로란트 전적 · NEXI",
   "",
   "!발로전적 (닉네임#태그) [서버]",
