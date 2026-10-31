@@ -123,7 +123,24 @@ test('Router recognizes VALORANT commands before waiting for game initialization
   management:{message:()=>{throw Error('Management handler reached');}},
   ready:new Promise(()=>{})
  });
- await handler({room:{id:'7'},sender:{id:'21'},message:{text:'!전적 Player#KR1'}});
- assert.deepEqual(calls,['!전적 Player#KR1']);
+ await handler({room:{id:'7'},sender:{id:'21'},message:{text:'!발로전적 Player#KR1'}});
+ assert.deepEqual(calls,['!발로전적 Player#KR1']);
  assert.deepEqual(sent,['발로란트 응답 테스트']);
+});
+
+test('!발로전적 responds with tier RR win rate headshots KDA and recent results together',async()=>{
+ const calls=[],sent=[];
+ assert.equal(valorant.parse('!발로전적 Demo User#KR1').cmd,'!발로전적');
+ const handled=await valorant.handle({
+  text:'!발로전적 Demo User#KR1',
+  roomId:'77',userId:'7777771',
+  env:{HENRIKDEV_API_KEY:'test-key',VALORANT_APPROVED_PLAYERS:'Demo User#KR1'},
+  fetcher:fetchMock(calls),send:async body=>sent.push(body)
+ });
+ assert.equal(handled,true);
+ assert.equal(sent.length,1);
+ for(const value of ['🎯 NEXI | VALORANT','다이아몬드 2','77','초월자 1','50.0%','17.5%','30/32/10','Haven','Ascent'])
+  assert.ok(sent[0].includes(value),value);
+ assert.ok(calls.some(c=>c.url.includes('/v3/mmr/')));
+ assert.ok(calls.some(c=>c.url.includes('/v4/matches/')));
 });
