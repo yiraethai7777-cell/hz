@@ -60,7 +60,7 @@ test('all game help commands use ! prefix and map to real command handlers',()=>
  assert.doesNotMatch(body,/^#\S+/m);
  assert.match(body,/!낚시\n└─[^\n]+\n\n!낚시정보/);
  assert.match(body,/!물고기판매 \(이름\) \(수량\)/);
- assert.match(body,/!씨앗구매 \(이름\) \(수량\)/);
+ assert.match(body,/!씨앗ㄱㅁ \(이름\) \(수량\)/);
  assert.match(body,/!전적 \(닉네임#태그\)/);
  assert.match(body,/!헤드샷 \(닉네임#태그\)/);
  assert.doesNotMatch(body,/!게임순위/);
@@ -95,9 +95,9 @@ test('! commands reach market, farm and legacy game handlers',async()=>{
   assert.equal(f.calls.some(x=>x[0]===layer&&x[1]===text),true,layer+' '+text);
  }
 });
-test('!게임작동 toggles actual game setting',async()=>{
+test('!게임on toggles actual game setting',async()=>{
  const f=createFixture();
- await f.game.toggle({roomId:'1849',text:'!게임작동',isBotAccount:true,send:async m=>f.writes.push(m)});
+ await f.game.toggle({roomId:'1849',text:'!게임on',isBotAccount:true,send:async m=>f.writes.push(m)});
  assert.match(f.writes.at(-1),/게임 기능이 작동되었습니다/);
 });
 test('router routes ! game commands but refuses retired # commands',async()=>{
@@ -108,7 +108,10 @@ test('router routes ! game commands but refuses retired # commands',async()=>{
  const router=load('shared/router.js',{
   './help':{handleExtraMessage:async()=>false},
   '../game/command-aliases':aliases,
-  './event-reaction-test':{receive(){}},
+  './unicode-output':{install(){}},
+  './reply-delete':{install(){},observe(){}},
+  './junggae-notify':{handle:async()=>false},
+  './event-reaction-test':{receive(){},shouldBlind:()=>false},
   '../manage/commands-v2':{handle:async()=>false},
   './event-notice':{handle:async()=>false},
   './event-settings':{handle:async()=>false}
@@ -121,7 +124,9 @@ test('router routes ! game commands but refuses retired # commands',async()=>{
  assert.ok(calls.findIndex(x=>x[0]==='management'&&x[1]==='!낚시')>
    calls.findIndex(x=>x[0]==='game'&&x[1]==='!낚시'));
  await emit('#게임작동');assert.equal(calls.some(x=>x[0]==='toggle'),false);
- await emit('!게임작동');assert.equal(calls.some(x=>x[0]==='toggle'&&x[1]==='!게임작동'),true);
+ await emit('!게임작동');
+ assert.equal(calls.some(x=>x[0]==='toggle'),false);
+ assert.match(emitted.at(-1),/게임 ON\/OFF 명령어가 변경되었습니다/);
 });
 
 test('NEXI brand and official support room appear in both command menus',()=>{
