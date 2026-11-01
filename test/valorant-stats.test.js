@@ -32,7 +32,7 @@ const unapprovedDb={async query(sql){
 function fetchMock(calls){
  return async(url,options)=>{
   calls.push({url,authorization:options.headers.Authorization});
-  return {ok:true,status:200,json:async()=>url.includes('/mmr/')?MMRS:MATCHES};
+  return {ok:true,status:200,json:async()=>url.includes('/mmr/')?MMRS:url.includes('/account/')?{status:200,data:{account_level:137}}:MATCHES};
  };
 }
 test('Riot ID parsing accepts spaces and server affinity but rejects malformed input',()=>{
@@ -71,6 +71,20 @@ test('MMR rank and RR, weighted headshot rate and matches are calculated',()=>{
  assert.match(valorant.format('!전적',{name:'Demo User',tag:'KR1',region:'kr'},p,stats),/헤드샷률: 17.5%/);
  assert.match(valorant.format('!최근전적',{name:'Demo User',tag:'KR1',region:'kr'},null,stats),/1\. 🟢 승리/);
 });
+test('Valorant profile shows account level and agent/map TOP 10 based on competitive matches',()=>{
+ const stats=valorant.aggregate(MATCHES.data,'Demo User','KR1','demo-puuid');
+ assert.equal(valorant.accountLevel({account_level:137}),137);
+ assert.equal(valorant.accountLevel({}),null);
+ assert.deepEqual(valorant.topGroups(stats,'agent').map(x=>x.name),['Jett','Omen']);
+ assert.deepEqual(valorant.topGroups(stats,'map').map(x=>x.name),['Ascent','Haven']);
+ const output=valorant.format('!발로전적',{name:'Demo User',tag:'KR1',region:'kr'},
+  valorant.mmr(MMRS.data),stats,stats,137);
+ assert.match(output,/계정 레벨: 137/);
+ assert.match(output,/요원별 TOP 10/);
+ assert.match(output,/맵별 TOP 10/);
+ assert.match(output,/Jett · 1경기/);
+ assert.match(output,/Haven · 1경기/);
+});
 test('All Valorant report formats fold after exactly the Riot ID header and omit footer notices',()=>{
  const stats=valorant.aggregate(MATCHES.data,'Demo User','KR1','demo-puuid');
  const ranked=valorant.mmr(MMRS.data);
@@ -95,7 +109,7 @@ test('Direct Riot ID lookup calls provider without internal approval record',asy
  await valorant.handle({text:'!전적 Demo User#KR1',roomId:'1',userId:'91',
   env:{HENRIKDEV_API_KEY:'test-key'},db:unapprovedDb,
   fetcher:fetchMock(calls),send:async x=>sent.push(x)});
- assert.equal(calls.length,3);
+ assert.equal(calls.length,4);
  assert.match(sent[0],/다이아몬드 2/);
  assert.doesNotMatch(sent[0],/공개 동의/);
 });
@@ -133,7 +147,7 @@ test('All five commands produce scoped data from mocked provider API',async()=>{
  assert.match(outputs[2],/Haven/);
  assert.match(outputs[3],/1승 1패/);
  assert.match(outputs[4],/17.5%/);
- assert.equal(calls.length,3,'MMR, competitive and all-mode matches are cached across commands');
+ assert.equal(calls.length,4,'MMR, account level, competitive and all-mode matches are cached');
  assert.ok(calls.some(c=>c.url.includes('mode=competitive&size=20')));
  assert.ok(calls.some(c=>c.url.endsWith('?size=20')));
  assert.ok(calls.every(c=>c.authorization==='test-key'));
