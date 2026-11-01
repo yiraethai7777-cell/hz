@@ -429,7 +429,20 @@ async function handleGameCore(d,c,msg,isSelf){
     return `🐟 물고기 판매 완료!\n판매 수량: ${targets.length}마리\n💰 판매 금액: +${ctx.n(total)}코인\n💵 보유 코인: ${ctx.n(p.points)}\n${ctx.MORE}\n${details.join("\n")}`;
   }
   if(text==="#낚시정보")return `🎣 낚시 정보\n쿨타임 ${ctx.FISHING_COOLDOWN_SECONDS}초 · 결과 즉시 표시\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
-  if(text==="#인벤"){if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";return "🎒 내 물고기 인벤토리\n"+ctx.MORE+"\n"+p.inventory.map((x,i)=>`#${i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${ctx.n(x.value)}코인`).join("\n")}
+  if(text==="#인벤"){
+    if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";
+    // Show every section under KakaoTalk's single "더보기", rather than
+    // requiring users to request page 2/3 or 3/3 in separate messages.
+    const pageSize=20,totalPages=Math.ceil(p.inventory.length/pageSize);
+    const pages=[];
+    for(let page=0;page<totalPages;page++){
+      const start=page*pageSize;
+      const entries=p.inventory.slice(start,start+pageSize)
+        .map((x,i)=>`#${start+i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${ctx.n(x.value)}코인`);
+      pages.push(`📄 ${page+1}/${totalPages}\n${entries.join("\n")}`);
+    }
+    return `🎒 내 물고기 인벤토리 · 총 ${p.inventory.length}마리\n`+ctx.MORE+"\n"+pages.join("\n━━━━━━━━━━━━━━━━\n");
+  }
   if(text==="#물고기 도감"||text==="#물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 물고기 도감\n"+ctx.MORE+"\n"+ctx.FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
 
   if(text==="#포인트")return isSelf?"🤖\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
