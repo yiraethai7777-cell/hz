@@ -26,6 +26,10 @@ test('!발로저장 persists a per-Kakao-user shortcut, replace and remove are i
  await account.handle({text:'!발로저장 Other Player#AP1 ap',userId:'kakao-a',db,
   send:async x=>sent.push(x),env:{VALORANT_APPROVED_PLAYERS:'bsh#3333'}});
  assert.equal((await account.load({db,userId:'kakao-a'})).name,'Other Player');
+ await account.handle({text:'!발로저장 Space Name # KR1 kr',userId:'kakao-spaces',db,
+  send:async x=>sent.push(x)});
+ assert.equal((await account.load({db,userId:'kakao-spaces'})).name,'Space Name');
+ assert.equal((await account.load({db,userId:'kakao-spaces'})).tag,'KR1');
  assert.match(sent[1],/!발로전적확인으로 저장한 계정을 바로 조회/);
  await account.handle({text:'!발로삭제',userId:'kakao-a',db,send:async x=>sent.push(x)});
  assert.equal(await account.load({db,userId:'kakao-a'}),null);
