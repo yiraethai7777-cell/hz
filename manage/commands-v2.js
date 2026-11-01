@@ -7,7 +7,7 @@ const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지예약','!공지목록','!공지삭제']);
-const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!도배감지on','!삭제감지on','!삭제감지off','!프로필감지on','!프로필감지off','!일괄강퇴']);
+const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!삭제감지on','!삭제감지off','!프로필감지on','!프로필감지off','!일괄강퇴']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
 const owner=(u,bot)=>bot===true||String(u)===String(process.env.GL_OWNER_ID||'__NO_OWNER__')||OWNER_IDS.has(String(u));
@@ -66,21 +66,38 @@ async function handle(ctx){
  const raw=String(ctx.text||'').trim(),cmd=raw.split(/\s+/)[0];
  if(!ALL.has(cmd)||cmd==='!관리명령어'&&raw!=='!관리명령어')return false;
  const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId),tail=raw.slice(cmd.length).trim();
- const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
+ const superRole=require('../shared/super-admin');
+ const isSuperAdmin=await superRole.isSuperAdmin(room,user,db);
+ const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||isSuperAdmin||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
  if(cmd==='!관리명령어'){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리'));return true;
  }
  if(OWNER.has(cmd)&&!botOwner){return true;}
+ if(cmd.startsWith('!최고관리자')&&!owner(user,ctx.isBotAccount)){return true;}
  if(cmd==='!일괄강퇴'){
   if(raw!=='!일괄강퇴'){await send('사용법: !일괄강퇴');return true;}
-  const botAccountOwner=owner(user,ctx.isBotAccount);
+  const botAccountOwner=owner(user,ctx.isBotAccount)||isSuperAdmin;
   await require('./bulk-kick').handle({client:ctx.client,roomId:room,msg:ctx.msg,userId:user,send,kick:ctx.kick,db,owner:botAccountOwner});
   return true;
  }
  if(cmd==='!관리on'||cmd==='!관리off'){
   const on=cmd==='!관리on';await setEnabled(db,room,on);
   await send(on?'🛡️ 관리 기능이 작동되었습니다.':'⏹️ 관리 기능이 중지되었습니다.');return true;
+ }
+ if(cmd==='!최고관리자추가'||cmd==='!최고관리자삭제'||cmd==='!최고관리자목록'){
+  if(cmd==='!최고관리자목록'){
+   const entries=await superRole.list(room,db);
+   await send('👑 최고관리자 목록\n'+(entries.length?entries.map(x=>'• '+x.user_id).join('\n'):'등록된 최고관리자가 없습니다.'));
+   return true;
+  }
+  const target=await targetOf(db,room,ctx.msg,tail,ctx.client);
+  if(!target||!goodTarget(target,user,ctx.botId)){await send('사용법: '+cmd+' (멘션 또는 사용자 ID)');return true;}
+  const act=cmd==='!최고관리자추가'?'add':'remove';
+  const changed=await superRole.update(room,target.id,user,act,db);
+  await action(db,room,user,target.id,act==='add'?'SUPER_ADMIN_ADD':'SUPER_ADMIN_REMOVE',changed?'changed':'unchanged');
+  await send((act==='add'?'👑 최고관리자 추가':'✅ 최고관리자 삭제')+(changed?' 완료: ':' · 변경사항 없음: ')+target.id);
+  return true;
  }
  if(!await enabled(db,room)){return true;}
  if(cmd==='!멘션감지on'||cmd==='!멘션감지off'||cmd==='!멘션감지상태'){
