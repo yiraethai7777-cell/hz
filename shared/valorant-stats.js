@@ -262,27 +262,8 @@ async function handle({text,roomId,userId,send,env=process.env,fetcher,db,allowS
  if(!target)return false;
  const usage='사용법: '+target.cmd+' 닉네임#태그 [서버]\n예: '+target.cmd+' Player#KR1\n서버: kr(기본) / ap / na / eu';
  if(target.usage||target.error){await send(target.error?'❌ '+target.error+'\n'+usage:usage);return true;}
- // Normal explicit Riot-ID requests use the operator's env/DB approval list.
- // !발로전적확인 is a separate personal shortcut: query only the ID saved by
- // this same Kakao sender, and only data the external API actually returns.
- let approved=false;
- try{
-  if(allowSavedAccount&&userId!=null){
-   const saved=await require('./valorant-account').load({userId,db});
-   approved=!!saved&&identity(saved.name,saved.tag)===target.player&&saved.region===target.region;
-  }
-  if(!approved)approved=await require('./valorant-approvals').isApproved(target,{env,db});
- }catch(error){
-  console.warn('[NEXI VALORANT APPROVAL CHECK]',String(error?.code||'DB_ERROR'));
-  await send('❌ 전적 조회 허용 목록을 확인할 수 없습니다. 데이터베이스를 확인해 주세요.');
-  return true;
- }
- if(!approved){
-  await send('🔎 전적 공개 동의가 확인되지 않은 계정입니다.\n'+
-   '외부 사이트에서 공개된 경우 아래 링크에서 확인할 수 있습니다.\n'+
-   publicProfileUrl(target));
-  return true;
- }
+ // Query only data the provider chooses to return through its public API.
+ // Riot account privacy and provider access controls remain authoritative.
  const key=apiKey(env);
  if(!key){await send('⚙️ 발로란트 전적 API가 아직 설정되지 않았습니다.\n운영자가 Railway에 HENRIKDEV_API_KEY를 등록해야 합니다.');return true;}
  const user=clean(userId),last=lastUsed.get(user)||0,now=Date.now();
