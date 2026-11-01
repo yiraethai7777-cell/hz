@@ -31,7 +31,8 @@ function parse(text){
  if(!COMMANDS.has(cmd))return null;
  const tail=trimmed.slice(cmd.length).trim();
  if(!tail)return {cmd,usage:true};
- const match=/^(.+)#([^#\s]+?)(?:\s+(kr|ap|eu|na|br|latam))?$/i.exec(tail);
+ // Accept spaces inside player names and around the # separator.
+ const match=/^(.+?)\s*#\s*([^#\s]+)(?:\s+(kr|ap|eu|na|br|latam))?$/i.exec(tail);
  if(!match)return {cmd,error:'Riot ID는 닉네임#태그 형식으로 입력해 주세요.'};
  const name=clean(match[1]),tag=clean(match[2]),region=(match[3]||'kr').toLowerCase();
  if(!name||name.length>32||tag.length>10||name.includes('#')||
