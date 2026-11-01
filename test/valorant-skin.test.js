@@ -208,6 +208,33 @@ test('Kakao outer type-26 reply without author and source log selects number 3',
   send:async body=>sent.push(body),sendImage:async()=>{}}),true);
  assert.ok(sent[1].includes('🔫 '+sent[0].split('\n').find(line=>line.startsWith('3. ')).slice(3)));
 });
+test('Kakao reply preview chooses skin even if sendText receipt log differs',async()=>{
+ const messages=[],images=[],client={userId:'990001'};
+ const send=async value=>{messages.push(value);return {body:{logId:'900001'}};};
+ await skins.handle({text:'!스킨 싱귤',client,roomId:'receipt-mismatch',userId:'reply-user',
+  fetcher:fetchMock([]),send,sendImage:async()=>{}});
+ const msg={room:{id:'receipt-mismatch'},sender:{id:'reply-user'},message:{
+  type:26,text:'2',attachment:JSON.stringify({src_logId:'900999',src_userId:'990001',
+   src_message:'🔎 비슷한 스킨이 여러 개 있습니다...' })
+ }};
+ assert.equal(await skins.handleReply({msg,text:'2',client,roomId:'receipt-mismatch',
+  userId:'reply-user',send,sendImage:async image=>images.push(image)}),true);
+ assert.ok(messages[1].includes('🔫 '+messages[0].split('\n').find(x=>x.startsWith('2. ')).slice(3)));
+ assert.equal(images.length,1);
+});
+test('Kakao raw.chat attachment quote is recognized as a reply',async()=>{
+ const messages=[],client={userId:'990001'};
+ const send=async value=>messages.push(value);
+ await skins.handle({text:'!스킨 싱귤',client,roomId:'chat-attachment',userId:'quote-user',
+  fetcher:fetchMock([]),send,sendImage:async()=>{}});
+ const msg={message:{type:1,text:'1'},raw:{chat:{attachment:JSON.stringify({
+  src_message:'🔎 비슷한 스킨이 여러 개 있습니다...',src_userId:'990001'
+ })}}};
+ assert.equal(skins.isSkinReply(msg),true);
+ assert.equal(await skins.handleReply({msg,text:'1',client,roomId:'chat-attachment',
+  userId:'quote-user',send,sendImage:async()=>{}}),true);
+ assert.ok(messages[1].includes('🎨 NEXI | 발로란트 스킨 도감'));
+});
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
  for(const value of ['http://media.valorant-api.com/weaponskins/a/displayicon.png',
   'https://internal.example.com/weaponskins/a/displayicon.png',
