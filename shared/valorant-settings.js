@@ -16,11 +16,11 @@ async function isEnabled(roomId,db=getPool()){
  return result.rows[0]?.enabled===true;
 }
 
-async function handle({text,roomId,isBotAccount,send,db}){
+async function handle({text,roomId,isBotAccount,isSuperAdmin=false,send,db}){
  if(!COMMANDS.has(text))return false;
  // Only the actual connected Kakao bot account may modify the room setting.
  // Silently consume unauthorized attempts; do not change state or reply.
- if(!isBotAccount)return true;
+ if(!isBotAccount&&!isSuperAdmin)return true;
  const enabled=text==='!발로on';
  const pool=db||getPool();
  await pool.query(
