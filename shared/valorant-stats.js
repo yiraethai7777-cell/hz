@@ -140,6 +140,31 @@ function aggregate(matches,name,tag,puuid){
   winrate:known.length?100*wins/known.length:null,hs,
   totalKills:totals.k,totalDeaths:totals.d,totalAssists:totals.a};
 }
+// Rankings cover only the competitive matches returned by the API, not lifetime stats.
+function topGroups(stats,field){
+ if(!stats?.rows?.length)return [];
+ const groups=new Map();
+ for(const row of stats.rows){
+  const key=row[field];
+  if(!key||key==='요원 미확인'||key==='맵 미확인')continue;
+  let g=groups.get(key);
+  if(!g){g={name:key,games:0,wins:0,losses:0,decided:0,kills:0,deaths:0,assists:0};groups.set(key,g);}
+  g.games++;g.kills+=row.kills||0;g.deaths+=row.deaths||0;g.assists+=row.assists||0;
+  if(row.result!==null){g.decided++;if(row.result)g.wins++;else g.losses++;}
+ }
+ return [...groups.values()].sort((a,b)=>b.games-a.games||b.wins-a.wins||a.name.localeCompare(b.name,'ko')).slice(0,10);
+}
+function rankingText(stats,field){
+ const groups=topGroups(stats,field);
+ if(!groups.length)return '조회 가능한 기록이 없습니다.';
+ return groups.map((g,i)=>(i+1)+'. '+g.name+' · '+g.games+'경기 · '+g.wins+'승 '+g.losses+'패'+
+  (g.decided? ' · 승률 '+(g.wins/g.decided*100).toFixed(1)+'%':' · 승률 확인 불가')+
+  ' · K/D/A '+g.kills+'/'+g.deaths+'/'+g.assists).join('\n');
+}
+function accountLevel(data){
+ const level=number(data?.account_level??data?.accountLevel??data?.level);
+ return level!=null&&Number.isInteger(level)?level:null;
+}
 function percent(v){return v===null?'확인 불가':v.toFixed(1)+'%';}
 function kda(row){return [row.kills,row.deaths,row.assists].map(fmt).join('/');}
 function lines(stats,limit=RECENT_MATCH_LIMIT){
@@ -149,12 +174,12 @@ function lines(stats,limit=RECENT_MATCH_LIMIT){
   return (i+1)+'. '+outcome+' · ['+(row.mode||'모드 미확인')+'] '+row.map+'\n   '+row.agent+' · K/D/A '+kda(row);
  }).join('\n');
 }
-function format(cmd,target,ranked,stats,recent=null){
+function format(cmd,target,ranked,stats,recent=null,level=null){
  const id=target.name+'#'+target.tag;
  // First two lines remain visible; the rest is behind KakaoTalk's native 더보기.
  const header='🎯 NEXI | VALORANT\n👤 '+id+' · '+target.region.toUpperCase()+' 서버';
  const divider='━━━━━━━━━━━━━━';
- const tier='🏅 현재 티어: '+(ranked?.current??'조회 실패')+
+ const tier='⭐ 계정 레벨: '+(level==null?'확인 불가':level)+'\n🏅 현재 티어: '+(ranked?.current??'조회 실패')+
   '\n💎 RR: '+(ranked?.rr!=null?ranked.rr:'확인 불가')+
   '\n🏆 최고 티어: '+(ranked?.peak??'조회 실패');
  const record=stats?
@@ -175,7 +200,7 @@ function format(cmd,target,ranked,stats,recent=null){
   (recent?lines(recent):'조회 실패'));
  return fold(header,divider+'\n'+tier+'\n'+divider+'\n'+record+
   '\n'+divider+'\n📋 최근 경기 (최대 20경기 · 전체 모드)\n'+
-  (recent?lines(recent):'조회 실패'));
+  (recent?lines(recent):'조회 실패')+'\n'+divider+'\n🎭 요원별 TOP 10 (최근 경쟁전 '+(stats?.count??0)+'경기 기준)\n'+rankingText(stats,'agent')+'\n'+divider+'\n🗺️ 맵별 TOP 10 (최근 경쟁전 '+(stats?.count??0)+'경기 기준)\n'+rankingText(stats,'map'));
 }
 function trimMaps(map,max=200){
  while(map.size>max)map.delete(map.keys().next().value);
@@ -237,27 +262,31 @@ async function get(path,options={}){
 async function lookup(target,cmd,options={}){
  const path=[target.region,'pc',encodeURIComponent(target.name),encodeURIComponent(target.tag)].join('/');
  const needMmr=cmd==='!티어'||cmd==='!전적'||cmd==='!발로전적';
+ const needAccount=needMmr;
  const needCompetitive=cmd==='!전적'||cmd==='!발로전적'||cmd==='!승률'||cmd==='!헤드샷';
  const needRecent=cmd==='!전적'||cmd==='!발로전적'||cmd==='!최근전적';
  const jobs=[];
  if(needMmr)jobs.push(get('/valorant/v3/mmr/'+path,options));
+ if(needAccount)jobs.push(get('/valorant/v1/account/'+encodeURIComponent(target.name)+'/'+encodeURIComponent(target.tag),options));
  if(needCompetitive)jobs.push(get('/valorant/v4/matches/'+path+'?mode=competitive&size='+RECENT_MATCH_LIMIT,options));
  if(needRecent)jobs.push(get('/valorant/v4/matches/'+path+'?size='+RECENT_MATCH_LIMIT,options));
  const responses=await Promise.allSettled(jobs);
- let mmrData=null,competitiveData=null,recentData=null,index=0;
+ let mmrData=null,accountData=null,competitiveData=null,recentData=null,index=0;
  const mmrOutcome=needMmr?responses[index++]:null;
+ const accountOutcome=needAccount?responses[index++]:null;
  const competitiveOutcome=needCompetitive?responses[index++]:null;
  const recentOutcome=needRecent?responses[index++]:null;
  if(mmrOutcome?.status==='fulfilled')mmrData=mmrOutcome.value;
+ if(accountOutcome?.status==='fulfilled')accountData=accountOutcome.value;
  if(competitiveOutcome?.status==='fulfilled')competitiveData=competitiveOutcome.value;
  if(recentOutcome?.status==='fulfilled')recentData=recentOutcome.value;
- if(!mmrData&&!competitiveData&&!recentData)
+ if(!mmrData&&!accountData&&!competitiveData&&!recentData)
   throw (recentOutcome?.reason||competitiveOutcome?.reason||mmrOutcome?.reason||Error('조회 가능한 데이터가 없습니다.'));
  const ranked=mmrData?mmr(mmrData):null;
  const puuid=clean(mmrData?.account?.puuid);
  const stats=competitiveData?aggregate(competitiveData,target.name,target.tag,puuid):null;
  const recent=recentData?aggregate(recentData,target.name,target.tag,puuid):null;
- return format(cmd,target,ranked,stats,recent);
+ return format(cmd,target,ranked,stats,recent,accountLevel(accountData));
 }
 async function handle({text,roomId,userId,send,env=process.env,fetcher,db,allowSavedAccount=false}){
  const target=parse(text);
@@ -279,4 +308,4 @@ async function handle({text,roomId,userId,send,env=process.env,fetcher,db,allowS
  }
  return true;
 }
-module.exports={handle,parse,allowedPlayers,apiRequest,lookup,aggregate,matchInfo,mmr,format,COMMANDS};
+module.exports={handle,parse,allowedPlayers,apiRequest,lookup,aggregate,matchInfo,mmr,format,topGroups,accountLevel,COMMANDS};
