@@ -40,6 +40,12 @@ test('Riot ID parsing accepts spaces and server affinity but rejects malformed i
   cmd:'!전적',name:'Demo User',tag:'KR1',region:'ap',player:'demo user#kr1'
  });
  assert.equal(valorant.parse('!티어 Player#KR1').region,'kr');
+ assert.deepEqual(valorant.parse('!발로전적 Demo User # KR1 ap'),{
+  cmd:'!발로전적',name:'Demo User',tag:'KR1',region:'ap',player:'demo user#kr1'
+ });
+ assert.equal(valorant.parse('!발로전적 Demo User #KR1').name,'Demo User');
+ assert.equal(valorant.parse('!발로전적 Demo User# KR1').tag,'KR1');
+ assert.ok(valorant.parse('!발로전적 Demo User # KR1 wrong').error);
  assert.ok(valorant.parse('!전적 Demo').error);
  assert.equal(valorant.parse('!헤드샷').usage,true);
  assert.equal(valorant.parse('!알수없음 Player#KR1'),null);
