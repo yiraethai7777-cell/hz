@@ -52,8 +52,9 @@ test('Saved Riot ID is immediately queryable by its own Kakao user without !발�
  };
  await account.handle({text:'!발로전적확인',userId:'kakao-private',db,env,
   fetcher,send:async x=>sent.push(x)});
- assert.equal(calls.length,3);
- assert.ok(calls.every(url=>url.includes('/na/pc/Someone/NA2')));
+ assert.equal(calls.length,4);
+ assert.ok(calls.some(url=>url.includes('/valorant/v1/account/Someone/NA2')));
+ assert.ok(calls.filter(url=>!url.includes('/account/')).every(url=>url.includes('/na/pc/Someone/NA2')));
  assert.match(sent.at(-1),/현재 티어: 실버 2/);
  assert.match(sent.at(-1),/Haven/);
  // Deleting personal shortcut immediately ends the access path.
@@ -61,7 +62,7 @@ test('Saved Riot ID is immediately queryable by its own Kakao user without !발�
  await account.handle({text:'!발로전적확인',userId:'kakao-private',db,env,fetcher,
   send:async x=>sent.push(x)});
  assert.match(sent.at(-1),/등록된 발로란트 계정이 없습니다/);
- assert.equal(calls.length,3);
+ assert.equal(calls.length,4);
 });
 test('Approved saved Riot ID invokes existing stats lookup with saved region',async()=>{
  const db=fakeDb(),sent=[],calls=[];
@@ -79,8 +80,9 @@ test('Approved saved Riot ID invokes existing stats lookup with saved region',as
  };
  await account.handle({text:'!발로전적확인',userId:'kakao-ok',db,env,fetcher,
   send:async x=>sent.push(x)});
- assert.equal(calls.length,3);
- assert.ok(calls.every(url=>url.includes('/ap/pc/Test%20Player/KR1')));
+ assert.equal(calls.length,4);
+ assert.ok(calls.some(url=>url.includes('/valorant/v1/account/Test%20Player/KR1')));
+ assert.ok(calls.filter(url=>!url.includes('/account/')).every(url=>url.includes('/ap/pc/Test%20Player/KR1')));
  assert.match(sent.at(-1),/현재 티어: 브론즈 1/);
  assert.match(sent.at(-1),/Haven/);
 });
