@@ -31,11 +31,12 @@ function parse(text){
  if(!COMMANDS.has(cmd))return null;
  const tail=trimmed.slice(cmd.length).trim();
  if(!tail)return {cmd,usage:true};
- // Accept spaces inside player names and around the # separator.
- const match=/^(.+?)\s*#\s*([^#\s]+)(?:\s+(kr|ap|eu|na|br|latam))?$/i.exec(tail);
+ // Accept spaces inside both the name and tag as well as around #.
+ // A trailing known region remains optional; unknown trailing words belong to the tag.
+ const match=/^(.+?)\s*#\s*(.+?)(?:\s+(kr|ap|eu|na|br|latam))?$/i.exec(tail);
  if(!match)return {cmd,error:'Riot ID는 닉네임#태그 형식으로 입력해 주세요.'};
  const name=clean(match[1]),tag=clean(match[2]),region=(match[3]||'kr').toLowerCase();
- if(!name||name.length>32||tag.length>10||name.includes('#')||
+ if(!name||!tag||name.length>32||tag.length>10||name.includes('#')||tag.includes('#')||
     /[\u0000-\u001f\u007f]/.test(name+tag)||
     !REGIONS.has(region))return {cmd,error:'Riot ID 또는 서버 지역이 올바르지 않습니다.'};
  return {cmd,name,tag,region,player:identity(name,tag)};
