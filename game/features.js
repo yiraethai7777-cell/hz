@@ -30,8 +30,10 @@ function nextQuiz(d){
 
 function fishPick(luck){
   const tiers=["일반","희귀","영웅","전설","신화"];
+  // Starter-rod odds stay the same; stronger rods and pets get a noticeable
+  // legendary/mythic advantage. Each row totals 10,000.
   const base=[6000,2800,1000,180,20];
-  const high=[4800,3700,1250,220,30];
+  const high=[3700,3500,2000,650,150];
   const factor=Math.min(1,Math.max(0,Math.log(Math.max(1,luck))/Math.log(30)));
   const weights=base.map((w,i)=>w+(high[i]-w)*factor);
   let roll=Math.random()*weights.reduce((a,b)=>a+b,0);
