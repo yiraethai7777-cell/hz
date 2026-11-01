@@ -74,7 +74,7 @@ async function handle(ctx){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리'));return true;
  }
  if(OWNER.has(cmd)&&!botOwner){return true;}
- if(cmd.startsWith('!최고관리자')&&!owner(user,ctx.isBotAccount)){return true;}
+ if(cmd.startsWith('!최고관리자')&&!ctx.isBotAccount){return true;}
  if(cmd==='!일괄강퇴'){
   if(raw!=='!일괄강퇴'){await send('사용법: !일괄강퇴');return true;}
   const botAccountOwner=owner(user,ctx.isBotAccount)||isSuperAdmin;
