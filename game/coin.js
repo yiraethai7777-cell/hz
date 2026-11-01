@@ -143,7 +143,7 @@ async function history(roomId, userId) {
     return `${time}\n${r.type} ${sign}${fmt(r.amount)}코인\n${r.detail}`;
   }).join("\n\n");
 }
-async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false}) {
+async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false,isSuperAdmin=false}) {
   if (!/^#(코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text)) return false;
   const say = s => chat.sendText(roomId,s);
   try {
@@ -160,7 +160,7 @@ async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false}) {
       if (grant) {
         const admins = String(process.env.HZ_ADMIN_IDS || "").split(",").map(s=>s.trim()).filter(Boolean);
         const owners=String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/);
-        if (!isBotAccount&&!admins.includes(me.id)&&!owners.includes(me.id)) throw new Error("관리자만 코인을 지급할 수 있습니다.");
+        if (!isBotAccount&&!isSuperAdmin&&!admins.includes(me.id)&&!owners.includes(me.id)) throw new Error("관리자만 코인을 지급할 수 있습니다.");
       }
       const match = /^#코인(?:송금|지급)\s+@.+\s+(\S+)$/.exec(text);
       if (!match) throw new Error(`사용법: !코인${grant ? "지급" : "송금"} (@멘션) (금액)`);
