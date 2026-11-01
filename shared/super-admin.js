@@ -4,7 +4,7 @@ const SCHEMA="CREATE TABLE IF NOT EXISTS hz_super_admins ("+
  "room_id TEXT NOT NULL,user_id TEXT NOT NULL,granted_by TEXT NOT NULL,"+
  "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id))";
 let schemaReady;
-function valid(value){const s=String(value??'');return /^[1-9]\\d{3,23}$/.test(s)?s:'';}
+function valid(value){const s=String(value??'');return /^[1-9]\d{3,23}$/.test(s)?s:'';}
 async function init(db,shared=true){
  if(!shared){await db.query(SCHEMA);return;}
  if(!schemaReady) schemaReady=db.query(SCHEMA).catch(error=>{schemaReady=null;throw error;});
