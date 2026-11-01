@@ -17,7 +17,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     try {
       // Scoped superadmin authorization does not change the Kakao sender identity.
       let isSuperAdmin=false;
-      if(senderId!=null&&!isBotAccount){
+      if(text.startsWith('!')&&senderId!=null&&!isBotAccount){
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
