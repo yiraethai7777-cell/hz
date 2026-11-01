@@ -111,10 +111,28 @@ async function withRoom(rid,rname,fn){
 async function roomFlags(rid){const q=await ctx.pool.query("SELECT data FROM hz_rooms WHERE room_id=$1",[rid]);return q.rows[0]?ctx.fixRoom(q.rows[0].data):ctx.blankRoom()}
 
 async function send(chat,rid,text){
- if(!text)return;const source=String(text),pages=[];let rest=source;
- while(rest.length>4500){let at=rest.lastIndexOf('\n',4400);if(at<200)at=4400;pages.push(rest.slice(0,at));rest=rest.slice(at).replace(/^\n/,'');}pages.push(rest);
+ if(!text)return;
+ const source=String(text),pages=[];
+ const more=String(ctx.MORE||''),hasMore=more.length>0&&source.includes(more);
+ // Keep enough room for a new '더보기' marker in every later chunk.
+ // This prevents [2/3], [3/3] etc. from exposing their contents directly.
+ const limit=hasMore&&source.length>4500?3900:4400;
+ let rest=source;
+ if(source.length>4500){
+   while(rest.length>limit){
+     let at=rest.lastIndexOf('\n',limit);
+     if(at<200)at=limit;
+     pages.push(rest.slice(0,at));
+     rest=rest.slice(at).replace(/^\n/,'');
+   }
+ }
+ pages.push(rest);
  const results=[];
- for(let i=0;i<pages.length;i++)results.push(await chat.sendText(rid,(pages.length>1?'['+(i+1)+'/'+pages.length+']\n':'')+pages[i]));
+ for(let i=0;i<pages.length;i++){
+   const header=pages.length>1?'['+(i+1)+'/'+pages.length+']\n':'';
+   const hidden=i>0&&hasMore&&!pages[i].includes(more)?more+'\n':'';
+   results.push(await chat.sendText(rid,header+hidden+pages[i]));
+ }
  return results;
 }
 return {n,norm,nowK,dayK,sleep,id,blankRoom,fixRoom,initDb,withRoom,roomFlags,send};
