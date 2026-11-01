@@ -56,6 +56,10 @@ function createGame(client) {
         }
         return;
       }
+      if(/^#물고기전송(?:\s|$)/.test(text)){
+        await require('./fish-transfer').handle(normalized);
+        return;
+      }
       // Retired commands must not mutate games or historical records.
       if (/^[!#](?:준개|전체준개)/.test(text)) return;
       if (/^[!#](?:주식|내주식)/.test(text) || ['!코인','!레벨','!내정보','#코인','#레벨','#내정보'].includes(text)) return;
