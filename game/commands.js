@@ -4,7 +4,7 @@ const { handleCoinCommand } = require('./coin');
 const { joinGame } = require('./members');
 const { performance } = require('node:perf_hooks');
 
-async function message({ text, msg, chat, isBotAccount = false }) {
+async function message({ text, msg, chat, isBotAccount = false, isSuperAdmin = false }) {
     const roomId = msg.room?.id;
     if (roomId == null) return;
 
@@ -33,7 +33,8 @@ async function message({ text, msg, chat, isBotAccount = false }) {
         msg,
         roomId,
         chat,
-        isBotAccount
+        isBotAccount,
+        isSuperAdmin
     })) return;
 
     if (text === '#핑') {

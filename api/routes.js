@@ -74,6 +74,24 @@ async function routes(req,res,url,body){
    return {ok:true,changed:changed.rowCount>0};
   });
  }
+ if(p==='/api/admin/super-admins'&&method==='GET'){
+  const room=id(url.searchParams.get('roomId'));
+  const exists=await getPool().query('SELECT 1 FROM hz_rooms WHERE room_id=$1',[room]);
+  if(!exists.rowCount)fail('등록되지 않은 채팅방입니다.',404);
+  return {admins:await require('../shared/super-admin').list(room)};
+ }
+ if(p==='/api/admin/super-admins'&&method==='POST'){
+  const room=id(body.roomId),user=id(body.userId),action=String(body.action||'');
+  if(!['add','remove'].includes(action))fail('올바른 작업을 선택해 주세요.');
+  const exists=await getPool().query('SELECT 1 FROM hz_rooms WHERE room_id=$1',[room]);
+  if(!exists.rowCount)fail('등록되지 않은 채팅방입니다.',404);
+  const bot=String(status.client?.userId||'');
+  if(action==='add'&&user===bot)fail('봇 계정은 최고관리자로 지정할 필요가 없습니다.');
+  const role=require('../shared/super-admin');
+  const changed=await role.update(room,user,'web:'+s.user,action);
+  await audit(getPool(),s.user,action==='add'?'SUPER_ADMIN_ADD':'SUPER_ADMIN_REMOVE',room,user,{changed});
+  return {ok:true,changed};
+ }
  if(p==='/api/admin/users'&&method==='GET'){
   const room=id(url.searchParams.get('roomId')),search=String(url.searchParams.get('search')||'').slice(0,80);
   const r=await getPool().query('SELECT w.user_id,w.user_name,w.balance::text,r.data->\'players\'->w.user_id AS player FROM hz_wallets w LEFT JOIN hz_rooms r USING(room_id) WHERE w.room_id=$1 AND (w.user_id=$2 OR w.user_name ILIKE $3) ORDER BY w.user_name LIMIT 50',[room,search,'%'+search+'%']);return {users:r.rows};

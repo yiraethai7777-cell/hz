@@ -15,12 +15,18 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Scoped superadmin authorization does not change the Kakao sender identity.
+      let isSuperAdmin=false;
+      if(text.startsWith('!')&&senderId!=null&&!isBotAccount){
+        try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
+        catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
+      }
       // VALORANT is OFF by default in each room; only this bot account may toggle it.
       // This switch is independent of the game and management flags.
       if(text==='!발로on'||text==='!발로off'){
         try{
           await require('./valorant-settings').handle({
-            text,roomId,isBotAccount,send:body=>chat.sendText(roomId,body)
+            text,roomId,isBotAccount,isSuperAdmin,send:body=>chat.sendText(roomId,body)
           });
         }catch(error){
           console.error('[VALORANT SWITCH]',String(error?.message||error));
@@ -55,7 +61,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         if(!enabled)return; // Do not answer or call the skin/stats APIs when disabled.
         if(/^!(?:발로승인|발로승인해제)(?=\s|$)/.test(text)){
           await require('./valorant-approvals').handle({
-            text,isBotAccount,userId:senderId,send:body=>chat.sendText(roomId,body)
+            text,isBotAccount,isSuperAdmin,userId:senderId,send:body=>chat.sendText(roomId,body)
           });
         }else if(/^!스킨(?=\s|$)/.test(text)){
           await require('./valorant-skin').handle({
@@ -177,8 +183,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Hide off-turn messages only while a live event is awaiting the
       // currently selected person. Never substitute deleteMessage for BLIND.
       // Permission is scoped to this room and never changes the sender identity.
-      let roomBotAdmin=false;
-      if(/^!(?:게임on|게임off|이벤트시작|이벤트중지|이벤)/.test(text)&&!isBotAccount){
+      let roomBotAdmin=isSuperAdmin;
+      if(!roomBotAdmin&&/^!(?:게임on|게임off|이벤트시작|이벤트중지|이벤)/.test(text)&&!isBotAccount){
         try{roomBotAdmin=await require('./room-bot-admin').isRoomBotAdmin(roomId,senderId);}
         catch(error){console.warn('[ROOM ADMIN] 권한 조회 실패:',String(error?.message||error));}
       }
@@ -223,6 +229,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   messageId: msg.id ?? msg.message?.id ?? null,
   text,
   isBotAccount,
+  isSuperAdmin,
   roomBotAdmin,
   senderType: msg.sender?.type,
   botId: client.userId,
