@@ -195,6 +195,19 @@ test('Kakao type-26 reply without src_logId selects a skin from an abbreviated q
  assert.ok(messages[1].includes('🔫 '+messages[0].split('\n').find(line=>line.startsWith('2. ')).slice(3)));
  assert.equal(images.length,1);
 });
+test('Kakao outer type-26 reply without author and source log selects number 3',async()=>{
+ const sent=[],client={userId:'990001',connected:true};
+ await skins.handle({text:'!스킨 싱귤',client,roomId:'8813',userId:'chooser-pc',
+  fetcher:fetchMock([]),send:async body=>sent.push(body),sendImage:async()=>{}});
+ const msg={type:26,message:{type:1,text:'3',attachment:JSON.stringify({
+  src_message:'🔎 비슷한 스킨이 여러 개 있습니다...'
+ })}};
+ assert.equal(skins.isSkinReply(msg),true);
+ assert.equal(skins.isSkinReply({type:1,message:{type:1,text:'3'}}),false);
+ assert.equal(await skins.handleReply({msg,text:'3',client,roomId:'8813',userId:'chooser-pc',
+  send:async body=>sent.push(body),sendImage:async()=>{}}),true);
+ assert.ok(sent[1].includes('🔫 '+sent[0].split('\n').find(line=>line.startsWith('3. ')).slice(3)));
+});
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
  for(const value of ['http://media.valorant-api.com/weaponskins/a/displayicon.png',
   'https://internal.example.com/weaponskins/a/displayicon.png',
