@@ -43,12 +43,12 @@ async function revoke(target,{db}={}){
  const result=await pool.query('DELETE FROM hz_valorant_approved_players WHERE riot_id=$1',[target.player]);
  return result.rowCount>0;
 }
-async function handle({text,isBotAccount,userId,send,db}){
+async function handle({text,isBotAccount,isSuperAdmin=false,userId,send,db}){
  const trimmed=String(text||'').trim();
  const command=trimmed.split(/\s+/,1)[0];
  if(!COMMANDS.has(command))return false;
  // Same identity check used for !발로on: only the connected Kakao bot account.
- if(!isBotAccount)return true;
+ if(!isBotAccount&&!isSuperAdmin)return true;
  const target=parseTarget(command,trimmed);
  if(target.usage||target.error){
   await send('사용법: '+command+' 닉네임#태그 [서버]\n예: '+command+' Shine#3333 ap');
