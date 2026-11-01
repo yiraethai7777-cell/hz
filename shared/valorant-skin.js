@@ -54,6 +54,13 @@ function quotedAuthor(msg){
  }
  return '';
 }
+// KakaoForge may surface the reply type on the outer chat event instead of message.type.
+function isSkinReply(msg){
+ if([Number(msg?.message?.type),Number(msg?.type),Number(msg?.raw?.chatLog?.type),Number(msg?.raw?.chatlog?.type)].includes(26))return true;
+ if(quotedText(msg))return true;
+ const {reference}=require('./reply-delete');
+ return !!reference(msg);
+}
 function quoteMatches(quote,original){
  if(!quote||!original)return false;
  if(quote===original)return true;
@@ -362,7 +369,7 @@ async function handleReply({msg,text,client,roomId,userId,send,fetcher=globalThi
   pending:true,ref:!!ref,bot:!!bot,author:!!author,receipt:!!entry.log,
   matchedQuote,quoted:!!quote,replyType:Number(msg?.message?.type??msg?.type)===26
  }));
- if(!ref&&Number(msg?.message?.type??msg?.type)!==26)return false;
+ if(!isSkinReply(msg))return false;
  // Some Kakao reply formats carry src_userId + quoted text but omit src_logId.
  // Only use this fallback for a real reply with an identifiable bot author.
  if(!ref&&(!author||!bot||author!==bot||!matchedQuote))return false;
@@ -374,7 +381,9 @@ async function handleReply({msg,text,client,roomId,userId,send,fetcher=globalThi
   ?await originalMessageMatches({client,roomId,ref,body:entry.body}):false;
  if(author&&bot&&author!==bot&&!verifiedByMessage)return false;
  if(!entry.log&&!verifiedByMessage&&!matchedQuote)return false;
- if(!entry.log&&!verifiedByMessage&&!author)return false;
+ // A real Kakao reply carrying this exact suggestion is usable even when
+ // KakaoForge omits src_userId; never accept a bare number without reply metadata.
+ if(!entry.log&&!verifiedByMessage&&!author&&!matchedQuote)return false;
  const index=Number(String(text).trim())-1;
  if(index>=entry.choices.length){
   await send('❌ 목록에 있는 번호를 입력해 주세요. (1~'+entry.choices.length+')');
@@ -422,4 +431,4 @@ async function handle({text,client,roomId,userId,send,fetcher=globalThis.fetch,s
  }
  return true;
 }
-module.exports={handle,handleReply,sendResult,canonical,score,rankSkins,matchSkin,downloadCatalog,catalog,pricing,variants,explain,safeMedia,safeVideo,usage};
+module.exports={handle,handleReply,isSkinReply,sendResult,canonical,score,rankSkins,matchSkin,downloadCatalog,catalog,pricing,variants,explain,safeMedia,safeVideo,usage};
