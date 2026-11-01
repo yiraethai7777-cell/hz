@@ -9,7 +9,6 @@ const esc=s=>s.replace(/[^a-zA-Z0-9가-힣]/g,'\\$&');
 function parse(text){
  const tail=String(text||'').trim().replace(/^#물고기전송(?:\s|$)/,'').trim();
  if(!tail.startsWith('@'))throw Error(USAGE);
- if(/^@.+\s+all$/i.test(tail))return {all:true};
  for(const name of NAMES){
   const match=new RegExp('(?:^|\\s)'+esc(name)+'\\s+(all|\\S+)$','i').exec(tail);
   if(!match)continue;
@@ -19,6 +18,7 @@ function parse(text){
    throw Error('전송 수량은 1 이상의 정수 또는 all로 입력해 주세요.');
   return {name,count:Number(amount),all:false};
  }
+ if(/^@.+\s+all$/i.test(tail))return {all:true};
  throw Error(USAGE+'\n물고기 종류는 !물고기도감에서 확인해 주세요.');
 }
 
