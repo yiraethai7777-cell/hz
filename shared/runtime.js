@@ -168,6 +168,30 @@ async function buyRod(context){
   return result??'❌ 이미 처리된 명령이거나 구매 결과를 확인할 수 없습니다.';
  });
 }
+// Transfer only the actual inventory items. The same room row lock serializes
+// fishing, selling and transfers, while gl_game_requests blocks replay.
+async function transferFish({roomId,roomName,fromId,toId,toName,request,messageId}){
+ if(!runtime)throw Error('게임 시스템 초기화가 완료되지 않았습니다.');
+ const result=await runtime.withRoom(roomId,roomName,async(d,c)=>{
+  if(!d.game)throw Error('🎮 이 방의 게임 기능이 꺼져 있습니다.');
+  if(d.locked)throw Error('⛔ 현재 이 방의 봇 기능이 잠겨 있습니다.');
+  if(!d.fishEnabled)throw Error('🎣 이 방의 낚시 기능이 꺼져 있습니다.');
+  const fish=require('../game/fish-transfer');
+  // Validate inventory before claiming the operation to avoid storing failed attempts.
+  const source=d.players?.[fromId]?.inventory;
+  fish.pick(source,request);
+  const claim=await c.query(
+   'INSERT INTO gl_game_requests(room_id,message_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING message_id',
+   [String(roomId),String(messageId)]
+  );
+  if(!claim.rowCount)throw Error('이미 처리된 물고기 전송 메시지입니다.');
+  return fish.move(d,fromId,toId,toName,request);
+ });
+ return '🐟 물고기 전송 완료!\n👤 받는 사람: '+(toName||toId)+
+  '\n📦 전송 수량: '+result.count+'마리\n🎒 내 남은 물고기: '+result.senderRemaining+
+  '마리\n🎁 받는 사람 보유: '+result.recipientTotal+'마리\n━━━━━━━━━━━━━━\n'+
+  result.details.join('\n');
+}
 let profileWatcher;
 function startProfileWatch(client){if(!runtime)return;profileWatcher ||= require('../manage/profile-watch').createWatcher(runtime,client);profileWatcher.start();}
-module.exports={attachModules,createRuntime,startProfileWatch,buyRod};
+module.exports={attachModules,createRuntime,startProfileWatch,buyRod,transferFish};
