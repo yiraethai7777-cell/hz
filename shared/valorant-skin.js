@@ -24,7 +24,8 @@ function logId(v){
 function receiptId(r){return logId(r?.body?.logId??r?.body?.chatLog?.logId??r?.logId??r?.chatLog?.logId);}
 function quotedText(msg){
  const vals=[msg?.message?.attachment,msg?.raw?.chatLog?.attachment,msg?.raw?.chatlog?.attachment,
-  msg?.raw?.attachment,msg?.message?.reply,msg?.reply];
+  msg?.raw?.chat?.attachment,msg?.raw?.attachment,msg?.attachments,
+  msg?.message?.reply,msg?.reply];
  for(let a of vals){
   if(typeof a==='string'){
    try{a=require('lossless-json').parse(a);}catch{continue;}
@@ -40,7 +41,8 @@ function quotedText(msg){
 }
 function quotedAuthor(msg){
  const attachments=[msg?.message?.attachment,msg?.raw?.chatLog?.attachment,
-  msg?.raw?.chatlog?.attachment,msg?.raw?.attachment,msg?.message?.reply,msg?.reply];
+  msg?.raw?.chatlog?.attachment,msg?.raw?.chat?.attachment,msg?.raw?.attachment,
+  msg?.attachments,msg?.message?.reply,msg?.reply];
  for(let attachment of attachments){
   if(typeof attachment==='string'){
    try{attachment=require('lossless-json').parse(attachment);}catch{continue;}
@@ -373,14 +375,19 @@ async function handleReply({msg,text,client,roomId,userId,send,fetcher=globalThi
  // Some Kakao reply formats carry src_userId + quoted text but omit src_logId.
  // Only use this fallback for a real reply with an identifiable bot author.
  if(!ref&&(!author||!bot||author!==bot||!matchedQuote))return false;
- if(entry.log&&ref?.log!==entry.log)return false;
+ // KakaoForge sendText acknowledgements may expose a different log ID than
+ // the one actually quoted. A matching bot-authored suggestion is authoritative.
+ // Never reject a genuine matching quote solely because the receipt differs.
+ if(entry.log&&ref?.log!==entry.log&&!(matchedQuote&&(!author||!bot||author===bot)))return false;
  // Verify the exact source message by its Kakao log ID when available. Without
  // a send receipt, accept Kakao's abbreviated quotation from the current list.
  // An unrelated quoted bot message or other user's pending search is not valid.
  const verifiedByMessage=ref&&(!matchedQuote||!author||(bot&&author!==bot))
   ?await originalMessageMatches({client,roomId,ref,body:entry.body}):false;
  if(author&&bot&&author!==bot&&!verifiedByMessage)return false;
- if(!entry.log&&!verifiedByMessage&&!matchedQuote)return false;
+ // The quote preview can contain only the first sentence; it still
+ // identifies the active list belonging to this sender, even without src_logId.
+ if(!verifiedByMessage&&!matchedQuote&&(!entry.log||!ref||ref.log!==entry.log))return false;
  // A real Kakao reply carrying this exact suggestion is usable even when
  // KakaoForge omits src_userId; never accept a bare number without reply metadata.
  if(!entry.log&&!verifiedByMessage&&!author&&!matchedQuote)return false;
