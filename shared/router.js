@@ -21,6 +21,41 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
+      // Designate this chat as the full-feature bot room. Only the bot account
+      // or an already authorized superadmin may change this persistent setting.
+      // Administrative and destructive commands keep their normal per-command
+      // authorization; activating features does not grant privileges to members.
+      if(text==='!봇방지정'||text==='!봇방해제'||text==='!봇방상태'){
+        try{
+          const pool=require('./db').getPool();
+          const current=await pool.query("SELECT COALESCE((SELECT (data->>'botRoom')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS designated",[String(roomId)]);
+          const designated=current.rows[0]?.designated===true;
+          if(text==='!봇방상태'){
+            await chat.sendText(roomId,designated?'🤖 NEXI | 이 방은 봇방으로 지정되어 있습니다.':'🤖 NEXI | 이 방은 봇방이 아닙니다.');
+            return;
+          }
+          if(!isBotAccount&&!isSuperAdmin)return;
+          if(text==='!봇방지정'){
+            const db=await pool.connect();
+            try{
+              await db.query('BEGIN');
+              await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botRoom',true,'game',true,'manage',true,'valorant',true,'quizEnabled',true,'fishEnabled',true,'locked',false)) ON CONFLICT(room_id) DO UPDATE SET data=hz_rooms.data||EXCLUDED.data,updated_at=NOW()",[String(roomId)]);
+              await db.query("INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,TRUE) ON CONFLICT(room_id) DO UPDATE SET enabled=TRUE",[String(roomId)]);
+              await db.query('COMMIT');
+            }catch(error){await db.query('ROLLBACK');throw error}finally{db.release()}
+            await chat.sendText(roomId,'✅ NEXI | 봇방 지정 완료!\\n🎮 게임·낚시·퀴즈·관리·발로란트 기능이 모두 활성화되었습니다.\\n🛡️ 관리자 전용 명령어는 기존 권한이 필요합니다.');
+          }else{
+            // Only remove the designation; do not unexpectedly disable existing
+            // feature flags or erase games, members, and records.
+            await pool.query("UPDATE hz_rooms SET data=jsonb_set(data,'{botRoom}','false'::jsonb,true),updated_at=NOW() WHERE room_id=$1",[String(roomId)]);
+            await chat.sendText(roomId,'✅ NEXI | 봇방 지정이 해제되었습니다. 기존 기능 설정은 유지됩니다.');
+          }
+        }catch(error){
+          console.error('[NEXI BOT ROOM]',String(error?.message||error));
+          await chat.sendText(roomId,'❌ 봇방 설정에 실패했습니다. 데이터베이스를 확인해 주세요.');
+        }
+        return;
+      }
       // VALORANT is OFF by default in each room; only this bot account may toggle it.
       // This switch is independent of the game and management flags.
       if(text==='!발로on'||text==='!발로off'){
