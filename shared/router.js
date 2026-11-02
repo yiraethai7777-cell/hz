@@ -16,30 +16,55 @@ function rememberMessage(roomId,msg,text){
  if(entries.length>MAX_MESSAGES)entries.shift();
  if(recentMessages.size>MAX_ROOMS)recentMessages.delete(recentMessages.keys().next().value);
 }
+function blindResponse(result){
+ if(result===false)return 'rejected';
+ if(result==null)return 'unverified';
+ const codes=[result?.status,result?.body?.status,result?.complete?.status,result?.result?.status];
+ for(const value of codes){
+  if(value===undefined||value===null)continue;
+  const number=Number(value);
+  if(Number.isFinite(number))return number===0?'accepted':'rejected';
+ }
+ if(result?.success===false||result?.ok===false)return 'rejected';
+ if(result?.success===true||result?.ok===true)return 'accepted';
+ return 'unverified';
+}
 async function blindRecent({client,chat,roomId,count,send}){
  const entries=recentMessages.get(String(roomId))||[];
  const targets=entries.slice(-count).reverse();
  if(!targets.length){await send('❌ 최근 감지된 메시지가 없습니다. 봇이 실행된 이후의 메시지만 가릴 수 있습니다.');return;}
  const blind=typeof chat?.openChatBlind==='function'?chat.openChatBlind.bind(chat):
    typeof client?.openChatBlind==='function'?client.openChatBlind.bind(client):null;
- if(!blind){await send('❌ KakaoForge 메시지 가리기 기능을 사용할 수 없습니다.');return;}
- let success=0,failed=0;
+ if(!blind){await send('❌ KakaoForge 메시지 가리기 API를 사용할 수 없습니다.');return;}
+ let accepted=0,unverified=0,failed=0;
+ const errors=[];
  for(const item of targets){
   try{
    const result=await blind(roomId,item.msg,{report:false});
-   if(result===false||result?.success===false||result?.ok===false||
-      (typeof result?.status==='number'&&result.status!==0))throw Error('BLIND rejected');
-   success++;
-   const i=entries.indexOf(item);if(i>=0)entries.splice(i,1);
+   const state=blindResponse(result);
+   let response='';
+   try{response=JSON.stringify(result,(_,v)=>typeof v==='bigint'?String(v):v)||String(result);}catch{response=String(result);}
+   console.log('[NEXI BULK BLIND RESPONSE]',JSON.stringify({state,response:response.slice(0,280)}));
+   if(state==='accepted'){
+    accepted++;
+    const i=entries.indexOf(item);if(i>=0)entries.splice(i,1);
+   }else if(state==='unverified')unverified++;
+   else{failed++;if(errors.length<3)errors.push('서버에서 요청을 거부했습니다.');}
   }catch(error){
    failed++;
-   console.warn('[NEXI BULK BLIND]',String(error?.code||error?.message||error));
+   const message=String(error?.code||error?.message||error);
+   if(errors.length<3)errors.push(message.slice(0,120));
+   console.warn('[NEXI BULK BLIND]',message);
   }
  }
- await send('🫥 NEXI | 최근 메시지 가리기 결과\n✅ 성공: '+success+'개\n❌ 실패: '+failed+'개'+
-   (targets.length<count?'\nℹ️ 감지된 메시지 '+targets.length+'개만 처리했습니다.':''));
+ await send('🫥 NEXI | 메시지 가리기 요청 결과\n'+
+  '📨 서버 요청 수락: '+accepted+'개\n'+
+  '❔ 처리 확인 불가: '+unverified+'개\n'+
+  '❌ 요청 실패: '+failed+'개\n'+
+  '※ 요청 수락은 화면에서 실제로 가려졌다는 의미가 아닙니다.'+
+  (errors.length?'\n오류: '+errors.join(' / '):'')+
+  (targets.length<count?'\nℹ️ 감지된 메시지 '+targets.length+'개만 처리했습니다.':''));
 }
-
 
 function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   require('./unicode-output').install(client);
