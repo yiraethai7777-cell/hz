@@ -43,8 +43,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           }
           const room=String(roomId),user=String(senderId??'');
           const valid=require('./super-admin').valid;
-          if(!valid(room)||!valid(user)||isBotAccount){
-            await chat.sendText(roomId,'❌ 카카오톡 사용자와 채팅방 ID를 확인할 수 없습니다. 봇 계정이 아닌 사용자가 등록해 주세요.');
+          if(!valid(room)||!valid(user)){
+            await chat.sendText(roomId,'❌ 카카오톡 사용자와 채팅방 ID를 확인할 수 없습니다. 다시 시도해 주세요.');
             return;
           }
           const db=await pool.connect();
@@ -53,7 +53,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             await db.query('BEGIN');
             await db.query("CREATE TABLE IF NOT EXISTS hz_bot_room_claims (singleton SMALLINT PRIMARY KEY CHECK(singleton=1),room_id TEXT NOT NULL,owner_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
             await require('./super-admin').init(db,false);
-            const claim=await db.query("INSERT INTO hz_bot_room_claims(singleton,room_id,owner_id) SELECT 1,$1,$2 WHERE NOT EXISTS (SELECT 1 FROM hz_rooms WHERE data->>'botRoom'='true') ON CONFLICT DO NOTHING RETURNING owner_id",[room,user]);
+            const claim=await db.query("INSERT INTO hz_bot_room_claims(singleton,room_id,owner_id) SELECT 1,$1,$2 WHERE NOT EXISTS (SELECT 1 FROM hz_rooms WHERE data->>'botRoom'='true' AND room_id<>$1) ON CONFLICT DO NOTHING RETURNING owner_id",[room,user]);
             if(claim.rowCount){
               await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botRoom',true,'game',true,'manage',true,'valorant',true,'quizEnabled',true,'fishEnabled',true,'locked',false)) ON CONFLICT(room_id) DO UPDATE SET data=hz_rooms.data||EXCLUDED.data,updated_at=NOW()",[room]);
               await db.query("INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,TRUE) ON CONFLICT(room_id) DO UPDATE SET enabled=TRUE",[room]);
@@ -63,7 +63,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             await db.query('COMMIT');
           }catch(error){await db.query('ROLLBACK');throw error}finally{db.release()}
           await chat.sendText(roomId,claimed
-            ?'✅ NEXI | 봇방 최초 지정 완료!\\n🎮 게임·낚시·퀴즈·관리·발로란트 활성화\\n🛡️ 지정한 사용자가 이 방의 최고관리자로 등록되었습니다.'
+            ?'✅ NEXI | 봇방 최초 지정 완료!\n🎮 게임·낚시·퀴즈·관리·발로란트 활성화\n🛡️ 지정한 사용자가 이 방의 최고관리자로 등록되었습니다.'
             :'⛔ 봇방은 최초 1회만 지정할 수 있습니다. 이미 지정된 봇방이 있습니다.');
         }catch(error){
           console.error('[NEXI BOT ROOM]',String(error?.message||error));
