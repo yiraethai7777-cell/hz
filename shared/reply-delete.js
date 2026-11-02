@@ -36,32 +36,51 @@ function install(client){
 }
 function sourceAttachments(msg){
  const raw=msg?.raw?.chatLog??msg?.raw?.chatlog??msg?.raw?.chat??msg?.raw;
- // Prioritize the original wire JSON, which preserves 64-bit log IDs with lossless-json.
- const exact=[];
- for(const value of [raw?.attachment,raw?.attachments,raw?.extra]){
-  if(typeof value!=='string')continue;
-  try{
-   const parsed=JSONExact.parse(value);
-   exact.push(...(Array.isArray(parsed)?parsed:[parsed]));
-  }catch{}
+ const values=[
+  ...roots(msg),
+  msg?.message?.attachment,msg?.message?.attachments,msg?.message?.extra,
+  msg?.attachment,msg?.attachments,msg?.extra,
+  msg?.raw?.chatLog?.attachment,msg?.raw?.chatLog?.extra,
+  msg?.raw?.chat?.attachment,msg?.raw?.chat?.extra,
+  msg?.raw?.attachment,msg?.raw?.extra,
+  raw?.attachment,raw?.attachments,raw?.extra
+ ];
+ const parsed=[];
+ for(let value of values){
+  if(typeof value==='string'){
+   try{value=JSONExact.parse(value);}catch{continue;}
+  }
+  if(Array.isArray(value))parsed.push(...value);
+  else if(value&&typeof value==='object')parsed.push(value);
  }
- return [...exact,...roots(msg)];
+ return parsed;
 }
 function reference(msg){
- const type=Number(msg?.message?.type??msg?.type);
+ // A quoted Kakao message can carry its reply metadata in attachment or
+ // extra even if the higher-level adapter reports the wrong message type.
  for(const attachment of sourceAttachments(msg)){
   if(!attachment||typeof attachment!=='object')continue;
-  const source=attachment.reply??attachment.quote??attachment.replyTo??attachment;
-  const explicit=source?.src_logId!==undefined||source?.srcLogId!==undefined||
-    source?.src_log_id!==undefined;
-  if(type!==26&&!explicit)continue;
-  const log=id(source?.src_logId??source?.srcLogId??source?.src_log_id??
-    (source!==attachment?source?.logId:undefined));
-  const author=id(source?.src_userId??source?.srcUserId??source?.src_user_id??
-    (source!==attachment?source?.userId:undefined));
-  if(log)return {log,author};
+  for(const source of [attachment.reply,attachment.quote,attachment.replyTo,attachment]){
+   if(!source||typeof source!=='object')continue;
+   const log=id(source.src_logId??source.srcLogId??source.src_log_id??source.srcLogID);
+   const author=id(source.src_userId??source.srcUserId??source.src_user_id);
+   if(log)return {log,author};
+  }
  }
  return null;
+}
+function replyShape(msg){
+ const raw=msg?.raw?.chatLog??msg?.raw?.chatlog??msg?.raw?.chat??msg?.raw;
+ const items=sourceAttachments(msg);
+ return {
+  messageType:String(msg?.message?.type??''),
+  eventType:String(msg?.type??''),
+  rawType:String(raw?.type??''),
+  hasAttachment:items.length>0,
+  attachmentKeys:items.slice(0,4).map(v=>Object.keys(v||{}).slice(0,12)),
+  messageKeys:Object.keys(msg?.message||{}).slice(0,15),
+  rawKeys:Object.keys(raw||{}).slice(0,15)
+ };
 }
 function info(msg){
  return {
@@ -82,9 +101,17 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
   referenceFound:!!ref,
   replyHasAuthor:!!ref?.author,
   isBotAccount:!!isBotAccount,
-  isOpenChat:msg?.room?.isOpenChat!==false
+  isOpenChat:msg?.room?.isOpenChat!==false,
+  shape:ref?undefined:replyShape(msg)
  }));
- if(!ref)return false;
+ if(!ref){
+  // A plain '삭제' is otherwise ignored by the command dispatcher.
+  // Explicitly explain that the bot did not receive a usable quoted reference.
+  const send=typeof chat?.sendText==='function'?chat.sendText.bind(chat):
+    typeof client?.sendText==='function'?client.sendText.bind(client):null;
+  if(send)await send(roomId,'❌ 답장으로 지정한 원본 메시지를 확인하지 못했습니다. NEXI 메시지의 답장 기능을 눌러 다시 시도해 주세요.');
+  return true;
+ }
  if(msg?.room?.isOpenChat===false||isBotAccount)return true;
  const room=id(roomId),user=id(senderId),bot=id(client?.userId);
  if(!room||!user||!bot){console.warn('[REPLY DELETE] missing validated identity');return true;}
@@ -128,19 +155,20 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
   let verified=own.has(targetKey);
   let original=own.get(targetKey)?.message||null;
   let method=verified?'send-ack-or-receive':'fetch';
-  if(!verified){
+  if(!verified||!original?.message){
    const fetch=typeof chat?.fetchMessage==='function'?chat.fetchMessage.bind(chat):
      typeof client?.fetchMessage==='function'?client.fetchMessage.bind(client):null;
    if(fetch){
     try{
      const fetched=await fetch(room,ref.log);
      const found=info(fetched);
-     verified=found.room===room&&found.log===ref.log&&found.author===bot;
-     if(verified)original=fetched;
+     const fetchedOwn=found.room===room&&found.log===ref.log&&found.author===bot;
+     verified=verified||fetchedOwn;
+     if(fetchedOwn)original=fetched;
     }catch(error){console.warn('[REPLY DELETE] fetch failed',String(error?.code||error?.name||'UNKNOWN'));}
    }
   }
-  console.log('[REPLY DELETE] original check',JSON.stringify({verified,method}));
+  console.log('[REPLY DELETE] original check',JSON.stringify({verified,method,hasMessageEvent:!!original?.message}));
   if(!verified){
    await fail('봇이 보낸 원본 메시지를 확인할 수 없어 삭제하지 않았습니다.');
    return true;
