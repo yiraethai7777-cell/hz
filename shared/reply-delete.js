@@ -67,6 +67,12 @@ function reference(msg){
    if(log)return {log,author};
   }
  }
+ // KakaoForge may normalize a real quote as type=1 without attachments.
+ // The underlying chatlog's threadId points to its quoted log.
+ const raw=msg?.raw?.chatLog??msg?.raw?.chatlog??msg?.raw?.chat??msg?.raw;
+ const thread=id(raw?.threadId??raw?.tid??raw?.thread??msg?.raw?.threadId??msg?.message?.threadId??msg?.threadId);
+ const current=id(msg?.message?.logId??msg?.logId??raw?.logId??raw?.id);
+ if(thread&&thread!==current)return {log:thread,author:'',via:'threadId'};
  return null;
 }
 function replyShape(msg){
@@ -76,6 +82,7 @@ function replyShape(msg){
   messageType:String(msg?.message?.type??''),
   eventType:String(msg?.type??''),
   rawType:String(raw?.type??''),
+  threadIdValid:!!id(raw?.threadId??raw?.tid??raw?.thread??msg?.raw?.threadId??msg?.message?.threadId??msg?.threadId),
   hasAttachment:items.length>0,
   attachmentKeys:items.slice(0,4).map(v=>Object.keys(v||{}).slice(0,12)),
   messageKeys:Object.keys(msg?.message||{}).slice(0,15),
@@ -84,9 +91,9 @@ function replyShape(msg){
 }
 function info(msg){
  return {
-  room:id(msg?.room?.id??msg?.chatId??msg?.raw?.chatLog?.chatRoomId),
+  room:id(msg?.room?.id??msg?.chatId??msg?.raw?.chatLog?.chatRoomId??msg?.raw?.chatLog?.chatId),
   log:id(msg?.message?.logId??msg?.logId??msg?.raw?.chatLog?.logId??msg?.raw?.chatLog?.id),
-  author:id(msg?.sender?.id??msg?.senderId??msg?.raw?.chatLog?.userId)
+  author:id(msg?.sender?.id??msg?.senderId??msg?.raw?.chatLog?.userId??msg?.raw?.chatLog?.authorId)
  };
 }
 function observe(msg,botId){
@@ -99,6 +106,7 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
  console.log('[REPLY DELETE] command',JSON.stringify({
   replyType:Number(msg?.message?.type??msg?.type)===26,
   referenceFound:!!ref,
+  referenceSource:ref?.via||'attachment',
   replyHasAuthor:!!ref?.author,
   isBotAccount:!!isBotAccount,
   isOpenChat:msg?.room?.isOpenChat!==false,
@@ -176,9 +184,9 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
   const del=typeof chat?.deleteMessage==='function'?chat.deleteMessage.bind(chat):
     typeof client?.deleteMessage==='function'?client.deleteMessage.bind(client):null;
   if(!del){await fail('실제 메시지 삭제 API를 사용할 수 없습니다.');return true;}
-  // KakaoForge documents deleteMessage(roomId, message), not merely a log ID.
-  // Prefer the original sent or fetched MessageEvent when available.
-  const res=await del(room,original||ref.log);
+  // Use the exact source log ID. This call shape succeeded in earlier
+  // production DELETEMSG traces, while passing the send response object did not.
+  const res=await del(room,ref.log);
   if(res===false||res?.success===false||res?.ok===false||
      (res?.body?.status!==undefined&&Number(res.body.status)!==0)||
      (res?.status!==undefined&&Number(res.status)!==0))
