@@ -43,9 +43,10 @@ async function blindRecent({client,chat,roomId,count,send}){
  const blind=typeof chat?.openChatBlind==='function'?chat.openChatBlind.bind(chat):
    typeof client?.openChatBlind==='function'?client.openChatBlind.bind(client):null;
  if(!blind){await send('❌ KakaoForge 메시지 가리기 API를 사용할 수 없습니다.');return;}
- let accepted=0,unverified=0,failed=0;
+ let accepted=0,unverified=0,failed=0,skipped=0;
  const errors=[];
- for(const item of targets){
+ for(let position=0;position<targets.length;position++){
+  const item=targets[position];
   try{
    const result=await blind(roomId,item.msg,{report:false});
    const state=blindResponse(result);
@@ -56,7 +57,17 @@ async function blindRecent({client,chat,roomId,count,send}){
     accepted++;
     const i=entries.indexOf(item);if(i>=0)entries.splice(i,1);
    }else if(state==='unverified')unverified++;
-   else{failed++;if(errors.length<3)errors.push(String(result?.body?.errMsg||result?.body?.status||'서버에서 요청을 거부했습니다.').slice(0,120));}
+   else{
+    failed++;
+    const reason=String(result?.body?.errMsg||result?.body?.status||'서버에서 요청을 거부했습니다.').slice(0,120);
+    if(errors.length<3)errors.push(reason);
+    // Kakao server denied the moderator action. Further messages in the same
+    // command cannot override server-side privileges, so avoid repeated failures.
+    if(Number(result?.body?.status)===-500&&/차단할 수 없습니다/.test(reason)){
+      skipped=targets.length-position-1;
+      break;
+    }
+   }
   }catch(error){
    failed++;
    const message=String(error?.code||error?.message||error);
@@ -68,6 +79,7 @@ async function blindRecent({client,chat,roomId,count,send}){
   '📨 서버 요청 수락: '+accepted+'개\n'+
   '❔ 처리 확인 불가: '+unverified+'개\n'+
   '❌ 요청 실패: '+failed+'개\n'+
+  (skipped?'⏭️ 서버 권한 거부로 중단: '+skipped+'개\n':'')+
   '※ 요청 수락은 화면에서 실제로 가려졌다는 의미가 아닙니다.'+
   (errors.length?'\n오류: '+errors.join(' / '):'')+
   (targets.length<count?'\nℹ️ 감지된 메시지 '+targets.length+'개만 처리했습니다.':''));
