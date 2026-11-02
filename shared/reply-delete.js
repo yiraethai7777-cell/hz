@@ -1,5 +1,6 @@
 'use strict';
 const {isRoomBotAdmin}=require('./room-bot-admin');
+const {isSuperAdmin}=require('./super-admin');
 const {roots}=require('../manage/targets');
 const JSONExact=require('lossless-json');
 
@@ -16,9 +17,9 @@ function id(v){
  return '';
 }
 function key(room,log){return room+':'+log;}
-function record(room,log){
+function record(room,log,message){
  if(!room||!log)return;
- own.set(key(room,log),Date.now());
+ own.set(key(room,log),{at:Date.now(),message:message||null});
  if(own.size>MAX_OWN)own.delete(own.keys().next().value);
 }
 function install(client){
@@ -28,7 +29,7 @@ function install(client){
   const res=await original.call(this,chatId,...args);
   const room=id(chatId);
   const log=id(res?.body?.logId??res?.body?.chatLog?.logId??res?.logId);
-  if(room&&log&&(res?.status===undefined||res.status===0))record(room,log);
+  if(room&&log&&(res?.status===undefined||res.status===0))record(room,log,res);
   return res;
  };
  installed.add(client);
@@ -71,7 +72,7 @@ function info(msg){
 }
 function observe(msg,botId){
  const value=info(msg);
- if(value.room&&value.log&&value.author===id(botId))record(value.room,value.log);
+ if(value.room&&value.log&&value.author===id(botId))record(value.room,value.log,msg);
 }
 async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
  if(text!=='삭제'&&text!=='!삭제')return false;
@@ -100,16 +101,20 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
    type=Number(client._resolveMemberType(room,user));
   }catch(error){console.warn('[REPLY DELETE] role lookup failed');}
  }
- let authorized=[1,4].includes(type),asAdmin=false;
+ let authorized=[1,4].includes(type),asAdmin=false,asSuperAdmin=false;
  if(!authorized){
   try{
    asAdmin=await isRoomBotAdmin(room,user);
    authorized=asAdmin;
   }catch(error){console.error('[REPLY DELETE] admin lookup failed');}
  }
+ if(!authorized){
+  try{asSuperAdmin=await isSuperAdmin(room,user);authorized=asSuperAdmin;}
+  catch(error){console.error('[REPLY DELETE] superadmin lookup failed',String(error?.code||'DB_ERROR'));}
+ }
  console.log('[REPLY DELETE] authorization',JSON.stringify({
   role:type===1?'owner':type===4?'coowner':'other',
-  designatedAdmin:asAdmin,allowed:authorized
+  designatedAdmin:asAdmin,superAdmin:asSuperAdmin,allowed:authorized
  }));
  if(!authorized)return true;
  if(ref.author&&ref.author!==bot){
@@ -121,15 +126,17 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
  active.add(targetKey);
  try{
   let verified=own.has(targetKey);
+  let original=own.get(targetKey)?.message||null;
   let method=verified?'send-ack-or-receive':'fetch';
   if(!verified){
    const fetch=typeof chat?.fetchMessage==='function'?chat.fetchMessage.bind(chat):
      typeof client?.fetchMessage==='function'?client.fetchMessage.bind(client):null;
    if(fetch){
     try{
-     const original=await fetch(room,ref.log);
-     const found=info(original);
+     const fetched=await fetch(room,ref.log);
+     const found=info(fetched);
      verified=found.room===room&&found.log===ref.log&&found.author===bot;
+     if(verified)original=fetched;
     }catch(error){console.warn('[REPLY DELETE] fetch failed',String(error?.code||error?.name||'UNKNOWN'));}
    }
   }
@@ -141,8 +148,11 @@ async function handle({client,chat,msg,roomId,senderId,text,isBotAccount}){
   const del=typeof chat?.deleteMessage==='function'?chat.deleteMessage.bind(chat):
     typeof client?.deleteMessage==='function'?client.deleteMessage.bind(client):null;
   if(!del){await fail('실제 메시지 삭제 API를 사용할 수 없습니다.');return true;}
-  const res=await del(room,ref.log);
+  // KakaoForge documents deleteMessage(roomId, message), not merely a log ID.
+  // Prefer the original sent or fetched MessageEvent when available.
+  const res=await del(room,original||ref.log);
   if(res===false||res?.success===false||res?.ok===false||
+     (res?.body?.status!==undefined&&Number(res.body.status)!==0)||
      (res?.status!==undefined&&Number(res.status)!==0))
    throw Error('DELETEMSG_REJECTED');
   own.delete(targetKey);
