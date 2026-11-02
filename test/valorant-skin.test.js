@@ -237,18 +237,18 @@ test('Kakao raw.chat attachment quote is recognized as a reply',async()=>{
 });
 test('Actual Kakao shortened preview selects a numbered skin when replying',async()=>{
  const messages=[],uploads=[],client={userId:'990001',connected:true};
- await skins.handle({text:'!스킨 프라임',client,roomId:'skin-short-preview',userId:'short-preview-user',
+ await skins.handle({text:'!스킨 싱귤',client,roomId:'skin-short-preview',userId:'short-preview-user',
   fetcher:fetchMock([]),send:async body=>{messages.push(body);return undefined;},
   sendImage:async x=>uploads.push(x)});
  assert.match(messages[0],/비슷한 스킨/);
- const msg={type:26,message:{type:26,text:'3',attachment:JSON.stringify({
+ const msg={type:26,message:{type:26,text:'2',attachment:JSON.stringify({
   src_userId:'990001',src_message:'🔎 비슷한 스킨이 여러 개 있습니...'
  })}};
- const selected=await skins.handleReply({msg,text:'3',client,roomId:'skin-short-preview',
+ const selected=await skins.handleReply({msg,text:'2',client,roomId:'skin-short-preview',
   userId:'short-preview-user',send:async body=>messages.push(body),
   sendImage:async x=>uploads.push(x)});
  assert.equal(selected,true);
- assert.ok(messages[1].includes('🔫 '+messages[0].split('\\n').find(l=>l.startsWith('3. ')).slice(3)));
+ assert.ok(messages[1].includes('🔫 '+messages[0].split('\\n').find(l=>l.startsWith('2. ')).slice(3)));
  assert.equal(uploads.length,1);
 });
 test('Rejects non-CDN and non-HTTPS skin images',()=>{
