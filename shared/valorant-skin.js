@@ -22,6 +22,13 @@ function logId(v){
  return '';
 }
 function receiptId(r){return logId(r?.body?.logId??r?.body?.chatLog?.logId??r?.logId??r?.chatLog?.logId);}
+// KakaoTalk shortens the quoted preview to e.g. "🔎 비슷한 스킨이 여러 개 있습니...".
+function quotePrefix(text){
+ const trimmed=String(text||'').trim();
+ const prefix=trimmed.replace(/(?:\.{3}|\u2026)\s*$/,'').trimEnd();
+ return prefix.length>=12&&CHOICES_HEADER.startsWith(prefix.slice(0,CHOICES_HEADER.length))&&
+   prefix.startsWith(CHOICES_HEADER.slice(0,12));
+}
 function quotedText(msg){
  const vals=[msg?.message?.attachment,msg?.raw?.chatLog?.attachment,msg?.raw?.chatlog?.attachment,
   msg?.raw?.chat?.attachment,msg?.raw?.attachment,msg?.attachments,
@@ -34,7 +41,7 @@ function quotedText(msg){
   for(const o of [a.reply,a.quote,a.replyTo,a]){
    if(!o||typeof o!=='object')continue;
    for(const t of [o.src_message,o.srcMessage,o.src_msg,o.message,o.text])
-    if(typeof t==='string'&&t.startsWith(CHOICES_HEADER.slice(0,-1)))return t;
+    if(typeof t==='string'&&quotePrefix(t))return t;
   }
  }
  return '';
@@ -69,7 +76,7 @@ function quoteMatches(quote,original){
  // KakaoTalk may abbreviate a quoted message to the first line + "..."
  // even though the original suggestion contains the numbered list.
  const shortened=quote.replace(/(?:\.{3}|\u2026)\s*$/,'').trimEnd();
- return shortened.length>=CHOICES_HEADER.length-1&&original.startsWith(shortened);
+ return quotePrefix(quote)&&shortened.length>=12&&original.startsWith(shortened);
 }
 async function originalMessageMatches({client,roomId,ref,body}){
  if(!ref?.log||typeof client?.fetchMessage!=='function')return false;
