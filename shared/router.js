@@ -94,8 +94,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
       if(/^!가리기(?:\s|$)/.test(text)){
-        if(!isBotAccount&&!isSuperAdmin){
-          await chat.sendText(roomId,'⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');
+        let canBlind=isBotAccount||isSuperAdmin||[1,4].includes(Number(msg.sender?.type));
+        if(!canBlind&&senderId!=null){
+          try{canBlind=await require('./room-bot-admin').isRoomBotAdmin(roomId,senderId);}
+          catch(error){console.warn('[NEXI BLIND AUTH]',String(error?.code||'DB_ERROR'));}
+        }
+        if(!canBlind){
+          await chat.sendText(roomId,'⛔ 방장·부방장·관리자·최고관리자 또는 봇 계정만 사용할 수 있습니다.');
           return;
         }
         const m=/^!가리기\s+([1-9]\d*)$/.exec(text);
