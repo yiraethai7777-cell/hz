@@ -19,11 +19,18 @@ function rememberMessage(roomId,msg,text){
 function blindResponse(result){
  if(result===false)return 'rejected';
  if(result==null)return 'unverified';
- const codes=[result?.status,result?.body?.status,result?.complete?.status,result?.result?.status];
- for(const value of codes){
-  if(value===undefined||value===null)continue;
-  const number=Number(value);
-  if(Number.isFinite(number))return number===0?'accepted':'rejected';
+ // LOCO packet status=0 means the packet arrived, NOT that BLIND succeeded.
+ // Kakao's actual business-level result lives in body.status.
+ for(const envelope of [result?.body,result?.complete?.body,result?.result?.body]){
+  if(envelope&&envelope.status!=null){
+   const code=Number(envelope.status);
+   if(Number.isFinite(code))return code===0?'accepted':'rejected';
+  }
+ }
+ for(const value of [result?.complete?.status,result?.result?.status,result?.status]){
+  if(value==null)continue;
+  const code=Number(value);
+  if(Number.isFinite(code))return code===0?'unverified':'rejected';
  }
  if(result?.success===false||result?.ok===false)return 'rejected';
  if(result?.success===true||result?.ok===true)return 'accepted';
@@ -49,7 +56,7 @@ async function blindRecent({client,chat,roomId,count,send}){
     accepted++;
     const i=entries.indexOf(item);if(i>=0)entries.splice(i,1);
    }else if(state==='unverified')unverified++;
-   else{failed++;if(errors.length<3)errors.push('서버에서 요청을 거부했습니다.');}
+   else{failed++;if(errors.length<3)errors.push(String(result?.body?.errMsg||result?.body?.status||'서버에서 요청을 거부했습니다.').slice(0,120));}
   }catch(error){
    failed++;
    const message=String(error?.code||error?.message||error);
