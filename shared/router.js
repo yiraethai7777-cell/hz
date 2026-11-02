@@ -21,35 +21,50 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
-      // Designate this chat as the full-feature bot room. Only the bot account
-      // or an already authorized superadmin may change this persistent setting.
-      // Administrative and destructive commands keep their normal per-command
-      // authorization; activating features does not grant privileges to members.
-      if(text==='!봇방지정'||text==='!봇방해제'||text==='!봇방상태'){
+      // A single global bot-room claim, assigned to the first valid Kakao user.
+      // The unique singleton row serializes concurrent claims across all rooms.
+      if(text==='!봇방'||text==='!봇방지정'||text==='!봇방상태'||text==='!봇방해제'){
         try{
           const pool=require('./db').getPool();
-          const current=await pool.query("SELECT COALESCE((SELECT (data->>'botRoom')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS designated",[String(roomId)]);
-          const designated=current.rows[0]?.designated===true;
           if(text==='!봇방상태'){
-            await chat.sendText(roomId,designated?'🤖 NEXI | 이 방은 봇방으로 지정되어 있습니다.':'🤖 NEXI | 이 방은 봇방이 아닙니다.');
+            const result=await pool.query("SELECT room_id FROM hz_bot_room_claims WHERE singleton=1").catch(async error=>{
+              if(error.code==='42P01')return {rows:[]};
+              throw error;
+            });
+            const claimed=String(result.rows[0]?.room_id||'');
+            await chat.sendText(roomId,claimed
+              ?(claimed===String(roomId)?'🤖 NEXI | 이 방이 지정된 봇방입니다.':'🤖 NEXI | 다른 채팅방이 이미 봇방으로 지정되어 있습니다.')
+              :'🤖 NEXI | 아직 지정된 봇방이 없습니다.');
             return;
           }
-          if(!isBotAccount&&!isSuperAdmin)return;
-          if(text==='!봇방지정'){
-            const db=await pool.connect();
-            try{
-              await db.query('BEGIN');
-              await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botRoom',true,'game',true,'manage',true,'valorant',true,'quizEnabled',true,'fishEnabled',true,'locked',false)) ON CONFLICT(room_id) DO UPDATE SET data=hz_rooms.data||EXCLUDED.data,updated_at=NOW()",[String(roomId)]);
-              await db.query("INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,TRUE) ON CONFLICT(room_id) DO UPDATE SET enabled=TRUE",[String(roomId)]);
-              await db.query('COMMIT');
-            }catch(error){await db.query('ROLLBACK');throw error}finally{db.release()}
-            await chat.sendText(roomId,'✅ NEXI | 봇방 지정 완료!\\n🎮 게임·낚시·퀴즈·관리·발로란트 기능이 모두 활성화되었습니다.\\n🛡️ 관리자 전용 명령어는 기존 권한이 필요합니다.');
-          }else{
-            // Only remove the designation; do not unexpectedly disable existing
-            // feature flags or erase games, members, and records.
-            await pool.query("UPDATE hz_rooms SET data=jsonb_set(data,'{botRoom}','false'::jsonb,true),updated_at=NOW() WHERE room_id=$1",[String(roomId)]);
-            await chat.sendText(roomId,'✅ NEXI | 봇방 지정이 해제되었습니다. 기존 기능 설정은 유지됩니다.');
+          if(text==='!봇방해제'){
+            await chat.sendText(roomId,'⛔ 봇방은 최초 1회만 지정할 수 있으며 지정 해제를 지원하지 않습니다.');
+            return;
           }
+          const room=String(roomId),user=String(senderId??'');
+          const valid=require('./super-admin').valid;
+          if(!valid(room)||!valid(user)||isBotAccount){
+            await chat.sendText(roomId,'❌ 카카오톡 사용자와 채팅방 ID를 확인할 수 없습니다. 봇 계정이 아닌 사용자가 등록해 주세요.');
+            return;
+          }
+          const db=await pool.connect();
+          let claimed=false;
+          try{
+            await db.query('BEGIN');
+            await db.query("CREATE TABLE IF NOT EXISTS hz_bot_room_claims (singleton SMALLINT PRIMARY KEY CHECK(singleton=1),room_id TEXT NOT NULL,owner_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+            await require('./super-admin').init(db,false);
+            const claim=await db.query("INSERT INTO hz_bot_room_claims(singleton,room_id,owner_id) SELECT 1,$1,$2 WHERE NOT EXISTS (SELECT 1 FROM hz_rooms WHERE data->>'botRoom'='true') ON CONFLICT DO NOTHING RETURNING owner_id",[room,user]);
+            if(claim.rowCount){
+              await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botRoom',true,'game',true,'manage',true,'valorant',true,'quizEnabled',true,'fishEnabled',true,'locked',false)) ON CONFLICT(room_id) DO UPDATE SET data=hz_rooms.data||EXCLUDED.data,updated_at=NOW()",[room]);
+              await db.query("INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,TRUE) ON CONFLICT(room_id) DO UPDATE SET enabled=TRUE",[room]);
+              await db.query("INSERT INTO hz_super_admins(room_id,user_id,granted_by) VALUES($1,$2,$2) ON CONFLICT DO NOTHING",[room,user]);
+              claimed=true;
+            }
+            await db.query('COMMIT');
+          }catch(error){await db.query('ROLLBACK');throw error}finally{db.release()}
+          await chat.sendText(roomId,claimed
+            ?'✅ NEXI | 봇방 최초 지정 완료!\\n🎮 게임·낚시·퀴즈·관리·발로란트 활성화\\n🛡️ 지정한 사용자가 이 방의 최고관리자로 등록되었습니다.'
+            :'⛔ 봇방은 최초 1회만 지정할 수 있습니다. 이미 지정된 봇방이 있습니다.');
         }catch(error){
           console.error('[NEXI BOT ROOM]',String(error?.message||error));
           await chat.sendText(roomId,'❌ 봇방 설정에 실패했습니다. 데이터베이스를 확인해 주세요.');
