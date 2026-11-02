@@ -2,6 +2,45 @@
 const { handleExtraMessage } = require('./help');
 const gameAliases=require('../game/command-aliases');
 
+const recentMessages=new Map();
+const MAX_ROOMS=100, MAX_MESSAGES=250;
+function rememberMessage(roomId,msg,text){
+ if(/^!가리기(?:\\s|$)/.test(text))return;
+ const log=String(msg?.message?.logId??msg?.raw?.chatLog?.logId??msg?.logId??msg?.id??'');
+ if(!/^[1-9]\\d*$/.test(log))return;
+ const room=String(roomId);
+ let entries=recentMessages.get(room);
+ if(!entries){entries=[];recentMessages.set(room,entries);}
+ if(entries.some(item=>item.log===log))return;
+ entries.push({log,msg});
+ if(entries.length>MAX_MESSAGES)entries.shift();
+ if(recentMessages.size>MAX_ROOMS)recentMessages.delete(recentMessages.keys().next().value);
+}
+async function blindRecent({client,chat,roomId,count,send}){
+ const entries=recentMessages.get(String(roomId))||[];
+ const targets=entries.slice(-count).reverse();
+ if(!targets.length){await send('❌ 최근 감지된 메시지가 없습니다. 봇이 실행된 이후의 메시지만 가릴 수 있습니다.');return;}
+ const blind=typeof chat?.openChatBlind==='function'?chat.openChatBlind.bind(chat):
+   typeof client?.openChatBlind==='function'?client.openChatBlind.bind(client):null;
+ if(!blind){await send('❌ KakaoForge 메시지 가리기 기능을 사용할 수 없습니다.');return;}
+ let success=0,failed=0;
+ for(const item of targets){
+  try{
+   const result=await blind(roomId,item.msg,{report:false});
+   if(result===false||result?.success===false||result?.ok===false||
+      (typeof result?.status==='number'&&result.status!==0))throw Error('BLIND rejected');
+   success++;
+   const i=entries.indexOf(item);if(i>=0)entries.splice(i,1);
+  }catch(error){
+   failed++;
+   console.warn('[NEXI BULK BLIND]',String(error?.code||error?.message||error));
+  }
+ }
+ await send('🫥 NEXI | 최근 메시지 가리기 결과\\n✅ 성공: '+success+'개\\n❌ 실패: '+failed+'개'+
+   (targets.length<count?'\\nℹ️ 감지된 메시지 '+targets.length+'개만 처리했습니다.':''));
+}
+
+
 function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   require('./unicode-output').install(client);
   require('./reply-delete').install(client);
@@ -14,12 +53,27 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const senderId = msg.sender?.id ?? msg.senderId;
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
+    rememberMessage(roomId,msg,text);
     try {
       // Scoped superadmin authorization does not change the Kakao sender identity.
       let isSuperAdmin=false;
       if(text.startsWith('!')&&senderId!=null&&!isBotAccount){
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
+      }
+      if(/^!가리기(?:\\s|$)/.test(text)){
+        if(!isBotAccount&&!isSuperAdmin){
+          await chat.sendText(roomId,'⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');
+          return;
+        }
+        const m=/^!가리기\\s+([1-9]\\d*)$/.exec(text);
+        const count=m?Number(m[1]):NaN;
+        if(!Number.isSafeInteger(count)||count<1||count>100){
+          await chat.sendText(roomId,'사용법: !가리기 (개수) · 1~100개');
+          return;
+        }
+        await blindRecent({client,chat,roomId,count,send:body=>chat.sendText(roomId,body)});
+        return;
       }
       // A single global bot-room claim, assigned to the first valid Kakao user.
       // The unique singleton row serializes concurrent claims across all rooms.
