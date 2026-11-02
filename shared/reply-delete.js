@@ -42,8 +42,9 @@ function sourceAttachments(msg){
   msg?.attachment,msg?.attachments,msg?.extra,
   msg?.raw?.chatLog?.attachment,msg?.raw?.chatLog?.extra,
   msg?.raw?.chat?.attachment,msg?.raw?.chat?.extra,
-  msg?.raw?.attachment,msg?.raw?.extra,
-  raw?.attachment,raw?.attachments,raw?.extra
+  msg?.raw?.attachment,msg?.raw?.extra,msg?.raw?.supplement,
+  msg?.message?.supplement,msg?.supplement,
+  raw?.attachment,raw?.attachments,raw?.extra,raw?.supplement
  ];
  const parsed=[];
  for(let value of values){
@@ -60,7 +61,7 @@ function reference(msg){
  // extra even if the higher-level adapter reports the wrong message type.
  for(const attachment of sourceAttachments(msg)){
   if(!attachment||typeof attachment!=='object')continue;
-  for(const source of [attachment.reply,attachment.quote,attachment.replyTo,attachment]){
+  for(const source of [attachment.reply,attachment.quote,attachment.replyTo,attachment.src,attachment]){
    if(!source||typeof source!=='object')continue;
    const log=id(source.src_logId??source.srcLogId??source.src_log_id??source.srcLogID);
    const author=id(source.src_userId??source.srcUserId??source.src_user_id);
