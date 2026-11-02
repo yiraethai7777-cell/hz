@@ -7,7 +7,7 @@ const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지예약','!공지목록','!공지삭제']);
-const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!삭제감지on','!삭제감지off','!프로필감지on','!프로필감지off','!일괄강퇴']);
+const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!프로필감지on','!프로필감지off','!일괄강퇴']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
 const owner=(u,bot)=>bot===true||String(u)===String(process.env.GL_OWNER_ID||'__NO_OWNER__')||OWNER_IDS.has(String(u));
@@ -97,6 +97,22 @@ async function handle(ctx){
   const changed=await superRole.update(room,target.id,user,act,db);
   await action(db,room,user,target.id,act==='add'?'SUPER_ADMIN_ADD':'SUPER_ADMIN_REMOVE',changed?'changed':'unchanged');
   await send((act==='add'?'👑 최고관리자 추가':'✅ 최고관리자 삭제')+(changed?' 완료: ':' · 변경사항 없음: ')+target.id);
+  return true;
+ }
+ if(cmd==='!삭제감지on'||cmd==='!삭제감지off'){
+  const authorized=await isStaff(db,room,user,ctx.senderType,botOwner);
+  if(!authorized){
+   await send('⛔ 삭제 감지 설정은 방장·부방장·관리자 또는 봇 계정만 변경할 수 있습니다.');
+   return true;
+  }
+  if(tail){
+   await send('사용법: '+cmd);
+   return true;
+  }
+  const on=cmd==='!삭제감지on';
+  await db.query('INSERT INTO gl_manage_rooms(room_id,enabled,deleted_enabled) VALUES($1,TRUE,$2) ON CONFLICT(room_id) DO UPDATE SET enabled=TRUE,deleted_enabled=EXCLUDED.deleted_enabled',[room,on]);
+  await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('manage',true)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{manage}','true'::jsonb,true),updated_at=NOW()",[room]);
+  await send(on?'🗑️ 삭제 감지 ON · 이 방의 삭제 메시지를 감지합니다.':'⏹️ 삭제 감지 OFF');
   return true;
  }
  if(!await enabled(db,room)){return true;}
@@ -225,11 +241,7 @@ async function handle(ctx){
   await require('./profile-alerts').setEnabled(db,room,on);
   await send(on?'👤 프로필 변경 감지 ON':'⏹️ 프로필 변경 감지 OFF');return true;
  }
- if(cmd==='!삭제감지on'||cmd==='!삭제감지off'){
-  const on=cmd==='!삭제감지on';
-  await db.query('INSERT INTO gl_manage_rooms(room_id,enabled,deleted_enabled) VALUES($1,TRUE,$2) ON CONFLICT(room_id) DO UPDATE SET deleted_enabled=EXCLUDED.deleted_enabled',[room,on]);
-  await send(on?'🗑️ 삭제 감지 ON':'⏹️ 삭제 감지 OFF');return true;
- }
+
  if(cmd==='!입장변경'||cmd==='!퇴장변경'){
   if(!tail||tail.length>2000){await send('사용법: '+cmd+' (내용 · 기본으로 초기화, 최대 2000자)'+(cmd==='!입장변경'?'\n사용 변수: (멘션) (아이디) (옾링) (이름) (해시) (방이름) (날짜) (입장횟수) (퇴장횟수) (경고횟수) (경고사유)':''));return true;}
   const field=cmd==='!입장변경'?'joinTemplate':'leaveTemplate';
