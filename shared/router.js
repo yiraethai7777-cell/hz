@@ -5,9 +5,9 @@ const gameAliases=require('../game/command-aliases');
 const recentMessages=new Map();
 const MAX_ROOMS=100, MAX_MESSAGES=250;
 function rememberMessage(roomId,msg,text){
- if(/^!가리기(?:\\s|$)/.test(text))return;
+ if(/^!가리기(?:\s|$)/.test(text))return;
  const log=String(msg?.message?.logId??msg?.raw?.chatLog?.logId??msg?.logId??msg?.id??'');
- if(!/^[1-9]\\d*$/.test(log))return;
+ if(!/^[1-9]\d*$/.test(log))return;
  const room=String(roomId);
  let entries=recentMessages.get(room);
  if(!entries){entries=[];recentMessages.set(room,entries);}
@@ -36,8 +36,8 @@ async function blindRecent({client,chat,roomId,count,send}){
    console.warn('[NEXI BULK BLIND]',String(error?.code||error?.message||error));
   }
  }
- await send('🫥 NEXI | 최근 메시지 가리기 결과\\n✅ 성공: '+success+'개\\n❌ 실패: '+failed+'개'+
-   (targets.length<count?'\\nℹ️ 감지된 메시지 '+targets.length+'개만 처리했습니다.':''));
+ await send('🫥 NEXI | 최근 메시지 가리기 결과\n✅ 성공: '+success+'개\n❌ 실패: '+failed+'개'+
+   (targets.length<count?'\nℹ️ 감지된 메시지 '+targets.length+'개만 처리했습니다.':''));
 }
 
 
@@ -61,12 +61,12 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
-      if(/^!가리기(?:\\s|$)/.test(text)){
+      if(/^!가리기(?:\s|$)/.test(text)){
         if(!isBotAccount&&!isSuperAdmin){
           await chat.sendText(roomId,'⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');
           return;
         }
-        const m=/^!가리기\\s+([1-9]\\d*)$/.exec(text);
+        const m=/^!가리기\s+([1-9]\d*)$/.exec(text);
         const count=m?Number(m[1]):NaN;
         if(!Number.isSafeInteger(count)||count<1||count>100){
           await chat.sendText(roomId,'사용법: !가리기 (개수) · 1~100개');
