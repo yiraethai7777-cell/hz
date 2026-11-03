@@ -3,7 +3,8 @@ const $=s=>document.querySelector(s);const slug=new URLSearchParams(location.sea
 const names={manage:'관리 기능',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지'};
 function note(s,error=false){$('#notice').textContent=s;$('#notice').className=error?'error':'';}
 async function api(path,method='GET',body){
- const r=await fetch(path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(method!=='GET'?{'x-csrf-token':csrf}:{})},...(method==='GET'?{}:{body:JSON.stringify(body||{})})});
+ const scopedPath=path.startsWith('/api/room-portal/')?path+(path.includes('?')?'&':'?')+'site='+encodeURIComponent(slug):path;
+ const r=await fetch(scopedPath,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(method!=='GET'?{'x-csrf-token':csrf}:{})},...(method==='GET'?{}:{body:JSON.stringify(body||{})})});
  const data=await r.json();if(!r.ok)throw Error(data.error||'요청 실패');return data;
 }
 async function task(fn){try{note('');await fn();}catch(e){note(e.message,true);}}
