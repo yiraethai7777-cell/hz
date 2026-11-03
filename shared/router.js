@@ -89,16 +89,30 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   require('./unicode-output').install(client);
   require('./reply-delete').install(client);
   client.onMessage(async (...args) => {
-    const msg = args.length === 1 ? args[0] : args[1];
+    let msg = args.length === 1 ? args[0] : args[1];
     const chat = args.length === 1 ? (client.chat || client) : args[0];
     if (msg?.room?.id == null) return;
-    const text = String(msg.message?.text ?? msg.text ?? '').trim();
+    let text = String(msg.message?.text ?? msg.text ?? '').trim();
     const roomId = msg.room.id;
     const senderId = msg.sender?.id ?? msg.senderId;
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     rememberMessage(roomId,msg,text);
     try {
+      // Normalize configured room prefix before ALL commands and event handlers.
+      const prefixConfig=require('./command-prefixes');
+      const prefixResult=prefixConfig.normalize(text,await prefixConfig.get(roomId));
+      if(prefixResult.blocked){
+        // Old ! commands must never invoke a handler; preserve chat counts.
+        await ready;
+        await management.message({client,roomId,userId:senderId??'',userName:msg.sender?.name||'알 수 없음',
+          text:'',msg,send:body=>chat.sendText(roomId,body),senderType:msg.sender?.type,botId:client.userId,isBotAccount});
+        return;
+      }
+      if(prefixResult.used){
+        text=prefixResult.text;
+        msg={...msg,text,message:{...(msg.message||{}),text}};
+      }
       // Scoped superadmin authorization does not change the Kakao sender identity.
       let isSuperAdmin=false;
       if(text.startsWith('!')&&senderId!=null&&!isBotAccount){
@@ -240,7 +254,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       }
       // The public support link is available even before the game/DB initializes.
       if(text==='!문의방'){
-        await handleExtraMessage(client,...args);
+        await handleExtraMessage(client,msg);
         return;
       }
       // Reply "삭제" to a bot-authored message: true DELETEMSG, never BLIND.
@@ -370,7 +384,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       await ready;
       // Serve the (static) game help before management and event pipelines.
       if(text==='!게임명령어'){
-        await handleExtraMessage(client,...args);
+        await handleExtraMessage(client,msg);
         return;
       }
       
