@@ -7,6 +7,8 @@ async function setEnabled(db,roomId,on){
  data=jsonb_set(hz_rooms.data,'{profileAlerts}',to_jsonb($2::boolean),true),updated_at=NOW()`,[String(roomId),on]);
 }
 async function sendNotice(ctx,chat,roomId,change){
+ // Only a verified open-profile link change warrants a profile notice.
+ if(!change||change.oldOpenLink===change.newOpenLink||change.newOpenLink===undefined)return false;
  // Check again immediately before sending, including a watcher already in flight.
  // Missing settings retain the existing default: alerts enabled.
  const setting=await ctx.pool.query("SELECT data->'profileAlerts' AS profile_alerts FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
