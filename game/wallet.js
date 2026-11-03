@@ -39,6 +39,10 @@ async function initWallet() {
     )
   `);
 
+  // NUMERIC is required for administrator grants beyond BIGINT/JS-safe integer.
+  // Retain all existing wallet balances and historical transaction records.
+  await db.query("ALTER TABLE hz_wallets ALTER COLUMN balance TYPE NUMERIC USING balance::numeric");
+  await db.query("ALTER TABLE hz_coin_logs ALTER COLUMN amount TYPE NUMERIC USING amount::numeric");
   await db.query("ALTER TABLE hz_wallets ALTER COLUMN balance SET DEFAULT 0");
   await db.query("ALTER TABLE hz_wallets ADD COLUMN IF NOT EXISTS signup_bonus_eligible BOOLEAN NOT NULL DEFAULT FALSE");
   console.log("[HZ 코인] 테이블 준비 완료");
@@ -123,7 +127,7 @@ async function coinRanking(roomId) {
   return "🏆 코인 순위\n\n" +
     result.rows.map((row, i) =>
       `${i + 1}위 ${row.user_name} - ` +
-      `${Number(row.balance).toLocaleString("ko-KR")}코인`
+      `${BigInt(row.balance).toLocaleString("ko-KR")}코인`
     ).join("\n");
 }
 
