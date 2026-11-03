@@ -1,6 +1,6 @@
 'use strict';
 const $=s=>document.querySelector(s);let csrf='',rooms=[],portals=[];
-const names={manage:'관리 ON/OFF',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지',templates:'입장·퇴장 메시지',warnings:'경고 내역·지급·삭제'};
+const names={manage:'관리 ON/OFF',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지',templates:'입장·퇴장 메시지',warnings:'경고 내역·지급·삭제',roles:'관리자·최고관리자 추가/삭제'};
 function notice(t){$('#message').textContent=t;}
 async function api(path,method='GET',body){const r=await fetch(path,{method,headers:{'Content-Type':'application/json',...(method==='GET'?{}:{'x-csrf-token':csrf})},...(method==='GET'?{}:{body:JSON.stringify(body)})});const x=await r.json();if(!r.ok)throw Error(x.error||'요청 실패');return x;}
 async function task(fn){try{await fn();}catch(e){notice('❌ '+e.message);}}
@@ -16,7 +16,7 @@ async function load(){
  for(const r of rooms){const option=document.createElement('option');option.value=r.room_id;option.textContent=(r.name||'채팅방')+' · '+r.room_id;$('#room').append(option);}
  if(rooms.some(r=>r.room_id===selected))$('#room').value=selected;
  $('#permissions').replaceChildren();
- for(const [k,name] of Object.entries(names)){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=k;input.checked=true;label.append(input,' '+name);$('#permissions').append(label);}
+ for(const [k,name] of Object.entries(names)){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=k;input.checked=k!=='roles';label.append(input,' '+name);$('#permissions').append(label);}
  $('#list').replaceChildren();
  for(const p of portals){const box=document.createElement('div');box.className='card';const title=document.createElement('h3');title.textContent=p.label+' · '+p.room_name+' ('+p.room_id+')';
  const state=document.createElement('p');state.textContent=(p.enabled?'🟢 사용 중':'⚫ 중지됨')+' · 로그인 아이디: '+p.username;
