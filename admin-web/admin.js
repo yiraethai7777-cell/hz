@@ -37,11 +37,39 @@ $('#login-form').addEventListener('submit',async e=>{
  finally{button.disabled=false;}
 });
 $('#logout').addEventListener('click',()=>task(async()=>{await api('/api/logout','POST',{});csrf='';selected=null;$('#admin-view').hidden=true;$('#login-view').hidden=false;}));
+async function refreshFishEventMaster(){
+ const room=$('#fishEventRoom').value;
+ if(!room){$('#fishEventState').textContent='채팅방을 선택해 주세요.';return;}
+ const d=await api('/api/admin/fishing-coin-event?'+new URLSearchParams({roomId:room}));
+ const e=d.event;
+ if(!e){$('#fishEventState').textContent='아직 진행한 이벤트가 없습니다.';return;}
+ if(e.status==='active'){
+  const seconds=Math.max(0,Math.ceil((new Date(e.ends_at).getTime()-Date.now())/1000));
+  const leader=e.leader;
+  $('#fishEventState').textContent='진행 중 · '+seconds+'초 남음 · 참가자 '+e.participants+'명'+
+    (leader?' · 1위 '+leader.userName+' ('+leader.fishName+' '+leader.sizeCm+'cm)':'');
+ }else $('#fishEventState').textContent=e.winner_id
+  ?'종료 · '+e.winner_name+' ('+e.winning_fish+' '+e.winning_size+'cm) · 상금 100만 코인 지급 완료'
+  :'종료 · 참가 기록이 없습니다.';
+}
+$('#fishEventRoom').addEventListener('change',()=>task(refreshFishEventMaster));
+$('#checkFishEvent').addEventListener('click',()=>task(refreshFishEventMaster));
+$('#startFishEvent').addEventListener('click',()=>task(async()=>{
+ const room=$('#fishEventRoom').value;
+ if(!room)throw Error('채팅방을 선택해 주세요.');
+ if(!confirm('선택한 방에서 2분간 가장 큰 물고기 낚시 이벤트를 시작하고 우승자에게 100만 코인을 지급하시겠습니까?'))return;
+ const button=$('#startFishEvent');button.disabled=true;
+ try{
+  await api('/api/admin/fishing-coin-event','POST',{roomId:room,confirm:true});
+  await refreshFishEventMaster();
+  feedback('🎉 해당 방에 코인 낚시 이벤트를 시작했습니다.');
+ }finally{button.disabled=false;}
+}));
 const titles={overview:'대시보드',rooms:'채팅방 관리',users:'사용자·코인',promotion:'홍보 관리',notices:'공지사항',audit:'감사 기록','promo-members':'홍보 회원·초대'};
 async function show(panel){document.querySelectorAll('[data-section]').forEach(el=>el.hidden=el.dataset.section!==panel);document.querySelectorAll('[data-panel]').forEach(el=>el.classList.toggle('selected',el.dataset.panel===panel));$('#panel-title').textContent=titles[panel];feedback('');if(panel==='promo-members'){await loadRooms();await loadPromoMembers();}if(panel==='overview')await overview();if(panel==='rooms'||panel==='promotion')await loadRooms();if(panel==='promotion')await loadCommonPromo();if(panel==='notices')await loadNotices();if(panel==='audit'){const d=await api('/api/admin/audit');$('#audit-records').textContent=d.records.map(r=>`${new Date(r.created_at).toLocaleString('ko-KR')} · ${r.actor} · ${r.action}\n${r.room_id||''} ${r.target_id||''}\n${JSON.stringify(r.detail)}`).join('\n\n')||'작업 기록 없음';}}
 document.querySelectorAll('[data-panel]').forEach(b=>b.addEventListener('click',()=>task(()=>show(b.dataset.panel))));
 async function overview(){const d=await api('/api/admin/overview');$('#metrics').replaceChildren();for(const [label,value]of [['게임 사용자',d.users],['활성 게임방',d.active_rooms],['지갑 코인 합계',d.coins],['자동 홍보방',d.promotion_rooms]]){const box=document.createElement('div');box.className='metric';const p=document.createElement('p');p.textContent=label;const strong=document.createElement('strong');strong.textContent=format(value);box.append(p,strong);$('#metrics').append(box);}$('#daily-events').textContent=d.events.map(e=>`${e.kind}: ${e.n}회`).join(' · ')||'오늘 기록된 게임 활동 없음';$('#bot-info').textContent=`카카오톡 연결: ${d.bot.connected?'연결됨':'연결 끊김'}\n게임·DB 준비: ${d.bot.ready?'완료':'준비 중'}\n서버 가동: ${format(d.uptimeSeconds)}초\n${d.railwayStatus}\n최근 오류: ${d.errors.length?d.errors.join('\n'):'수집된 오류 없음'}`;}
-async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();}
+async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
 function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;$('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;}
 function selectPromo(){$('#promo-logs').textContent='채팅방을 선택하고 전송 기록을 조회해 주세요.';}
 async function loadRoomAdmins(){
