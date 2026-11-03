@@ -19,7 +19,7 @@ async function render(){
  }
  if(!list.children.length)list.textContent='현재 사용할 수 있는 기능이 없습니다.';
  $('#templates').hidden=!d.permissions.templates;$('#warningPanel').hidden=!d.permissions.warnings;
- $('#joinTemplate').value=d.joinTemplate;$('#leaveTemplate').value=d.leaveTemplate;
+ $('#newUsername').value=d.username||'';$('#joinTemplate').value=d.joinTemplate;$('#leaveTemplate').value=d.leaveTemplate;
  if(d.permissions.warnings)await renderWarnings();
 }
 async function renderWarnings(){
@@ -49,4 +49,8 @@ $('#loginForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
 $('#logout').addEventListener('click',()=>task(async()=>{await api('/api/room-portal/logout','POST');csrf='';$('#app').hidden=true;$('#login').hidden=false;note('로그아웃되었습니다.');}));
 $('#templateForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/room-portal/template','POST',{kind:'join',value:$('#joinTemplate').value});await api('/api/room-portal/template','POST',{kind:'leave',value:$('#leaveTemplate').value});note('입장·퇴장 문구를 저장했습니다.');});});
 $('#warnForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/room-portal/warnings','POST',{userId:$('#userId').value,userName:$('#userName').value,reason:$('#reason').value});$('#reason').value='';await renderWarnings();note('경고를 지급했습니다.');});});
+$('#accountForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
+ await api('/api/room-portal/account','POST',{username:$('#newUsername').value,currentPassword:$('#currentPassword').value,newPassword:$('#newPassword').value});
+ csrf='';$('#app').hidden=true;$('#login').hidden=false;$('#accountForm').reset();note('계정 정보가 변경되었습니다. 새 아이디와 비밀번호로 다시 로그인해 주세요.');
+});});
 task(init);
