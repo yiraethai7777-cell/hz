@@ -10,3 +10,9 @@
 .memberActions button{font-size:12px;padding:7px 9px}
 #memberSearch{margin:14px 0}
 [hidden]{display:none!important}
+
+.tabs{flex-wrap:wrap}.tabs button{min-width:110px}
+button.danger{background:#8b3340;color:#fff}
+.rankRow{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #334158}
+.rankDetails{min-width:0;overflow-wrap:anywhere}.rankRow button{white-space:nowrap}
+@media(max-width:520px){.rankRow{align-items:flex-start;flex-direction:column}.tabs button{font-size:13px}}
