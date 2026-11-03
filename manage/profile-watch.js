@@ -28,7 +28,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     if(m.id===String(client.userId)||m.type===8||m.name==='이름 확인 불가')continue;
     const old=previous.get(m.id),key=room+':'+m.id;
     const prior=priorSnapshot?.get(m.id);
-    if(prior&&prior.name===m.name&&prior.imageUrl===m.imageUrl&&prior.profileLinkId===m.profileLinkId)continue;
+    if(prior&&prior.name===m.name&&prior.imageUrl===m.imageUrl&&prior.profileLinkId===m.profileLinkId&&prior.profileType===m.profileType)continue;
     let link;
     if([1,2,4].includes(m.profileType)){link='';profileIds.delete(key);}
     else if(m.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
@@ -43,6 +43,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     }
     observations.push({...m,link});
    }
+   const baseline=!observed.has(room);
    const changes=await (async()=>{
     const c=ctx.pool,events=[];
     for(const m of observations){
@@ -53,7 +54,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     return events;
    })();
    observed.set(room,new Map(snapshot.members.map(m=>[m.id,m])));
-   for(const change of changes){
+   for(const change of (baseline?[]:changes)){
     if(change.oldName!==change.newName){
      await ctx.send(ctx.globalChat,room,'✏️ '+change.oldName+' → '+change.newName);
     }
