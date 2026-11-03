@@ -92,6 +92,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     let msg = args.length === 1 ? args[0] : args[1];
     const chat = args.length === 1 ? (client.chat || client) : args[0];
     if (msg?.room?.id == null) return;
+    const receivedAt=Date.now();
     let text = String(msg.message?.text ?? msg.text ?? '').trim();
     const roomId = msg.room.id;
     const senderId = msg.sender?.id ?? msg.senderId;
@@ -382,7 +383,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       await ready;
-      // Serve the (static) game help before management and event pipelines.
+      // Public ping. Prefix normalization already applied at the top of the router.
+       if(text==='!핑'){
+         const elapsed=Math.max(0,Date.now()-receivedAt);
+         await chat.sendText(roomId,'🏓 퐁! NEXI 정상 작동 중\\n⏱️ 명령 처리: '+elapsed+'ms');
+         return;
+       }
+       // Serve the (static) game help before management and event pipelines.
       if(text==='!게임명령어'){
         await handleExtraMessage(client,msg);
         return;
