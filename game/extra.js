@@ -12,9 +12,9 @@ async function handle(ctx,client){
    const target=coin.mentionTarget(msg);
    await require('./economy').ensureLinked(String(roomId),target.id,target.name);
    let n;
-   if(match[2].toLowerCase()==='all'){const r=await getPool().query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[String(roomId),target.id]);n=coin.validAmount(r.rows[0]?.balance||0);}else n=coin.validAmount(match[2]);
-   const r=await require('./admin-coins').adjust({room:String(roomId),user:target.id,name:target.name,actor:String(userId),amount:match[1]==='치트'?n:-n,operationId:'kakao:'+String(roomId)+':'+String(coin.messageKey(msg)||''),reason:match[1]});
-   await send(`✅ ${target.name}님 코인 조정 완료\n잔액: ${Number(r.balance).toLocaleString('ko-KR')}코인`);
+   if(match[2].toLowerCase()==='all'){const r=await getPool().query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[String(roomId),target.id]);n=BigInt(r.rows[0]?.balance||0);}else n=BigInt(match[2]);
+   const r=await require('./admin-coins').adjust({room:String(roomId),user:target.id,name:target.name,actor:String(userId),amount:(match[1]==='치트'?n:-n).toString(),operationId:'kakao:'+String(roomId)+':'+String(coin.messageKey(msg)||''),reason:match[1]});
+   await send(`✅ ${target.name}님 코인 조정 완료\n잔액: ${BigInt(r.balance).toLocaleString('ko-KR')}코인`);
   }catch(e){await send('❌ '+e.message);}return true;
  }
  if(/^#송금(?:\s|$)/.test(text)){await require('./economy').ensureLinked(String(roomId),String(userId),userName);await coin.handleCoinCommand({...ctx,text:text.replace('#송금','#코인송금'),chat:ctx.chat});return true;}
