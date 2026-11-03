@@ -319,7 +319,21 @@ async function handle(ctx){
    await ctx.kick(t.id);
    try{await ctx.unban(t.id);}catch(e){await action(db,room,user,t.id,'KICK','!내풀 해제 실패');await send('⚠️ 강퇴 후 해제 실패: '+String(e.message||e));return true;}
    await action(db,room,user,t.id,'KICK_RELEASE','!내풀');
-  }else{await ctx.unban(t.id);await action(db,room,user,t.id,'UNKICK','!벤해제');}
+  }else{
+    try{
+     const result=await ctx.unban(t.id);
+     if(result===false||result?.success===false||result?.ok===false||
+        (typeof result?.status==='number'&&result.status!==0)||
+        (typeof result?.status==='string'&&result.status.toLowerCase()==='error'))
+      throw Error('카카오톡 벤 해제 요청이 거부되었습니다.');
+    }catch(e){
+     console.error('[UNBAN FAILED]',{room,user,target:t.id,error:String(e?.message||e)});
+     await send('❌ 벤해제에 실패했습니다.');
+     return true;
+    }
+    try{await action(db,room,user,t.id,'UNKICK','!벤해제');}
+    catch(e){console.error('[UNBAN ACTION LOG FAILED]',String(e?.message||e));}
+   }
   await send('✅ '+t.id+' '+(cmd==='!내풀'?'강퇴 후 해제':'내보내기 해제')+' 완료');return true;
  }
  return false;
