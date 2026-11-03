@@ -99,7 +99,7 @@ async function settings(s){
  db.query("SELECT enabled FROM hz_mention_settings WHERE room_id=$1",[room]),
  db.query("SELECT data->'profileAlerts' AS enabled FROM hz_rooms WHERE room_id=$1",[room])]);
  const v=r.rows[0]||{};
- return {label:s.label,roomName:s.room_name,permissions:s.permissions,flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
+ return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
 }
 async function warnings(room){
  const r=await getPool().query(`SELECT user_id,max(user_name) AS user_name,count(*)::int AS count,
