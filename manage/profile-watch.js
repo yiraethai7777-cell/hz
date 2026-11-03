@@ -12,9 +12,17 @@ function createWatcher(ctx,client,{now=Date.now}={}){
   busy=true;
   try{
    if(now()-lastRoomsAt>15000){
-    const joined=typeof client.getKnownChatRooms==='function'?new Set(client.getKnownChatRooms().map(r=>String(r.id))):null;
-    const result=await ctx.pool.query("SELECT room_id FROM hz_rooms WHERE COALESCE(data->>'profileAlerts','true')='true' AND COALESCE(data->>'locked','false')<>'true' AND (data->>'manage'='true' OR room_id IN (SELECT room_id FROM gl_room_portals WHERE enabled)) ORDER BY room_id");
-    rooms=result.rows.map(r=>String(r.room_id)).filter(r=>!joined||joined.has(r));
+    const result=await ctx.pool.query(`SELECT h.room_id FROM hz_rooms h
+     WHERE COALESCE(h.data->>'profileAlerts','true')='true'
+       AND COALESCE(h.data->>'locked','false')<>'true'
+       AND (h.data->>'manage'='true' OR EXISTS
+         (SELECT 1 FROM gl_room_portals p WHERE p.room_id=h.room_id AND p.enabled))
+     UNION
+     SELECT p.room_id FROM gl_room_portals p
+     WHERE p.enabled AND NOT EXISTS (SELECT 1 FROM hz_rooms h WHERE h.room_id=p.room_id)
+     ORDER BY room_id`);
+    rooms=result.rows.map(r=>String(r.room_id));
+    console.log('[PROFILE WATCH] eligible room count:',rooms.length);
     lastRoomsAt=now();
    }
    if(!rooms.length)return;
@@ -54,12 +62,27 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     return events;
    })();
    observed.set(room,new Map(snapshot.members.map(m=>[m.id,m])));
-   for(const change of (baseline?[]:changes)){
-    if(change.oldName!==change.newName){
-     await ctx.send(ctx.globalChat,room,'✏️ '+change.oldName+' → '+change.newName);
+   if(!baseline){
+    const current=new Map(snapshot.members.map(m=>[m.id,m]));
+    const notified=new Set();
+    for(const [id,prior] of priorSnapshot){
+     const latest=current.get(id);
+     if(!latest||id===String(client.userId))continue;
+     if(prior.name!=='이름 확인 불가'&&latest.name!=='이름 확인 불가'&&prior.name!==latest.name){
+      await ctx.send(client.chat,room,'✏️ '+prior.name+' → '+latest.name);
+      notified.add(id);
+      console.log('[PROFILE WATCH] nickname change delivered',{room,id});
+     }
     }
-    if(change.profileChanged){
-     await sendNotice(ctx,ctx.globalChat,room,{...change,newName:change.newName});
+    for(const change of changes){
+     if(change.oldName!==change.newName&&!notified.has(String(change.userId||''))&&!priorSnapshot.has(String(change.userId||''))){
+      // A member appearing for the first time is not necessarily a rename.
+      continue;
+     }
+     if(change.profileChanged){
+      await sendNotice(ctx,client.chat,room,change);
+      console.log('[PROFILE WATCH] profile change delivered',{room});
+     }
     }
    }
   }catch(e){
@@ -67,7 +90,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
    resumeAt=now()+15000;
   }finally{busy=false;}
  }
- function start(){if(timer)return;timer=setInterval(()=>tick().catch(e=>console.error('[PROFILE WATCH]',e.message)),1000);timer.unref?.();}
+ function start(){if(timer)return;console.log('[PROFILE WATCH] starting 1s poller');timer=setInterval(()=>tick().catch(e=>console.error('[PROFILE WATCH]',e.message)),1000);timer.unref?.();}
  function stop(){if(timer)clearInterval(timer);timer=null;}
  return {tick,start,stop};
 }
