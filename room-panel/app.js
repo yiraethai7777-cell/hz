@@ -43,11 +43,11 @@ async function renderWarnings(){
 async function init(){
  if(!slug){note('발급받은 웹사이트 주소로 접속해 주세요.',true);return;}
  const s=await api('/api/room-portal/session');if(!s.authenticated)return;
- csrf=s.csrf;$('#login').hidden=true;$('#app').hidden=false;await render();
+ csrf=s.csrf;$('#login').hidden=true;$('#app').hidden=false;await render();await openInitialTab();
 }
 $('#loginForm').addEventListener('submit',e=>{e.preventDefault();const form=e.currentTarget;task(async()=>{
  const f=new FormData(form);const s=await api('/api/room-portal/login','POST',{site:slug,username:f.get('username'),password:f.get('password')});
- csrf=s.csrf;$('#login').hidden=true;$('#app').hidden=false;form.reset();await render();note('로그인되었습니다.');
+ csrf=s.csrf;$('#login').hidden=true;$('#app').hidden=false;form.reset();await render();await openInitialTab();note('로그인되었습니다.');
 });});
 $('#logout').addEventListener('click',()=>task(async()=>{await api('/api/room-portal/logout','POST');csrf='';$('#app').hidden=true;$('#login').hidden=false;note('로그아웃되었습니다.');}));
 $('#templateForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/room-portal/template','POST',{kind:'join',value:$('#joinTemplate').value});await api('/api/room-portal/template','POST',{kind:'leave',value:$('#leaveTemplate').value});note('입장·퇴장 문구를 저장했습니다.');});});
@@ -127,11 +127,16 @@ async function loadMembers(){
  $('#memberChecked').textContent='마지막 조회: '+new Date(d.checkedAt).toLocaleString('ko-KR');
  drawMembers();
 }
+async function openInitialTab(){
+ if(location.hash==='#members'){switchTab('members');await loadMembers();}
+ else if(location.hash==='#ranks'&&!$('#tabRanks').hidden){switchTab('ranks');await loadRanks();}
+ else switchTab('settings');
+}
 $('#tabSettings').addEventListener('click',()=>switchTab('settings'));
 $('#tabMembers').addEventListener('click',()=>task(async()=>{switchTab('members');await loadMembers();}));
 $('#tabRanks').addEventListener('click',()=>task(async()=>{switchTab('ranks');await loadRanks();}));
 $('#prefixForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
- const prefixes=$('#prefixInput').value.split(/[,\\n]+/).map(v=>v.trim()).filter(Boolean);
+ const prefixes=$('#prefixInput').value.split(/[,\n]+/).map(v=>v.trim()).filter(Boolean);
  const d=await api('/api/room-portal/prefixes','POST',{prefixes});
  $('#prefixInput').value=d.prefixes.join(', ');
  note('명령어 접두사가 '+d.prefixes.join(' / ')+'로 변경되었습니다.');
@@ -143,6 +148,14 @@ function confirmTwice(target){
 async function loadRanks(){
  const d=await api('/api/room-portal/chat-stats');
  rankings=d.rankings||[];
+ const top=$('#rankTop');top.replaceChildren();
+ for(const r of rankings.slice(0,10)){
+  const line=document.createElement('div');line.className='rankRow';
+  const n=document.createElement('span');n.textContent=r.rank+'위 · '+r.user_name;
+  const count=document.createElement('strong');count.textContent=Number(r.count).toLocaleString('ko-KR')+'회';
+  line.append(n,count);top.append(line);
+ }
+ if(!rankings.length)top.textContent='채팅 기록이 없습니다.';
  $('#ranksSummary').textContent='전체 채팅순위 · 기록된 사용자 '+rankings.length+'명';
  drawRanks();
 }
