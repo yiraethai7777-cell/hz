@@ -345,11 +345,15 @@ const NEXI_CONTACT='💬 NEXI 봇 문의방\nhttps://open.kakao.com/o/gK32HUUi';
 const NEXI_SIGNOFF='\n\n━━━━━━━━━━━━━━\n✦ NEXI · 게임 & 관리 도우미';
 const MANAGEMENT_MENU='📜 명령어 안내 · NEXI\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 관리 명령어 · NEXI\n━━━━━━━━━━━━━━\n'+NEXI_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리)+NEXI_SIGNOFF;
 const GAME_MENU='📜 명령어 안내 · NEXI\n작동 중인 기능 · 게임'+FOLD+'\n🎮 게임 명령어 · NEXI\n━━━━━━━━━━━━━━\n'+NEXI_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임+NEXI_SIGNOFF;
-function formatCommandHelp(flags,requested='') {
+function formatCommandHelpBase(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
  if(groupName==='게임')return flags.game?GAME_MENU:'⏹️ 이 방의 게임 기능은 중지되어 있습니다. !게임on';
  return '📜 명령어 안내\n🎮 게임: !게임명령어\n🛡️ 관리: !관리명령어';
+}
+function formatCommandHelp(flags,requested='',prefix='!'){
+ const result=formatCommandHelpBase(flags,requested);
+ return prefix==='!'?result:result.replace(/!([a-zA-Z0-9가-힣ㄱ-ㅎ]+)/g,(_,command)=>prefix+command);
 }
 const commandLists=Object.fromEntries(['기본','게임','관리'].map(group=>[group,formatCommandHelp({game:true,manage:true},group)]));
 async function handleExtraMessage(client,...args){
@@ -365,7 +369,7 @@ async function handleExtraMessage(client,...args){
   const {getPool}=require('./db');
   const r=await getPool().query("SELECT COALESCE((SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS game",[String(msg.room.id)]);
   const queried=Date.now();
-  await chat.sendText(msg.room.id,formatCommandHelp({game:r.rows[0]?.game===true},'게임'));
+  await chat.sendText(msg.room.id,formatCommandHelp({game:r.rows[0]?.game===true},'게임',(await require('./command-prefixes').get(msg.room.id))[0]));
   const sent=Date.now();
   if(sent-start>=800)console.warn('[GAME HELP SLOW]',{dbMs:queried-start,sendMs:sent-queried,totalMs:sent-start});
   return true;
