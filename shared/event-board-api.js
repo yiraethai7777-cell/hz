@@ -100,7 +100,7 @@ function getLinkId(client,roomId,explicitLinkId) {
 // Kakao's board API uses -4042 when a post has already been deleted.
 function isDeletedPostError(error){
  const msg=String(error?.message||error||'');
- return /상태 -4042(?:\\D|$)/.test(msg)&&msg.includes('삭제된 글입니다.');
+ return /상태 -4042(?:\D|$)/.test(msg)&&msg.includes('삭제된 글입니다.');
 }
 function createBoardAdapter(client,{transport=defaultTransport,linkId=null}={}) {
   return {
