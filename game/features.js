@@ -183,7 +183,7 @@ async function handleGame(d,c,msg,isSelf){
  const userId=ctx.id(msg.sender?.id??msg.senderId);
  // The legacy handler also receives plain answers without a command prefix.
  // Do not accept quiz commands or answers when the room's game is OFF.
- if(!d.game && (text==='#퀴즈'||/^#정답(?:\\s|$)/.test(text)||
+ if(!d.game && (text==='#퀴즈'||/^#정답(?:\s|$)/.test(text)||
     require('./quiz').plainAnswer(d.quiz,text)))return null;
  const restoring=['네','아니요'].includes(text)&&d.players?.[userId]?.rodRestore;
  if(!text.startsWith('#')&&!restoring&&(!d.game||!d.quizEnabled||d.locked||!require('./quiz').plainAnswer(d.quiz,text)))return null;
