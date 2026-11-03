@@ -24,6 +24,7 @@ async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
  if(p==='/api/public/config'&&method==='GET')return {name:'',openchatUrl:publicUrl(),online:status.ready&&status.connected};
  if(!status.ready)fail('봇과 데이터베이스를 준비 중입니다.',503);
+ if(p.startsWith('/api/room-portal/')||p==='/api/admin/room-portals')return require('./room-portal').routes(req,res,url,body);
  if(p.startsWith('/api/promo/'))return require('../promotion/portal').routes(req,res,url,body,status);
  if(p==='/api/public/rankings'&&method==='GET')return rankings(url.searchParams.get('kind')||'coin');
  if(p==='/api/public/notices'&&method==='GET'){const r=await getPool().query('SELECT id,title,body,pinned,created_at FROM gl_notices WHERE published ORDER BY pinned DESC,created_at DESC LIMIT 30');return {notices:r.rows};}
