@@ -47,11 +47,12 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     if(m.id===String(client.userId)||m.type===8||m.name==='이름 확인 불가')continue;
     const old=previous.get(m.id),key=room+':'+m.id;
     const prior=priorSnapshot?.get(m.id);
-    if(prior&&prior.name===m.name&&prior.imageUrl===m.imageUrl&&prior.profileLinkId===m.profileLinkId&&prior.profileType===m.profileType)continue;
+    // Profile photos and status messages are not alert triggers.
+    if(prior&&prior.name===m.name&&prior.profileLinkId===m.profileLinkId&&prior.profileType===m.profileType)continue;
     let link;
     if([1,2,4].includes(m.profileType)){link='';profileIds.delete(key);}
     else if(m.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
-     const needs=profileIds.get(key)!==m.profileLinkId||!old?.observed_open_profile_link||old.name!==m.name||old.last_profile_url!==m.imageUrl;
+     const needs=profileIds.get(key)!==m.profileLinkId||!old?.observed_open_profile_link;
      if(!needs)link=old.observed_open_profile_link;
      else if(lookups<2&&now()>=(retryAt.get(key)||0)){
       lookups++;
@@ -90,7 +91,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
       // A member appearing for the first time is not necessarily a rename.
       continue;
      }
-     if(change.profileChanged){
+     if(change.profileChanged&&change.oldOpenLink!==change.newOpenLink&&change.newOpenLink!==undefined){
       await sendNotice(ctx,client.chat,room,change);
       console.log('[PROFILE WATCH] profile change delivered',{room});
      }
