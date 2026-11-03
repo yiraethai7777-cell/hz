@@ -19,7 +19,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     }
     await client.getChatRooms();
     const joined=new Set(client.getKnownChatRooms()
-     .map(r=>String(r.id||'')).filter(id=>/^[1-9]\\d{1,24}$/.test(id)));
+     .map(r=>String(r.id||'')).filter(id=>/^[1-9]\d{1,24}$/.test(id)));
     const result=await ctx.pool.query(`SELECT h.room_id FROM hz_rooms h
       LEFT JOIN gl_manage_rooms g ON g.room_id=h.room_id
       WHERE COALESCE(g.enabled,(h.data->>'manage')::boolean,FALSE)=TRUE
