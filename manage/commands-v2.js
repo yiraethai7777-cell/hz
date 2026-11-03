@@ -6,7 +6,7 @@ const {mentions,reference,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
-const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지예약','!공지목록','!공지삭제']);
+const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지등록','!공지예약','!공지목록','!공지삭제']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!프로필감지on','!프로필감지off','!일괄강퇴']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
@@ -142,9 +142,23 @@ async function handle(ctx){
  if(STAFF.has(cmd)&&!await isStaff(db,room,user,ctx.senderType,botOwner)){
   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
  }
- if(cmd==='!공지예약'||cmd==='!공지목록'||cmd==='!공지삭제'){
+ if(cmd==='!공지등록'||cmd==='!공지예약'||cmd==='!공지목록'||cmd==='!공지삭제'){
   const notices=require('./scheduled-notices');
   try{
+   if(cmd==='!공지등록'){
+    if(!tail){await send('사용법: !공지등록 (내용)\\n예: !공지등록 오늘 저녁 8시에 이벤트를 시작합니다.');return true;}
+    if(ctx.msg?.room?.isOpenChat!==true){await send('❌ 오픈채팅방에서만 공지를 등록할 수 있습니다.');return true;}
+    const linkId=ctx.msg.room.openLinkId;
+    try{
+     const result=await notices.registerActualNotice(ctx.client,room,tail,linkId);
+     await send('✅ 채팅방 공지가 등록되었습니다.');
+     console.log('[NOTICE IMMEDIATE] registered',{room,user,postId:result.postId||null});
+    }catch(e){
+     console.error('[NOTICE IMMEDIATE] failed',{room,user,error:String(e?.message||e)});
+     await send('❌ 공지 등록에 실패했거나 등록 결과를 확인하지 못했습니다. 채팅방 공지 목록을 확인해 주세요.');
+    }
+    return true;
+   }
    if(cmd==='!공지예약'){
     const m=/^(\S+)\s+([\s\S]+)$/.exec(tail);
     if(!m){await send('사용법: !공지예약 HH:MM (내용)\n예: !공지예약 18:30 오늘 저녁 모임을 시작합니다.');return true;}
