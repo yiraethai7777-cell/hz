@@ -97,9 +97,9 @@ async function settings(s){
  const [r,mention,profile]=await Promise.all([
  db.query("SELECT m.enabled,m.deleted_enabled,m.spam_enabled,h.data->>'joinTemplate' AS join_template,h.data->>'leaveTemplate' AS leave_template FROM gl_manage_rooms m FULL JOIN hz_rooms h ON h.room_id=m.room_id WHERE COALESCE(m.room_id,h.room_id)=$1",[room]),
  db.query("SELECT enabled FROM hz_mention_settings WHERE room_id=$1",[room]),
- db.query("SELECT enabled FROM gl_profile_alert_settings WHERE room_id=$1",[room]).catch(()=>({rows:[]}))]);
+ db.query("SELECT data->'profileAlerts' AS enabled FROM hz_rooms WHERE room_id=$1",[room])]);
  const v=r.rows[0]||{};
- return {label:s.label,roomName:s.room_name,permissions:s.permissions,flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled===true},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
+ return {label:s.label,roomName:s.room_name,permissions:s.permissions,flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
 }
 async function warnings(room){
  const r=await getPool().query(`SELECT user_id,max(user_name) AS user_name,count(*)::int AS count,
