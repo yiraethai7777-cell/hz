@@ -23,6 +23,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     const result=await ctx.pool.query(`SELECT h.room_id FROM hz_rooms h
       LEFT JOIN gl_manage_rooms g ON g.room_id=h.room_id
       WHERE COALESCE(g.enabled,(h.data->>'manage')::boolean,FALSE)=TRUE
+        AND COALESCE((h.data->>'botEnabled')::boolean,TRUE)=TRUE
         AND COALESCE((h.data->>'locked')::boolean,FALSE)=FALSE
         AND COALESCE((h.data->>'profileAlerts')::boolean,TRUE)=TRUE
       ORDER BY h.room_id`);
