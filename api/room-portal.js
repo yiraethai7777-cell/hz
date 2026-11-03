@@ -111,8 +111,15 @@ async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
  if(p==='/api/admin/room-portals')return master(req,url,body);
  if(p==='/api/room-portal/login'&&method==='POST')return login(req,res,body);
- await init();const s=await roomSession(req);
+ await init();
+ // A session cookie can be shared by different customer portal URLs on this host.
+ // Never authorize a portal without checking that the requested site matches its session.
+ const requestedSite=String(url.searchParams.get('site')||'');
+ if(!/^[a-f0-9]{24}$/.test(requestedSite))bad('고객 웹사이트 주소가 올바르지 않습니다.',400);
+ const sessionCandidate=await roomSession(req);
+ const s=sessionCandidate?.slug===requestedSite?sessionCandidate:null;
  if(p==='/api/room-portal/session'&&method==='GET')return s?{authenticated:true,csrf:s.csrf,label:s.label,roomName:s.room_name,permissions:s.permissions}:{authenticated:false};
+ if(sessionCandidate&&!s)bad('다른 고객 웹사이트에 로그인되어 있습니다. 이 사이트의 계정으로 로그인해 주세요.',401);
  if(!s)bad('고객 웹사이트 로그인이 필요합니다.',401);
  if(method!=='GET')verifyCsrf(req,s);
  if(p==='/api/room-portal/logout'&&method==='POST'){
