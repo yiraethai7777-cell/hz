@@ -146,7 +146,7 @@ async function handle(ctx){
   const notices=require('./scheduled-notices');
   try{
    if(cmd==='!공지등록'){
-    if(!tail){await send('사용법: !공지등록 (내용)\\n예: !공지등록 오늘 저녁 8시에 이벤트를 시작합니다.');return true;}
+    if(!tail){await send('사용법: !공지등록 (내용)\n예: !공지등록 오늘 저녁 8시에 이벤트를 시작합니다.');return true;}
     if(ctx.msg?.room?.isOpenChat!==true){await send('❌ 오픈채팅방에서만 공지를 등록할 수 있습니다.');return true;}
     const linkId=ctx.msg.room.openLinkId;
     try{
