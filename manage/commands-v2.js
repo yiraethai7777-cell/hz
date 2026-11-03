@@ -6,7 +6,7 @@ const {mentions,reference,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
-const STAFF=new Set(['!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지등록','!공지예약','!공지목록','!공지삭제']);
+const STAFF=new Set(['!봇켜기','!봇끄기','!현공지삭제','!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지등록','!공지예약','!공지목록','!공지삭제']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!프로필감지on','!프로필감지off','!일괄강퇴']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
@@ -70,6 +70,16 @@ async function handle(ctx){
  const isSuperAdmin=await superRole.isSuperAdmin(room,user,db);
  const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||isSuperAdmin||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
+ if(cmd==='!봇켜기'||cmd==='!봇끄기'){
+  if(!await isStaff(db,room,user,ctx.senderType,botOwner)){
+   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
+  }
+  if(tail){await send('사용법: '+cmd);return true;}
+  const on=cmd==='!봇켜기';
+  await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botEnabled',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{botEnabled}',to_jsonb($2::boolean),true),updated_at=NOW()",[room,on]);
+  await send(on?'✅ 이 방의 NEXI 봇이 켜졌습니다.':'⏹️ 이 방의 NEXI 봇이 꺼졌습니다. !봇켜기로 다시 활성화할 수 있습니다.');
+  return true;
+ }
  if(cmd==='!관리명령어'){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리',(await require('../shared/command-prefixes').get(room))[0]));return true;
  }
