@@ -172,6 +172,18 @@ async function routes(req,res,url,body){
   const prefixes=await require('../shared/command-prefixes').set(s.room_id,body.prefixes);
   return {ok:true,prefixes};
  }
+ if(p==='/api/room-portal/fishing-coin-event'&&method==='GET'){
+  allowed(s,'manage');
+  return {event:await require('../game/fishing-coin-event').status(s.room_id)};
+ }
+ if(p==='/api/room-portal/fishing-coin-event'&&method==='POST'){
+  allowed(s,'manage');
+  if(body.confirm!==true)bad('이벤트 시작을 확인해 주세요.');
+  if(!status.connected||!status.client?.connected)bad('봇이 연결되어 있지 않습니다.',503);
+  const activeRooms=await joinedRooms();
+  if(!activeRooms.some(r=>r.id===s.room_id))bad('봇이 현재 참여 중인 채팅방에서만 이벤트를 시작할 수 있습니다.');
+  return require('../game/fishing-coin-event').startEvent(s.room_id,s.room_name,status.client.chat||status.client,'room-portal:'+s.id);
+ }
  if(p==='/api/room-portal/chat-stats'&&method==='GET'){
   allowed(s,'chatStats');
   const rankings=await require('../manage/chat-ranking-data').getRanking(getPool(),s.room_id,status.client?.userId??'');
