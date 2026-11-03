@@ -71,7 +71,7 @@ async function handle(ctx){
  const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||isSuperAdmin||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
  if(cmd==='!관리명령어'){
-  await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리'));return true;
+  await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리',(await require('../shared/command-prefixes').get(room))[0]));return true;
  }
  if(OWNER.has(cmd)&&!botOwner){return true;}
  if(cmd.startsWith('!최고관리자')&&!ctx.isBotAccount){return true;}
