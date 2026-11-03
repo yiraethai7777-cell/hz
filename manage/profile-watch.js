@@ -5,7 +5,7 @@ const {sendNotice}=require('./profile-alerts');
 // rooms are round-robined. No overlap, and back off after transport failures.
 function createWatcher(ctx,client,{now=Date.now}={}){
  let busy=false,timer,cursor=0,rooms=[],lastRoomsAt=0,resumeAt=0;
- const profileIds=new Map(),retryAt=new Map();
+ const profileIds=new Map(),retryAt=new Map(),observed=new Map();
  client.on?.('disconnected',()=>{resumeAt=now()+60000;console.warn('[PROFILE WATCH] paused after disconnect');});
  async function tick(){
   if(busy||now()<resumeAt||client.connected===false)return;
@@ -23,9 +23,12 @@ function createWatcher(ctx,client,{now=Date.now}={}){
    const saved=await ctx.pool.query('SELECT user_id,name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1',[room]);
    const previous=new Map(saved.rows.map(m=>[String(m.user_id),m]));
    const observations=[];let lookups=0;
+   const priorSnapshot=observed.get(room);
    for(const m of snapshot.members){
     if(m.id===String(client.userId)||m.type===8||m.name==='이름 확인 불가')continue;
     const old=previous.get(m.id),key=room+':'+m.id;
+    const prior=priorSnapshot?.get(m.id);
+    if(prior&&prior.name===m.name&&prior.imageUrl===m.imageUrl&&prior.profileLinkId===m.profileLinkId)continue;
     let link;
     if([1,2,4].includes(m.profileType)){link='';profileIds.delete(key);}
     else if(m.profileLinkId&&typeof client.getUserOpenProfileLink==='function'){
@@ -40,16 +43,16 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     }
     observations.push({...m,link});
    }
-   const changes=await ctx.withRoom(room,'',async(d,c)=>{
-    if(!d.manage||d.locked)return [];
-    const events=[];
+   const changes=await (async()=>{
+    const c=ctx.pool,events=[];
     for(const m of observations){
      const change=await ctx.profileObserve(c,room,m.id,m.name,m.imageUrl,m.link);
      if(m.link!==undefined)await c.query('UPDATE hz_members SET open_profile_link=$3 WHERE room_id=$1 AND user_id=$2',[room,m.id,m.link||null]);
      if(change)events.push(change);
     }
     return events;
-   });
+   })();
+   observed.set(room,new Map(snapshot.members.map(m=>[m.id,m])));
    for(const change of changes){
     if(change.oldName!==change.newName){
      await ctx.send(ctx.globalChat,room,'✏️ '+change.oldName+' → '+change.newName);
