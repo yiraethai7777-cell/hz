@@ -122,7 +122,10 @@ function drawMembers(){
 }
 async function loadMembers(){
  const d=await api('/api/room-portal/members');
- currentMembers=d.members||[];canEditMemberRoles=!!d.canEditRoles;
+ currentMembers=(d.members||[]).sort((a,b)=>{
+  const role=m=>m.roomRole==='방장'?0:m.roomRole==='부방장'?1:m.superAdmin?2:m.admin?3:4;
+  return role(a)-role(b)||a.name.localeCompare(b.name,'ko')||a.id.localeCompare(b.id);
+ });canEditMemberRoles=!!d.canEditRoles;
  $('#memberCount').textContent=d.count+'명';
  $('#memberChecked').textContent='마지막 조회: '+new Date(d.checkedAt).toLocaleString('ko-KR');
  drawMembers();
