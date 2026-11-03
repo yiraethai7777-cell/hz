@@ -433,7 +433,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           if (await require('../manage/commands-v2').handle(context)) return;
         } catch (error) {
           console.error('[MANAGE COMMAND ERROR]', error);
-          try { await context.send('❌ 관리 명령 처리 실패. Railway 로그를 확인해 주세요.'); }
+          try { await context.send(text.split(/\s+/,1)[0]==='!벤해제'?'❌ 벤해제에 실패했습니다.':'❌ 관리 명령 처리에 실패했습니다.'); }
           catch (sendError) { console.error('[MANAGE SEND ERROR]', sendError); }
           return;
         }
