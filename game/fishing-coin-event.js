@@ -74,7 +74,6 @@ async function recordCatch(db,{room,user,name,fish,size,at}){
  [events.rows[0].id,String(user),String(name||user),String(fish),String(cm),atMs]);
 }
 async function finishExpired(){
- await init();
  const db=getPool();
  const due=await db.query("SELECT id FROM gl_fishing_coin_events WHERE status='active' AND ends_at<=NOW() ORDER BY ends_at LIMIT 20");
  for(const row of due.rows){
