@@ -84,6 +84,7 @@ async function autoFishTick(){
       ?await require('./economy').withPlayer({db:c,room:rid,user:p.id,p,botId:ctx.globalBotId,msg:{text:'자동낚시'},run:award})
       :award();
      if(!r)continue;
+     await require('./fishing-coin-event').recordCatch(c,{room:rid,user:p.id,name:p.name,fish:r.f.name,size:r.size,at:time});
      out.push(`🎣 자동낚시 @${String(p.name||p.id).replace(/^@/, '')}${ctx.MORE}\n━━━━━━━━━━━━━━━━━━\n🐟 획득 물고기: ${r.f.name} (${r.size}cm)\n💰 획득 코인: +${ctx.n(r.value)}\n⭐ 획득 경험치: +${r.xp} XP\n⏱️ 남은 시간: ${Math.max(0,Math.ceil((p.autoUntil-time)/60000))}분\n🍀 행운포션: ${p.luckUntil>time?'사용 중':'미사용'}\n━━━━━━━━━━━━━━━━━━`);
     }
     return out;
@@ -354,7 +355,9 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==="#낚시"){
     const remain=ctx.FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);
     if(remain>0)return `[ ! ] 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;
-    const r=ctx.awardFish(p,Date.now());
+    const caughtAt=Date.now();
+    const r=ctx.awardFish(p,caughtAt);
+    await require('./fishing-coin-event').recordCatch(c,{room:ctx.id(msg.room.id),user:uid,name,fish:r.f.name,size:r.size,at:caughtAt});
     const mention=`\u0002${uid}\u0003${name.replace(/[\u0000-\u001f]/g,'')}\u0004`;
     return `🎣 ${mention}님의 낚시 결과\n🐟 ${r.f.name} [${r.f.tier}] · ${r.size}cm\n${'\u200b'.repeat(1200)}\n💰 낚시 보상 · +${ctx.n(r.value)}코인\n`+
       `⭐ 획득 경험치 · +${r.xp} XP${r.up?`\n⬆️ 레벨 상승 · Lv.${p.level}`:''}\n`+
