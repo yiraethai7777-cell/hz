@@ -92,6 +92,29 @@ async function login(req,res,body){
  setCookie(res,token,req);
  return {ok:true,csrf,site:p.slug,label:p.label};
 }
+// Allow existing /admin form to authenticate a room portal without knowing
+// its slug. Only return the matching site after verifying its password.
+async function loginFromAdmin(req,res,body){
+ await init();
+ const username=String(body.username||'').trim(),password=String(body.password||'');
+ if(!/^[a-zA-Z0-9_.-]{4,40}$/.test(username)||!password||password.length>256)bad('로그인 정보를 확인해 주세요.',401);
+ const ip=String(req.socket.remoteAddress||'unknown');
+ const key='main:'+ip,now=Date.now(),entry=attempts.get(key)||{n:0,at:now};
+ if(now-entry.at>900000){entry.n=0;entry.at=now;}
+ entry.n++;attempts.set(key,entry);
+ if(attempts.size>5000)attempts.clear();
+ if(entry.n>8)bad('로그인 시도가 많습니다. 15분 후 다시 시도해 주세요.',429);
+ const q=await getPool().query('SELECT slug,password_hash FROM gl_room_portals WHERE username=$1 AND enabled ORDER BY id LIMIT 25',[username]);
+ const matches=[];
+ for(const p of q.rows){
+  const salt=String(p.password_hash||'').split(':')[0];
+  if(salt&&same(passwordHash(password,salt),p.password_hash))matches.push(p.slug);
+ }
+ if(matches.length!==1)bad(matches.length>1?'같은 로그인 정보의 방이 여러 개입니다. 발급받은 방별 웹사이트 주소로 로그인해 주세요.':'로그인 정보를 확인해 주세요.',401);
+ attempts.delete(key);
+ const result=await login(req,res,{site:matches[0],username,password});
+ return {...result,redirect:'/room-panel?site='+encodeURIComponent(matches[0])};
+}
 async function settings(s){
  const room=s.room_id,db=getPool();
  const [r,mention,profile]=await Promise.all([
@@ -111,6 +134,7 @@ async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
  if(p==='/api/admin/room-portals')return master(req,url,body);
  if(p==='/api/room-portal/login'&&method==='POST')return login(req,res,body);
+ if(p==='/api/room-portal/login-from-admin'&&method==='POST')return loginFromAdmin(req,res,body);
  await init();
  // A session cookie can be shared by different customer portal URLs on this host.
  // Never authorize a portal without checking that the requested site matches its session.
