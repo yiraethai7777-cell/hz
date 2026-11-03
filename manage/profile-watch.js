@@ -5,7 +5,7 @@ const {sendNotice}=require('./profile-alerts');
 // rooms are round-robined. No overlap, and back off after transport failures.
 function createWatcher(ctx,client,{now=Date.now}={}){
  let busy=false,timer,cursor=0,rooms=[],lastRoomsAt=0,resumeAt=0;
- const profileIds=new Map(),retryAt=new Map(),observed=new Map();
+ const profileIds=new Map(),retryAt=new Map(),observed=new Map(),roomRetryAt=new Map();
  client.on?.('disconnected',()=>{resumeAt=now()+60000;console.warn('[PROFILE WATCH] paused after disconnect');});
  async function tick(){
   if(busy||now()<resumeAt||client.connected===false)return;
@@ -15,7 +15,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
     const result=await ctx.pool.query(`SELECT h.room_id FROM hz_rooms h
      WHERE COALESCE(h.data->>'profileAlerts','true')='true'
        AND COALESCE(h.data->>'locked','false')<>'true'
-       AND (h.data->>'manage'='true' OR EXISTS
+       AND (h.data->>'profileAlerts'='true' OR h.data->>'manage'='true' OR EXISTS
          (SELECT 1 FROM gl_room_portals p WHERE p.room_id=h.room_id AND p.enabled))
      UNION
      SELECT p.room_id FROM gl_room_portals p
@@ -27,6 +27,8 @@ function createWatcher(ctx,client,{now=Date.now}={}){
    }
    if(!rooms.length)return;
    const room=rooms[cursor++%rooms.length];
+   if(now()<(roomRetryAt.get(room)||0))return;
+   try{
    const snapshot=await refresh(client,room,{force:true});
    const saved=await ctx.pool.query('SELECT user_id,name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1',[room]);
    const previous=new Map(saved.rows.map(m=>[String(m.user_id),m]));
@@ -85,8 +87,13 @@ function createWatcher(ctx,client,{now=Date.now}={}){
      }
     }
    }
+   roomRetryAt.delete(room);
+   }catch(e){
+    console.warn('[PROFILE WATCH] room poll failed',{room,error:String(e?.message||e).slice(0,160)});
+    roomRetryAt.set(room,now()+15000);
+   }
   }catch(e){
-   console.warn('[PROFILE WATCH] poll failed:',String(e?.message||e).slice(0,160));
+   console.warn('[PROFILE WATCH] scheduler failed:',String(e?.message||e).slice(0,160));
    resumeAt=now()+15000;
   }finally{busy=false;}
  }
