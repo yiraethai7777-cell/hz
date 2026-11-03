@@ -403,7 +403,32 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==="#펫인벤")return `🐾 펫 인벤 (${Object.keys(p.pets).length}/20)\n장착: ${p.equippedPet||"없음"}\n${ctx.MORE}\n`+(Object.keys(p.pets).length?Object.entries(p.pets).map(([x,lv],i)=>`${i+1}. ${x} +${lv}${p.equippedPet===x?" [장착]":""}`).join("\n"):"보유한 펫이 없습니다.");
   let pm=/^#펫기능\s+(.+)$/.exec(text);if(pm){const pet=ctx.PETS.find(x=>x.name===pm[1].trim());if(!pet)return "없는 펫입니다.";const level=p.pets[pet.name]||0,owned=Object.prototype.hasOwnProperty.call(p.pets,pet.name);return `🐾 ${pet.name}\n뽑기 가중치: ${pet.weight} (전체 가중치 중 비율 ${(pet.weight/ctx.PETS.reduce((v,x)=>v+x.weight,0)*100).toFixed(4)}%)\n🍀 행운 +${pet.luck+(owned?level*2:0)}%\n⭐ 경험치 +${pet.xp+(owned?level*2:0)}%\n💰 포인트 +${pet.points+(owned?level*2:0)}%\n강화: +${owned?level:0}/20`}
   pm=/^#펫장착\s+(.+)$/.exec(text);if(pm){let pet=pm[1].trim();if(pet==="최고"){const choices=ctx.PETS.filter(x=>Object.prototype.hasOwnProperty.call(p.pets,x.name));choices.sort((a,b)=>(b.luck+b.xp+b.points+6*p.pets[b.name])-(a.luck+a.xp+a.points+6*p.pets[a.name]));pet=choices[0]?.name||""}if(!Object.prototype.hasOwnProperty.call(p.pets,pet))return "보유한 펫이 없습니다.";p.equippedPet=pet;return `🐾 ${pet} +${p.pets[pet]} 장착 완료!`}
-  if(text==="#펫강화"){if(!p.equippedPet)return "먼저 #펫장착 (이름)으로 펫을 장착하세요.";const lv=p.pets[p.equippedPet]||0;if(lv>=20)return "🐾 최대 강화(+20)입니다.";const cost=ctx.enhancementCost(lv,15000),need=ctx.enhancementNeed(lv);if(p.level<need)return `⭐ Lv.${need} 이상 필요합니다.`;if(p.points<cost&&!isSelf)return `💰 ${ctx.n(cost)}코인이 필요합니다.`;if(!isSelf)p.points-=cost;p.pets[p.equippedPet]=lv+1;return `🐾 ${p.equippedPet} +${lv+1}/20 강화 완료!\n💰 비용 ${ctx.n(cost)}코인`}
+  if(text==="#펫강화"||/^#펫강화\\s+\\d+$/.test(text)){
+    const arg=text.split(/\\s+/)[1];
+    const count=arg===undefined?1:Number(arg);
+    if(!Number.isSafeInteger(count)||count<1||count>20)return "🐾 사용법: !펫강화 또는 !펫강화 (1~20)";
+    if(!p.equippedPet||!Object.prototype.hasOwnProperty.call(p.pets,p.equippedPet))
+      return "먼저 !펫장착 (이름)으로 보유한 펫을 장착하세요.";
+    const name=p.equippedPet,startLv=Number(p.pets[name])||0;
+    if(startLv>=20)return "🐾 최대 강화(+20)입니다.";
+    let done=0,spent=0,reason="";
+    const results=[];
+    for(let i=0;i<count;i++){
+      const lv=Number(p.pets[name])||0;
+      if(lv>=20){reason="최대 강화(+20)에 도달했습니다.";break;}
+      const cost=ctx.enhancementCost(lv,15000),need=ctx.enhancementNeed(lv);
+      if(p.level<need){reason="⭐ Lv."+need+" 이상 필요합니다.";break;}
+      if(p.points<cost&&!isSelf){reason="💰 "+ctx.n(cost)+"코인이 부족합니다.";break;}
+      if(!isSelf)p.points-=cost;
+      p.pets[name]=lv+1;spent+=cost;done++;
+      results.push((i+1)+"회: +"+(lv+1)+"/20 · "+ctx.n(cost)+"코인");
+    }
+    if(count===1){
+      if(!done)return reason||"🐾 강화를 진행하지 못했습니다.";
+      return `🐾 ${name} +${p.pets[name]}/20 강화 완료!\\n💰 비용 ${ctx.n(spent)}코인`;
+    }
+    return `🐾 ${name} 펫 연속 강화\\n━━━━━━━━━━━━━━━━━━\\n요청 ${count}회 · 성공 ${done}회\\n강화 단계 +${startLv} → +${p.pets[name]}/20\\n💰 총 사용 ${ctx.n(spent)}코인\\n${ctx.MORE}\\n${results.join("\\n")||"진행된 강화 없음"}${reason?"\\n⏹️ 중단: "+reason:""}`;
+  }
   if(text==="#물고기판매"||text.startsWith("#물고기판매 ")){
     const args=text.trim().split(/\s+/).slice(1);
     if(!args.length)return "사용법: #물고기판매 (이름) (수량/all) 또는 #물고기판매 all";
