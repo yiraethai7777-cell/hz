@@ -43,9 +43,9 @@ async function init(){
  const s=await api('/api/room-portal/session');if(!s.authenticated)return;
  csrf=s.csrf;$('#login').hidden=true;$('#app').hidden=false;await render();
 }
-$('#loginForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
- const f=new FormData(e.currentTarget);const s=await api('/api/room-portal/login','POST',{site:slug,username:f.get('username'),password:f.get('password')});
- csrf=s.csrf;$('#login').hidden=true;$('#app').hidden=false;e.currentTarget.reset();await render();note('로그인되었습니다.');
+$('#loginForm').addEventListener('submit',e=>{e.preventDefault();const form=e.currentTarget;task(async()=>{
+ const f=new FormData(form);const s=await api('/api/room-portal/login','POST',{site:slug,username:f.get('username'),password:f.get('password')});
+ csrf=s.csrf;$('#login').hidden=true;$('#app').hidden=false;form.reset();await render();note('로그인되었습니다.');
 });});
 $('#logout').addEventListener('click',()=>task(async()=>{await api('/api/room-portal/logout','POST');csrf='';$('#app').hidden=true;$('#login').hidden=false;note('로그아웃되었습니다.');}));
 $('#templateForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/room-portal/template','POST',{kind:'join',value:$('#joinTemplate').value});await api('/api/room-portal/template','POST',{kind:'leave',value:$('#leaveTemplate').value});note('입장·퇴장 문구를 저장했습니다.');});});
