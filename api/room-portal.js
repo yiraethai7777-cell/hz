@@ -150,7 +150,7 @@ async function routes(req,res,url,body){
  }
  if(p==='/api/room-portal/chat-stats'&&method==='GET'){
   allowed(s,'chatStats');
-  const rows=await getPool().query("SELECT user_id,user_name,count::text AS count FROM gl_manage_chat_counts WHERE room_id=$1 ORDER BY count DESC,user_id ASC",[s.room_id]);
+  const rows=await getPool().query("SELECT user_id,user_name,count::text AS count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id<>$2 ORDER BY count DESC,user_id ASC",[s.room_id,String(status.client?.userId??'')]);
   return {roomId:s.room_id,total:rows.rows.length,rankings:rows.rows.map((r,i)=>({rank:i+1,...r}))};
  }
  if(p==='/api/room-portal/chat-stats'&&method==='DELETE'){
@@ -183,7 +183,10 @@ async function routes(req,res,url,body){
     id:m.id,name:m.name,imageUrl:m.imageUrl,
     roomRole:m.type===1?'방장':m.type===4?'부방장':'',
     admin:adminIds.has(m.id),superAdmin:superIds.has(m.id)
-   }))};
+   })).sort((a,b)=>{
+    const priority=m=>m.roomRole==='방장'?0:m.roomRole==='부방장'?1:m.superAdmin?2:m.admin?3:4;
+    return priority(a)-priority(b)||a.name.localeCompare(b.name,'ko')||a.id.localeCompare(b.id);
+   })};
  }
  if(p==='/api/room-portal/member-role'&&method==='POST'){
   allowed(s,'roles');
