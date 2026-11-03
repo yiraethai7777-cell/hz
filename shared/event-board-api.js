@@ -116,10 +116,21 @@ function createBoardAdapter(client,{transport=defaultTransport,linkId=null}={}) 
         throw Error('현재 등록된 공지인지 확인할 수 없습니다.');
       // This is the legacy board post deletion endpoint; compatibility depends
       // on Kakao's server. Do not report success without server confirmation.
-      const response=assertServerStatus(await transport({
+      assertServerStatus(await transport({
         method:'DELETE',path:'/moim/posts/'+encodeURIComponent(post)+query,headers
       }),'봇 공지 포스트 삭제');
-      return {removed:response.status===0};
+      // A successful request alone does not prove the notice disappeared.
+      try{
+        const after=assertServerStatus(await transport({
+          method:'GET',path:'/moim/posts/'+encodeURIComponent(post)+query,headers
+        }),'공지 삭제 결과 확인');
+        if(after.notice===false||after.post?.notice===false||after.data?.notice===false)
+          return {removed:true};
+        throw Error('공지 삭제 후에도 상단 공지가 유지되고 있습니다.');
+      }catch(e){
+        if(String(e?.message||e)==='공지 API HTTP 404')return {removed:true};
+        throw e;
+      }
     },
     async register({roomId,text}) {
       const room=unsignedId(roomId,'채팅방 ID');
