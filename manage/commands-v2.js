@@ -217,13 +217,13 @@ async function handle(ctx){
   return true;
  }
  if(cmd==='!채팅순위전체'){
-  for(const part of await chatRanks(db,room,true))await send(part);
+  for(const part of await chatRanks(db,room,true,ctx.botId))await send(part);
   return true;
  }
  if(cmd==='!채팅정보'){
   const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id=$2',[room,user]);
   if(!r.rows[0]){await send('💬 채팅 기록이 없습니다.');return true;}
-  const value=r.rows[0],rank=await db.query('SELECT COUNT(*)::bigint+1 AS rank FROM gl_manage_chat_counts WHERE room_id=$1 AND (count>$2::bigint OR (count=$2::bigint AND user_id<$3))',[room,value.count,user]);
+  const value=r.rows[0],rank=await db.query('SELECT COUNT(*)::bigint+1 AS rank FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id<>$4 AND (count>$2::bigint OR (count=$2::bigint AND user_id<$3))',[room,value.count,user,String(ctx.botId??'')]);
   await send('💬 '+(value.user_name||user)+'님의 채팅 정보\n🏆 채팅 순위: '+(rank.rows[0]?.rank||'?')+'위\n💬 횟수: '+value.count+'회');return true;
  }
  if(cmd==='!관리자추가'||cmd==='!관리자삭제'){
