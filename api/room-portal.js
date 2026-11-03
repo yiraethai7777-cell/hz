@@ -150,8 +150,9 @@ async function routes(req,res,url,body){
  }
  if(p==='/api/room-portal/chat-stats'&&method==='GET'){
   allowed(s,'chatStats');
-  const rows=await getPool().query("SELECT user_id,user_name,count::text AS count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id<>$2 ORDER BY count DESC,user_id ASC",[s.room_id,String(status.client?.userId??'')]);
-  return {roomId:s.room_id,total:rows.rows.length,rankings:rows.rows.map((r,i)=>({rank:i+1,...r}))};
+  const rankings=await require('../manage/chat-ranking-data').getRanking(getPool(),s.room_id,status.client?.userId??'');
+  return {roomId:s.room_id,roomName:s.room_name,checkedAt:new Date().toISOString(),
+   botId:String(status.client?.userId??''),total:rankings.length,rankings};
  }
  if(p==='/api/room-portal/chat-stats'&&method==='DELETE'){
   allowed(s,'chatStats');
@@ -195,7 +196,7 @@ async function routes(req,res,url,body){
   const roster=await require('../shared/live-roster').refresh(status.client,s.room_id,{force:true});
   const member=roster.members.find(m=>m.id===user);
   if(!member)bad('현재 해당 방에 있는 사용자만 선택할 수 있습니다.',404);
-  if(user===String(status.client?.userId)||[1,4].includes(member.type))bad('봇·방장·부방장 권한은 변경할 수 없습니다.',403);
+  if(user===String(status.client?.userId))bad('봇 계정의 관리자 권한은 변경할 수 없습니다.',403);
   const db=getPool();
   if(role==='admin'){
    if(on)await db.query('INSERT INTO gl_manage_admins(room_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[s.room_id,user]);
