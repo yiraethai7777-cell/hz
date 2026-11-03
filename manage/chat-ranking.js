@@ -6,8 +6,8 @@ function format(rows,all=false){
  if(page.length)chunks.push(page.join('\n'));
  return chunks.map((body,i)=>`💬 ${all?'전체 채팅 순위 ('+rows.length+'명)':'채팅 순위 TOP 10'}${chunks.length>1?' · '+(i+1)+'/'+chunks.length:''}\n${'\u200b'.repeat(1200)}\n${body}`);
 }
-async function messages(db,room,all=false){
- const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 ORDER BY count DESC,user_id ASC'+(all?'':' LIMIT 10'),[room]);
+async function messages(db,room,all=false,botId=''){
+ const r=await db.query('SELECT user_name,count FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id<>$2 ORDER BY count DESC,user_id ASC'+(all?'':' LIMIT 10'),[room,String(botId)]);
  return format(r.rows,all);
 }
 
