@@ -20,6 +20,8 @@ async function render(){
  }
  if(!list.children.length)list.textContent='현재 사용할 수 있는 기능이 없습니다.';
  $('#templates').hidden=!d.permissions.templates;$('#warningPanel').hidden=!d.permissions.warnings;
+ $('#prefixPanel').hidden=!d.permissions.prefixes;$('#tabRanks').hidden=!d.permissions.chatStats;
+ canWarnMembers=!!d.permissions.warnings;$('#prefixInput').value=(d.prefixes||['!']).join(', ');
  $('#newUsername').value=d.username||'';$('#joinTemplate').value=d.joinTemplate;$('#leaveTemplate').value=d.leaveTemplate;
  if(d.permissions.warnings)await renderWarnings();
 }
@@ -49,17 +51,20 @@ $('#loginForm').addEventListener('submit',e=>{e.preventDefault();const form=e.cu
 });});
 $('#logout').addEventListener('click',()=>task(async()=>{await api('/api/room-portal/logout','POST');csrf='';$('#app').hidden=true;$('#login').hidden=false;note('로그아웃되었습니다.');}));
 $('#templateForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/room-portal/template','POST',{kind:'join',value:$('#joinTemplate').value});await api('/api/room-portal/template','POST',{kind:'leave',value:$('#leaveTemplate').value});note('입장·퇴장 문구를 저장했습니다.');});});
-$('#warnForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/room-portal/warnings','POST',{userId:$('#userId').value,userName:$('#userName').value,reason:$('#reason').value});$('#reason').value='';await renderWarnings();note('경고를 지급했습니다.');});});
+$('#warnForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/room-portal/warnings','POST',{userId:$('#userId').value,userName:$('#userName').value,reason:$('#reason').value,count:Number($('#warnCount').value)});$('#reason').value='';await renderWarnings();note('경고를 지급했습니다.');});});
 $('#accountForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
  await api('/api/room-portal/account','POST',{username:$('#newUsername').value,currentPassword:$('#currentPassword').value,newPassword:$('#newPassword').value});
  csrf='';$('#app').hidden=true;$('#login').hidden=false;$('#accountForm').reset();note('계정 정보가 변경되었습니다. 새 아이디와 비밀번호로 다시 로그인해 주세요.');
 });});
-let currentMembers=[],canEditMemberRoles=false;
-function memberTab(show){
- $('#settingsView').hidden=show;
- $('#membersView').hidden=!show;
- $('#tabSettings').className=show?'secondary':'';
- $('#tabMembers').className=show?'':'secondary';
+let currentMembers=[],canEditMemberRoles=false,canWarnMembers=false,rankings=[];
+function switchTab(tab){
+ $('#settingsView').hidden=tab!=='settings';
+ $('#membersView').hidden=tab!=='members';
+ $('#ranksView').hidden=tab!=='ranks';
+ $('#tabSettings').className=tab==='settings'?'':'secondary';
+ $('#tabMembers').className=tab==='members'?'':'secondary';
+ $('#tabRanks').className=tab==='ranks'?'':'secondary';
+ history.replaceState(null,'',location.pathname+location.search+(tab==='ranks'?'#ranks':tab==='members'?'#members':''));
 }
 function drawMembers(){
  const list=$('#memberList');list.replaceChildren();
@@ -93,6 +98,24 @@ function drawMembers(){
    }
    info.append(row);
   }
+  if(canWarnMembers){
+   const warnRow=document.createElement('div');warnRow.className='memberActions';
+   const warnBtn=document.createElement('button');warnBtn.type='button';warnBtn.textContent='⚠️ 경고 지급';
+   warnBtn.addEventListener('click',()=>task(async()=>{
+    const reason=prompt(m.name+'님에게 지급할 경고 사유를 입력하세요.');
+    if(reason==null)return;
+    if(!reason.trim())throw Error('경고 사유를 입력해야 합니다.');
+    const countText=prompt('지급할 경고 개수 (1~10)', '1');
+    if(countText==null)return;
+    const count=Number(countText);
+    if(!Number.isInteger(count)||count<1||count>10)throw Error('경고 개수는 1~10개여야 합니다.');
+    if(!confirm(m.name+'님에게 경고 '+count+'개를 지급하시겠습니까?'))return;
+    warnBtn.disabled=true;
+    try{await api('/api/room-portal/warnings','POST',{userId:m.id,userName:m.name,reason:reason.trim(),count});note(m.name+'님에게 경고 '+count+'개를 지급했습니다.');}
+    finally{warnBtn.disabled=false;}
+   }));
+   warnRow.append(warnBtn);info.append(warnRow);
+  }
   wrap.append(info);list.append(wrap);
  }
  if(!visible.length)list.textContent='검색 결과가 없습니다.';
@@ -104,8 +127,52 @@ async function loadMembers(){
  $('#memberChecked').textContent='마지막 조회: '+new Date(d.checkedAt).toLocaleString('ko-KR');
  drawMembers();
 }
-$('#tabSettings').addEventListener('click',()=>memberTab(false));
-$('#tabMembers').addEventListener('click',()=>task(async()=>{memberTab(true);await loadMembers();}));
+$('#tabSettings').addEventListener('click',()=>switchTab('settings'));
+$('#tabMembers').addEventListener('click',()=>task(async()=>{switchTab('members');await loadMembers();}));
+$('#tabRanks').addEventListener('click',()=>task(async()=>{switchTab('ranks');await loadRanks();}));
+$('#prefixForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
+ const prefixes=$('#prefixInput').value.split(/[,\\n]+/).map(v=>v.trim()).filter(Boolean);
+ const d=await api('/api/room-portal/prefixes','POST',{prefixes});
+ $('#prefixInput').value=d.prefixes.join(', ');
+ note('명령어 접두사가 '+d.prefixes.join(' / ')+'로 변경되었습니다.');
+});});
+function confirmTwice(target){
+ if(!confirm(target+' 기록을 삭제하시겠습니까? (1/2)'))return false;
+ return confirm(target+' 기록이 영구 삭제됩니다. 정말 진행하시겠습니까? (2/2)');
+}
+async function loadRanks(){
+ const d=await api('/api/room-portal/chat-stats');
+ rankings=d.rankings||[];
+ $('#ranksSummary').textContent='전체 채팅순위 · 기록된 사용자 '+rankings.length+'명';
+ drawRanks();
+}
+function drawRanks(){
+ const area=$('#rankList');area.replaceChildren();
+ const filter=$('#rankSearch').value.trim().toLowerCase();
+ const shown=rankings.filter(r=>(r.user_name+' '+r.user_id).toLowerCase().includes(filter));
+ for(const r of shown){
+  const row=document.createElement('div');row.className='rankRow';
+  const details=document.createElement('div');details.className='rankDetails';
+  const title=document.createElement('strong');title.textContent=r.rank+'위 · '+r.user_name;
+  const sub=document.createElement('div');sub.className='muted';sub.textContent='ID: '+r.user_id+' · 채팅 '+Number(r.count).toLocaleString('ko-KR')+'회';
+  details.append(title,sub);
+  const btn=document.createElement('button');btn.type='button';btn.className='danger';btn.textContent='기록 삭제';
+  btn.addEventListener('click',()=>task(async()=>{
+   if(!confirmTwice(r.user_name+'('+r.user_id+')님의 채팅'))return;
+   await api('/api/room-portal/chat-stats','DELETE',{action:'user',userId:r.user_id,confirmation:'DELETE_CONFIRMED_TWICE'});
+   await loadRanks();note('해당 사용자의 채팅 기록을 삭제했습니다.');
+  }));
+  row.append(details,btn);area.append(row);
+ }
+ if(!shown.length)area.textContent='표시할 채팅 기록이 없습니다.';
+}
+$('#reloadRanks').addEventListener('click',()=>task(loadRanks));
+$('#rankSearch').addEventListener('input',drawRanks);
+$('#resetRanks').addEventListener('click',()=>task(async()=>{
+ if(!confirmTwice('이 방의 모든 채팅순위'))return;
+ await api('/api/room-portal/chat-stats','DELETE',{action:'all',confirmation:'DELETE_CONFIRMED_TWICE'});
+ await loadRanks();note('이 방의 채팅순위 기록을 전체 초기화했습니다.');
+}));
 $('#reloadMembers').addEventListener('click',()=>task(loadMembers));
 $('#memberSearch').addEventListener('input',drawMembers);
 task(init);
