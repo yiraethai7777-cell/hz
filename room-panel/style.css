@@ -16,3 +16,6 @@ button.danger{background:#8b3340;color:#fff}
 .rankRow{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #334158}
 .rankDetails{min-width:0;overflow-wrap:anywhere}.rankRow button{white-space:nowrap}
 @media(max-width:520px){.rankRow{align-items:flex-start;flex-direction:column}.tabs button{font-size:13px}}
+
+.memberGroupTitle{font-size:16px;margin:25px 0 10px;padding:11px 13px;border-radius:10px;background:#23334c;border-left:3px solid #a5fa7b}
+.memberGroupTitle+div{margin-bottom:14px}
