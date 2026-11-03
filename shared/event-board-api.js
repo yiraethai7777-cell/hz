@@ -108,6 +108,12 @@ function createBoardAdapter(client,{transport=defaultTransport,linkId=null}={}) 
       if(client?.connected===false)throw Error('카카오톡 연결이 끊어졌습니다.');
       const link=getLinkId(client,room,linkId);
       const headers=buildSessionHeaders(client),query='?link_id='+encodeURIComponent(link);
+      // Never delete a post that is no longer marked as a room notice.
+      const before=assertServerStatus(await transport({
+        method:'GET',path:'/moim/posts/'+encodeURIComponent(post)+query,headers
+      }),'공지 삭제 전 확인');
+      if(!(before.notice===true||before.post?.notice===true||before.data?.notice===true))
+        throw Error('현재 등록된 공지인지 확인할 수 없습니다.');
       // This is the legacy board post deletion endpoint; compatibility depends
       // on Kakao's server. Do not report success without server confirmation.
       const response=assertServerStatus(await transport({
