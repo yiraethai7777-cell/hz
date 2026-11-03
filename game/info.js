@@ -1,7 +1,7 @@
 'use strict';
 const {getPool}=require('../shared/db');
 const FOLD='\u200b'.repeat(1200);
-const fmt=n=>Number(n||0).toLocaleString('ko-KR');
+const fmt=n=>typeof n==='bigint'||typeof n==='string'&&/^-?\d+$/.test(n)?BigInt(n).toLocaleString('ko-KR'):Number(n||0).toLocaleString('ko-KR');
 function format({id,name,bot,player={},balance=0,chat,link}) {
  const mention=`\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;
  const n=Math.max(1,Math.min(200,Number(player.level)||1));
