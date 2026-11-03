@@ -5,7 +5,7 @@ const {ensureWallet}=require('./wallet');
 const {ensureLinked}=require('./economy');
 async function adjust({room,user,name,actor,amount,operationId,reason='관리자 조정'}){
  const raw=String(amount);
- if(!/^-?[1-9]\\d*$/.test(raw))throw Error('조정 금액은 0이 아닌 정수여야 합니다.');
+ if(!/^-?[1-9]\d*$/.test(raw))throw Error('조정 금액은 0이 아닌 정수여야 합니다.');
  // BigInt parses the entire decimal input without floating-point rounding.
  const exact=BigInt(raw);
  if(exact===0n)throw Error('조정 금액은 0이 될 수 없습니다.');
