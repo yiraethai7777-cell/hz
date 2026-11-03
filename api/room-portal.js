@@ -8,7 +8,7 @@ const bad=(message,status=400)=>{const e=Error(message);e.status=status;throw e;
 const hash=s=>crypto.createHash('sha256').update(String(s)).digest('hex');
 const passwordHash=(s,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+crypto.scryptSync(s,salt,64).toString('hex');
 const same=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);};
-const PERMISSIONS=['manage','mention','profile','deleted','spam','templates','warnings','roles'];
+const PERMISSIONS=['manage','mention','profile','deleted','spam','templates','warnings','roles','prefixes','chatStats'];
 const attempts=new Map();
 async function init(){
  const db=getPool();
@@ -99,7 +99,7 @@ async function settings(s){
  db.query("SELECT enabled FROM hz_mention_settings WHERE room_id=$1",[room]),
  db.query("SELECT data->'profileAlerts' AS enabled FROM hz_rooms WHERE room_id=$1",[room])]);
  const v=r.rows[0]||{};
- return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
+ return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,prefixes:await require('../shared/command-prefixes').get(room),flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
 }
 async function warnings(room){
  const r=await getPool().query(`SELECT user_id,max(user_name) AS user_name,count(*)::int AS count,
@@ -142,6 +142,30 @@ async function routes(req,res,url,body){
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   setCookie(res,'',req,0);
   return {ok:true,logout:true};
+ }
+ if(p==='/api/room-portal/prefixes'&&method==='POST'){
+  allowed(s,'prefixes');
+  const prefixes=await require('../shared/command-prefixes').set(s.room_id,body.prefixes);
+  return {ok:true,prefixes};
+ }
+ if(p==='/api/room-portal/chat-stats'&&method==='GET'){
+  allowed(s,'chatStats');
+  const rows=await getPool().query("SELECT user_id,user_name,count::text AS count FROM gl_manage_chat_counts WHERE room_id=$1 ORDER BY count DESC,user_id ASC",[s.room_id]);
+  return {roomId:s.room_id,total:rows.rows.length,rankings:rows.rows.map((r,i)=>({rank:i+1,...r}))};
+ }
+ if(p==='/api/room-portal/chat-stats'&&method==='DELETE'){
+  allowed(s,'chatStats');
+  const action=String(body.action||'');
+  if(action!=='user'&&action!=='all')bad('삭제 범위가 올바르지 않습니다.');
+  const user=id(body.userId);
+  if(action==='user'&&!/^[1-9]\\d{3,24}$/.test(user))bad('올바른 사용자 ID가 필요합니다.');
+  if(body.confirmation!=='DELETE_CONFIRMED_TWICE')bad('2단계 삭제 확인이 필요합니다.',400);
+  const db=getPool();
+  const result=action==='all'
+   ?await db.query('DELETE FROM gl_manage_chat_counts WHERE room_id=$1',[s.room_id])
+   :await db.query('DELETE FROM gl_manage_chat_counts WHERE room_id=$1 AND user_id=$2',[s.room_id,user]);
+  await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[s.room_id,'portal:'+s.id,action==='all'?'ALL':user,'CHAT_RANK_RESET',action]);
+  return {ok:true,deleted:result.rowCount};
  }
  if(p==='/api/room-portal/members'&&method==='GET'){
   const client=status.client;
@@ -203,11 +227,14 @@ async function routes(req,res,url,body){
  }
  if(p==='/api/room-portal/warnings'&&method==='POST'){
   allowed(s,'warnings');const user=id(body.userId),reason=String(body.reason||'').trim().slice(0,300);
+  const count=body.count==null?1:Number(body.count);
+  if(!/^[1-9]\\d{3,24}$/.test(user))bad('카카오 사용자 ID가 올바르지 않습니다.');
+  if(!Number.isInteger(count)||count<1||count>10)bad('경고 개수는 1~10개로 지정해 주세요.');
   if(!reason)bad('경고 사유를 입력하세요.');
   const name=String(body.userName||user).trim().slice(0,80)||user;
   const c=await getPool().connect();try{
    await c.query('BEGIN');
-   await c.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) VALUES($1,$2,$3,$4,$5)',[s.room_id,user,name,reason,'web:'+s.username]);
+   await c.query('INSERT INTO gl_manage_warnings(room_id,user_id,user_name,reason,issuer_id) SELECT $1,$2,$3,$4,$5 FROM generate_series(1,$6::int)',[s.room_id,user,name,reason,'web:'+s.username,count]);
    await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   return warnings(s.room_id);
