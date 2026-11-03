@@ -63,7 +63,7 @@ function enhancementNeed(level){return Math.min(200,1+Math.floor(level/3))}
 
 async function autoFishTick(){
  if(!ctx.globalChat)return;
- const rows=await ctx.pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'fishEnabled') IS DISTINCT FROM 'false'");
+ const rows=await ctx.pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'fishEnabled') IS DISTINCT FROM 'false' AND (data->>'botEnabled') IS DISTINCT FROM 'false'");
  const now=Date.now(),cooldown=ctx.FISHING_COOLDOWN_SECONDS*1000;
  for(const row of rows.rows){
   const rid=row.room_id;
@@ -100,7 +100,7 @@ async function quizExpiryTick(){
  if(quizExpiryBusy||!ctx.globalChat)return;
  quizExpiryBusy=true;
  try{
-  const result=await ctx.pool.query("SELECT room_id,data->'quiz' AS quiz FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'quizEnabled') IS DISTINCT FROM 'false' AND data->'quiz' IS NOT NULL");
+  const result=await ctx.pool.query("SELECT room_id,data->'quiz' AS quiz FROM hz_rooms WHERE (data->>'game')='true' AND (data->>'quizEnabled') IS DISTINCT FROM 'false' AND (data->>'botEnabled') IS DISTINCT FROM 'false' AND data->'quiz' IS NOT NULL");
   for(const entry of result.rows){
    if(!entry.quiz||!Number.isFinite(Number(entry.quiz.expiresAt))||Number(entry.quiz.expiresAt)>Date.now())continue;
    try {
