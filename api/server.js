@@ -36,7 +36,7 @@ function start({client,ready,port=Number(process.env.PORT||3000),host='0.0.0.0'}
  status.client=client;
  client?.on('ready',()=>{status.connected=true;});client?.on('disconnected',()=>{status.connected=false;});
  client?.on('error',e=>{status.errors.push(new Date().toISOString()+' · '+String(e.code||e.name||'연결 오류').slice(0,80));if(status.errors.length>20)status.errors.shift();});
- Promise.resolve(ready).then(async()=>{await require('../promotion/kakao').service().start();status.ready=true;}).catch(()=>{status.ready=false;});
+ Promise.resolve(ready).then(async()=>{await require('../promotion/kakao').service().start();await require('../game/fishing-coin-event').init();require('../game/fishing-coin-event').startScheduler(client);status.ready=true;}).catch(()=>{status.ready=false;});
  server.on('error',e=>{console.error('[WEB] 서버 오류:',e.code);});server.listen(port,host,()=>console.log('[WEB] listening on port '+server.address().port));return server;
 }
 module.exports={handler,start};
