@@ -69,7 +69,7 @@ function createGame(client) {
       
       // Check room state before dispatching any quiz command. Previously this
       // fast path bypassed the room's game OFF gate.
-      if ((text === '#퀴즈' || /^#정답(?:\\s|$)/.test(text)) && legacyMessage) {
+      if ((text === '#퀴즈' || /^#정답(?:\s|$)/.test(text)) && legacyMessage) {
         const q=await getPool().query("SELECT (data->>'game')::boolean AS game,(data->>'quizEnabled')::boolean AS quiz FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
         if(q.rows[0]?.game!==true)return;
         if(q.rows[0]?.quiz===false)return;
