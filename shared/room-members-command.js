@@ -46,10 +46,6 @@ async function handle({text,roomId,client,send}){
   return true;
  }
  const sorted=[...members.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')||a.id.localeCompare(b.id));
- if(!sorted.length){
-  await send('❌ 현재 방의 참여자를 확인하지 못했습니다.'+(error?'\n사유: '+error:''));
-  return true;
- }
  const heading='👥 NEXI | 방 인원 확인\n━━━━━━━━━━━━━━━━\n'+
   '✅ 확인된 인원: '+sorted.length+'명\n'+
   '📋 조회 방식: CHATONROOM\n'+
