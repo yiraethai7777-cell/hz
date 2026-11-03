@@ -76,6 +76,23 @@ async function master(req,url,body){
  if(exists.rowCount&&(password||!portalEnabled||body.revokeSessions===true))await db.query('DELETE FROM gl_room_portal_sessions WHERE portal_id=$1',[q.rows[0].id]);
  return {ok:true,portal:q.rows[0],url:'/room-panel?site='+q.rows[0].slug};
 }
+async function masterResetPassword(req,body){
+ await init();
+ const s=await masterSession(req);if(!s)bad('총관리자 로그인이 필요합니다.',401);
+ masterCsrf(req,s);
+ const room=id(body.roomId);
+ const password=crypto.randomBytes(24).toString('base64url');
+ const db=getPool(),client=await db.connect();
+ try{
+  await client.query('BEGIN');
+  const record=await client.query('UPDATE gl_room_portals SET password_hash=$2 WHERE room_id=$1 RETURNING id,username,slug,label',[room,passwordHash(password)]);
+  if(!record.rowCount)bad('해당 방 관리자 웹사이트가 없습니다.',404);
+  await client.query('DELETE FROM gl_room_portal_sessions WHERE portal_id=$1',[record.rows[0].id]);
+  await client.query('COMMIT');
+  return {ok:true,username:record.rows[0].username,password,slug:record.rows[0].slug};
+ }catch(error){await client.query('ROLLBACK');throw error}
+ finally{client.release()}
+}
 async function login(req,res,body){
  await init();
  const slug=String(body.site||''),username=String(body.username||''),password=String(body.password||'');
@@ -132,6 +149,7 @@ async function warnings(room){
 }
 async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
+ if(p==='/api/admin/room-portal-password-reset'&&method==='POST')return masterResetPassword(req,body);
  if(p==='/api/admin/room-portals')return master(req,url,body);
  if(p==='/api/room-portal/login'&&method==='POST')return login(req,res,body);
  if(p==='/api/room-portal/login-from-admin'&&method==='POST')return loginFromAdmin(req,res,body);
