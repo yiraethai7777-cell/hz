@@ -19,12 +19,37 @@ async function render(){
   row.append(span,input);list.append(row);
  }
  if(!list.children.length)list.textContent='현재 사용할 수 있는 기능이 없습니다.';
+ $('#fishEventPanel').hidden=!d.permissions.manage;
+ if(d.permissions.manage)await refreshFishEvent();
  $('#templates').hidden=!d.permissions.templates;$('#warningPanel').hidden=!d.permissions.warnings;
  $('#prefixPanel').hidden=!d.permissions.prefixes;$('#tabRanks').hidden=!d.permissions.chatStats;
  canWarnMembers=!!d.permissions.warnings;$('#prefixInput').value=(d.prefixes||['!']).join(', ');
  $('#newUsername').value=d.username||'';$('#joinTemplate').value=d.joinTemplate;$('#leaveTemplate').value=d.leaveTemplate;
  if(d.permissions.warnings)await renderWarnings();
 }
+async function refreshFishEvent(){
+ const d=await api('/api/room-portal/fishing-coin-event');
+ const e=d.event;
+ if(!e){$('#fishEventStatus').textContent='아직 진행한 이벤트가 없습니다.';return;}
+ const leader=e.leader;
+ if(e.status==='active'){
+  const secs=Math.max(0,Math.ceil((new Date(e.ends_at).getTime()-Date.now())/1000));
+  $('#fishEventStatus').textContent='진행 중 · 남은 시간 '+secs+'초 · '+e.participants+'명 참가'+
+   (leader?' · 현재 1위 '+leader.userName+' / '+leader.fishName+' '+leader.sizeCm+'cm':'');
+ }else $('#fishEventStatus').textContent=e.winner_id
+  ?'종료 · 우승 '+e.winner_name+' / '+e.winning_fish+' '+e.winning_size+'cm · 100만 코인 지급 완료'
+  :'종료 · 참가 기록 없음';
+ $('#startFishEvent').disabled=e.status==='active';
+}
+$('#startFishEvent').addEventListener('click',()=>task(async()=>{
+ if(!confirm('현재 방에서 2분간 가장 큰 물고기를 낚은 사람에게 100만 코인을 지급하는 이벤트를 시작하시겠습니까?'))return;
+ $('#startFishEvent').disabled=true;
+ try{
+  await api('/api/room-portal/fishing-coin-event','POST',{confirm:true});
+  await refreshFishEvent();note('🎉 코인 낚시 이벤트를 시작했습니다.');
+ }finally{$('#startFishEvent').disabled=false;await refreshFishEvent().catch(()=>{});}
+}));
+$('#refreshFishEvent').addEventListener('click',()=>task(refreshFishEvent));
 async function renderWarnings(){
  const d=await api('/api/room-portal/warnings');const list=$('#warnings');list.replaceChildren();
  for(const u of d.warnings){
