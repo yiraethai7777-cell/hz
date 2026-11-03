@@ -22,7 +22,32 @@ async function load(){
  const state=document.createElement('p');state.textContent=(p.enabled?'🟢 사용 중':'⚫ 중지됨')+' · 로그인 아이디: '+p.username;
  const pwState=document.createElement('p');pwState.textContent='비밀번호: 암호화되어 조회 불가 (재설정 가능)';
  const link=document.createElement('a');link.href='/room-panel?site='+encodeURIComponent(p.slug);link.textContent=location.origin+link.getAttribute('href');link.target='_blank';link.rel='noopener noreferrer';
- const button=document.createElement('button');button.textContent='설정 수정 / 기능 추가';button.addEventListener('click',()=>fill(p));box.append(title,state,pwState,link,document.createElement('br'),button);$('#list').append(box);}
+ const button=document.createElement('button');button.textContent='설정 수정 / 기능 추가';button.addEventListener('click',()=>fill(p));
+ const reset=document.createElement('button');reset.type='button';reset.textContent='새 비밀번호 발급 · 보기';reset.className='secondary';
+ reset.addEventListener('click',()=>task(async()=>{
+  if(!confirm(p.label+'의 비밀번호를 새로 발급하시겠습니까?\\n기존 비밀번호와 로그인 세션은 모두 무효화됩니다.'))return;
+  reset.disabled=true;
+  try{
+   const result=await api('/api/admin/room-portal-password-reset','POST',{roomId:p.room_id});
+   const credential=document.createElement('div');credential.className='credential-result';
+   const userLine=document.createElement('p');userLine.textContent='로그인 아이디: '+result.username;
+   const pwLine=document.createElement('p');
+   const pwLabel=document.createElement('strong');pwLabel.textContent='새 비밀번호: ';
+   const pwValue=document.createElement('code');pwValue.textContent=result.password;
+   pwLine.append(pwLabel,pwValue);
+   const copy=document.createElement('button');copy.type='button';copy.className='secondary';copy.textContent='아이디·비밀번호 복사';
+   copy.addEventListener('click',()=>task(async()=>{
+    await navigator.clipboard.writeText('아이디: '+result.username+'\\n비밀번호: '+result.password);
+    notice('✅ 로그인 정보를 복사했습니다.');
+   }));
+   const warning=document.createElement('p');warning.className='muted';warning.textContent='새 비밀번호는 현재 화면에서만 확인할 수 있습니다. 새로고침 후에는 다시 표시되지 않습니다.';
+   credential.append(userLine,pwLine,copy,warning);
+   box.querySelector('.credential-result')?.remove();
+   box.append(credential);
+   notice('✅ 새 비밀번호가 발급되었습니다. 기존 비밀번호와 로그인 세션은 무효화되었습니다.');
+  }finally{reset.disabled=false;}
+ }));
+ box.append(title,state,pwState,link,document.createElement('br'),button,' ',reset);$('#list').append(box);}
  if(!portals.length)$('#list').textContent='발급된 웹사이트가 없습니다.';
  $('#room').dispatchEvent(new Event('change'));
 }
