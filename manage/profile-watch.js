@@ -12,17 +12,26 @@ function createWatcher(ctx,client,{now=Date.now}={}){
   busy=true;
   try{
    if(now()-lastRoomsAt>15000){
+    // Fail closed: the watcher must never query historical rooms that the bot
+    // cannot currently access. Refresh the active LOCO room list first.
+    if(typeof client.getChatRooms!=='function'||typeof client.getKnownChatRooms!=='function'){
+     rooms=[];throw Error('현재 참여 중인 방 목록 조회를 지원하지 않습니다.');
+    }
+    await client.getChatRooms();
+    const joined=new Set(client.getKnownChatRooms()
+     .map(r=>String(r.id||'')).filter(id=>/^[1-9]\\d{1,24}$/.test(id)));
     const result=await ctx.pool.query(`SELECT h.room_id FROM hz_rooms h
-     WHERE COALESCE(h.data->>'profileAlerts','true')='true'
-       AND COALESCE(h.data->>'locked','false')<>'true'
-       AND (h.data->>'profileAlerts'='true' OR h.data->>'manage'='true' OR EXISTS
-         (SELECT 1 FROM gl_room_portals p WHERE p.room_id=h.room_id AND p.enabled))
-     UNION
-     SELECT p.room_id FROM gl_room_portals p
-     WHERE p.enabled AND NOT EXISTS (SELECT 1 FROM hz_rooms h WHERE h.room_id=p.room_id)
-     ORDER BY room_id`);
-    rooms=result.rows.map(r=>String(r.room_id));
-    console.log('[PROFILE WATCH] eligible room count:',rooms.length);
+      LEFT JOIN gl_manage_rooms g ON g.room_id=h.room_id
+      WHERE COALESCE(g.enabled,(h.data->>'manage')::boolean,FALSE)=TRUE
+        AND COALESCE((h.data->>'locked')::boolean,FALSE)=FALSE
+        AND COALESCE((h.data->>'profileAlerts')::boolean,TRUE)=TRUE
+      ORDER BY h.room_id`);
+    rooms=result.rows.map(r=>String(r.room_id)).filter(id=>joined.has(id));
+    // When a room stops being eligible, discard its old comparison baseline.
+    const eligible=new Set(rooms);
+    for(const id of observed.keys())if(!eligible.has(id))observed.delete(id);
+    for(const id of roomRetryAt.keys())if(!eligible.has(id))roomRetryAt.delete(id);
+    console.log('[PROFILE WATCH] active managed rooms',{joined:joined.size,eligible:rooms.length});
     lastRoomsAt=now();
    }
    if(!rooms.length)return;
@@ -90,7 +99,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
    roomRetryAt.delete(room);
    }catch(e){
     console.warn('[PROFILE WATCH] room poll failed',{room,error:String(e?.message||e).slice(0,160)});
-    roomRetryAt.set(room,now()+15000);
+    roomRetryAt.set(room,now()+(/-401/.test(String(e?.message||e))?300000:15000));
    }
   }catch(e){
    console.warn('[PROFILE WATCH] scheduler failed:',String(e?.message||e).slice(0,160));
