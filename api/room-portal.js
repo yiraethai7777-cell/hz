@@ -8,7 +8,7 @@ const bad=(message,status=400)=>{const e=Error(message);e.status=status;throw e;
 const hash=s=>crypto.createHash('sha256').update(String(s)).digest('hex');
 const passwordHash=(s,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+crypto.scryptSync(s,salt,64).toString('hex');
 const same=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);};
-const PERMISSIONS=['manage','mention','profile','deleted','spam','templates','warnings'];
+const PERMISSIONS=['manage','mention','profile','deleted','spam','templates','warnings','roles'];
 const attempts=new Map();
 async function init(){
  const db=getPool();
@@ -142,6 +142,42 @@ async function routes(req,res,url,body){
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   setCookie(res,'',req,0);
   return {ok:true,logout:true};
+ }
+ if(p==='/api/room-portal/members'&&method==='GET'){
+  const client=status.client;
+  if(!client?.connected)bad('카카오톡 연결 상태를 확인할 수 없습니다.',503);
+  const roster=await require('../shared/live-roster').refresh(client,s.room_id);
+  const db=getPool();
+  const [admins,superAdmins]=await Promise.all([
+   db.query('SELECT user_id FROM gl_manage_admins WHERE room_id=$1',[s.room_id]),
+   require('../shared/super-admin').list(s.room_id,db)
+  ]);
+  const adminIds=new Set(admins.rows.map(r=>r.user_id)),superIds=new Set(superAdmins.map(r=>r.user_id));
+  return {count:roster.members.length,checkedAt:new Date(roster.at).toISOString(),
+   canEditRoles:!!s.permissions?.roles,
+   members:roster.members.map(m=>({
+    id:m.id,name:m.name,imageUrl:m.imageUrl,
+    roomRole:m.type===1?'방장':m.type===4?'부방장':'',
+    admin:adminIds.has(m.id),superAdmin:superIds.has(m.id)
+   }))};
+ }
+ if(p==='/api/room-portal/member-role'&&method==='POST'){
+  allowed(s,'roles');
+  const user=id(body.userId),role=String(body.role||''),on=body.enabled;
+  if(!['admin','superAdmin'].includes(role)||typeof on!=='boolean')bad('관리자 권한 설정이 올바르지 않습니다.');
+  const roster=await require('../shared/live-roster').refresh(status.client,s.room_id,{force:true});
+  const member=roster.members.find(m=>m.id===user);
+  if(!member)bad('현재 해당 방에 있는 사용자만 선택할 수 있습니다.',404);
+  if(user===String(status.client?.userId)||[1,4].includes(member.type))bad('봇·방장·부방장 권한은 변경할 수 없습니다.',403);
+  const db=getPool();
+  if(role==='admin'){
+   if(on)await db.query('INSERT INTO gl_manage_admins(room_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[s.room_id,user]);
+   else await db.query('DELETE FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[s.room_id,user]);
+  }else{
+   await require('../shared/super-admin').update(s.room_id,user,'customer-portal:'+s.id,on?'add':'remove',db);
+  }
+  await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[s.room_id,'portal:'+s.id,user,on?'WEB_ROLE_ADD':'WEB_ROLE_REMOVE',role]);
+  return {ok:true};
  }
  if(p==='/api/room-portal/settings'&&method==='GET')return settings(s);
  if(p==='/api/room-portal/warnings'&&method==='GET'){allowed(s,'warnings');return warnings(s.room_id);}
