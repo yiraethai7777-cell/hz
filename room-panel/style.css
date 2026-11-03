@@ -1,2 +1,12 @@
 
 :root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif}body{background:#0b1020;color:#edf2ff;margin:0}main{max-width:850px;margin:auto;padding:28px 16px}h1{font-size:24px}h2{font-size:18px}section{border:1px solid #2c3854;background:#141d31;border-radius:16px;padding:20px;margin:16px 0}label{display:block;margin:12px 0;font-size:14px}input,textarea,button{font:inherit}input:not([type=checkbox]),textarea{display:block;box-sizing:border-box;width:100%;background:#091324;color:#fff;border:1px solid #465471;border-radius:10px;padding:12px;margin:6px 0}textarea{min-height:110px}button{background:#a5fa7b;color:#112018;border:0;border-radius:9px;padding:10px 14px;margin:5px 5px 5px 0;cursor:pointer;font-weight:650}button.secondary{background:#38465e;color:#fff}button:disabled{opacity:.5}.feature{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #303c53;padding:12px 0}.feature input{width:22px;height:22px}.muted{color:#a4b2c9}.warn{padding:10px;border:1px solid #3b4c66;border-radius:9px;margin:7px 0}.error{color:#ffb1a8}#notice{min-height:20px}
+
+.tabs{display:flex;gap:8px;margin:18px 0}.tabs button{flex:1}
+.memberCard{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid #334158}
+.memberAvatar{width:56px;height:56px;flex-shrink:0;object-fit:cover;border-radius:50%;background:#263550}
+.memberInfo{flex:1;min-width:0;overflow-wrap:anywhere}
+.memberRoles,.memberActions{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.roleTag{border:1px solid #63718b;border-radius:20px;padding:4px 8px;font-size:12px}
+.memberActions button{font-size:12px;padding:7px 9px}
+#memberSearch{margin:14px 0}
+[hidden]{display:none!important}
