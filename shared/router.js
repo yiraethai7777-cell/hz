@@ -114,6 +114,23 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         text=prefixResult.text;
         msg={...msg,text,message:{...(msg.message||{}),text}};
       }
+      // Per-room bot power switch. Only these two commands can pass while OFF.
+      if(text==='!봇켜기'||text==='!봇끄기'){
+        await ready;
+        const context={client,roomId,userId:senderId??'',userName:msg.sender?.name||'알 수 없음',
+          text,msg,senderType:msg.sender?.type,botId:client.userId,isBotAccount,
+          send:body=>chat.sendText(roomId,body)};
+        try{await require('../manage/commands-v2').handle(context);}
+        catch(error){
+          console.error('[BOT POWER COMMAND]',String(error?.message||error));
+          await chat.sendText(roomId,'❌ 봇 설정 변경에 실패했습니다.');
+        }
+        return;
+      }
+      const power=await require('./db').getPool().query(
+        "SELECT data->>'botEnabled' AS enabled FROM hz_rooms WHERE room_id=$1",
+        [String(roomId)]);
+      if(power.rows[0]?.enabled==='false')return;
       // Scoped superadmin authorization does not change the Kakao sender identity.
       let isSuperAdmin=false;
       if(text.startsWith('!')&&senderId!=null&&!isBotAccount){
