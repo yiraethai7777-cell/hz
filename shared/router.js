@@ -404,6 +404,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
   },
   send: body => chat.sendText(roomId, body)
 };
+      if (text === '!방인원 체크') {
+        if (await require('./room-members-command').handle({text,roomId,client,send:context.send})) return;
+      }
       if (text.startsWith('!') || text === 'ㅊㅅ') {
         try {
           if (await require('../manage/commands-v2').handle(context)) return;
