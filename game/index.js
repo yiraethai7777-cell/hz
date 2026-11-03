@@ -36,7 +36,10 @@ function createGame(client) {
       await getPool().query(`INSERT INTO hz_rooms(room_id,data)
         VALUES($1,jsonb_build_object('game',$2::boolean))
         ON CONFLICT(room_id) DO UPDATE SET
-        data=jsonb_set(hz_rooms.data,'{game}',to_jsonb($2::boolean)),updated_at=NOW()`,
+        data=CASE WHEN $2::boolean
+          THEN jsonb_set(hz_rooms.data,'{game}','true'::jsonb,true)
+          ELSE jsonb_set(jsonb_set(hz_rooms.data,'{game}','false'::jsonb,true),'{quiz}','null'::jsonb,true)
+        END,updated_at=NOW()`,
       [String(roomId),on]);
       await send(on ? ' 게임 기능이 작동되었습니다.' : ' 게임 기능이 중지되었습니다.');
     },
@@ -64,10 +67,13 @@ function createGame(client) {
       if (/^[!#](?:준개|전체준개)/.test(text)) return;
       if (/^[!#](?:주식|내주식)/.test(text) || ['!코인','!레벨','!내정보','#코인','#레벨','#내정보'].includes(text)) return;
       
-      // Route quiz commands directly to the legacy game handler. Other
-      // game features still pass through their existing permission checks.
+      // Check room state before dispatching any quiz command. Previously this
+      // fast path bypassed the room's game OFF gate.
       if ((text === '#퀴즈' || /^#정답(?:\\s|$)/.test(text)) && legacyMessage) {
-        await legacyMessage(chat, msg);
+        const q=await getPool().query("SELECT (data->>'game')::boolean AS game,(data->>'quizEnabled')::boolean AS quiz FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
+        if(q.rows[0]?.game!==true)return;
+        if(q.rows[0]?.quiz===false)return;
+        await legacyMessage(chat,msg);
         return;
       }
 
