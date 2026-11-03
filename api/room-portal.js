@@ -158,7 +158,7 @@ async function routes(req,res,url,body){
   const action=String(body.action||'');
   if(action!=='user'&&action!=='all')bad('삭제 범위가 올바르지 않습니다.');
   const user=id(body.userId);
-  if(action==='user'&&!/^[1-9]\\d{3,24}$/.test(user))bad('올바른 사용자 ID가 필요합니다.');
+  if(action==='user'&&!/^[1-9]\d{3,24}$/.test(user))bad('올바른 사용자 ID가 필요합니다.');
   if(body.confirmation!=='DELETE_CONFIRMED_TWICE')bad('2단계 삭제 확인이 필요합니다.',400);
   const db=getPool();
   const result=action==='all'
@@ -228,7 +228,7 @@ async function routes(req,res,url,body){
  if(p==='/api/room-portal/warnings'&&method==='POST'){
   allowed(s,'warnings');const user=id(body.userId),reason=String(body.reason||'').trim().slice(0,300);
   const count=body.count==null?1:Number(body.count);
-  if(!/^[1-9]\\d{3,24}$/.test(user))bad('카카오 사용자 ID가 올바르지 않습니다.');
+  if(!/^[1-9]\d{3,24}$/.test(user))bad('카카오 사용자 ID가 올바르지 않습니다.');
   if(!Number.isInteger(count)||count<1||count>10)bad('경고 개수는 1~10개로 지정해 주세요.');
   if(!reason)bad('경고 사유를 입력하세요.');
   const name=String(body.userName||user).trim().slice(0,80)||user;
