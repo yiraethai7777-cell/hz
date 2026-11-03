@@ -7,6 +7,9 @@ async function init(){await getPool().query(`
  CREATE TABLE IF NOT EXISTS gl_game_requests(room_id TEXT NOT NULL,message_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,message_id));
  CREATE TABLE IF NOT EXISTS gl_game_events(id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,kind TEXT NOT NULL,amount BIGINT NOT NULL DEFAULT 0,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());`);}
 function safe(n){n=Number(n);if(!Number.isSafeInteger(n)||n<0||n>LIMIT)throw Error('기존 코인 값을 안전하게 처리할 수 없습니다.');return n;}
+// Legacy game logic uses JS numbers; expose a safe gameplay window while
+// keeping the authoritative wallet balance as exact PostgreSQL NUMERIC.
+function gameplayPoints(balance){const n=BigInt(String(balance??'0'));return Number(n>1000000000000n?1000000000000n:n);}
 async function link(db,room,user,p){
  const legacy=safe(p.points||0);
  // Combine wallet upsert and one-time legacy link creation in one DB round trip.
@@ -34,8 +37,8 @@ async function link(db,room,user,p){
  }
  if(added.rows[0].newly_linked&&legacy){
   const balance=await db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user]);
-  p.points=safe(balance.rows[0].balance);
- }else p.points=safe(added.rows[0].balance);
+  p.points=gameplayPoints(balance.rows[0].balance);
+ }else p.points=gameplayPoints(added.rows[0].balance);
  return p.points;
 }
 async function withPlayer({db,room,user,p,msg,botId,run}){
@@ -57,8 +60,8 @@ async function withPlayer({db,room,user,p,msg,botId,run}){
   // The caller's existing transaction still commits or rolls back all three together.
   await db.query(`
     WITH updated AS (
-      UPDATE hz_wallets SET balance=$3
-      WHERE room_id=$1 AND user_id=$2
+      UPDATE hz_wallets SET balance=balance+$3::numeric
+      WHERE room_id=$1 AND user_id=$2 AND balance+$3::numeric>=0
       RETURNING room_id,user_id
     ), coin_log AS (
       INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
@@ -68,7 +71,7 @@ async function withPlayer({db,room,user,p,msg,botId,run}){
     INSERT INTO gl_game_events(room_id,user_id,kind,amount)
     SELECT updated.room_id,updated.user_id,$6,$5
     FROM updated CROSS JOIN coin_log
-  `,[String(room),String(user),p.points,delta>0?'GAME_REWARD':'GAME_SPEND',delta,cmd]);
+  `,[String(room),String(user),String(delta),delta>0?'GAME_REWARD':'GAME_SPEND',delta,cmd]);
  }
  const totalMs=Date.now()-started;
  if(totalMs>=800)console.warn('[GAME ECONOMY SLOW]',{linkMs,runMs,writeMs:totalMs-linkMs-runMs,totalMs});
