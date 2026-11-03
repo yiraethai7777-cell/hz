@@ -118,6 +118,24 @@ async function routes(req,res,url,body){
  if(p==='/api/room-portal/logout'&&method==='POST'){
   await getPool().query('DELETE FROM gl_room_portal_sessions WHERE token_hash=$1',[hash(cookieValue(req))]);setCookie(res,'',req,0);return {ok:true};
  }
+ if(p==='/api/room-portal/account'&&method==='POST'){
+  const current=String(body.currentPassword||''),username=String(body.username||'').trim();
+  const password=String(body.newPassword||'');
+  if(!/^[a-zA-Z0-9_.-]{4,40}$/.test(username))bad('아이디는 영문·숫자 4~40자로 입력하세요.');
+  if(password&&password.length<10)bad('새 비밀번호는 10자 이상이어야 합니다.');
+  if(!password&&username===s.username)bad('변경할 정보를 입력하세요.');
+  const stored=s.password_hash;
+  if(!same(passwordHash(current.slice(0,256),stored.split(':')[0]),stored))bad('현재 비밀번호가 일치하지 않습니다.',403);
+  const db=getPool(),c=await db.connect();
+  try{
+   await c.query('BEGIN');
+   await c.query('UPDATE gl_room_portals SET username=$2,password_hash=COALESCE($3,password_hash) WHERE id=$1',[s.id,username,password?passwordHash(password):null]);
+   await c.query('DELETE FROM gl_room_portal_sessions WHERE portal_id=$1',[s.id]);
+   await c.query('COMMIT');
+  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+  setCookie(res,'',req,0);
+  return {ok:true,logout:true};
+ }
  if(p==='/api/room-portal/settings'&&method==='GET')return settings(s);
  if(p==='/api/room-portal/warnings'&&method==='GET'){allowed(s,'warnings');return warnings(s.room_id);}
  if(p==='/api/room-portal/feature'&&method==='POST'){
