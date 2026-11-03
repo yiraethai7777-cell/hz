@@ -1,7 +1,7 @@
 'use strict';
 const $=s=>document.querySelector(s);let csrf='',rooms=[],selected=null;
 function feedback(text,error=false,target='#feedback'){const el=$(target);el.textContent=text;el.classList.toggle('error',error);}
-async function api(path,method='GET',data){const response=await fetch(path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(method!=='GET'?{'X-CSRF-Token':csrf}:{})},body:data===undefined?undefined:JSON.stringify(data)});const result=await response.json();if(!response.ok){if(response.status===401&&path!=='/api/login'){$('#login-view').hidden=false;$('#admin-view').hidden=true;}throw Error(result.error||'요청 실패');}return result;}
+async function api(path,method='GET',data){const response=await fetch(path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json',...(method!=='GET'?{'X-CSRF-Token':csrf}:{})},body:data===undefined?undefined:JSON.stringify(data)});const result=await response.json();if(!response.ok){if(response.status===401&&path!=='/api/login'){$('#login-view').hidden=false;$('#admin-view').hidden=true;}const error=Error(result.error||'요청 실패');error.status=response.status;throw error;}return result;}
 const format=n=>Number(n||0).toLocaleString('ko-KR');
 $('#attendance-image-test')?.addEventListener('click',async e=>{
  const b=e.currentTarget;b.disabled=true;feedback('테스트 방에 출석 이미지 한 장을 전송하고 있습니다.');
@@ -12,7 +12,30 @@ function cell(row,text){const td=document.createElement('td');td.textContent=tex
 function button(text,fn){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=text;b.addEventListener('click',()=>task(fn));return b;}
 async function task(run){try{await run();}catch(e){feedback(e.message,true);}}
 async function start(session){csrf=session.csrf;$('#admin-name').textContent=session.user;$('#login-view').hidden=true;$('#admin-view').hidden=false;await loadRooms();await show('overview');}
-$('#login-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const s=await api('/api/login','POST',{username:$('#username').value,password:$('#password').value});$('#password').value='';await start(s);}catch(err){feedback(err.message,true,'#login-feedback');}finally{b.disabled=false;}});
+$('#login-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const button=e.submitter;button.disabled=true;
+ const credentials={username:$('#username').value,password:$('#password').value};
+ try{
+  let masterFailed=false;
+  try{
+   const session=await api('/api/login','POST',credentials);
+   $('#password').value='';
+   await start(session);
+  }catch(err){
+   // Only try room-admin login for an actual credential rejection;
+   // never mask a master dashboard/network error.
+   if(err.status!==401)throw err;
+   masterFailed=true;
+  }
+  if(masterFailed){
+   const room=await api('/api/room-portal/login-from-admin','POST',credentials);
+   $('#password').value='';
+   location.assign(room.redirect);
+  }
+ }catch(err){feedback(err.message,true,'#login-feedback');}
+ finally{button.disabled=false;}
+});
 $('#logout').addEventListener('click',()=>task(async()=>{await api('/api/logout','POST',{});csrf='';selected=null;$('#admin-view').hidden=true;$('#login-view').hidden=false;}));
 const titles={overview:'대시보드',rooms:'채팅방 관리',users:'사용자·코인',promotion:'홍보 관리',notices:'공지사항',audit:'감사 기록','promo-members':'홍보 회원·초대'};
 async function show(panel){document.querySelectorAll('[data-section]').forEach(el=>el.hidden=el.dataset.section!==panel);document.querySelectorAll('[data-panel]').forEach(el=>el.classList.toggle('selected',el.dataset.panel===panel));$('#panel-title').textContent=titles[panel];feedback('');if(panel==='promo-members'){await loadRooms();await loadPromoMembers();}if(panel==='overview')await overview();if(panel==='rooms'||panel==='promotion')await loadRooms();if(panel==='promotion')await loadCommonPromo();if(panel==='notices')await loadNotices();if(panel==='audit'){const d=await api('/api/admin/audit');$('#audit-records').textContent=d.records.map(r=>`${new Date(r.created_at).toLocaleString('ko-KR')} · ${r.actor} · ${r.action}\n${r.room_id||''} ${r.target_id||''}\n${JSON.stringify(r.detail)}`).join('\n\n')||'작업 기록 없음';}}
