@@ -36,6 +36,19 @@ async function routes(req,res,url,body){
  if(p.startsWith('/api/admin/promo-'))return require('../promotion/portal').admin(req,url,body,s);
  if(p==='/api/logout'&&method==='POST')return auth.logout(req,res,s);
  if(p==='/api/admin/overview'&&method==='GET')return overview();
+ if(p==='/api/admin/fishing-coin-event'&&method==='GET'){
+  const room=id(url.searchParams.get('roomId'));
+  return {event:await require('../game/fishing-coin-event').status(room)};
+ }
+ if(p==='/api/admin/fishing-coin-event'&&method==='POST'){
+  if(body.confirm!==true)fail('이벤트 시작을 확인해 주세요.');
+  if(!status.connected||!status.client?.connected)fail('봇이 연결되지 않았습니다.',503);
+  const room=id(body.roomId);
+  await require('../promotion/rooms').refresh(status.client,{force:true});
+  if(!status.client.getKnownChatRooms().some(r=>String(r.id)===room))fail('봇이 참여 중인 방만 선택할 수 있습니다.');
+  const q=await getPool().query("SELECT data->>'name' AS name FROM hz_rooms WHERE room_id=$1",[room]);
+  return require('../game/fishing-coin-event').startEvent(room,q.rows[0]?.name||room,status.client.chat||status.client,'master:'+s.user);
+ }
  if(p==='/api/admin/attendance-image-test'&&method==='POST')return require('../manage/attendance-image/preview').sendTest(status.client,body);
  if(p==='/api/admin/promotion-message'&&method==='GET')return {message:await promotion.commonMessage()||''};
  if(p==='/api/admin/promotion-message'&&method==='POST')return promotion.setCommonMessage(s.user,body);
