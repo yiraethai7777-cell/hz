@@ -179,6 +179,7 @@ async function tick({db,client,logger=console,adapter}){
   const claimed=await db.query(
     "WITH due AS (SELECT n.room_id,n.notice_no FROM hz_scheduled_notices n "+
     "WHERE n.state='pending' AND n.scheduled_at<=NOW() AND n.next_attempt_at<=NOW() "+
+    "AND COALESCE((SELECT (data->>'botEnabled')::boolean FROM hz_rooms WHERE room_id=n.room_id),TRUE)=TRUE "+
     "AND COALESCE((SELECT enabled FROM gl_manage_rooms WHERE room_id=n.room_id),"+
     "(SELECT (data->>'manage')::boolean FROM hz_rooms WHERE room_id=n.room_id),FALSE)=TRUE "+
     "ORDER BY n.scheduled_at,n.room_id,n.notice_no LIMIT 10 FOR UPDATE OF n SKIP LOCKED) "+
