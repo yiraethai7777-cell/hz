@@ -70,6 +70,11 @@ function drawMembers(){
  const list=$('#memberList');list.replaceChildren();
  const term=$('#memberSearch').value.trim().toLowerCase();
  const visible=currentMembers.filter(m=>(m.name+' '+m.id).toLowerCase().includes(term));
+ const staffHeading=document.createElement('h3');staffHeading.className='memberGroupTitle';
+ const staffList=document.createElement('div');
+ const regularHeading=document.createElement('h3');regularHeading.className='memberGroupTitle';
+ const regularList=document.createElement('div');
+ list.append(staffHeading,staffList,regularHeading,regularList);
  for(const m of visible){
   const wrap=document.createElement('div');wrap.className='memberCard';
   if(m.imageUrl&&/^https:\/\//.test(m.imageUrl)){
@@ -83,7 +88,7 @@ function drawMembers(){
    const badge=document.createElement('span');badge.className='roleTag';badge.textContent=label;roles.append(badge);
   }
   if(roles.children.length)info.append(roles);
-  if(canEditMemberRoles&&!m.roomRole){
+  if(canEditMemberRoles){
    const row=document.createElement('div');row.className='memberActions';
    for(const [role,label,enabled] of [['admin','관리자',m.admin],['superAdmin','최고관리자',m.superAdmin]]){
     const btn=document.createElement('button');btn.type='button';btn.className=enabled?'secondary':'';
@@ -117,8 +122,13 @@ function drawMembers(){
    warnRow.append(warnBtn);info.append(warnRow);
   }
   wrap.append(info);list.append(wrap);
+  (m.roomRole||m.superAdmin||m.admin?staffList:regularList).append(wrap);
  }
- if(!visible.length)list.textContent='검색 결과가 없습니다.';
+ const staffCount=staffList.children.length,regularCount=regularList.children.length;
+ staffHeading.textContent='👑 관리자 인원 · '+staffCount+'명';
+ regularHeading.textContent='👥 일반 인원 · '+regularCount+'명';
+ if(!staffCount)staffList.textContent='표시할 관리자가 없습니다.';
+ if(!regularCount)regularList.textContent='표시할 일반 인원이 없습니다.';
 }
 async function loadMembers(){
  const d=await api('/api/room-portal/members');
@@ -159,7 +169,7 @@ async function loadRanks(){
   line.append(n,count);top.append(line);
  }
  if(!rankings.length)top.textContent='채팅 기록이 없습니다.';
- $('#ranksSummary').textContent='전체 채팅순위 · 기록된 사용자 '+rankings.length+'명';
+ $('#ranksSummary').textContent=(d.roomName||'채팅방')+' · 방 ID '+d.roomId+' · 기록된 사용자 '+rankings.length+'명 · 마지막 조회 '+new Date(d.checkedAt).toLocaleString('ko-KR');
  drawRanks();
 }
 function drawRanks(){
