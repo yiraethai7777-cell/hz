@@ -100,6 +100,21 @@ function getLinkId(client,roomId,explicitLinkId) {
 function createBoardAdapter(client,{transport=defaultTransport,linkId=null}={}) {
   return {
     experimental:true,
+    // Remove only a post ID previously registered by this bot.
+    async remove({roomId,postId}){
+      const room=unsignedId(roomId,'채팅방 ID');
+      const post=String(postId||'');
+      if(!/^[A-Za-z0-9_-]{1,128}$/.test(post))throw Error('공지 포스트 ID가 올바르지 않습니다.');
+      if(client?.connected===false)throw Error('카카오톡 연결이 끊어졌습니다.');
+      const link=getLinkId(client,room,linkId);
+      const headers=buildSessionHeaders(client),query='?link_id='+encodeURIComponent(link);
+      // This is the legacy board post deletion endpoint; compatibility depends
+      // on Kakao's server. Do not report success without server confirmation.
+      const response=assertServerStatus(await transport({
+        method:'DELETE',path:'/moim/posts/'+encodeURIComponent(post)+query,headers
+      }),'봇 공지 포스트 삭제');
+      return {removed:response.status===0};
+    },
     async register({roomId,text}) {
       const room=unsignedId(roomId,'채팅방 ID');
       if(client?.connected===false)throw Error('카카오톡 연결이 끊어졌습니다.');
