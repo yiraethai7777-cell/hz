@@ -97,6 +97,11 @@ function getLinkId(client,roomId,explicitLinkId) {
     client?._chatRooms?.get(room)?.li;
   return unsignedId(raw,'오픈채팅 링크 ID');
 }
+// Kakao's board API uses -4042 when a post has already been deleted.
+function isDeletedPostError(error){
+ const msg=String(error?.message||error||'');
+ return /상태 -4042(?:\\D|$)/.test(msg)&&msg.includes('삭제된 글입니다.');
+}
 function createBoardAdapter(client,{transport=defaultTransport,linkId=null}={}) {
   return {
     experimental:true,
@@ -109,9 +114,16 @@ function createBoardAdapter(client,{transport=defaultTransport,linkId=null}={}) 
       const link=getLinkId(client,room,linkId);
       const headers=buildSessionHeaders(client),query='?link_id='+encodeURIComponent(link);
       // Never delete a post that is no longer marked as a room notice.
-      const before=assertServerStatus(await transport({
-        method:'GET',path:'/moim/posts/'+encodeURIComponent(post)+query,headers
-      }),'공지 삭제 전 확인');
+      let before;
+      try{
+        before=assertServerStatus(await transport({
+          method:'GET',path:'/moim/posts/'+encodeURIComponent(post)+query,headers
+        }),'공지 삭제 전 확인');
+      }catch(error){
+        // A previous deletion may have succeeded while our verification failed.
+        if(isDeletedPostError(error))return {removed:true,alreadyRemoved:true};
+        throw error;
+      }
       if(!(before.notice===true||before.post?.notice===true||before.data?.notice===true))
         throw Error('현재 등록된 공지인지 확인할 수 없습니다.');
       // This is the legacy board post deletion endpoint; compatibility depends
@@ -128,7 +140,7 @@ function createBoardAdapter(client,{transport=defaultTransport,linkId=null}={}) 
           return {removed:true};
         throw Error('공지 삭제 후에도 상단 공지가 유지되고 있습니다.');
       }catch(e){
-        if(String(e?.message||e)==='공지 API HTTP 404')return {removed:true};
+        if(String(e?.message||e)==='공지 API HTTP 404'||isDeletedPostError(e))return {removed:true};
         throw e;
       }
     },
