@@ -152,15 +152,28 @@ async function handle(ctx){
  if(STAFF.has(cmd)&&!await isStaff(db,room,user,ctx.senderType,botOwner)){
   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
  }
- if(cmd==='!공지등록'||cmd==='!공지예약'||cmd==='!공지목록'||cmd==='!공지삭제'){
+ if(cmd==='!현공지삭제'||cmd==='!공지등록'||cmd==='!공지예약'||cmd==='!공지목록'||cmd==='!공지삭제'){
   const notices=require('./scheduled-notices');
   try{
+   if(cmd==='!현공지삭제'){
+    if(tail){await send('사용법: !현공지삭제');return true;}
+    if(ctx.msg?.room?.isOpenChat!==true){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
+    try{
+     await notices.removeCurrentBotNotice(db,ctx.client,room,ctx.msg.room.openLinkId);
+     await send('✅ 봇이 등록한 현재 공지를 삭제했습니다.');
+    }catch(error){
+     console.error('[CURRENT NOTICE DELETE]',{room,error:String(error?.message||error)});
+     await send('❌ 공지를 삭제하지 못했습니다. 봇이 등록한 공지인지 또는 삭제 API가 지원되는지 확인해 주세요.');
+    }
+    return true;
+   }
    if(cmd==='!공지등록'){
     if(!tail){await send('사용법: !공지등록 (내용)\n예: !공지등록 오늘 저녁 8시에 이벤트를 시작합니다.');return true;}
     if(ctx.msg?.room?.isOpenChat!==true){await send('❌ 오픈채팅방에서만 공지를 등록할 수 있습니다.');return true;}
     const linkId=ctx.msg.room.openLinkId;
     try{
      const result=await notices.registerActualNotice(ctx.client,room,tail,linkId);
+     await notices.recordBotNotice(db,room,result.postId);
      await send('✅ 채팅방 공지가 등록되었습니다.');
      console.log('[NOTICE IMMEDIATE] registered',{room,user,postId:result.postId||null});
     }catch(e){
