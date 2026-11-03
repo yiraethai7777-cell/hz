@@ -386,7 +386,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Public ping. Prefix normalization already applied at the top of the router.
        if(text==='!핑'){
          const elapsed=Math.max(0,Date.now()-receivedAt);
-         await chat.sendText(roomId,'🏓 퐁! NEXI 정상 작동 중\\n⏱️ 명령 처리: '+elapsed+'ms');
+         await chat.sendText(roomId,'🏓 퐁! NEXI 정상 작동 중\n⏱️ 명령 처리: '+elapsed+'ms');
          return;
        }
        // Serve the (static) game help before management and event pipelines.
