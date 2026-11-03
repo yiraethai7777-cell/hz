@@ -121,7 +121,7 @@ function drawMembers(){
    }));
    warnRow.append(warnBtn);info.append(warnRow);
   }
-  wrap.append(info);list.append(wrap);
+  wrap.append(info);
   (m.roomRole||m.superAdmin||m.admin?staffList:regularList).append(wrap);
  }
  const staffCount=staffList.children.length,regularCount=regularList.children.length;
