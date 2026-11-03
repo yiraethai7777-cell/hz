@@ -57,6 +57,10 @@ async function init(db){
         "next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_error TEXT,"+
         "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), sent_at TIMESTAMPTZ,"+
         "PRIMARY KEY (room_id,notice_no))");
+      await db.query(`CREATE TABLE IF NOT EXISTS hz_bot_registered_notices(
+        id BIGSERIAL PRIMARY KEY,room_id TEXT NOT NULL,post_id TEXT NOT NULL,
+        registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),removed_at TIMESTAMPTZ,
+        UNIQUE(room_id,post_id))`);
       await db.query('ALTER TABLE hz_scheduled_notices ADD COLUMN IF NOT EXISTS open_link_id TEXT');
       await db.query('ALTER TABLE hz_scheduled_notices ADD COLUMN IF NOT EXISTS post_id TEXT');
       await db.query("CREATE INDEX IF NOT EXISTS hz_scheduled_notices_due_idx "+
@@ -109,6 +113,31 @@ async function remove(db,roomId,number){
     "AND state IN ('pending','failed') RETURNING notice_no",
     [validRoom(roomId),n]);
   return r.rowCount>0;
+}
+async function recordBotNotice(db,roomId,postId){
+ if(!postId||!/^[A-Za-z0-9_-]{1,128}$/.test(String(postId)))return false;
+ await init(db);
+ await db.query("INSERT INTO hz_bot_registered_notices(room_id,post_id) VALUES($1,$2) ON CONFLICT(room_id,post_id) DO UPDATE SET removed_at=NULL,registered_at=NOW()",[validRoom(roomId),String(postId)]);
+ return true;
+}
+async function removeCurrentBotNotice(db,client,roomId,linkId){
+ await init(db);
+ const room=validRoom(roomId),c=await db.connect();
+ try{
+  await c.query('BEGIN');
+  // Lock the newest recorded bot notice to avoid concurrent duplicate deletion.
+  const q=await c.query("SELECT id,post_id FROM hz_bot_registered_notices WHERE room_id=$1 AND removed_at IS NULL ORDER BY registered_at DESC LIMIT 1 FOR UPDATE",[room]);
+  if(!q.rowCount)throw Error('봇이 등록한 공지 기록을 찾을 수 없습니다.');
+  const notice=require('../shared/event-notice');
+  const adapter=notice.capability(client,linkId||undefined);
+  if(!adapter||typeof adapter.remove!=='function')throw Error('현재 공지 삭제 API를 지원하지 않습니다.');
+  const result=await adapter.remove({roomId:room,postId:q.rows[0].post_id});
+  if(result?.removed!==true)throw Error('카카오톡 서버에서 삭제 성공을 확인하지 못했습니다.');
+  await c.query("UPDATE hz_bot_registered_notices SET removed_at=NOW() WHERE id=$1",[q.rows[0].id]);
+  await c.query('COMMIT');
+  return {removed:true};
+ }catch(e){await c.query('ROLLBACK');throw e}
+ finally{c.release()}
 }
 function formatList(rows){
   if(!rows.length)return '📋 예약한 공지가 없습니다.';
@@ -166,6 +195,7 @@ async function tick({db,client,logger=console,adapter}){
         "claimed_at=NULL,last_error=NULL,post_id=$4 WHERE room_id=$1 AND notice_no=$2 "+
         "AND state='sending' AND claim_token=$3",
         [notice.room_id,notice.notice_no,token,result.postId||null]);
+      await recordBotNotice(db,notice.room_id,result.postId);
       logger.info?.('[NOTICE SCHEDULE] real room notice registered',notice.room_id,notice.notice_no);
     }catch(error){
       logger.error?.('[NOTICE SCHEDULE] failed',notice.room_id,notice.notice_no,String(error?.message||error));
@@ -201,4 +231,4 @@ function stop(){
   timer=null;
 }
 module.exports={parseTime,nextOccurrence,formatKST,cleanContent,message,init,schedule,list,
-  remove,formatList,noticeCapability,registerActualNotice,tick,start,stop};
+  remove,formatList,noticeCapability,registerActualNotice,recordBotNotice,removeCurrentBotNotice,tick,start,stop};
