@@ -42,7 +42,8 @@ async function startEvent(room,roomName,chat,actor){
   const lock=await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[String(room)]);
   const active=await db.query("SELECT id FROM gl_fishing_coin_events WHERE room_id=$1 AND status='active' LIMIT 1",[String(room)]);
   if(active.rowCount)throw Error('이미 진행 중인 낚시 코인 이벤트가 있습니다.');
-  const settings=await db.query("SELECT (data->>'game')::boolean AS game,COALESCE((data->>'fishEnabled')::boolean,TRUE) AS fishing FROM hz_rooms WHERE room_id=$1",[String(room)]);
+  const settings=await db.query("SELECT (data->>'game')::boolean AS game,COALESCE((data->>'fishEnabled')::boolean,TRUE) AS fishing,COALESCE((data->>'botEnabled')::boolean,TRUE) AS bot_enabled FROM hz_rooms WHERE room_id=$1",[String(room)]);
+  if(settings.rows[0]?.bot_enabled!==true)throw Error('이 방의 봇 기능이 꺼져 있습니다. !봇켜기 이후 시작해 주세요.');
   if(settings.rows[0]?.game!==true||settings.rows[0]?.fishing!==true)throw Error('이벤트를 시작하려면 게임과 낚시 기능이 모두 ON이어야 합니다.');
   const inserted=await db.query("INSERT INTO gl_fishing_coin_events(room_id,room_name,ends_at,created_by) VALUES($1,$2,NOW()+INTERVAL '2 minutes',$3) RETURNING id,ends_at",[String(room),String(roomName||room),String(actor||'web')]);
   event=inserted.rows[0];
@@ -100,7 +101,7 @@ async function finishExpired(){
 }
 async function announceCompleted(chat){
  const db=getPool();
- const result=await db.query("SELECT id,room_id,winner_name,winning_fish,winning_size::text AS size,winner_id FROM gl_fishing_coin_events WHERE status='completed' AND announced_at IS NULL ORDER BY id LIMIT 20");
+ const result=await db.query("SELECT id,room_id,winner_name,winning_fish,winning_size::text AS size,winner_id FROM gl_fishing_coin_events WHERE status='completed' AND announced_at IS NULL AND COALESCE((SELECT (data->>'botEnabled')::boolean FROM hz_rooms WHERE room_id=gl_fishing_coin_events.room_id),TRUE)=TRUE ORDER BY id LIMIT 20");
  for(const e of result.rows){
   try{
    const notice=e.winner_id
