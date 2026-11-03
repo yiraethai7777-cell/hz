@@ -6,10 +6,10 @@ async function getRanking(db,roomId,botId=''){
  const room=String(roomId),bot=String(botId??'');
  if(!/^[1-9]\d*$/.test(room))throw Error('Invalid chat room ID');
  const result=await db.query(`
- SELECT user_id,user_name,count::text AS count
- FROM gl_manage_chat_counts
- WHERE room_id=$1 AND ($2='' OR user_id<>$2)
- ORDER BY count DESC,user_id ASC`,[room,bot]);
+ SELECT c.user_id,c.user_name,c.count::text AS count
+ FROM gl_manage_chat_counts AS c
+ WHERE c.room_id=$1 AND ($2='' OR c.user_id<>$2)
+ ORDER BY c.count DESC,c.user_id ASC`,[room,bot]);
  return result.rows.map((r,i)=>({
   user_id:String(r.user_id),
   user_name:String(r.user_name||r.user_id),
