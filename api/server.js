@@ -1,7 +1,7 @@
 'use strict';
 const http=require('node:http'),fs=require('node:fs/promises'),path=require('node:path');
 const {routes,status}=require('./routes');
-const assets=new Map([['/',['public-web/index.html','text/html']],['/style.css',['public-web/style.css','text/css']],['/app.js',['public-web/app.js','text/javascript']],['/admin',['admin-web/index.html','text/html']],['/admin/',['admin-web/index.html','text/html']],['/admin/admin.js',['admin-web/admin.js','text/javascript']]]);
+const assets=new Map([['/',['public-web/index.html','text/html']],['/style.css',['public-web/style.css','text/css']],['/app.js',['public-web/app.js','text/javascript']],['/admin',['admin-web/index.html','text/html']],['/admin/',['admin-web/index.html','text/html']],['/admin/admin.js',['admin-web/admin.js','text/javascript']],['/room-panel',['room-panel/index.html','text/html']],['/room-panel/app.js',['room-panel/app.js','text/javascript']]]);
 
 const rate=new Map();
 for(const [route,file,type] of [['/promo','index.html','text/html'],['/promo/','index.html','text/html'],['/promo/style.css','style.css','text/css'],['/promo/app.js','app.js','text/javascript']])assets.set(route,['promo-web/'+file,type]);
@@ -18,7 +18,7 @@ async function handler(req,res){
    let data={};if(req.method!=='GET'){
     if(!String(req.headers['content-type']||'').startsWith('application/json')){json(res,415,{error:'JSON 요청만 지원합니다.'});return;}
     data=await body(req);
-    if(['/api/login','/api/promo/login','/api/promo/register'].includes(url.pathname)||url.pathname.startsWith('/api/promo/qr/')){
+    if(['/api/login','/api/room-portal/login','/api/promo/login','/api/promo/register'].includes(url.pathname)||url.pathname.startsWith('/api/promo/qr/')){
      const proto=req.headers['x-forwarded-proto']==='https'?'https':'http';
      if(req.headers.origin!==`${proto}://${req.headers.host}`){json(res,403,{error:'요청 출처를 확인해 주세요.'});return;}
     }
