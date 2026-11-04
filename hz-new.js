@@ -44,13 +44,17 @@ function start() {
     const {roomId,messageId,userId,text}=record;
     console.log('[DELETE DIAG RECEIVE]',JSON.stringify({...record.comparison,valid:!!(roomId&&messageId&&userId),hasText:typeof text==='string'&&!!text}));
     if(!roomId||!messageId||!userId||typeof text!=='string'||!text||record.comparison.idLogMatch===false||record.comparison.idMatch===false||record.comparison.roomMatch===false)return;
-    recentMessages.set(keyFor(roomId, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
+    // Independent delete-cache listener must honor the full per-room bot OFF state.
+    void ready.then(async()=>{
+      if(!await require('./shared/bot-power').enabled(roomId))return;
+      recentMessages.set(keyFor(roomId, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
     if(recentMessages.size>5000){for(const [key,item] of recentMessages){if(Date.now()-item.at>86400000)recentMessages.delete(key);}if(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);}
 
-    void ready.then(() => manage.saveDeletedMessage({
-      roomId, messageId, userId,
-      userName: msg.sender?.name, text, botId: client.userId
-    })).catch(error => console.error('[DELETE WATCH] message persistence failed',safeError(error)));
+      await manage.saveDeletedMessage({
+        roomId, messageId, userId,
+        userName: msg.sender?.name, text, botId: client.userId
+      });
+    }).catch(error => console.error('[DELETE WATCH] message persistence failed',safeError(error)));
   });
 
 
@@ -74,6 +78,7 @@ function start() {
     try {
       console.log('[DELETE V2] callback entered', JSON.stringify({valid:true}));
       await ready;
+      if(!await require('./shared/bot-power').enabled(roomId))return;
       console.log('[DELETE V2] received', JSON.stringify({valid:true,authorAvailable:!!userId}));
       const cached = recentMessages.get(keyFor(roomId,messageId));
       console.log('[DELETE DIAG MATCH]', JSON.stringify({cacheHit:!!cached,roomCacheCount:[...recentMessages.keys()].filter(k=>k.startsWith(String(roomId)+':')).length}));
