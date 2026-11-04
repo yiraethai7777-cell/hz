@@ -24,6 +24,7 @@ function patch(p,action,input={}){
 async function configure(room,actor,action,input){return roomTransaction(room,async(d,db)=>{const shared=await commonMessage(db);if(action==='start'&&shared!==null)d.promo={...d.promo,message:shared};d.promo=patch(d.promo,action,input);if(['content','start','schedule','delete'].includes(action))delete d.promo.portalUserId;await audit(db,actor,'PROMOTION_'+action,room,null,{enabled:!!d.promo.enabled,minutes:d.promo.minutes,allowed:d.promo.allowed});return d.promo;});}
 async function stats(room){const r=await getPool().query("SELECT status,count(*)::int count FROM gl_promotion_logs WHERE room_id=$1 GROUP BY status",[String(room)]);return r.rows;}
 async function deliver(room,chat,immediate=false,requester=null){
+ if(!await require('../shared/bot-power').enabled(room))return false;
  let content=null,slot=null;
  await roomTransaction(room,async(d,db)=>{
   const p=d.promo||{},now=Date.now();
