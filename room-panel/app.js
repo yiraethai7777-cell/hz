@@ -22,7 +22,7 @@ async function render(){
  $('#fishEventPanel').hidden=!d.permissions.manage;
  if(d.permissions.manage)await refreshFishEvent();
  $('#templates').hidden=!d.permissions.templates;$('#warningPanel').hidden=!d.permissions.warnings;
- $('#commandBlockPanel').hidden=!d.permissions.blocks;if(d.permissions.blocks)await renderCommandBlocks();
+ $('#commandBlockPanel').hidden=true; // Command blocks are reserved for super-admin chat commands and the master web console.
  $('#prefixPanel').hidden=!d.permissions.prefixes;$('#tabRanks').hidden=!d.permissions.chatStats;
  canWarnMembers=!!d.permissions.warnings;$('#prefixInput').value=(d.prefixes||['!']).join(', ');
  $('#newUsername').value=d.username||'';$('#joinTemplate').value=d.joinTemplate;$('#leaveTemplate').value=d.leaveTemplate;
