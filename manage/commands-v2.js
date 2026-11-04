@@ -71,8 +71,8 @@ async function handle(ctx){
  const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||isSuperAdmin||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
  if(cmd==='!봇켜기'||cmd==='!봇끄기'){
-  if(!await isStaff(db,room,user,ctx.senderType,botOwner)){
-   await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
+  if(!ctx.isBotAccount&&!isSuperAdmin){
+   await send('⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return true;
   }
   if(tail){await send('사용법: '+cmd);return true;}
   const on=cmd==='!봇켜기';
@@ -123,7 +123,10 @@ async function handle(ctx){
   await send(formatCommandHelp({manage:await enabled(db,room),game:false},'관리',(await require('../shared/command-prefixes').get(room))[0]));return true;
  }
  if(OWNER.has(cmd)&&!botOwner){return true;}
- if(cmd.startsWith('!최고관리자')&&!ctx.isBotAccount){return true;}
+ if(cmd==='!최고관리자추가'||cmd==='!최고관리자삭제'||cmd==='!최고관리자목록'){
+  // Super-admin membership is controlled exclusively by the authenticated master web console.
+  return true;
+ }
  if(cmd==='!일괄강퇴'){
   if(raw!=='!일괄강퇴'){await send('사용법: !일괄강퇴');return true;}
   const botAccountOwner=owner(user,ctx.isBotAccount)||isSuperAdmin;
