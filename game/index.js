@@ -71,8 +71,8 @@ function createGame(client) {
       // fast path bypassed the room's game OFF gate.
       if ((text === '#퀴즈' || /^#정답(?:\s|$)/.test(text)) && legacyMessage) {
         const q=await getPool().query("SELECT (data->>'game')::boolean AS game,(data->>'quizEnabled')::boolean AS quiz FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
-        if(q.rows[0]?.game!==true)return;
-        if(q.rows[0]?.quiz===false)return;
+        if(!isBotAccount&&q.rows[0]?.game!==true)return;
+        if(!isBotAccount&&q.rows[0]?.quiz===false)return;
         await legacyMessage(chat,msg);
         return;
       }
@@ -87,12 +87,12 @@ function createGame(client) {
       const flags = r.rows[0]?.data || {};
       if(text==='#게임상태'){await send(`🎮 게임: ${flags.game?'작동':'중지'}\n🧩 퀴즈: ${flags.quizEnabled!==false?'작동':'중지'}\n🎣 낚시: ${flags.fishEnabled!==false?'작동':'중지'}`);return;}
       if(text==='#게임정보'){await send('🎮 게임 정보\n!게임가입으로 시작하세요.\n코인·낚시(20종)·퀴즈(500문제)·펫·레벨을 즐길 수 있습니다.\n게임과 관리는 독립적으로 작동합니다.\n!게임명령어에서 자세한 사용법을 확인하세요.');return;}
-      if (flags.locked) return;
-      if(await require('./typing').handle(normalized,!!flags.game))return;
-      if(flags.game&&await require('./farm').handle(normalized))return;
-      if(flags.game&&await require('./extra').handle(normalized,client))return;
+      if (flags.locked&&!isBotAccount) return;
+      if(await require('./typing').handle(normalized,!!flags.game||isBotAccount))return;
+      if((flags.game||isBotAccount)&&await require('./farm').handle(normalized))return;
+      if((flags.game||isBotAccount)&&await require('./extra').handle(normalized,client))return;
       if (marketCommand.test(text)) {
-        if (!flags.game) return;
+        if (!flags.game&&!isBotAccount) return;
         // Read-only coin lookups do not need a wallet migration/row lock.
         const walletChanging=/^#(?:게임가입|코인송금|코인지급)(?:\s|$)/.test(text);
         if(walletChanging&&msg.sender?.id!=null)
