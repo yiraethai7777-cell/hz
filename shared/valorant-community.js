@@ -122,11 +122,13 @@ async function handle({text,roomId,userId,userName,senderType,isBotAccount,isSup
   }
   if(cmd==='!내전초기화'){
    if(!await isManager({roomId:room,userId:user,senderType,isBotAccount,isSuperAdmin,db})){await send('⛔ 내전 명단 초기화는 관리자만 가능합니다.');return true;}
+   await db.query('DELETE FROM hz_valorant_scrim_games WHERE room_id=$1 AND winner IS NULL',[room]);
    await db.query('DELETE FROM hz_valorant_scrim_players WHERE room_id=$1',[room]);
    await send('✅ 이번 내전 참가 명단을 초기화했습니다. 완료된 내전 순위는 유지됩니다.');return true;
   }
   if(cmd==='!듀오모집'){
    if(!tail||tail.length>100){await send('사용법: !듀오모집 (모집 내용, 100자 이하)\n예: !듀오모집 골드 경쟁전 마이크 가능');return true;}
+   await db.query('DELETE FROM hz_valorant_duo_applications WHERE room_id=$1 AND owner_id=$2',[room,user]);
    await db.query(`INSERT INTO hz_valorant_duo_posts(room_id,user_id,display_name,description)
      VALUES($1,$2,$3,$4) ON CONFLICT(room_id,user_id)
      DO UPDATE SET display_name=$3,description=$4,created_at=NOW()`,[room,user,name,tail]);
