@@ -63,10 +63,10 @@ async function history(db,room,target){
  ].sort((x,y)=>y.d-x.d).slice(0,150).map(v=>v.s);
 }
 const ROOM_ALIASES=Object.freeze({'!방경고':'!경고','!방경고내역':'!경고내역','!방경고삭제':'!경고삭제','!방경고초기화':'!경고초기화','!방강퇴':'!kick','!방차단해제':'!벤해제','!방차단기록':'!벤기록','!방관리기록':'!관리로그'});
-const ROOM_HELP='📋 방관리 명령어\\n!방관리시작 / !방관리종료\\n!방경고 (대상) (개수) (사유)\\n!방경고내역 (대상)\\n!방경고삭제 (대상) (번호)\\n!방경고초기화 (대상)\\n!방강퇴 (대상)\\n!방차단해제 (대상)\\n!방차단기록\\n!방관리기록';
+const ROOM_HELP='📋 방관리 명령어\n!방관리시작 / !방관리종료\n!방경고 (대상) (개수) (사유)\n!방경고내역 (대상)\n!방경고삭제 (대상) (번호)\n!방경고초기화 (대상)\n!방강퇴 (대상)\n!방차단해제 (대상)\n!방차단기록\n!방관리기록';
 async function handle(ctx){
  const input=String(ctx.text||'').trim();
- const entered=input.split(/\\s+/)[0];
+ const entered=input.split(/\s+/)[0];
  const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId);
  if(entered==='!방관리시작'||entered==='!방관리종료'){
   const superRole=require('../shared/super-admin');
@@ -77,7 +77,7 @@ async function handle(ctx){
   await ctx.send(on?'✅ 방관리 기능을 시작했습니다.':'⏹️ 방관리 기능을 종료했습니다.');return true;
  }
  if(entered==='!방관리명령어'){await ctx.send(ROOM_HELP);return true;}
- if(entered==='!명령어'){await ctx.send('📜 전체 명령어\\n!게임명령어 · 게임 기능\\n!관리명령어 · 기존 관리 기능\\n'+ROOM_HELP);return true;}
+ if(entered==='!명령어'){await ctx.send('📜 전체 명령어\n!게임명령어 · 게임 기능\n!관리명령어 · 기존 관리 기능\n'+ROOM_HELP);return true;}
  const mapped=ROOM_ALIASES[entered];
  if(mapped){
   const state=await db.query("SELECT data->>'roomManage' AS enabled FROM hz_rooms WHERE room_id=$1",[room]);
