@@ -59,7 +59,7 @@ function leaveNotice({
   '\n┃└ 누적 퇴장    '+Number(leaves||0)+'회'+
   '\n┃└ 강퇴 기록    '+Number(bans||0)+'회'+
   '\n┗━━━━━━━━━━━━━━━━━━━━'+
-  '\n퇴장 알림에 답장으로 k 입력 시 벤합니다. (방장·부방장·지정 관리자)'+
+  '\n퇴장 알림에 답장으로 p 또는 k 입력 시 벤합니다. (방장·부방장·지정 관리자)'+
   (detail?'\n\n💬 '+detail:'')
  );
 }
@@ -132,7 +132,7 @@ function replyReference(msg,botId){
 }
 async function handle(context,db){
  const {text,msg,roomId,userId,senderType,botId,send,kick}=context;
- if(text!=='k')return false;
+ if(text!=='k'&&text!=='p')return false;
  const log=replyReference(msg,botId);if(!log)return false;
  const isManager=[1,4].includes(Number(senderType));
  const assigned=isManager?false:(await db.query('SELECT 1 FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[String(roomId),String(userId)])).rowCount>0;
@@ -151,7 +151,7 @@ async function handle(context,db){
  await db.query(`UPDATE gl_leave_replies SET state='done' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
  try{
   await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
-    [String(roomId),String(userId),row.target_id,'KICK','퇴장 알림 k 답장 강퇴']);
+    [String(roomId),String(userId),row.target_id,'KICK','퇴장 알림 답장 강퇴']);
  }catch(e){console.error('[LEAVE K LOG]',String(e?.message||e));}
  await send(`🚫 ${row.target_name}님을 벤했습니다.\n사용자 ID: ${row.target_id}`);return true;
 }
