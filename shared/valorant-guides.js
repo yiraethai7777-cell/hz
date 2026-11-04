@@ -1,7 +1,7 @@
 'use strict';
 const {fold}=require('./valorant-more');
 const skin=require('./valorant-skin');
-const COMMANDS=new Set(['!요원','!랜덤요원','!맵','!랜덤맵','!무기','!조준점','!스킨비교','!스킨색상','!스킨가격']);
+const COMMANDS=new Set(['!발로명령어','!요원','!랜덤요원','!맵','!랜덤맵','!무기','!조준점','!스킨비교','!스킨색상','!스킨가격']);
 const cached=new Map();
 const last=new Map();
 function clean(s){return String(s??'').trim().slice(0,100);}
@@ -27,6 +27,12 @@ function findSkin(query,items){const result=skin.matchSkin(query,items);return r
 async function handle({text,userId,send,fetcher=globalThis.fetch}){
  const command=String(text||'').split(/\s+/)[0];if(!COMMANDS.has(command))return false;
  const tail=String(text).slice(command.length).trim();
+ if(command==='!발로명령어'){
+  await send(fold('🎯 NEXI | VALORANT 명령어',
+   '🔍 전적 · 통계\n!발로전적 닉#태그 / !발로전적확인 / !발로저장 닉#태그\n!발로티어변동 [닉#태그] / !발로요원통계 [닉#태그]\n!발로비교 상대닉#태그 (또는 닉#태그 | 닉#태그)\n!발로랭킹 / !발로랭킹등록 / !발로랭킹탈퇴\n━━━━━━━━━━━━━━\n🎨 스킨 · 가이드\n!스킨 이름 / !스킨비교 스킨1 | 스킨2\n!스킨색상 이름 / !스킨가격 이름\n!요원 이름 / !랜덤요원 / !맵 이름 / !랜덤맵\n!무기 이름 / !조준점 코드\n━━━━━━━━━━━━━━\n⚔️ 내전 · 듀오\n!내전참가 티어 / !내전탈퇴 / !내전참가자\n!내전팀짜기 / !내전밸런스\n!내전결과 A 또는 B / !내전순위 / !내전초기화\n!듀오모집 내용 / !듀오목록 / !듀오신청 모집자ID / !듀오취소\n※ 해당 방에서 !발로on 설정이 필요합니다.'));
+  return true;
+ }
+
  const key=String(userId||'')+':'+command,now=Date.now();
  if(now-(last.get(key)||0)<3500){await send('⏳ 잠시 후 다시 검색해 주세요.');return true;}
  last.set(key,now);if(last.size>1000)last.delete(last.keys().next().value);
