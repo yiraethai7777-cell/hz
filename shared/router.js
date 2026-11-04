@@ -561,7 +561,13 @@ if (text === '!이벤추첨테스트') {
       }
 
       // Alternate room-game interface. Uses the existing game engine and data.
-      const roomGameAliases={'!방낚시':'!낚시','!방낚시정보':'!낚시정보','!방어망':'!어망','!방인벤':'!인벤','!방퀴즈':'!퀴즈','!방정답':'!정답','!방퀴즈순위':'!퀴즈순위','!방상점':'!상점','!방물고기도감':'!물고기도감','!방게임가입':'!게임가입','!방게임정보':'!게임정보'};
+      const roomGameAliases={'!출항':'!낚시','!조황':'!낚시정보','!수조':'!어망','!가방':'!인벤','!도전':'!퀴즈','!제출':'!정답','!명예의전당':'!퀴즈순위','!교환소':'!상점','!어류도감':'!물고기도감','!입문':'!게임가입','!놀이정보':'!게임정보'};
+      const roomGameStyle=body=>{
+        let out=String(body);
+        const replacements=[[/NEXI/g,'🎲 플레이존'],[/낚시 성공/g,'포획 성공'],[/낚시 실패/g,'포획 실패'],[/낚시정보/g,'조황'],[/물고기도감/g,'어류도감'],[/퀴즈순위/g,'명예의전당'],[/퀴즈/g,'도전 문제'],[/정답/g,'제출 답안'],[/어망/g,'수조'],[/인벤/g,'가방'],[/상점/g,'교환소'],[/!낚시/g,'!출항'],[/!퀴즈/g,'!도전'],[/!정답/g,'!제출'],[/!어망/g,'!수조'],[/!인벤/g,'!가방'],[/!상점/g,'!교환소']];
+        for(const [pattern,replacement] of replacements)out=out.replace(pattern,replacement);
+        return '🎲 플레이존 | '+out;
+      };
       if(text==='!방게임시작'||text==='!방게임종료'){
         if(!isBotAccount&&!roomBotAdmin&&!isSuperAdmin){await context.send('⛔ 방게임 설정 권한이 없습니다.');return;}
         const on=text==='!방게임시작';
@@ -570,14 +576,14 @@ if (text === '!이벤추첨테스트') {
         await context.send(on?'🎲 놀이방이 열렸습니다! 게임을 시작해 보세요.':'🎲 놀이방을 종료했습니다.');return;
       }
       if(text==='!방게임명령어'){
-        await context.send('🎲 놀이방 명령어\n!방게임시작 / !방게임종료\n!방게임가입 · !방게임정보\n!방낚시 · !방낚시정보 · !방어망 · !방인벤\n!방퀴즈 · !방정답 · !방퀴즈순위\n!방상점 · !방물고기도감');return;
+        await context.send('🎲 플레이존 | 이용 안내\\n!방게임시작 / !방게임종료\n!입문 · !놀이정보\n🐟 !출항 · !조황 · !수조 · !가방 · !어류도감\n🧠 !도전 · !제출 · !명예의전당\n🛒 !교환소');return;
       }
       const roomGameToken=text.split(/\s+/,1)[0];
       if(roomGameAliases[roomGameToken]){
         const state=await require('./db').getPool().query("SELECT data->>'roomGame' AS active FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
         if(!isBotAccount&&state.rows[0]?.active!=='true')return;
         const translated=roomGameAliases[roomGameToken]+text.slice(roomGameToken.length);
-        await game.message({...context,text:translated,chat,msg,send:body=>context.send(String(body).replace(/NEXI/g,'놀이방'))});return;
+        await game.message({...context,text:translated,chat,msg,send:body=>context.send(roomGameStyle(body))});return;
       }
       if (text === '!게임on' || text === '!게임off') {
         await game.toggle(context);
