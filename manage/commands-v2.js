@@ -5,7 +5,7 @@ const {messages:chatRanks}=require('./chat-ranking');
 const {mentions,reference,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
-const PUBLIC=new Set(['ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
+const PUBLIC=new Set(['!읽기감지','ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!멘션','!차단','!차단해제','!차단목록','!봇켜기','!봇끄기','!현공지삭제','!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지등록','!공지예약','!공지목록','!공지삭제']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!프로필감지on','!프로필감지off','!일괄강퇴']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
@@ -70,6 +70,11 @@ async function handle(ctx){
  const isSuperAdmin=await superRole.isSuperAdmin(room,user,db);
  const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||isSuperAdmin||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
  if(ctx.msg?.room?.isOpenChat===false){await send('❌ 오픈채팅방에서만 사용할 수 있습니다.');return true;}
+ if(cmd==='!읽기감지'){
+  if(tail){await send('사용법: 확인할 메시지에 답장으로 !읽기감지');return true;}
+  await send(await require('../shared/read-receipts').report({roomId:room,msg:ctx.msg,db,botId:ctx.botId}));
+  return true;
+ }
  if(cmd==='!봇켜기'||cmd==='!봇끄기'){
   if(!ctx.isBotAccount&&!isSuperAdmin){
    await send('⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return true;
