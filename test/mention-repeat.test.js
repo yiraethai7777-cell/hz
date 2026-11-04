@@ -6,7 +6,8 @@ const tagged={mentions:[{userId:'23456',name:'테스트'}]};
 test('admin mention request parses genuine single Kakao mention with count',()=>{
  const good=reminder.parse({text:'!멘션 @테스트 3',msg:tagged,issuerId:'12345',botId:'99999'});
  assert.equal(good.count,3);assert.equal(good.target.id,'23456');
- assert.ok(reminder.parse({text:'!멘션 @테스트 6',msg:tagged,issuerId:'12345',botId:'99999'}).error);
+ assert.equal(reminder.parse({text:'!멘션 @테스트 100',msg:tagged,issuerId:'12345',botId:'99999'}).count,100);
+ assert.ok(reminder.parse({text:'!멘션 @테스트 0',msg:tagged,issuerId:'12345',botId:'99999'}).error);
  assert.ok(reminder.parse({text:'!멘션 @테스트 1',msg:{},issuerId:'12345',botId:'99999'}).error);
  assert.ok(reminder.parse({text:'!멘션 @테스트 1',msg:tagged,issuerId:'23456',botId:'99999'}).error);
 });
@@ -23,4 +24,14 @@ test('sends separate tagged messages and enforces per-room cooldown',async()=>{
  await reminder.handle(args);
  assert.equal(sent.length,4);
  assert.match(sent[3],/기다려/);
+});
+
+test('bot account ignores repeat-use cooldown while ordinary staff still waits',async()=>{
+ const sent=[];
+ const base={text:'!멘션 @테스트 2',msg:tagged,roomId:'99901',userId:'99999',botId:'99999',isBotAccount:true,
+  chat:{mention:(id,name)=>'\u0002'+id+'\u0003'+name+'\u0004'},
+  send:async value=>sent.push(value),waitFn:async()=>{},now:()=>1000000};
+ await reminder.handle(base);
+ await reminder.handle(base);
+ assert.equal(sent.length,4);
 });
