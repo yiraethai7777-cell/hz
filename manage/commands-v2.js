@@ -171,9 +171,11 @@ async function handle(ctx){
   return true;
  }
  if(cmd==='!일괄강퇴'){
-  if(raw!=='!일괄강퇴'){await send('사용법: !일괄강퇴');return true;}
+  if(raw!=='!일괄강퇴')return true;
   const botAccountOwner=owner(user,ctx.isBotAccount)||isSuperAdmin;
-  await require('./bulk-kick').handle({client:ctx.client,roomId:room,msg:ctx.msg,userId:user,send,kick:ctx.kick,db,owner:botAccountOwner});
+  if(!botAccountOwner)return true;
+  void require('./bulk-kick').handle({client:ctx.client,roomId:room,msg:ctx.msg,userId:user,kick:ctx.kick,db,owner:true})
+    .catch(error=>console.error('[BULK KICK] command failed',String(error?.message||error)));
   return true;
  }
  if(cmd==='!관리on'||cmd==='!관리off'){
