@@ -357,6 +357,7 @@ async function attachHZBot(client){
   const memberEvent=type=>async ev=>{
     try{
       const rid=ctx.id(ev.room?.id);if(!rid)return;
+      if(!await require('./bot-power').enabled(rid,ctx.pool))return;
       const f=await ctx.roomFlags(rid);if(!f.manage||f.locked)return;
       const ids=ev.member?.ids||ev.members?.map(x=>x.id)||[];
       const names=ev.member?.names||ev.members?.map(x=>x.name)||[];
