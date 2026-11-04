@@ -2,7 +2,7 @@
 const {getPool}=require('./db');
 const {fold}=require('./valorant-more');
 const {mentions}=require('../manage/targets');
-const COMMANDS=new Set(['!티어등록','!내전참가','!내전탈퇴','!내전참가자','!내전팀짜기','!내전밸런스','!내전결과','!내전순위','!내전초기화','!듀오모집','!듀오목록','!듀오신청','!듀오취소']);
+const COMMANDS=new Set(['!티어등록','!내전참가','!내전탈퇴','!내전참가자','!내전팀짜기','!내전재편성','!내전선수교체','!내전밸런스','!내전결과','!내전순위','!내전초기화','!듀오모집','!듀오목록','!듀오신청','!듀오취소']);
 let ready=null;
 async function init(db){
  if(!ready)ready=(async()=>{
@@ -105,6 +105,64 @@ async function handle({text,msg,roomId,userId,userName,senderType,isBotAccount,i
     '\n━━━━━━━━━━━━━━\n⚖️ 팀 티어 점수 차이: '+teams.delta+
     '\n※ 등록된 티어 기준 균형 배치 (실력 보증 아님)\n경기 종료: !내전결과 공격 또는 수비'));
    return true;
+  }
+  if(cmd==='!내전재편성'||cmd==='!내전선수교체'){
+   if(!await isManager({roomId:room,userId:user,senderType,isBotAccount,isSuperAdmin,db})){
+    await send('⛔ 내전 재편성·선수 교체는 관리자만 가능합니다.');return true;
+   }
+   const swaps=cmd==='!내전선수교체'?mentions(msg):[];
+   if(cmd==='!내전선수교체'&&swaps.length!==2){
+    await send('사용법: !내전선수교체 (서로 다른 선수 2명 멘션)');return true;
+   }
+   const client=typeof db.connect==='function'?await db.connect():null;
+   if(!client)throw Error('내전 편성 변경용 트랜잭션을 시작하지 못했습니다.');
+   let response;
+   try{
+    await client.query('BEGIN');
+    const pending=await client.query('SELECT id,team_a,team_b FROM hz_valorant_scrim_games WHERE room_id=$1 AND winner IS NULL ORDER BY id DESC LIMIT 1 FOR UPDATE',[room]);
+    if(!pending.rowCount)response='❌ 진행 중인 내전이 없습니다. !내전팀짜기로 먼저 편성해 주세요.';
+    else{
+     const game=pending.rows[0],a=typeof game.team_a==='string'?JSON.parse(game.team_a):game.team_a;
+     const b=typeof game.team_b==='string'?JSON.parse(game.team_b):game.team_b;
+     const ids=[...a,...b].map(String);
+     if(a.length!==5||b.length!==5||new Set(ids).size!==10)throw Error('저장된 내전 팀이 5대5 형식이 아닙니다.');
+     let teamA=[...a].map(String),teamB=[...b].map(String),delta=null;
+     if(cmd==='!내전선수교체'){
+      const [first,second]=swaps.map(x=>x.id);
+      if(!ids.includes(first)||!ids.includes(second))response='❌ 멘션한 두 선수 모두 현재 내전에 포함되어야 합니다.';
+      else if((teamA.includes(first)&&teamA.includes(second))||(teamB.includes(first)&&teamB.includes(second)))
+       response='❌ 공격·수비 각 팀에서 한 명씩 멘션해 주세요.';
+      else{
+       const arr1=teamA.includes(first)?teamA:teamB,arr2=teamA.includes(first)?teamB:teamA;
+       arr1[arr1.indexOf(first)]=second;arr2[arr2.indexOf(second)]=first;
+      }
+     }else{
+      const records=await client.query('SELECT user_id,tier,rating FROM hz_valorant_tier_profiles WHERE user_id=ANY($1::text[])',[ids]);
+      const known=new Map(records.rows.map(x=>[String(x.user_id),x]));
+      const missing=ids.filter(id=>!known.has(id));
+      if(missing.length)response='❌ 티어 정보가 없는 참가자가 '+missing.length+'명 있습니다. 먼저 !티어등록이 필요합니다.';
+      else{
+       const players=ids.map(id=>({user_id:id,tier:known.get(id).tier,rating:Number(known.get(id).rating)}));
+       const chosen=choose(players);teamA=chosen.a.map(x=>x.user_id);teamB=chosen.b.map(x=>x.user_id);delta=chosen.delta;
+      }
+     }
+     if(!response){
+      await client.query('UPDATE hz_valorant_scrim_games SET team_a=$2::jsonb,team_b=$3::jsonb WHERE id=$1 AND winner IS NULL',
+       [game.id,JSON.stringify(teamA),JSON.stringify(teamB)]);
+      const names=await client.query('SELECT user_id,name FROM hz_members WHERE room_id=$1 AND user_id=ANY($2::text[])',[room,ids]);
+      const n=new Map(names.rows.map(x=>[String(x.user_id),String(x.name)]));
+      const updated=await client.query('SELECT user_id,tier FROM hz_valorant_tier_profiles WHERE user_id=ANY($1::text[])',[ids]);
+      const tiers=new Map(updated.rows.map(x=>[String(x.user_id),x.tier]));
+      const format=group=>group.map((uid,i)=>(i+1)+'. '+(n.get(uid)||uid)+' ('+(tiers.get(uid)||'미등록')+')').join('\n');
+      response=fold(cmd==='!내전재편성'?'🔄 NEXI | 내전 팀 재편성':'🔁 NEXI | 내전 선수 교체',
+       '🔴 공격팀\n'+format(teamA)+'\n━━━━━━━━━━━━━━\n🔵 수비팀\n'+format(teamB)+
+       (delta===null?'':'\n⚖️ 티어 점수 차이: '+delta));
+     }
+    }
+    await client.query('COMMIT');
+   }catch(error){await client.query('ROLLBACK');throw error}
+   finally{client.release()}
+   await send(response);return true;
   }
   if(cmd==='!내전참가'){
    const tier=rating(tail);
