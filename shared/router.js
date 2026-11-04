@@ -114,6 +114,18 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         text=prefixResult.text;
         msg={...msg,text,message:{...(msg.message||{}),text}};
       }
+      // Room-scoped command blocks: ignore this user's bot commands silently.
+      // Ordinary conversation remains visible and can still count toward chat stats.
+      const blocks=require('./command-blocks');
+      if(!isBotAccount&&blocks.commandLike(text)){
+        try{
+          if(await blocks.blocked(roomId,senderId))return;
+        }catch(error){
+          console.error('[COMMAND BLOCK CHECK]',String(error?.code||error?.message||error));
+          // If the block database is temporarily unavailable, do not bypass a block.
+          return;
+        }
+      }
       // Per-room bot power switch. Only these two commands can pass while OFF.
       if(text==='!봇켜기'||text==='!봇끄기'){
         await ready;
