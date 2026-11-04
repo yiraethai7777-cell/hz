@@ -38,6 +38,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
    if(!rooms.length)return;
    const room=rooms[cursor++%rooms.length];
    if(now()<(roomRetryAt.get(room)||0))return;
+   if(!await require('../shared/bot-power').enabled(room,ctx.pool))return;
    try{
    const snapshot=await refresh(client,room,{force:true});
    const saved=await ctx.pool.query('SELECT user_id,name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1',[room]);
@@ -82,6 +83,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
      const latest=current.get(id);
      if(!latest||id===String(client.userId))continue;
      if(prior.name!=='이름 확인 불가'&&latest.name!=='이름 확인 불가'&&prior.name!==latest.name){
+      if(!await require('../shared/bot-power').enabled(room,ctx.pool))return;
       await ctx.send(client.chat,room,'✏️ '+prior.name+' → '+latest.name);
       notified.add(id);
       console.log('[PROFILE WATCH] nickname change delivered',{room,id});
@@ -93,6 +95,7 @@ function createWatcher(ctx,client,{now=Date.now}={}){
       continue;
      }
      if(change.profileChanged&&change.oldOpenLink!==change.newOpenLink&&change.newOpenLink!==undefined){
+      if(!await require('../shared/bot-power').enabled(room,ctx.pool))return;
       await sendNotice(ctx,client.chat,room,change);
       console.log('[PROFILE WATCH] profile change delivered',{room});
      }
