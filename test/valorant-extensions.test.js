@@ -59,3 +59,46 @@ test('existing valorant OFF gate still protects new commands',()=>{
  assert.match(source,/if\(!enabled\)return/);
  assert.match(source,/!발로명령어/);
 });
+
+test('tier registration and exactly ten Kakao mentions create balanced attack and defense teams',async()=>{
+ const tiers=new Map(),games=[],sent=[];
+ const db={async query(sql,args=[]){
+  if(sql.includes('CREATE TABLE'))return {rows:[],rowCount:0};
+  if(sql.includes('INSERT INTO hz_valorant_tier_profiles')){
+   tiers.set(args[0],{user_id:args[0],tier:args[1],rating:args[2]});
+   return {rows:[],rowCount:1};
+  }
+  if(sql.includes('UPDATE hz_valorant_scrim_players'))return {rows:[],rowCount:0};
+  if(sql.includes('FROM hz_valorant_tier_profiles')&&sql.includes('ANY')){
+   const rows=args[0].filter(id=>tiers.has(id)).map(id=>tiers.get(id));
+   return {rows,rowCount:rows.length};
+  }
+  if(sql.includes('SELECT id FROM hz_valorant_scrim_games')){
+   const rows=games.filter(g=>!g.winner).map((g,i)=>({id:i+1}));
+   return {rows,rowCount:rows.length};
+  }
+  if(sql.includes('INSERT INTO hz_valorant_scrim_games')){
+   games.push({a:JSON.parse(args[1]),b:JSON.parse(args[2]),winner:null});
+   return {rows:[],rowCount:1};
+  }
+  if(sql.includes('UPDATE hz_valorant_scrim_games SET winner')){
+   const item=games.find(g=>!g.winner);if(!item)return {rows:[],rowCount:0};
+   item.winner=args[1];return {rows:[{id:1}],rowCount:1};
+  }
+  throw Error('unexpected SQL: '+sql);
+ }};
+ const base={roomId:'44444',db,send:async v=>sent.push(v),userId:'10001',userName:'P1'};
+ const mentions=Array.from({length:10},(_,i)=>({userId:String(10001+i),name:'P'+(i+1)}));
+ await community.handle({...base,text:'!내전팀짜기 '+mentions.slice(0,9).map(x=>'@'+x.name).join(' '),msg:{mentions:mentions.slice(0,9)}});
+ assert.match(sent.at(-1),/9명 \/ 10명/);
+ for(let i=0;i<10;i++)await community.handle({...base,text:'!티어등록 '+(i%2?'골드2':'실버2'),userId:mentions[i].userId,userName:mentions[i].name});
+ await community.handle({...base,text:'!내전팀짜기 '+mentions.map(x=>'@'+x.name).join(' '),msg:{mentions}});
+ assert.equal(games.length,1);
+ assert.equal(games[0].a.length,5);
+ assert.equal(games[0].b.length,5);
+ assert.match(sent.at(-1),/공격팀/);
+ assert.match(sent.at(-1),/수비팀/);
+ assert.doesNotMatch(sent.at(-1),/\\\\n/);
+ await community.handle({...base,text:'!내전결과 공격',senderType:1});
+ assert.equal(games[0].winner,'A');
+});
