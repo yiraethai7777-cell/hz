@@ -119,7 +119,7 @@ async function quizExpiryTick(){
  }finally{quizExpiryBusy=false;}
 }
 
-function issueQuizOnly(d){
+function issueQuizOnly(d,isSelf=false){
  const text='#퀴즈';
  const now=Date.now();
  const ctxQuiz=ctx;
@@ -194,7 +194,7 @@ async function handleGame(d,c,msg,isSelf){
  if(new Set(['#퀴즈정보','#퀴즈순위','#낚시정보','#인벤','#물고기도감','#보호권','#펫인벤','#펫도감','#펫기능','#상점']).has(command))
    return handleGameCore(d,c,msg,isSelf);
  // Starting or viewing a quiz does not modify the wallet.
- if(command==='#퀴즈')return d.quizEnabled?issueQuizOnly(d):'[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
+ if(command==='#퀴즈')return d.quizEnabled?issueQuizOnly(d,isSelf):'[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
  if(!ctx.economyEnabled)return handleGameCore(d,c,msg,isSelf);
  const user=ctx.id(msg.sender?.id??msg.senderId),p=ctx.player(d,user,msg.sender?.name||user);
  return require('./economy').withPlayer({db:c,room:ctx.id(msg.room.id),user,p,msg,botId:ctx.globalBotId,run:()=>handleGameCore(d,c,msg,isSelf)});
@@ -355,7 +355,7 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
   if(text==="#낚시"){
     const remain=ctx.FISHING_COOLDOWN_SECONDS-Math.floor((now-p.lastFish)/1000);
-    if(remain>0)return `[ ! ] 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;
+    if(remain>0&&!isSelf)return `[ ! ] 아직 낚시 준비 중입니다. ${remain}초 후 다시 시도하세요.`;
     const caughtAt=Date.now();
     const r=ctx.awardFish(p,caughtAt);
     await require('./fishing-coin-event').recordCatch(c,{room:ctx.id(msg.room.id),user:uid,name,fish:r.f.name,size:r.size,at:caughtAt});
