@@ -102,12 +102,12 @@ async function handle(ctx){
   if(cmd==='!차단'&&[1,4].includes(Number(target.type))){
    await send('❌ 방장·부방장 계정은 차단할 수 없습니다.');return true;
   }
-  const reason=tail.split(/\\s+/).slice(1).join(' ').slice(0,200);
+  const reason=tail.split(/\s+/).slice(1).join(' ').slice(0,200);
   try{
    const changed=await blocks.set({roomId:room,userId:target.id,userName:target.name,
     actorId:user,reason,on:cmd==='!차단',botId:ctx.botId,db});
    await send(cmd==='!차단'
-    ?'🚫 '+(target.name||target.id)+'님의 NEXI 명령어 사용을 차단했습니다.\\n※ 실제 카카오톡 차단·강퇴는 아닙니다.'
+    ?'🚫 '+(target.name||target.id)+'님의 NEXI 명령어 사용을 차단했습니다.\n※ 실제 카카오톡 차단·강퇴는 아닙니다.'
     :(changed?'✅ '+(target.name||target.id)+'님의 NEXI 명령어 차단을 해제했습니다.':'ℹ️ 차단 목록에 없는 사용자입니다.'));
   }catch(error){await send('❌ '+String(error?.message||'차단 처리 실패').slice(0,170));}
   return true;
