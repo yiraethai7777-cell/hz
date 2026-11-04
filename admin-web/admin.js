@@ -65,11 +65,11 @@ $('#startFishEvent').addEventListener('click',()=>task(async()=>{
   feedback('🎉 해당 방에 코인 낚시 이벤트를 시작했습니다.');
  }finally{button.disabled=false;}
 }));
-const titles={overview:'대시보드',rooms:'채팅방 관리',users:'사용자·코인',promotion:'홍보 관리',notices:'공지사항',audit:'감사 기록','promo-members':'홍보 회원·초대'};
-async function show(panel){document.querySelectorAll('[data-section]').forEach(el=>el.hidden=el.dataset.section!==panel);document.querySelectorAll('[data-panel]').forEach(el=>el.classList.toggle('selected',el.dataset.panel===panel));$('#panel-title').textContent=titles[panel];feedback('');if(panel==='promo-members'){await loadRooms();await loadPromoMembers();}if(panel==='overview')await overview();if(panel==='rooms'||panel==='promotion')await loadRooms();if(panel==='promotion')await loadCommonPromo();if(panel==='notices')await loadNotices();if(panel==='audit'){const d=await api('/api/admin/audit');$('#audit-records').textContent=d.records.map(r=>`${new Date(r.created_at).toLocaleString('ko-KR')} · ${r.actor} · ${r.action}\n${r.room_id||''} ${r.target_id||''}\n${JSON.stringify(r.detail)}`).join('\n\n')||'작업 기록 없음';}}
+const titles={overview:'대시보드',rooms:'채팅방 관리',blocks:'명령어 차단',users:'사용자·코인',promotion:'홍보 관리',notices:'공지사항',audit:'감사 기록','promo-members':'홍보 회원·초대'};
+async function show(panel){document.querySelectorAll('[data-section]').forEach(el=>el.hidden=el.dataset.section!==panel);document.querySelectorAll('[data-panel]').forEach(el=>el.classList.toggle('selected',el.dataset.panel===panel));$('#panel-title').textContent=titles[panel];feedback('');if(panel==='promo-members'){await loadRooms();await loadPromoMembers();}if(panel==='overview')await overview();if(panel==='rooms'||panel==='promotion'||panel==='blocks')await loadRooms();if(panel==='blocks')await loadCommandBlocks();if(panel==='promotion')await loadCommonPromo();if(panel==='notices')await loadNotices();if(panel==='audit'){const d=await api('/api/admin/audit');$('#audit-records').textContent=d.records.map(r=>`${new Date(r.created_at).toLocaleString('ko-KR')} · ${r.actor} · ${r.action}\n${r.room_id||''} ${r.target_id||''}\n${JSON.stringify(r.detail)}`).join('\n\n')||'작업 기록 없음';}}
 document.querySelectorAll('[data-panel]').forEach(b=>b.addEventListener('click',()=>task(()=>show(b.dataset.panel))));
 async function overview(){const d=await api('/api/admin/overview');$('#metrics').replaceChildren();for(const [label,value]of [['게임 사용자',d.users],['활성 게임방',d.active_rooms],['지갑 코인 합계',d.coins],['자동 홍보방',d.promotion_rooms]]){const box=document.createElement('div');box.className='metric';const p=document.createElement('p');p.textContent=label;const strong=document.createElement('strong');strong.textContent=format(value);box.append(p,strong);$('#metrics').append(box);}$('#daily-events').textContent=d.events.map(e=>`${e.kind}: ${e.n}회`).join(' · ')||'오늘 기록된 게임 활동 없음';$('#bot-info').textContent=`카카오톡 연결: ${d.bot.connected?'연결됨':'연결 끊김'}\n게임·DB 준비: ${d.bot.ready?'완료':'준비 중'}\n서버 가동: ${format(d.uptimeSeconds)}초\n${d.railwayStatus}\n최근 오류: ${d.errors.length?d.errors.join('\n'):'수집된 오류 없음'}`;}
-async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
+async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
 function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;$('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;}
 function selectPromo(){$('#promo-logs').textContent='채팅방을 선택하고 전송 기록을 조회해 주세요.';}
 async function loadRoomAdmins(){
@@ -119,6 +119,31 @@ $('#super-admin-form').addEventListener('submit',e=>{e.preventDefault();task(asy
  $('#super-admin-id').value='';await loadSuperAdmins();feedback('최고관리자를 추가했습니다.');
 });});
 $('#room-select').addEventListener('change',selectRoom);$('#promo-room').addEventListener('change',selectPromo);
+async function loadCommandBlocks(){
+ const room=$('#block-room').value,list=$('#command-block-list');list.replaceChildren();
+ if(!room){list.textContent='채팅방을 먼저 선택해 주세요.';return;}
+ const data=await api('/api/admin/command-blocks?'+new URLSearchParams({roomId:room}));
+ if(!data.blocks.length){list.textContent='차단된 사용자가 없습니다.';return;}
+ for(const entry of data.blocks){
+  const row=document.createElement('div');row.className='notice';
+  const label=document.createElement('span');label.textContent=(entry.user_name||entry.user_id)+' · '+entry.user_id+(entry.reason?' · 사유: '+entry.reason:'');
+  const undo=button('차단 해제',()=>task(async()=>{
+   if(!confirm(entry.user_id+'님의 봇 명령어 차단을 해제하시겠습니까?'))return;
+   await api('/api/admin/command-blocks','POST',{roomId:room,userId:entry.user_id,action:'unblock'});
+   await loadCommandBlocks();feedback('차단이 해제되었습니다.');
+  }));
+  row.append(label,undo);list.append(row);
+ }
+}
+$('#block-room').addEventListener('change',()=>task(loadCommandBlocks));
+$('#command-block-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
+ const room=$('#block-room').value,user=$('#block-user').value.trim();
+ if(!room||!/^[1-9]\\d{3,24}$/.test(user))throw Error('채팅방과 사용자 ID를 확인해 주세요.');
+ await api('/api/admin/command-blocks','POST',{roomId:room,userId:user,
+  userName:$('#block-name').value,reason:$('#block-reason').value,action:'block'});
+ $('#block-user').value='';$('#block-name').value='';$('#block-reason').value='';
+ await loadCommandBlocks();feedback('봇 명령어 차단을 저장했습니다.');
+});});
 $('#user-room').addEventListener('change',()=>{selected=null;$('#selected-user').textContent='사용자를 다시 검색해 주세요.';$('#user-detail').textContent='';$('#user-rows').replaceChildren();});
 $('#room-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/admin/rooms','POST',{roomId:$('#room-select').value,flags:{game:$('#flag-game').checked,manage:$('#flag-manage').checked,quizEnabled:$('#flag-quiz').checked,fishEnabled:$('#flag-fish').checked}});await loadRooms();feedback('방별 기능 설정을 저장했습니다.');});});
 async function selectUser(user){const room=$('#user-room').value;const d=await api('/api/admin/user?'+new URLSearchParams({roomId:room,userId:user.user_id}));selected={room,id:user.user_id,name:user.user_name};$('#selected-user').textContent=`${user.user_name} · ${user.user_id}`;const p=d.player||{};$('#user-detail').textContent=`지갑: ${format(d.wallet.balance)}코인\n레벨: ${p.level||1} · XP ${p.xp||0}\n퀴즈 정답: ${p.wins||0}회\n\n보유 주식\n${d.stocks.map(h=>`${h.stock_name} ${h.quantity}주 · 원금 ${format(h.total_cost)}`).join('\n')||'없음'}\n\n물고기 인벤토리\n${(p.inventory||[]).map(f=>`${f.name} [${f.tier}] ${f.size}cm · ${format(f.value)}코인`).join('\n')||'없음'}\n\n펫\n${Object.entries(p.pets||{}).map(([n,l])=>`${n} +${l}`).join('\n')||'없음'}`;}
