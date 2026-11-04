@@ -235,12 +235,10 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       }
       // Extended Valorant commands share the same per-room OFF-by-default switch.
       const newValorantCommand=text.split(/\\s+/)[0];
-      const valGuide=require('./valorant-guides');
-      const valStats=require('./valorant-extended-stats');
-      const valCommunity=require('./valorant-community');
-      if(valGuide.COMMANDS.has(newValorantCommand)||
-         valStats.COMMANDS.has(newValorantCommand)||
-         valCommunity.COMMANDS.has(newValorantCommand)){
+      if(/^(?:!요원|!랜덤요원|!맵|!랜덤맵|!무기|!조준점|!스킨비교|!스킨색상|!스킨가격|!발로티어변동|!발로요원통계|!발로비교|!발로랭킹|!발로랭킹등록|!발로랭킹탈퇴|!내전참가|!내전탈퇴|!내전참가자|!내전팀짜기|!내전밸런스|!내전결과|!내전순위|!내전초기화|!듀오모집|!듀오목록|!듀오신청|!듀오취소)(?=\\s|$)/.test(text)){
+        const valGuide=require('./valorant-guides');
+        const valStats=require('./valorant-extended-stats');
+        const valCommunity=require('./valorant-community');
         let enabled=false;
         try{enabled=await require('./valorant-settings').isEnabled(roomId);}
         catch(error){console.error('[VALORANT EXTENSION SWITCH]',String(error?.code||'DB_ERROR'));return;}
