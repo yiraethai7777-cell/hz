@@ -35,7 +35,7 @@ test('observed reader is reported only when stored watermark covers replied mess
  const msg={message:{type:26,attachment:{src_logId:'9000000000000000001',src_userId:'8888'}}};
  const output=await report({roomId:'1111',msg,db,botId:'9999'});
  assert.match(output,/읽은사람 \(7777\)/);
- assert.match(output,/실제로/);
+ assert.match(output,/실제 이벤트/);
  assert.equal(calls.find(x=>x.sql.includes('FROM hz_read_watermarks')).params[1],'9000000000000000001');
 });
 test('without reply reference, status never fabricates reader names',async()=>{
