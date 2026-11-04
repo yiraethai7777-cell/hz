@@ -62,8 +62,8 @@ async function history(db,room,target){
   ...b.rows.map(v=>({d:new Date(v.created_at),s:time(v.created_at)+' · 방장/부방장 강퇴 · 대상 '+v.target_id+' · 실행 '+(v.meta?.actorName||v.meta?.actorId||'미확인')}))
  ].sort((x,y)=>y.d-x.d).slice(0,150).map(v=>v.s);
 }
-const ROOM_ALIASES=Object.freeze({'!방경고':'!경고','!방경고내역':'!경고내역','!방경고삭제':'!경고삭제','!방경고초기화':'!경고초기화','!방강퇴':'!kick','!방차단해제':'!벤해제','!방차단기록':'!벤기록','!방관리기록':'!관리로그'});
-const ROOM_HELP='📋 방관리 명령어\n!방관리시작 / !방관리종료\n!방경고 (대상) (개수) (사유)\n!방경고내역 (대상)\n!방경고삭제 (대상) (번호)\n!방경고초기화 (대상)\n!방강퇴 (대상)\n!방차단해제 (대상)\n!방차단기록\n!방관리기록';
+const ROOM_ALIASES=Object.freeze({'!방경고':'!경고','!방경고내역':'!경고내역','!방경고삭제':'!경고삭제','!방경고초기화':'!경고초기화','!방강퇴':'!kick','!방차단해제':'!벤해제','!방차단기록':'!벤기록','!방관리기록':'!관리로그','!방입장변경':'!입장변경','!방퇴장변경':'!퇴장변경','!방입퇴장로그':'!입퇴장로그'});
+const ROOM_HELP='📋 방관리 명령어\n!방관리시작 / !방관리종료\n!방경고 (대상) (개수) (사유)\n!방경고내역 (대상)\n!방경고삭제 (대상) (번호)\n!방경고초기화 (대상)\n!방강퇴 (대상)\n!방차단해제 (대상)\n!방차단기록\n!방관리기록\n!방입장변경 (내용)\n!방퇴장변경 (내용)\n!방입퇴장로그';
 async function handle(ctx){
  const input=String(ctx.text||'').trim();
  const entered=input.split(/\s+/)[0];
