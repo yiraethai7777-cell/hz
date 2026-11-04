@@ -8,6 +8,7 @@ test('command-only blocking is room-scoped and survives database-backed lookups'
  const rows=new Map(),db={
   async query(sql,args=[]){
    if(sql.includes('CREATE TABLE IF NOT EXISTS hz_command_blocks'))return {rows:[],rowCount:0};
+   if(sql.includes('CREATE TABLE IF NOT EXISTS hz_super_admins')||sql.includes('SELECT 1 FROM hz_super_admins'))return {rows:[],rowCount:0};
    if(sql.includes('FROM hz_command_blocks WHERE room_id=$1 AND user_id=$2 LIMIT 1')){
     const item=rows.get(args[0]+':'+args[1]);return {rows:item?[item]:[],rowCount:item?1:0};
    }
@@ -25,7 +26,6 @@ test('command-only blocking is room-scoped and survives database-backed lookups'
    throw Error('Unexpected SQL: '+sql);
   }
  };
- const {isSuperAdmin}=require('../shared/super-admin');
  // Block set uses the same existing production permissions module; inject a non-admin
  // through its public query contract by providing the mock DB.
  assert.equal(await blocks.blocked('10001','20002',db),false);
