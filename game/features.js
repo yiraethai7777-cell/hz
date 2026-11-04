@@ -147,7 +147,7 @@ function issueQuizOnly(d,isSelf=false){
        ((Number(d.quizCooldownUntil)||0)-now)/1000
      );
 
-     if(remain>0)
+     if(remain>0&&!isSelf)
        return `[ ! ] 다음 퀴즈까지 ${remain}초 남았습니다.`;
 
      const {q,difficulty}=ctx.nextQuiz(d);
@@ -274,7 +274,7 @@ async function handleGameCore(d,c,msg,isSelf){
        ((Number(d.quizCooldownUntil)||0)-now)/1000
      );
 
-     if(remain>0)
+     if(remain>0&&!isSelf)
        return `[ ! ] 다음 퀴즈까지 ${remain}초 남았습니다.`;
 
      const {q,difficulty}=ctx.nextQuiz(d);
