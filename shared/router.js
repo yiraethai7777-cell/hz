@@ -560,6 +560,25 @@ if (text === '!이벤추첨테스트') {
         return;
       }
 
+      // Alternate room-game interface. Uses the existing game engine and data.
+      const roomGameAliases={'!방낚시':'!낚시','!방낚시정보':'!낚시정보','!방어망':'!어망','!방인벤':'!인벤','!방퀴즈':'!퀴즈','!방정답':'!정답','!방퀴즈순위':'!퀴즈순위','!방상점':'!상점','!방물고기도감':'!물고기도감','!방게임가입':'!게임가입','!방게임정보':'!게임정보'};
+      if(text==='!방게임시작'||text==='!방게임종료'){
+        if(!isBotAccount&&!roomBotAdmin&&!isSuperAdmin){await context.send('⛔ 방게임 설정 권한이 없습니다.');return;}
+        const on=text==='!방게임시작';
+        await game.toggle({...context,text:on?'!게임on':'!게임off',send:async()=>{}});
+        await require('./db').getPool().query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('roomGame',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{roomGame}',to_jsonb($2::boolean),true),updated_at=NOW()",[String(roomId),on]);
+        await context.send(on?'🎲 놀이방이 열렸습니다! 게임을 시작해 보세요.':'🎲 놀이방을 종료했습니다.');return;
+      }
+      if(text==='!방게임명령어'){
+        await context.send('🎲 놀이방 명령어\\n!방게임시작 / !방게임종료\\n!방게임가입 · !방게임정보\\n!방낚시 · !방낚시정보 · !방어망 · !방인벤\\n!방퀴즈 · !방정답 · !방퀴즈순위\\n!방상점 · !방물고기도감');return;
+      }
+      const roomGameToken=text.split(/\\s+/,1)[0];
+      if(roomGameAliases[roomGameToken]){
+        const state=await require('./db').getPool().query("SELECT data->>'roomGame' AS active FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
+        if(!isBotAccount&&state.rows[0]?.active!=='true')return;
+        const translated=roomGameAliases[roomGameToken]+text.slice(roomGameToken.length);
+        await game.message({...context,text:translated,chat,msg,send:body=>context.send(String(body).replace(/NEXI/g,'놀이방'))});return;
+      }
       if (text === '!게임on' || text === '!게임off') {
         await game.toggle(context);
         return;
