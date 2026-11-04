@@ -22,6 +22,7 @@ async function render(){
  $('#fishEventPanel').hidden=!d.permissions.manage;
  if(d.permissions.manage)await refreshFishEvent();
  $('#templates').hidden=!d.permissions.templates;$('#warningPanel').hidden=!d.permissions.warnings;
+ $('#commandBlockPanel').hidden=!d.permissions.blocks;if(d.permissions.blocks)await renderCommandBlocks();
  $('#prefixPanel').hidden=!d.permissions.prefixes;$('#tabRanks').hidden=!d.permissions.chatStats;
  canWarnMembers=!!d.permissions.warnings;$('#prefixInput').value=(d.prefixes||['!']).join(', ');
  $('#newUsername').value=d.username||'';$('#joinTemplate').value=d.joinTemplate;$('#leaveTemplate').value=d.leaveTemplate;
@@ -50,6 +51,29 @@ $('#startFishEvent').addEventListener('click',()=>task(async()=>{
  }finally{$('#startFishEvent').disabled=false;await refreshFishEvent().catch(()=>{});}
 }));
 $('#refreshFishEvent').addEventListener('click',()=>task(refreshFishEvent));
+async function renderCommandBlocks(){
+ const data=await api('/api/room-portal/command-blocks'),list=$('#commandBlockList');list.replaceChildren();
+ if(!data.blocks.length){list.textContent='차단된 사용자가 없습니다.';return;}
+ for(const user of data.blocks){
+  const row=document.createElement('div');row.className='feature';
+  const label=document.createElement('span');label.textContent=(user.user_name||user.user_id)+' · '+user.user_id+(user.reason?' · '+user.reason:'');
+  const remove=document.createElement('button');remove.type='button';remove.textContent='차단 해제';remove.className='secondary';
+  remove.addEventListener('click',()=>task(async()=>{
+   if(!confirm('사용자 '+user.user_id+'의 NEXI 명령어 차단을 해제하시겠습니까?'))return;
+   await api('/api/room-portal/command-blocks','POST',{userId:user.user_id,action:'unblock'});
+   await renderCommandBlocks();note('명령어 차단을 해제했습니다.');
+  }));
+  row.append(label,remove);list.append(row);
+ }
+}
+$('#commandBlockForm').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
+ const user=$('#blockedUserId').value.trim();
+ if(!/^[1-9]\\d{3,24}$/.test(user))throw Error('사용자 ID를 확인해 주세요.');
+ await api('/api/room-portal/command-blocks','POST',{userId:user,userName:$('#blockedUserName').value,
+  reason:$('#blockedReason').value,action:'block'});
+ $('#blockedUserId').value='';$('#blockedUserName').value='';$('#blockedReason').value='';
+ await renderCommandBlocks();note('명령어 차단을 저장했습니다.');
+});});
 async function renderWarnings(){
  const d=await api('/api/room-portal/warnings');const list=$('#warnings');list.replaceChildren();
  for(const u of d.warnings){
