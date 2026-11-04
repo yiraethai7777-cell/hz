@@ -42,6 +42,7 @@ async function handle({text,msg,roomId,userId,botId,chat,send,waitFn=wait,now=Da
   const mention=token(chat,roomId,parsed.target);
   for(let i=0;i<parsed.count;i++){
    if(i>0)await waitFn(INTERVAL_MS);
+   if(!await require('../shared/bot-power').enabled(room))return true;
    await send(mention);
   }
   return true;
