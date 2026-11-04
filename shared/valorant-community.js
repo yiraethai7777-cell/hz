@@ -54,6 +54,26 @@ function choose(players){
  }
  return {a:players.filter((p,i)=>chosen&(1<<i)),b:players.filter((p,i)=>!(chosen&(1<<i))),delta:best};
 }
+function chooseDifferent(players,previousA){
+ const old=new Set(previousA.map(String));
+ const n=players.length,total=players.reduce((sum,p)=>sum+p.rating,0);
+ let best=Infinity,maskBest=0,ties=0;
+ for(let mask=1;mask<(1<<n);mask++){
+  let count=0,sum=0,equal=true,complement=true;
+  for(let i=0;i<n;i++){
+   const yes=!!(mask&(1<<i));if(yes){count++;sum+=players[i].rating;}
+   if(yes!==old.has(String(players[i].user_id)))equal=false;
+   if(yes===old.has(String(players[i].user_id)))complement=false;
+  }
+  if(count!==5||equal||complement)continue;
+  const delta=Math.abs(2*sum-total);
+  if(delta<best){best=delta;maskBest=mask;ties=1;}
+  else if(delta===best){ties++;if(Math.random()*ties<1)maskBest=mask;}
+ }
+ if(!maskBest)return null;
+ return {a:players.filter((p,i)=>maskBest&(1<<i)),
+   b:players.filter((p,i)=>!(maskBest&(1<<i))),delta:best};
+}
 function formatTeam(team){return team.map((p,i)=>(i+1)+'. '+p.display_name+' ('+p.tier+')').join('\n');}
 function sideName(s){return s==='A'?'공격':'수비';}
 async function isManager({roomId,userId,senderType,isBotAccount,isSuperAdmin,db}){
@@ -144,7 +164,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
       if(missing.length)response='❌ 티어 정보가 없는 참가자가 '+missing.length+'명 있습니다. 먼저 !티어등록이 필요합니다.';
       else{
        const players=ids.map(id=>({user_id:id,tier:known.get(id).tier,rating:Number(known.get(id).rating)}));
-       const chosen=choose(players);teamA=chosen.a.map(x=>x.user_id);teamB=chosen.b.map(x=>x.user_id);delta=chosen.delta;
+       const chosen=chooseDifferent(players,teamA);if(!chosen)throw Error('다른 팀 조합을 구성할 수 없습니다.');teamA=chosen.a.map(x=>x.user_id);teamB=chosen.b.map(x=>x.user_id);delta=chosen.delta;
       }
      }
      if(!response){
@@ -270,4 +290,4 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
  }catch(e){console.error('[NEXI VALORANT COMMUNITY]',String(e?.message||e).slice(0,220));await send('❌ 내전·파티 기능 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');return true;}
  return true;
 }
-module.exports={COMMANDS,handle,rating,choose};
+module.exports={COMMANDS,handle,rating,choose,chooseDifferent};
