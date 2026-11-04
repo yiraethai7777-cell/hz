@@ -137,20 +137,6 @@ async function handle(ctx){
   const on=cmd==='!관리on';await setEnabled(db,room,on);
   await send(on?'🛡️ 관리 기능이 작동되었습니다.':'⏹️ 관리 기능이 중지되었습니다.');return true;
  }
- if(cmd==='!최고관리자추가'||cmd==='!최고관리자삭제'||cmd==='!최고관리자목록'){
-  if(cmd==='!최고관리자목록'){
-   const entries=await superRole.list(room,db);
-   await send('👑 최고관리자 목록\n'+(entries.length?entries.map(x=>'• '+x.user_id).join('\n'):'등록된 최고관리자가 없습니다.'));
-   return true;
-  }
-  const target=await targetOf(db,room,ctx.msg,tail,ctx.client);
-  if(!target||!goodTarget(target,user,ctx.botId)){await send('사용법: '+cmd+' (멘션 또는 사용자 ID)');return true;}
-  const act=cmd==='!최고관리자추가'?'add':'remove';
-  const changed=await superRole.update(room,target.id,user,act,db);
-  await action(db,room,user,target.id,act==='add'?'SUPER_ADMIN_ADD':'SUPER_ADMIN_REMOVE',changed?'changed':'unchanged');
-  await send((act==='add'?'👑 최고관리자 추가':'✅ 최고관리자 삭제')+(changed?' 완료: ':' · 변경사항 없음: ')+target.id);
-  return true;
- }
  if(cmd==='!삭제감지on'||cmd==='!삭제감지off'){
   const authorized=await isStaff(db,room,user,ctx.senderType,botOwner);
   if(!authorized){
