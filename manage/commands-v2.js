@@ -77,6 +77,7 @@ async function handle(ctx){
   if(tail){await send('사용법: '+cmd);return true;}
   const on=cmd==='!봇켜기';
   await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botEnabled',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{botEnabled}',to_jsonb($2::boolean),true),updated_at=NOW()",[room,on]);
+  if(!on)require('../shared/event-reaction-test').cancelForRoom(room);
   await send(on?'✅ 이 방의 NEXI 봇이 켜졌습니다.':'⏹️ 이 방의 NEXI 봇이 꺼졌습니다. !봇켜기로 다시 활성화할 수 있습니다.');
   return true;
  }
