@@ -117,9 +117,17 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Room-scoped command blocks: ignore this user's bot commands silently.
       // Ordinary conversation remains visible and can still count toward chat stats.
       const blocks=require('./command-blocks');
-      if(!isBotAccount&&blocks.commandLike(text)){
+      if(!isBotAccount&&senderId!=null){
         try{
-          if(await blocks.blocked(roomId,senderId))return;
+          if(await blocks.blocked(roomId,senderId)){
+            // Non-command chat is still counted, but no game/quiz/command handler sees it.
+            if(!blocks.commandLike(text)){
+              await ready;
+              await management.message({client,roomId,userId:senderId,userName:msg.sender?.name||'알 수 없음',
+                text:'',msg,send:body=>chat.sendText(roomId,body),senderType:msg.sender?.type,botId:client.userId,isBotAccount});
+            }
+            return;
+          }
         }catch(error){
           console.error('[COMMAND BLOCK CHECK]',String(error?.code||error?.message||error));
           // If the block database is temporarily unavailable, do not bypass a block.
