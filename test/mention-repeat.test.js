@@ -17,8 +17,9 @@ test('sends separate tagged messages and enforces per-room cooldown',async()=>{
   send:async value=>sent.push(value),waitFn:async()=>{},now:()=>1000000};
  await reminder.handle(args);
  assert.equal(sent.length,3);
- assert.match(sent[0],/\u000223456\u0003테스트\u0004/);
- assert.match(sent[2],/\(3\/3\)/);
+ assert.equal(sent[0],'\u000223456\u0003테스트\u0004');
+ assert.equal(sent[1],sent[0]);
+ assert.equal(sent[2],sent[0]);
  await reminder.handle(args);
  assert.equal(sent.length,4);
  assert.match(sent[3],/기다려/);
