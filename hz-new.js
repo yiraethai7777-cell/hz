@@ -33,6 +33,31 @@ function start() {
   ready.catch(err => console.error('[HZ NEW] 초기화 실패:', err));
 
   attachRouter(client, { game, management: manage, ready });
+  // KakaoForge member callbacks are registered separately from chat messages.
+  const memberEvent=kind=>async (...args)=>{
+    const event=args.length===1?args[0]:args[1];
+    const roomId=id(event?.room?.id??event?.chatId);
+    if(!roomId||event?.room?.isOpenChat===false)return;
+    try{
+      await ready;
+      if(!await require('./shared/bot-power').enabled(roomId))return;
+      const members=Array.isArray(event?.members)&&event.members.length
+        ?event.members.map(m=>({id:id(m.id),name:m.name}))
+        :(event?.member?.ids||[]).map((memberId,i)=>({id:id(memberId),name:event.member.names?.[i]}));
+      for(const member of members){
+        if(!member.id||member.id===id(client.userId))continue;
+        const send=async body=>{
+          const result=await client.chat.sendText(roomId,body);
+          if(kind==='leave')await require('./manage/leave-reply').record(require('./shared/db').getPool(),
+            {roomId,botId:client.userId,userId:member.id,name:member.name,result});
+          return result;
+        };
+        await manage[kind]({roomId,userId:member.id,userName:member.name||member.id,send});
+      }
+    }catch(error){console.error('[ROOM MEMBER '+kind.toUpperCase()+']',safeError(error));}
+  };
+  client.onJoin(memberEvent('join'));
+  client.onLeave(memberEvent('leave'));
   // Observe actual Kakao LOCO DECUNREAD pushes; report only captured user watermarks.
   require('./shared/read-receipts').register(client,ready);
   const recentMessages = new Map();
