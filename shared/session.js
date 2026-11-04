@@ -63,7 +63,7 @@ async function attachHZBot(client){
       const fastRoom=fastQuizRooms.get(rid);
       if(quizCommand&&fastRoom){
         if(!fastRoom.game||fastRoom.locked)return;
-        const output=fastRoom.quizEnabled?ctx.issueQuizOnly(fastRoom):'[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
+        const output=fastRoom.quizEnabled?ctx.issueQuizOnly(fastRoom,isSelf):'[ X ] 이 방은 퀴즈 기능이 꺼져 있습니다.';
         if(output)await ctx.send(chat,rid,output);
         if(fastRoom.quiz&&fastRoom.quiz.expiresAt>Date.now()){
           const quiz={...fastRoom.quiz};
