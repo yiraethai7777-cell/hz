@@ -2,6 +2,7 @@
 const {getPool}=require('./db');
 const {fold}=require('./valorant-more');
 const {mentions}=require('../manage/targets');
+const recruit=require('./valorant-recruit-reply');
 const COMMANDS=new Set(['!티어등록','!내전참가','!내전탈퇴','!내전참가자','!내전팀짜기','!내전재편성','!내전선수교체','!내전밸런스','!내전결과','!내전순위','!내전초기화','!듀오모집','!듀오목록','!듀오신청','!듀오취소']);
 let ready=null;
 async function init(db){
@@ -59,7 +60,7 @@ async function isManager({roomId,userId,senderType,isBotAccount,isSuperAdmin,db}
  if(isBotAccount||isSuperAdmin||[1,4].includes(Number(senderType)))return true;
  return require('./room-bot-admin').isRoomBotAdmin(roomId,userId,db);
 }
-async function handle({text,msg,roomId,userId,userName,senderType,isBotAccount,isSuperAdmin=false,send,db=getPool()}){
+async function handle({text,msg,client,chat,roomId,userId,userName,senderType,isBotAccount,isSuperAdmin=false,send,db=getPool()}){
  const cmd=String(text||'').trim().split(/\s+/)[0];if(!COMMANDS.has(cmd))return false;
  const tail=String(text).trim().slice(cmd.length).trim();
  const room=String(roomId||''),user=String(userId||'');
@@ -234,19 +235,32 @@ async function handle({text,msg,roomId,userId,userName,senderType,isBotAccount,i
    await db.query(`INSERT INTO hz_valorant_duo_posts(room_id,user_id,display_name,description)
      VALUES($1,$2,$3,$4) ON CONFLICT(room_id,user_id)
      DO UPDATE SET display_name=$3,description=$4,created_at=NOW()`,[room,user,name,tail]);
-   await send('✅ 듀오 모집 등록\n'+name+' · '+tail+'\n지원자는 !듀오신청 '+user+' 입력');return true;
+   await send('✅ 듀오 모집 등록\n'+name+' · '+tail+'\n모집자 ID: '+user+'\n지원자는 이 메시지에 답장으로 !듀오신청 또는 !듀오신청 '+user+' 입력');return true;
   }
   if(cmd==='!듀오목록'){
    const r=await db.query("SELECT user_id,display_name,description FROM hz_valorant_duo_posts WHERE room_id=$1 AND created_at>NOW()-INTERVAL '24 hours' ORDER BY created_at DESC LIMIT 15",[room]);
    await send(fold('👥 NEXI | 듀오 모집 목록',r.rowCount?r.rows.map((p,i)=>(i+1)+'. '+p.display_name+' · '+p.description+'\n   신청: !듀오신청 '+p.user_id).join('\n'):'진행 중인 듀오 모집이 없습니다.'));return true;
   }
   if(cmd==='!듀오신청'){
-   if(!/^[1-9]\d+$/.test(tail)){await send('사용법: !듀오신청 (모집자 ID)\n!듀오목록에서 ID를 확인하세요.');return true;}
-   if(tail===user){await send('❌ 본인 모집글에는 신청할 수 없습니다.');return true;}
-   const owner=await db.query("SELECT 1 FROM hz_valorant_duo_posts WHERE room_id=$1 AND user_id=$2 AND created_at>NOW()-INTERVAL '24 hours'",[room,tail]);
+   let ownerId=tail;
+   if(!ownerId){
+    const reply=await recruit.resolve({msg,client,roomId:room,botId:client?.userId});
+    if(reply?.kind==='party'){
+     return require('./valorant-party').handle({text:'!파티참가 '+reply.owner,roomId:room,userId:user,
+       userName:name,client,chat,send,db});
+    }
+    if(reply?.kind==='duo')ownerId=reply.owner;
+   }
+   if(!/^[1-9]\d+$/.test(ownerId)){await send('사용법: !듀오신청 (모집자 ID)\n또는 듀오 모집 메시지에 답장으로 !듀오신청을 입력해 주세요.');return true;}
+   if(ownerId===user){await send('❌ 본인 모집글에는 신청할 수 없습니다.');return true;}
+   const owner=await db.query("SELECT display_name FROM hz_valorant_duo_posts WHERE room_id=$1 AND user_id=$2 AND created_at>NOW()-INTERVAL '24 hours'",[room,ownerId]);
    if(!owner.rowCount){await send('❌ 해당 모집글이 없거나 24시간이 지났습니다.');return true;}
-   const existing=await db.query('INSERT INTO hz_valorant_duo_applications(room_id,owner_id,applicant_id,applicant_name) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[room,tail,user,name]);
-   await send(existing.rowCount?'✅ 듀오 신청 완료\n신청자: '+name+'\n모집자 ID: '+tail:'이미 신청한 모집글입니다.');return true;
+   const existing=await db.query('INSERT INTO hz_valorant_duo_applications(room_id,owner_id,applicant_id,applicant_name) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[room,ownerId,user,name]);
+   if(!existing.rowCount){await send('이미 신청한 모집글입니다.');return true;}
+   await send('✅ 듀오 신청 완료\n신청자: '+name);
+   try{await recruit.alertOwner({chat,roomId:room,send,ownerId,ownerName:owner.rows[0].display_name,applicantName:name,kind:'duo'});}
+   catch(err){console.warn('[DUO ALERT]',String(err?.code||'SEND_FAILED'));}
+   return true;
   }
   if(cmd==='!듀오취소'){
    await db.query('DELETE FROM hz_valorant_duo_posts WHERE room_id=$1 AND user_id=$2',[room,user]);
