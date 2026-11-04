@@ -87,7 +87,7 @@ async function handle(ctx){
  }
  const raw=input,cmd=entered;
  if(!ALL.has(cmd)||cmd==='!관리명령어'&&raw!=='!관리명령어')return false;
- const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId),tail=raw.slice(cmd.length).trim();
+ const tail=raw.slice(cmd.length).trim();
  const superRole=require('../shared/super-admin');
  const isSuperAdmin=await superRole.isSuperAdmin(room,user,db);
  const send=ctx.send,botOwner=owner(user,ctx.isBotAccount)||isSuperAdmin||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
