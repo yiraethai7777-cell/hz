@@ -3,7 +3,7 @@
 const {mentions}=require('./targets');
 const MAX_MENTIONS=5;
 const COOLDOWN_MS=60*1000;
-const INTERVAL_MS=1200;
+const INTERVAL_MS=250;
 const lastRun=new Map();
 const running=new Set();
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -40,11 +40,9 @@ async function handle({text,msg,roomId,userId,botId,chat,send,waitFn=wait,now=Da
  running.add(room);lastRun.set(room,current);
  try{
   const mention=token(chat,roomId,parsed.target);
-  let sent=0;
   for(let i=0;i<parsed.count;i++){
    if(i>0)await waitFn(INTERVAL_MS);
-   await send(mention+'님, 확인 부탁드립니다. ('+(i+1)+'/'+parsed.count+')');
-   sent++;
+   await send(mention);
   }
   return true;
  }catch(e){
