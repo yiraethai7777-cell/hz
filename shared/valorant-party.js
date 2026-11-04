@@ -73,39 +73,39 @@ async function handle({text,msg,client,chat,roomId,userId,userName,send,db=getPo
    let ownerId=tail;
    if(cmd==='!파티참가'&&!ownerId){const reply=await recruit.resolve({msg,client,roomId:room,botId:client?.userId});if(reply?.kind==='party')ownerId=reply.owner;}
    if(cmd==='!파티참가'&&!id(ownerId)){await send('사용법: !파티참가 (모집자 ID) 또는 파티 모집 메시지에 답장으로 !파티참가');return true;}
-   const client=typeof db.connect==='function'?await db.connect():null;
-   if(!client)throw Error('파티 변경을 위한 트랜잭션을 사용할 수 없습니다.');
+   const tx=typeof db.connect==='function'?await db.connect():null;
+   if(!tx)throw Error('파티 변경을 위한 트랜잭션을 사용할 수 없습니다.');
    let response='',notification=null;
    try{
-    await client.query('BEGIN');
-    if(cmd==='!파티참가')await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[room+':'+user]);
+    await tx.query('BEGIN');
+    if(cmd==='!파티참가')await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[room+':'+user]);
     const find=cmd==='!파티참가'
-     ?await client.query("SELECT * FROM hz_valorant_parties WHERE room_id=$1 AND owner_id=$2 AND created_at>NOW()-INTERVAL '24 hours' FOR UPDATE",[room,ownerId])
-     :await client.query('SELECT * FROM hz_valorant_parties WHERE room_id=$1 AND members @> $2::jsonb LIMIT 1 FOR UPDATE',[room,JSON.stringify([{id:user}])]);
+     ?await tx.query("SELECT * FROM hz_valorant_parties WHERE room_id=$1 AND owner_id=$2 AND created_at>NOW()-INTERVAL '24 hours' FOR UPDATE",[room,ownerId])
+     :await tx.query('SELECT * FROM hz_valorant_parties WHERE room_id=$1 AND members @> $2::jsonb LIMIT 1 FOR UPDATE',[room,JSON.stringify([{id:user}])]);
     if(!find.rowCount)response='❌ 해당 파티가 없거나 참가 중인 파티가 없습니다.';
     else{
      const party=find.rows[0],members=membersOf(party);
      if(cmd==='!파티참가'){
-      const prior=await client.query('SELECT owner_id FROM hz_valorant_parties WHERE room_id=$1 AND members @> $2::jsonb AND owner_id<>$3 LIMIT 1',[room,JSON.stringify([{id:user}]),party.owner_id]);
+      const prior=await tx.query('SELECT owner_id FROM hz_valorant_parties WHERE room_id=$1 AND members @> $2::jsonb AND owner_id<>$3 LIMIT 1',[room,JSON.stringify([{id:user}]),party.owner_id]);
       if(prior.rowCount)response='❌ 이미 다른 파티에 참가 중입니다.';
       else if(members.some(x=>x.id===user))response='이미 참가한 파티입니다.';
       else if(members.length>=party.capacity)response='❌ 파티 정원이 가득 찼습니다.';
       else{
        members.push({id:user,name});
-       await client.query('UPDATE hz_valorant_parties SET members=$3::jsonb WHERE room_id=$1 AND owner_id=$2',[room,party.owner_id,JSON.stringify(members)]);
+       await tx.query('UPDATE hz_valorant_parties SET members=$3::jsonb WHERE room_id=$1 AND owner_id=$2',[room,party.owner_id,JSON.stringify(members)]);
        response='✅ '+name+'님 파티 참가 완료 ('+members.length+'/'+party.capacity+')';
        notification={ownerId:party.owner_id,ownerName:party.owner_name};
       }
      }else if(user===party.owner_id)response='❌ 모집자는 !파티종료로 파티를 종료해야 합니다.';
      else{
       const next=members.filter(x=>x.id!==user);
-      await client.query('UPDATE hz_valorant_parties SET members=$3::jsonb WHERE room_id=$1 AND owner_id=$2',[room,party.owner_id,JSON.stringify(next)]);
+      await tx.query('UPDATE hz_valorant_parties SET members=$3::jsonb WHERE room_id=$1 AND owner_id=$2',[room,party.owner_id,JSON.stringify(next)]);
       response='✅ 파티에서 퇴장했습니다. ('+next.length+'/'+party.capacity+')';
      }
     }
-    await client.query('COMMIT');
-   }catch(error){await client.query('ROLLBACK');throw error;}
-   finally{client.release();}
+    await tx.query('COMMIT');
+   }catch(error){await tx.query('ROLLBACK');throw error;}
+   finally{tx.release();}
    await send(response);
    if(notification)try{await recruit.alertOwner({chat,roomId:room,send,ownerId:notification.ownerId,ownerName:notification.ownerName,applicantName:name,kind:'party'});}catch(error){console.warn('[PARTY ALERT]',String(error?.code||'SEND_FAILED'));}
    return true;
