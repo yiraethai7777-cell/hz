@@ -570,9 +570,9 @@ if (text === '!이벤추첨테스트') {
         await context.send(on?'🎲 놀이방이 열렸습니다! 게임을 시작해 보세요.':'🎲 놀이방을 종료했습니다.');return;
       }
       if(text==='!방게임명령어'){
-        await context.send('🎲 놀이방 명령어\\n!방게임시작 / !방게임종료\\n!방게임가입 · !방게임정보\\n!방낚시 · !방낚시정보 · !방어망 · !방인벤\\n!방퀴즈 · !방정답 · !방퀴즈순위\\n!방상점 · !방물고기도감');return;
+        await context.send('🎲 놀이방 명령어\n!방게임시작 / !방게임종료\n!방게임가입 · !방게임정보\n!방낚시 · !방낚시정보 · !방어망 · !방인벤\n!방퀴즈 · !방정답 · !방퀴즈순위\n!방상점 · !방물고기도감');return;
       }
-      const roomGameToken=text.split(/\\s+/,1)[0];
+      const roomGameToken=text.split(/\s+/,1)[0];
       if(roomGameAliases[roomGameToken]){
         const state=await require('./db').getPool().query("SELECT data->>'roomGame' AS active FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
         if(!isBotAccount&&state.rows[0]?.active!=='true')return;
