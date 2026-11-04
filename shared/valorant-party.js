@@ -50,7 +50,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,send,db=getPo
      description=$5,members=$6::jsonb,created_at=NOW()`,
     [room,user,name,size,desc,JSON.stringify(members)]);
    await send('✅ '+item({owner_id:user,owner_name:name,capacity:size,description:desc,members})+
-    '\n신청: !파티참가 '+user+'\n종료: !파티종료');return true;
+    '\n모집자 ID: '+user+'\n이 메시지에 답장으로 !파티참가 또는 !듀오신청\n직접 신청: !파티참가 '+user+'\n종료: !파티종료');return true;
   }
   if(cmd==='!파티목록'){
    const q=await db.query("SELECT owner_id,owner_name,capacity,description,members FROM hz_valorant_parties WHERE room_id=$1 AND created_at>NOW()-INTERVAL '24 hours' ORDER BY created_at DESC LIMIT 15",[room]);
