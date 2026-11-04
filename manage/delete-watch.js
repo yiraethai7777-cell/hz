@@ -30,6 +30,7 @@ async function readRoom(room,mid){
  return null;
 }
 async function active(db,room,requireDelete=true){
+ if(!await require('../shared/bot-power').enabled(room,db))return false;
  const q=await db.query('SELECT enabled,deleted_enabled FROM gl_manage_rooms WHERE room_id=$1',[room]);
  return q.rows[0]?.enabled===true&&(!requireDelete||q.rows[0]?.deleted_enabled===true);
 }
