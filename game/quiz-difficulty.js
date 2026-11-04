@@ -1,5 +1,5 @@
 'use strict';
-// Stable tiers for the 370-question NEXUS bank. The easier tier favors familiar
+// Stable tiers for the 500-question NEXI bank. The easier tier favors familiar
 // facts, vocabulary and small-number arithmetic; the challenge tier retains
 // less familiar trivia and longer calculations.
 function difficultyOf(quiz,index){
