@@ -1,6 +1,5 @@
 'use strict';
 const running=new Set();
-const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const numeric=v=>/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 function role(m){
  const value=m?.type??m?.memberType??m?.role??m?.userType;
@@ -22,33 +21,34 @@ function collect(members,{botId,actorId,protectedIds=new Set()}){
  }
  return {eligible,skipped};
 }
-async function handle({client,roomId,msg,userId,send,kick,db,owner}){
+async function handle({client,roomId,msg,userId,kick,db,owner}){
  const room=String(roomId);
- if(msg?.room?.isOpenChat!==true){await send('오픈채팅방에서만 사용할 수 있습니다.');return;}
- if(!owner){await send('⛔ 일괄강퇴는 봇 소유자만 사용할 수 있습니다.');return;}
- if(running.has(room)){await send('이미 이 방의 일괄강퇴가 실행 중입니다.');return;}
- if(typeof kick!=='function'||typeof client?.getCachedMemberProfiles!=='function'){
-  await send('강퇴 API 또는 참가자 캐시를 이용할 수 없습니다.');return;
- }
+ if(msg?.room?.isOpenChat!==true)throw Error('오픈채팅방에서만 사용할 수 있습니다.');
+ if(!owner)throw Error('일괄강퇴 권한이 없습니다.');
+ if(running.has(room))throw Error('이미 실행 중입니다.');
+ if(typeof kick!=='function'||typeof client?.getCachedMemberProfiles!=='function')throw Error('강퇴 API 또는 참가자 캐시를 이용할 수 없습니다.');
  running.add(room);
  try{
   const saved=await db.query('SELECT user_id FROM gl_manage_admins WHERE room_id=$1',[room]);
   const protectedIds=new Set(saved.rows.map(r=>String(r.user_id)));
-  // Observed profiles can contain departed users. Do not treat this as a complete roster.
   const members=await client.getCachedMemberProfiles(roomId);
   const {eligible,skipped}=collect(members,{botId:client.userId,actorId:userId,protectedIds});
-  if(!eligible.length){await send('강퇴할 수 있는 일반 참여자가 없습니다. (관리자·역할 미확인 대상 제외)');return;}
-  let success=0,failed=0;
-  for(const member of eligible){
-   if(client?.connected===false){failed+=eligible.length-success-failed;break;}
-   try{await kick(member.id);success++;}
-   catch(error){failed++;console.warn('[BULK KICK] 실패:',room,member.id,String(error?.message||error));}
-   try{
-    await db.query("INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,'KICK',$4)",[room,String(userId),member.id,'일괄강퇴 '+(success+failed)]);
-   }catch(e){console.warn('[BULK KICK] 기록 실패:',String(e?.message||e));}
-   await pause(30);
-  }
-  await send('🚫 일괄강퇴 처리 결과\n성공: '+success+'명\n실패·중단: '+failed+'명\n역할 확인 불가 제외: '+skipped.unknownRole+'명\n관리자·봇·실행자 제외: '+skipped.protected+'명\n※ 캐시 기반으로 현재 전체 인원을 보장하지 않습니다.');
+  let next=0,success=0,failed=0;
+  // No artificial 30ms delay or per-member database round trip. Keep concurrency bounded
+  // so LOCO requests can finish without overwhelming the connection.
+  const workers=Array.from({length:Math.min(4,eligible.length)},async()=>{
+   while(next<eligible.length){
+    const member=eligible[next++];
+    if(client.connected===false){failed++;continue;}
+    try{await kick(member.id);success++;}
+    catch(error){failed++;console.warn('[BULK KICK] failed',room,member.id,String(error?.message||error));}
+   }
+  });
+  await Promise.all(workers);
+  try{await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,action,detail) VALUES($1,$2,$3,$4)',[room,String(userId),'BULK_KICK',JSON.stringify({success,failed,skipped,attempted:eligible.length})]);}
+  catch(error){console.warn('[BULK KICK] audit failed',String(error?.message||error));}
+  console.log('[BULK KICK] completed',JSON.stringify({room,success,failed,skipped}));
+  return {success,failed,skipped,attempted:eligible.length};
  }finally{running.delete(room);}
 }
 module.exports={collect,handle};
