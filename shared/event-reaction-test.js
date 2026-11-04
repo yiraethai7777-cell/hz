@@ -250,4 +250,13 @@ async function stopUntilWinner({client,roomId,msg,send,roomBotAdmin=false,isBotA
  await sendSafe(client,send,'⏹️ 이벤트가 중지되었습니다.');
  return true;
 }
-module.exports = {start, receive, shouldBlind, startUntilWinner, stopUntilWinner};
+function cancelForRoom(roomId){
+ const room=String(roomId),session=sessions.get(room),current=active.get(room);
+ if(session)session.cancelled=true;
+ if(current&&!current.result){
+  current.result='cancelled';
+  current.resolveSignal?.();
+ }
+ // No announcement; all pending loops observe cancellation.
+}
+module.exports = {start, receive, shouldBlind, startUntilWinner, stopUntilWinner, cancelForRoom};
