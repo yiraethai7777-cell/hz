@@ -8,7 +8,7 @@ const bad=(message,status=400)=>{const e=Error(message);e.status=status;throw e;
 const hash=s=>crypto.createHash('sha256').update(String(s)).digest('hex');
 const passwordHash=(s,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+crypto.scryptSync(s,salt,64).toString('hex');
 const same=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);};
-const PERMISSIONS=['manage','mention','profile','deleted','spam','templates','warnings','roles','prefixes','chatStats'];
+const PERMISSIONS=['manage','mention','profile','deleted','spam','templates','warnings','roles','prefixes','chatStats','blocks'];
 const attempts=new Map();
 async function init(){
  const db=getPool();
@@ -184,6 +184,24 @@ async function routes(req,res,url,body){
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   setCookie(res,'',req,0);
   return {ok:true,logout:true};
+ }
+ if(p==='/api/room-portal/command-blocks'&&(method==='GET'||method==='POST')){
+  allowed(s,'blocks');
+  const blocks=require('../shared/command-blocks'),room=s.room_id;
+  if(method==='GET')return {blocks:await blocks.list(room)};
+  const user=blocks.identity(body.userId),action=String(body.action||'');
+  if(!user||!['block','unblock'].includes(action))bad('사용자 ID 또는 작업을 확인해 주세요.');
+  if(action==='block'){
+   const memberType=Number(status.client?._resolveMemberType?.(room,user));
+   if([1,4].includes(memberType))bad('방장·부방장은 차단할 수 없습니다.',403);
+  }
+  try{
+   const changed=await blocks.set({roomId:room,userId:user,userName:body.userName,
+    reason:body.reason,on:action==='block',actorId:'room-portal:'+s.id,botId:status.client?.userId});
+   await getPool().query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
+    [room,'room-portal:'+s.id,user,action==='block'?'BOT_COMMAND_BLOCK':'BOT_COMMAND_UNBLOCK',String(body.reason||'').slice(0,200)]);
+   return {ok:true,changed,blocks:await blocks.list(room)};
+  }catch(error){bad(String(error?.message||'처리 실패').slice(0,200));}
  }
  if(p==='/api/room-portal/prefixes'&&method==='POST'){
   allowed(s,'prefixes');
