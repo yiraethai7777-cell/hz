@@ -98,8 +98,14 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const senderId = msg.sender?.id ?? msg.senderId;
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
-    rememberMessage(roomId,msg,text);
     try {
+      // Global per-room kill switch. Skip every handler and cache while OFF;
+      // only !봇켜기 can revive the room (authorization checked below).
+      const power=await require('./db').getPool().query(
+        "SELECT data->>'botEnabled' AS enabled FROM hz_rooms WHERE room_id=$1",
+        [String(roomId)]);
+      if(power.rows[0]?.enabled==='false'&&text!=='!봇켜기')return;
+      rememberMessage(roomId,msg,text);
       // Normalize configured room prefix before ALL commands and event handlers.
       const prefixConfig=require('./command-prefixes');
       const prefixResult=prefixConfig.normalize(text,await prefixConfig.get(roomId));
@@ -147,10 +153,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         }
         return;
       }
-      const power=await require('./db').getPool().query(
-        "SELECT data->>'botEnabled' AS enabled FROM hz_rooms WHERE room_id=$1",
-        [String(roomId)]);
-      if(power.rows[0]?.enabled==='false')return;
+      // Room power was checked before all listeners, message tracking and prefixes.
       // Scoped superadmin authorization does not change the Kakao sender identity.
       let isSuperAdmin=false;
       if(text.startsWith('!')&&senderId!=null&&!isBotAccount){
