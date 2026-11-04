@@ -104,12 +104,12 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       const power=await require('./db').getPool().query(
         "SELECT data->>'botEnabled' AS enabled FROM hz_rooms WHERE room_id=$1",
         [String(roomId)]);
-      if(power.rows[0]?.enabled==='false'&&text!=='!봇켜기')return;
+      if(!isBotAccount&&power.rows[0]?.enabled==='false'&&text!=='!봇켜기')return;
       rememberMessage(roomId,msg,text);
       // Normalize configured room prefix before ALL commands and event handlers.
       const prefixConfig=require('./command-prefixes');
       const prefixResult=prefixConfig.normalize(text,await prefixConfig.get(roomId));
-      if(prefixResult.blocked){
+      if(prefixResult.blocked&&!isBotAccount){
         // Old ! commands must never invoke a handler; preserve chat counts.
         await ready;
         await management.message({client,roomId,userId:senderId??'',userName:msg.sender?.name||'알 수 없음',
@@ -248,7 +248,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         let enabled=false;
         try{enabled=await require('./valorant-settings').isEnabled(roomId);}
         catch(error){console.error('[VALORANT SKIN REPLY GATE]',String(error?.code||'DB_ERROR'));}
-        if(enabled){
+        if(enabled||isBotAccount){
           const handled=await require('./valorant-skin').handleReply({
             msg,text,client,roomId,userId:senderId,
             send:body=>chat.sendText(roomId,body)
@@ -266,7 +266,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         let enabled=false;
         try{enabled=await require('./valorant-settings').isEnabled(roomId);}
         catch(error){console.error('[VALORANT EXTENSION SWITCH]',String(error?.code||'DB_ERROR'));return;}
-        if(!enabled)return;
+        if(!enabled&&!isBotAccount)return;
         const args={text,msg,client,chat,roomId,userId:senderId,userName:msg.sender?.name||'참가자',
           senderType:msg.sender?.type,isBotAccount,isSuperAdmin,
           send:body=>chat.sendText(roomId,body)};
@@ -286,7 +286,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           console.error('[VALORANT SWITCH CHECK]',String(error?.message||error));
           return;
         }
-        if(!enabled)return; // Do not answer or call the skin/stats APIs when disabled.
+        if(!enabled&&!isBotAccount)return; // Bot owner bypasses per-room feature toggle.
         if(/^!(?:발로승인|발로승인해제)(?=\s|$)/.test(text)){
           await require('./valorant-approvals').handle({
             text,isBotAccount,isSuperAdmin,userId:senderId,send:body=>chat.sendText(roomId,body)
