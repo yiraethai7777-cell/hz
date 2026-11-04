@@ -73,6 +73,24 @@ async function routes(req,res,url,body){
  if(p==='/api/admin/attendance-image-test'&&method==='POST')return require('../manage/attendance-image/preview').sendTest(status.client,body);
  if(p==='/api/admin/promotion-message'&&method==='GET')return {message:await promotion.commonMessage()||''};
  if(p==='/api/admin/promotion-message'&&method==='POST')return promotion.setCommonMessage(s.user,body);
+ if(p==='/api/admin/bulk-kick'&&method==='POST'){
+  if(body.confirm!==true)fail('일괄강퇴 실행을 확인해 주세요.',400);
+  if(!status.connected||!status.client?.connected)fail('카카오톡 봇이 연결되지 않았습니다.',503);
+  const room=id(body.roomId);
+  await require('../promotion/rooms').refresh(status.client,{force:true});
+  const known=status.client.getKnownChatRooms?.().find(r=>String(r.id)===room);
+  if(!known||known.isOpenChat===false)fail('봇이 참여 중인 오픈채팅방을 선택해 주세요.',400);
+  const exists=await getPool().query('SELECT 1 FROM hz_rooms WHERE room_id=$1',[room]);
+  if(!exists.rowCount)fail('등록되지 않은 채팅방입니다.',404);
+  if(typeof status.client.openChatKick!=='function')fail('강퇴 API를 사용할 수 없습니다.',503);
+  await audit(getPool(),s.user,'BULK_KICK_REQUEST',room,null,{});
+  // Start in background: no KakaoTalk messages are sent, including start/end notices.
+  void require('../manage/bulk-kick').handle({client:status.client,roomId:room,
+   msg:{room:{isOpenChat:true}},userId:'master:'+s.user,
+   kick:target=>status.client.openChatKick(room,String(target)),db:getPool(),owner:true})
+   .catch(error=>console.error('[WEB BULK KICK]',room,String(error?.message||error)));
+  return {ok:true,started:true};
+ }
  if(p==='/api/admin/rooms'&&method==='GET'){
   // Show only rooms still joined by the bot. Preserve all historical DB records.
   if(!status.connected||typeof status.client?.getChatRooms!=='function'||typeof status.client?.getKnownChatRooms!=='function')
