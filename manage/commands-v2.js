@@ -130,7 +130,22 @@ async function handle(ctx){
  }
  if(OWNER.has(cmd)&&!botOwner){return true;}
  if(cmd==='!최고관리자추가'||cmd==='!최고관리자삭제'||cmd==='!최고관리자목록'){
-  // Super-admin membership is controlled exclusively by the authenticated master web console.
+  const roles=require('../shared/super-admin');
+  if(cmd==='!최고관리자목록'){
+   const rows=await roles.list(room,db);
+   await send(rows.length?'🛡️ 최고관리자 목록\\n'+rows.map(x=>'• '+x.user_id).join('\\n'):'🛡️ 등록된 최고관리자가 없습니다.');
+   return true;
+  }
+  const target=await targetOf(db,room,ctx.msg,tail,ctx.client);
+  if(!target||!roles.valid(target.id)){
+   await send('❌ 사용법: '+cmd+' @실제멘션 (또는 정확한 사용자 ID)');return true;
+  }
+  if(cmd==='!최고관리자삭제'&&String(target.id)===String(ctx.botId)){
+   await send('⛔ 봇 계정은 최고관리자에서 제외할 수 없습니다.');return true;
+  }
+  const added=cmd==='!최고관리자추가';
+  const changed=await roles.update(room,target.id,user,added?'add':'remove',db);
+  await send(changed?(added?'✅ 최고관리자 추가 완료: ':'✅ 최고관리자 삭제 완료: ')+target.id:'ℹ️ 이미 '+(added?'등록된':'삭제된')+' 사용자입니다.');
   return true;
  }
  if(cmd==='!일괄강퇴'){
@@ -159,7 +174,7 @@ async function handle(ctx){
   await send(on?'🗑️ 삭제 감지 ON · 이 방의 삭제 메시지를 감지합니다.':'⏹️ 삭제 감지 OFF');
   return true;
  }
- if(!await enabled(db,room)){return true;}
+ if(!ctx.isBotAccount&&!await enabled(db,room)){return true;}
  if(cmd==='!멘션감지on'||cmd==='!멘션감지off'||cmd==='!멘션감지상태'){
   const notifier=require('./mention-notify');
   if(cmd==='!멘션감지상태'){
