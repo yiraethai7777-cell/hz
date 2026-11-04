@@ -102,3 +102,11 @@ test('tier registration and exactly ten Kakao mentions create balanced attack an
  await community.handle({...base,text:'!내전결과 공격',senderType:1});
  assert.equal(games[0].winner,'A');
 });
+
+test('skin comparison supports comma and pipe separators',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../shared/valorant-guides.js'),'utf8');
+ assert.match(source,/tail\.split\(\/\\s\*\[,\|\]\\s\*\//);
+ const parse=input=>input.split(/\s*[,|]\s*/);
+ assert.deepEqual(parse('약탈자 밴달, 프라임 밴달'),['약탈자 밴달','프라임 밴달']);
+ assert.deepEqual(parse('약탈자 밴달 | 프라임 밴달'),['약탈자 밴달','프라임 밴달']);
+});
