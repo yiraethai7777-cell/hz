@@ -1,10 +1,14 @@
 'use strict';
 const {getPool}=require('./db');
 const {fold}=require('./valorant-more');
-const COMMANDS=new Set(['!내전참가','!내전탈퇴','!내전참가자','!내전팀짜기','!내전밸런스','!내전결과','!내전순위','!내전초기화','!듀오모집','!듀오목록','!듀오신청','!듀오취소']);
+const {mentions}=require('../manage/targets');
+const COMMANDS=new Set(['!티어등록','!내전참가','!내전탈퇴','!내전참가자','!내전팀짜기','!내전밸런스','!내전결과','!내전순위','!내전초기화','!듀오모집','!듀오목록','!듀오신청','!듀오취소']);
 let ready=null;
 async function init(db){
  if(!ready)ready=(async()=>{
+  await db.query(`CREATE TABLE IF NOT EXISTS hz_valorant_tier_profiles (
+   user_id TEXT PRIMARY KEY,tier TEXT NOT NULL,rating INTEGER NOT NULL,
+   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   await db.query(`CREATE TABLE IF NOT EXISTS hz_valorant_scrim_players (
    room_id TEXT NOT NULL,user_id TEXT NOT NULL,display_name TEXT NOT NULL,
    tier TEXT NOT NULL DEFAULT '미입력',rating INTEGER NOT NULL DEFAULT 0,
@@ -50,11 +54,12 @@ function choose(players){
  return {a:players.filter((p,i)=>chosen&(1<<i)),b:players.filter((p,i)=>!(chosen&(1<<i))),delta:best};
 }
 function formatTeam(team){return team.map((p,i)=>(i+1)+'. '+p.display_name+' ('+p.tier+')').join('\n');}
+function sideName(s){return s==='A'?'공격':'수비';}
 async function isManager({roomId,userId,senderType,isBotAccount,isSuperAdmin,db}){
  if(isBotAccount||isSuperAdmin||[1,4].includes(Number(senderType)))return true;
  return require('./room-bot-admin').isRoomBotAdmin(roomId,userId,db);
 }
-async function handle({text,roomId,userId,userName,senderType,isBotAccount,isSuperAdmin=false,send,db=getPool()}){
+async function handle({text,msg,roomId,userId,userName,senderType,isBotAccount,isSuperAdmin=false,send,db=getPool()}){
  const cmd=String(text||'').trim().split(/\s+/)[0];if(!COMMANDS.has(cmd))return false;
  const tail=String(text).trim().slice(cmd.length).trim();
  const room=String(roomId||''),user=String(userId||'');
@@ -62,6 +67,45 @@ async function handle({text,roomId,userId,userName,senderType,isBotAccount,isSup
  const name=String(userName||'참가자').replace(/[\r\n\u0000-\u001f]/g,' ').slice(0,35);
  try{
   await init(db);
+  if(cmd==='!티어등록'){
+   if(!tail){await send('사용법: !티어등록 (티어)\\n예: !티어등록 골드2');return true;}
+   const tier=rating(tail);
+   if(!tier||tier.label==='미입력'){await send('❌ 유효한 티어를 입력해 주세요.\\n예: 아이언1, 브론즈2, 실버3, 골드2, 플래티넘1, 다이아몬드3, 초월자1, 불멸2, 레디언트');return true;}
+   await db.query(`INSERT INTO hz_valorant_tier_profiles(user_id,tier,rating) VALUES($1,$2,$3)
+     ON CONFLICT(user_id) DO UPDATE SET tier=$2,rating=$3,updated_at=NOW()`,[user,tier.label,tier.value]);
+   await db.query('UPDATE hz_valorant_scrim_players SET tier=$2,rating=$3 WHERE user_id=$1',[user,tier.label,tier.value]);
+   await send('✅ '+name+'님의 내전 밸런스 티어가 '+tier.label+'(으)로 등록되었습니다.\\n※ 실제 발로란트 계정 티어 인증이 아닌 직접 등록 정보입니다.');
+   return true;
+  }
+  if(cmd==='!내전팀짜기'){
+   const tagged=mentions(msg);
+   if(tagged.length!==10){
+    await send('사용법: !내전팀짜기 (서로 다른 참가자 10명 멘션)\\n❌ 현재 확인된 멘션: '+tagged.length+'명 / 10명');
+    return true;
+   }
+   const ids=tagged.map(p=>p.id);
+   const tiers=await db.query('SELECT user_id,tier,rating FROM hz_valorant_tier_profiles WHERE user_id=ANY($1::text[])',[ids]);
+   const known=new Map(tiers.rows.map(p=>[p.user_id,p]));
+   const missing=tagged.filter(p=>!known.has(p.id));
+   if(missing.length){
+    await send('❌ 다음 '+missing.length+'명은 !티어등록이 필요합니다.\\n'+missing.map(p=>'• '+String(p.name||p.id).slice(0,35)).join('\\n')+'\\n참가자 본인이 티어를 등록한 후 다시 팀을 편성해 주세요.');
+    return true;
+   }
+   const pending=await db.query('SELECT id FROM hz_valorant_scrim_games WHERE room_id=$1 AND winner IS NULL ORDER BY id DESC LIMIT 1',[room]);
+   if(pending.rowCount){await send('⛔ 진행 중인 내전이 있습니다. !내전결과 공격 또는 수비로 먼저 종료하거나 !내전초기화를 이용해 주세요.');return true;}
+   const players=tagged.map(p=>({
+    user_id:p.id,display_name:String(p.name||p.id).replace(/[\\r\\n]/g,' ').slice(0,35),
+    tier:known.get(p.id).tier,rating:Number(known.get(p.id).rating)
+   }));
+   const teams=choose(players);
+   await db.query('INSERT INTO hz_valorant_scrim_games(room_id,team_a,team_b) VALUES($1,$2::jsonb,$3::jsonb)',
+    [room,JSON.stringify(teams.a.map(p=>p.user_id)),JSON.stringify(teams.b.map(p=>p.user_id))]);
+   await send(fold('⚔️ NEXI | 내전 팀 편성 (5 VS 5)',
+    '🔴 공격팀\\n'+formatTeam(teams.a)+'\\n━━━━━━━━━━━━━━\\n🔵 수비팀\\n'+formatTeam(teams.b)+
+    '\\n━━━━━━━━━━━━━━\\n⚖️ 팀 티어 점수 차이: '+teams.delta+
+    '\\n※ 등록된 티어 기준 균형 배치 (실력 보증 아님)\\n경기 종료: !내전결과 공격 또는 수비'));
+   return true;
+  }
   if(cmd==='!내전참가'){
    const tier=rating(tail);
    if(!tier){await send('사용법: !내전참가 (티어)\n예: !내전참가 골드2\n※ 티어는 직접 입력한 값입니다.');return true;}
@@ -77,14 +121,14 @@ async function handle({text,roomId,userId,userName,senderType,isBotAccount,isSup
    await db.query('DELETE FROM hz_valorant_scrim_players WHERE room_id=$1 AND user_id=$2',[room,user]);
    await send('✅ 내전 참가 명단에서 탈퇴했습니다.');return true;
   }
-  if(cmd==='!내전참가자'||cmd==='!내전팀짜기'||cmd==='!내전밸런스'){
+  if(cmd==='!내전참가자'||cmd==='!내전밸런스'){
    const list=await db.query('SELECT user_id,display_name,tier,rating FROM hz_valorant_scrim_players WHERE room_id=$1 ORDER BY joined_at,user_id',[room]);
    const rows=list.rows;
    if(cmd==='!내전참가자'){await send(fold('🎮 NEXI | 내전 참가자 ('+rows.length+'/10)',rows.length?rows.map((p,i)=>(i+1)+'. '+p.display_name+' · '+p.tier).join('\n'):'참가자가 없습니다.\n!내전참가 (티어)로 참여하세요.'));return true;}
    if(rows.length!==10){await send('❌ 5대5 팀 편성에는 참가자 10명이 필요합니다. 현재 '+rows.length+'/10명');return true;}
    const pending=await db.query('SELECT id FROM hz_valorant_scrim_games WHERE room_id=$1 AND winner IS NULL ORDER BY id DESC LIMIT 1',[room]);
    if(pending.rowCount){await send('⛔ 진행 중인 내전이 있습니다. !내전결과 A 또는 B로 먼저 종료해 주세요.');return true;}
-   const balanced=cmd==='!내전밸런스';
+   const balanced=true;
    const pairing=balanced?choose(rows):(()=>{
     const shuffled=[...rows];
     for(let i=shuffled.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
@@ -99,11 +143,11 @@ async function handle({text,roomId,userId,userName,senderType,isBotAccount,isSup
   }
   if(cmd==='!내전결과'){
    if(!await isManager({roomId:room,userId:user,senderType,isBotAccount,isSuperAdmin,db})){await send('⛔ 내전 결과 등록은 관리자만 가능합니다.');return true;}
-   if(!/^[AB]$/i.test(tail)){await send('사용법: !내전결과 A 또는 !내전결과 B');return true;}
+   if(!/^(?:A|B|공격|수비)$/i.test(tail)){await send('사용법: !내전결과 공격 또는 !내전결과 수비 (A/B도 가능)');return true;}
    const r=await db.query(`UPDATE hz_valorant_scrim_games SET winner=$2,finished_at=NOW()
      WHERE id=(SELECT id FROM hz_valorant_scrim_games WHERE room_id=$1 AND winner IS NULL ORDER BY id DESC LIMIT 1)
-     AND winner IS NULL RETURNING id`,[room,tail.toUpperCase()]);
-   await send(r.rowCount?'✅ 내전 결과 등록: '+tail.toUpperCase()+'팀 승리':'❌ 진행 중인 내전이 없습니다.');return true;
+     AND winner IS NULL RETURNING id`,[room,tail==='공격'?'A':tail==='수비'?'B':tail.toUpperCase()]);
+   await send(r.rowCount?'✅ 내전 결과 등록: '+sideName(tail==='공격'?'A':tail==='수비'?'B':tail.toUpperCase())+'팀 승리':'❌ 진행 중인 내전이 없습니다.');return true;
   }
   if(cmd==='!내전순위'){
    const result=await db.query(`SELECT user_id,COUNT(*)::int AS games,
