@@ -33,6 +33,8 @@ function start() {
   ready.catch(err => console.error('[HZ NEW] 초기화 실패:', err));
 
   attachRouter(client, { game, management: manage, ready });
+  // Observe actual Kakao LOCO DECUNREAD pushes; report only captured user watermarks.
+  require('./shared/read-receipts').register(client,ready);
   const recentMessages = new Map();
   const keyFor = (room, log) => String(room) + ':' + String(log);
 
