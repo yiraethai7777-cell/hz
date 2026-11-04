@@ -62,8 +62,30 @@ async function history(db,room,target){
   ...b.rows.map(v=>({d:new Date(v.created_at),s:time(v.created_at)+' · 방장/부방장 강퇴 · 대상 '+v.target_id+' · 실행 '+(v.meta?.actorName||v.meta?.actorId||'미확인')}))
  ].sort((x,y)=>y.d-x.d).slice(0,150).map(v=>v.s);
 }
+const ROOM_ALIASES=Object.freeze({'!방경고':'!경고','!방경고내역':'!경고내역','!방경고삭제':'!경고삭제','!방경고초기화':'!경고초기화','!방강퇴':'!kick','!방차단해제':'!벤해제','!방차단기록':'!벤기록','!방관리기록':'!관리로그'});
+const ROOM_HELP='📋 방관리 명령어\\n!방관리시작 / !방관리종료\\n!방경고 (대상) (개수) (사유)\\n!방경고내역 (대상)\\n!방경고삭제 (대상) (번호)\\n!방경고초기화 (대상)\\n!방강퇴 (대상)\\n!방차단해제 (대상)\\n!방차단기록\\n!방관리기록';
 async function handle(ctx){
- const raw=String(ctx.text||'').trim(),cmd=raw.split(/\s+/)[0];
+ const input=String(ctx.text||'').trim();
+ const entered=input.split(/\\s+/)[0];
+ const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId);
+ if(entered==='!방관리시작'||entered==='!방관리종료'){
+  const superRole=require('../shared/super-admin');
+  const authorized=ctx.isBotAccount||await superRole.isSuperAdmin(room,user,db)||await require('../shared/room-bot-admin').isRoomBotAdmin(room,user,db);
+  if(!authorized){await ctx.send('⛔ 방관리 설정 권한이 없습니다.');return true;}
+  const on=entered==='!방관리시작';
+  await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('roomManage',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{roomManage}',to_jsonb($2::boolean),true),updated_at=NOW()",[room,on]);
+  await ctx.send(on?'✅ 방관리 기능을 시작했습니다.':'⏹️ 방관리 기능을 종료했습니다.');return true;
+ }
+ if(entered==='!방관리명령어'){await ctx.send(ROOM_HELP);return true;}
+ if(entered==='!명령어'){await ctx.send('📜 전체 명령어\\n!게임명령어 · 게임 기능\\n!관리명령어 · 기존 관리 기능\\n'+ROOM_HELP);return true;}
+ const mapped=ROOM_ALIASES[entered];
+ if(mapped){
+  const state=await db.query("SELECT data->>'roomManage' AS enabled FROM hz_rooms WHERE room_id=$1",[room]);
+  if(!ctx.isBotAccount&&state.rows[0]?.enabled!=='true')return true;
+  const original=ctx.send;
+  return handle({...ctx,text:mapped+input.slice(entered.length),roomManageAlias:true,send:async body=>original(String(body).replace(/NEXI/g,'방관리').replace(/!경고/g,'!방경고').replace(/!kick/g,'!방강퇴'))});
+ }
+ const raw=input,cmd=entered;
  if(!ALL.has(cmd)||cmd==='!관리명령어'&&raw!=='!관리명령어')return false;
  const db=getPool(),room=String(ctx.roomId),user=String(ctx.userId),tail=raw.slice(cmd.length).trim();
  const superRole=require('../shared/super-admin');
@@ -174,7 +196,7 @@ async function handle(ctx){
   await send(on?'🗑️ 삭제 감지 ON · 이 방의 삭제 메시지를 감지합니다.':'⏹️ 삭제 감지 OFF');
   return true;
  }
- if(!ctx.isBotAccount&&!await enabled(db,room)){return true;}
+ if(!ctx.isBotAccount&&!ctx.roomManageAlias&&!await enabled(db,room)){return true;}
  if(cmd==='!멘션감지on'||cmd==='!멘션감지off'||cmd==='!멘션감지상태'){
   const notifier=require('./mention-notify');
   if(cmd==='!멘션감지상태'){
