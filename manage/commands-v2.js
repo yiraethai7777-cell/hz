@@ -91,7 +91,7 @@ async function handle(ctx){
    await send('⛔ 관리자만 사용할 수 있습니다.');return true;
   }
   return require('./mention-repeat').handle({text:raw,msg:ctx.msg,roomId:room,userId:user,
-   botId:ctx.botId,chat:ctx.client?.chat||ctx.client,send});
+   botId:ctx.botId,isBotAccount:ctx.isBotAccount,chat:ctx.client?.chat||ctx.client,send});
  }
  if(cmd==='!차단'||cmd==='!차단해제'||cmd==='!차단목록'){
   if(!ctx.isBotAccount&&!isSuperAdmin){
