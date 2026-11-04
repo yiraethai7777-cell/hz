@@ -74,7 +74,7 @@ async function deliver({db,chat,roomId,userId,userName,send}){
   if(activeDeliveries.has(key))return;
   activeDeliveries.add(key);
   try{
-    if(!await isEnabled(db,room))return;
+    if(!await require('../shared/bot-power').enabled(room,db)||!await isEnabled(db,room))return;
     const token=randomUUID();
     const r=await db.query(
       "WITH picked AS (SELECT id FROM hz_mention_alerts "+
@@ -89,6 +89,7 @@ async function deliver({db,chat,roomId,userId,userName,send}){
     const rows=r.rows.sort((a,b)=>BigInt(a.id)<BigInt(b.id)?-1:BigInt(a.id)>BigInt(b.id)?1:0);
     const real=actualMention(chat,room,user,userName);
     try{
+      if(!await require('../shared/bot-power').enabled(room,db))return;
       await send(formatNotification(userName,rows,real));
       await db.query('UPDATE hz_mention_alerts SET notified_at=NOW(),claim_token=NULL,claimed_at=NULL WHERE room_id=$1 AND target_id=$2 AND claim_token=$3',[room,user,token]);
     }catch(error){
