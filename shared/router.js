@@ -233,6 +233,26 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           if(handled)return;
         }
       }
+      // Extended Valorant commands share the same per-room OFF-by-default switch.
+      const newValorantCommand=text.split(/\\s+/)[0];
+      const valGuide=require('./valorant-guides');
+      const valStats=require('./valorant-extended-stats');
+      const valCommunity=require('./valorant-community');
+      if(valGuide.COMMANDS.has(newValorantCommand)||
+         valStats.COMMANDS.has(newValorantCommand)||
+         valCommunity.COMMANDS.has(newValorantCommand)){
+        let enabled=false;
+        try{enabled=await require('./valorant-settings').isEnabled(roomId);}
+        catch(error){console.error('[VALORANT EXTENSION SWITCH]',String(error?.code||'DB_ERROR'));return;}
+        if(!enabled)return;
+        const args={text,roomId,userId:senderId,userName:msg.sender?.name||'참가자',
+          senderType:msg.sender?.type,isBotAccount,isSuperAdmin,
+          send:body=>chat.sendText(roomId,body)};
+        if(valGuide.COMMANDS.has(newValorantCommand))await valGuide.handle(args);
+        else if(valStats.COMMANDS.has(newValorantCommand))await valStats.handle(args);
+        else await valCommunity.handle(args);
+        return;
+      }
       // Gate EVERY Valorant-related command before contacting external APIs.
       if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷|!발로저장|!발로전적확인|!발로삭제|!챔스노래|!발로승인|!발로승인해제)(?=\s|$)/.test(text)){
         let enabled=false;
