@@ -139,7 +139,7 @@ function drawMembers(){
   if(roles.children.length)info.append(roles);
   if(canEditMemberRoles){
    const row=document.createElement('div');row.className='memberActions';
-   for(const [role,label,enabled] of [['admin','관리자',m.admin],['superAdmin','최고관리자',m.superAdmin]]){
+   for(const [role,label,enabled] of [['admin','관리자',m.admin]]){
     const btn=document.createElement('button');btn.type='button';btn.className=enabled?'secondary':'';
     btn.textContent=label+' '+(enabled?'삭제':'추가');
     btn.addEventListener('click',()=>task(async()=>{
