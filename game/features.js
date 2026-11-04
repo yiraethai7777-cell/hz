@@ -30,9 +30,10 @@ function nextQuiz(d){
 
 function fishPick(luck){
   const tiers=["일반","희귀","영웅","전설","신화"];
-  // Starter-rod odds stay the same; stronger rods and pets get a noticeable
-  // legendary/mythic advantage. Each row totals 10,000.
-  const base=[6000,2800,1000,180,20];
+  // Default wooden rod (+0), with no pet or potion: 83% normal, 15% rare,
+  // 1.8% heroic, 0.19% legendary, 0.01% mythic. Each row totals 10,000.
+  // Better rods, enhancements and pets interpolate toward the existing high odds.
+  const base=[8300,1500,180,19,1];
   const high=[3700,3500,2000,650,150];
   const factor=Math.min(1,Math.max(0,Math.log(Math.max(1,luck))/Math.log(30)));
   const weights=base.map((w,i)=>w+(high[i]-w)*factor);
