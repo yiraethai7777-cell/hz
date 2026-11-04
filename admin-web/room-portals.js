@@ -1,6 +1,6 @@
 'use strict';
 const $=s=>document.querySelector(s);let csrf='',rooms=[],portals=[];
-const names={manage:'관리 ON/OFF',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지',templates:'입장·퇴장 메시지',warnings:'경고 내역·지급·삭제',roles:'관리자·최고관리자 추가/삭제',prefixes:'명령어 접두사 변경',chatStats:'채팅순위 조회·삭제·초기화',blocks:'봇 명령어 차단·해제'};
+const names={manage:'관리 ON/OFF',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지',templates:'입장·퇴장 메시지',warnings:'경고 내역·지급·삭제',roles:'관리자·최고관리자 추가/삭제',prefixes:'명령어 접두사 변경',chatStats:'채팅순위 조회·삭제·초기화'};
 function notice(t){$('#message').textContent=t;}
 async function api(path,method='GET',body){const r=await fetch(path,{method,headers:{'Content-Type':'application/json',...(method==='GET'?{}:{'x-csrf-token':csrf})},...(method==='GET'?{}:{body:JSON.stringify(body)})});const x=await r.json();if(!r.ok)throw Error(x.error||'요청 실패');return x;}
 async function task(fn){try{await fn();}catch(e){notice('❌ '+e.message);}}
