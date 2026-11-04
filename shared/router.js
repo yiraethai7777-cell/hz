@@ -576,7 +576,7 @@ if (text === '!이벤추첨테스트') {
         await context.send(on?'🎲 놀이방이 열렸습니다! 게임을 시작해 보세요.':'🎲 놀이방을 종료했습니다.');return;
       }
       if(text==='!방게임명령어'){
-        await context.send('🎲 플레이존 | 이용 안내\\n!방게임시작 / !방게임종료\n!입문 · !놀이정보\n🐟 !출항 · !조황 · !수조 · !가방 · !어류도감\n🧠 !도전 · !제출 · !명예의전당\n🛒 !교환소');return;
+        await context.send('🎲 플레이존 | 이용 안내\n!방게임시작 / !방게임종료\n!입문 · !놀이정보\n🐟 !출항 · !조황 · !수조 · !가방 · !어류도감\n🧠 !도전 · !제출 · !명예의전당\n🛒 !교환소');return;
       }
       const roomGameToken=text.split(/\s+/,1)[0];
       if(roomGameAliases[roomGameToken]){
