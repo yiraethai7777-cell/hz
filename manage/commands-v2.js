@@ -6,7 +6,7 @@ const {mentions,reference,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
 const PUBLIC=new Set(['ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
-const STAFF=new Set(['!봇켜기','!봇끄기','!현공지삭제','!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지등록','!공지예약','!공지목록','!공지삭제']);
+const STAFF=new Set(['!차단','!차단해제','!차단목록','!봇켜기','!봇끄기','!현공지삭제','!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지등록','!공지예약','!공지목록','!공지삭제']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!프로필감지on','!프로필감지off','!일괄강퇴']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
 const OWNER_IDS=new Set(String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/).filter(Boolean));
@@ -78,6 +78,38 @@ async function handle(ctx){
   const on=cmd==='!봇켜기';
   await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botEnabled',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{botEnabled}',to_jsonb($2::boolean),true),updated_at=NOW()",[room,on]);
   await send(on?'✅ 이 방의 NEXI 봇이 켜졌습니다.':'⏹️ 이 방의 NEXI 봇이 꺼졌습니다. !봇켜기로 다시 활성화할 수 있습니다.');
+  return true;
+ }
+ if(cmd==='!차단'||cmd==='!차단해제'||cmd==='!차단목록'){
+  if(!await isStaff(db,room,user,ctx.senderType,botOwner)){
+   await send('⛔ 봇 명령어 차단은 방장·부방장·관리자만 설정할 수 있습니다.');return true;
+  }
+  const blocks=require('../shared/command-blocks');
+  if(cmd==='!차단목록'){
+   if(tail){await send('사용법: !차단목록');return true;}
+   const entries=await blocks.list(room,db);
+   await pages(send,'🚫 NEXI | 명령어 차단 목록 ('+entries.length+'명)',
+    entries.map(x=>'• '+(x.user_name||x.user_id)+' ('+x.user_id+')'+(x.reason?' · '+x.reason:'')));
+   return true;
+  }
+  const target=await targetOf(db,room,ctx.msg,tail,ctx.client);
+  if(!target||!blocks.identity(target.id)){
+   await send('사용법: '+cmd+' (멘션·사용자 ID·답장)'+(cmd==='!차단'?' [사유]':''));return true;
+  }
+  if(cmd==='!차단'&&String(target.id)===String(user)){
+   await send('❌ 본인 계정은 차단할 수 없습니다.');return true;
+  }
+  if(cmd==='!차단'&&[1,4].includes(Number(target.type))){
+   await send('❌ 방장·부방장 계정은 차단할 수 없습니다.');return true;
+  }
+  const reason=tail.split(/\\s+/).slice(1).join(' ').slice(0,200);
+  try{
+   const changed=await blocks.set({roomId:room,userId:target.id,userName:target.name,
+    actorId:user,reason,on:cmd==='!차단',botId:ctx.botId,db});
+   await send(cmd==='!차단'
+    ?'🚫 '+(target.name||target.id)+'님의 NEXI 명령어 사용을 차단했습니다.\\n※ 실제 카카오톡 차단·강퇴는 아닙니다.'
+    :(changed?'✅ '+(target.name||target.id)+'님의 NEXI 명령어 차단을 해제했습니다.':'ℹ️ 차단 목록에 없는 사용자입니다.'));
+  }catch(error){await send('❌ '+String(error?.message||'차단 처리 실패').slice(0,170));}
   return true;
  }
  if(cmd==='!관리명령어'){
