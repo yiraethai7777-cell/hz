@@ -68,19 +68,19 @@ async function handle({text,msg,roomId,userId,userName,senderType,isBotAccount,i
  try{
   await init(db);
   if(cmd==='!티어등록'){
-   if(!tail){await send('사용법: !티어등록 (티어)\\n예: !티어등록 골드2');return true;}
+   if(!tail){await send('사용법: !티어등록 (티어)\n예: !티어등록 골드2');return true;}
    const tier=rating(tail);
-   if(!tier||tier.label==='미입력'){await send('❌ 유효한 티어를 입력해 주세요.\\n예: 아이언1, 브론즈2, 실버3, 골드2, 플래티넘1, 다이아몬드3, 초월자1, 불멸2, 레디언트');return true;}
+   if(!tier||tier.label==='미입력'){await send('❌ 유효한 티어를 입력해 주세요.\n예: 아이언1, 브론즈2, 실버3, 골드2, 플래티넘1, 다이아몬드3, 초월자1, 불멸2, 레디언트');return true;}
    await db.query(`INSERT INTO hz_valorant_tier_profiles(user_id,tier,rating) VALUES($1,$2,$3)
      ON CONFLICT(user_id) DO UPDATE SET tier=$2,rating=$3,updated_at=NOW()`,[user,tier.label,tier.value]);
    await db.query('UPDATE hz_valorant_scrim_players SET tier=$2,rating=$3 WHERE user_id=$1',[user,tier.label,tier.value]);
-   await send('✅ '+name+'님의 내전 밸런스 티어가 '+tier.label+'(으)로 등록되었습니다.\\n※ 실제 발로란트 계정 티어 인증이 아닌 직접 등록 정보입니다.');
+   await send('✅ '+name+'님의 내전 밸런스 티어가 '+tier.label+'(으)로 등록되었습니다.\n※ 실제 발로란트 계정 티어 인증이 아닌 직접 등록 정보입니다.');
    return true;
   }
   if(cmd==='!내전팀짜기'){
    const tagged=mentions(msg);
    if(tagged.length!==10){
-    await send('사용법: !내전팀짜기 (서로 다른 참가자 10명 멘션)\\n❌ 현재 확인된 멘션: '+tagged.length+'명 / 10명');
+    await send('사용법: !내전팀짜기 (서로 다른 참가자 10명 멘션)\n❌ 현재 확인된 멘션: '+tagged.length+'명 / 10명');
     return true;
    }
    const ids=tagged.map(p=>p.id);
@@ -88,22 +88,22 @@ async function handle({text,msg,roomId,userId,userName,senderType,isBotAccount,i
    const known=new Map(tiers.rows.map(p=>[p.user_id,p]));
    const missing=tagged.filter(p=>!known.has(p.id));
    if(missing.length){
-    await send('❌ 다음 '+missing.length+'명은 !티어등록이 필요합니다.\\n'+missing.map(p=>'• '+String(p.name||p.id).slice(0,35)).join('\\n')+'\\n참가자 본인이 티어를 등록한 후 다시 팀을 편성해 주세요.');
+    await send('❌ 다음 '+missing.length+'명은 !티어등록이 필요합니다.\n'+missing.map(p=>'• '+String(p.name||p.id).slice(0,35)).join('\n')+'\n참가자 본인이 티어를 등록한 후 다시 팀을 편성해 주세요.');
     return true;
    }
    const pending=await db.query('SELECT id FROM hz_valorant_scrim_games WHERE room_id=$1 AND winner IS NULL ORDER BY id DESC LIMIT 1',[room]);
    if(pending.rowCount){await send('⛔ 진행 중인 내전이 있습니다. !내전결과 공격 또는 수비로 먼저 종료하거나 !내전초기화를 이용해 주세요.');return true;}
    const players=tagged.map(p=>({
-    user_id:p.id,display_name:String(p.name||p.id).replace(/[\\r\\n]/g,' ').slice(0,35),
+    user_id:p.id,display_name:String(p.name||p.id).replace(/[\r\n]/g,' ').slice(0,35),
     tier:known.get(p.id).tier,rating:Number(known.get(p.id).rating)
    }));
    const teams=choose(players);
    await db.query('INSERT INTO hz_valorant_scrim_games(room_id,team_a,team_b) VALUES($1,$2::jsonb,$3::jsonb)',
     [room,JSON.stringify(teams.a.map(p=>p.user_id)),JSON.stringify(teams.b.map(p=>p.user_id))]);
    await send(fold('⚔️ NEXI | 내전 팀 편성 (5 VS 5)',
-    '🔴 공격팀\\n'+formatTeam(teams.a)+'\\n━━━━━━━━━━━━━━\\n🔵 수비팀\\n'+formatTeam(teams.b)+
-    '\\n━━━━━━━━━━━━━━\\n⚖️ 팀 티어 점수 차이: '+teams.delta+
-    '\\n※ 등록된 티어 기준 균형 배치 (실력 보증 아님)\\n경기 종료: !내전결과 공격 또는 수비'));
+    '🔴 공격팀\n'+formatTeam(teams.a)+'\n━━━━━━━━━━━━━━\n🔵 수비팀\n'+formatTeam(teams.b)+
+    '\n━━━━━━━━━━━━━━\n⚖️ 팀 티어 점수 차이: '+teams.delta+
+    '\n※ 등록된 티어 기준 균형 배치 (실력 보증 아님)\n경기 종료: !내전결과 공격 또는 수비'));
    return true;
   }
   if(cmd==='!내전참가'){
