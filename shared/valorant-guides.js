@@ -46,8 +46,8 @@ async function handle({text,userId,send,fetcher=globalThis.fetch}){
    if(!tail){await send('사용법: '+command+(command==='!스킨비교'?' (스킨1) | (스킨2)':' (스킨 이름)'));return true;}
    const items=await skin.catalog(fetcher);
    if(command==='!스킨비교'){
-    const parts=tail.split(/\s*\|\s*/).map(clean);
-    if(parts.length!==2||parts.some(p=>p.length<2)){await send('사용법: !스킨비교 프라임 밴달 | 약탈자 밴달');return true;}
+    const parts=tail.split(/\s*[,|]\s*/).map(clean);
+    if(parts.length!==2||parts.some(p=>p.length<2)){await send('사용법: !스킨비교 약탈자 밴달, 프라임 밴달\n또는 !스킨비교 약탈자 밴달 | 프라임 밴달');return true;}
     const found=parts.map(p=>findSkin(p,items));
     if(found.some(x=>!x)){await send('❌ 비교할 스킨을 찾지 못했습니다. 무기 이름까지 입력해 주세요.');return true;}
     await send(fold('🎨 NEXI | 스킨 비교',found.map((s,i)=>(i+1)+'. '+skinLine(s)).join('\n━━━━━━━━━━━━━━\n')+'\n※ VP는 등급 일반가이며 개별 상점 가격이 아닐 수 있습니다.'));return true;
