@@ -36,6 +36,27 @@ async function routes(req,res,url,body){
  if(p.startsWith('/api/admin/promo-'))return require('../promotion/portal').admin(req,url,body,s);
  if(p==='/api/logout'&&method==='POST')return auth.logout(req,res,s);
  if(p==='/api/admin/overview'&&method==='GET')return overview();
+ if(p==='/api/admin/command-blocks'&&(method==='GET'||method==='POST')){
+  const blocks=require('../shared/command-blocks');
+  const room=blocks.identity(method==='GET'?url.searchParams.get('roomId'):body.roomId);
+  if(!room)fail('채팅방 ID를 확인해 주세요.');
+  const exists=await getPool().query('SELECT 1 FROM hz_rooms WHERE room_id=$1',[room]);
+  if(!exists.rowCount)fail('등록된 채팅방을 선택해 주세요.',404);
+  if(method==='GET')return {blocks:await blocks.list(room)};
+  const user=blocks.identity(body.userId),action=String(body.action||'');
+  if(!user||!['block','unblock'].includes(action))fail('사용자 ID 또는 작업을 확인해 주세요.');
+  if(action==='block'){
+   const memberType=Number(status.client?._resolveMemberType?.(room,user));
+   if([1,4].includes(memberType))fail('방장·부방장은 차단할 수 없습니다.',403);
+  }
+  try{
+   const changed=await blocks.set({roomId:room,userId:user,userName:body.userName,
+    reason:body.reason,on:action==='block',actorId:'master:'+s.user,botId:status.client?.userId});
+   await audit(getPool(),s.user,action==='block'?'BOT_COMMAND_BLOCK':'BOT_COMMAND_UNBLOCK',room,user,{changed});
+   return {ok:true,changed,blocks:await blocks.list(room)};
+  }catch(error){fail(String(error?.message||'처리 실패').slice(0,200));}
+ }
+
  if(p==='/api/admin/fishing-coin-event'&&method==='GET'){
   const room=id(url.searchParams.get('roomId'));
   return {event:await require('../game/fishing-coin-event').status(room)};
