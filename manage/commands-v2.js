@@ -88,8 +88,8 @@ async function handle(ctx){
    botId:ctx.botId,chat:ctx.client?.chat||ctx.client,send});
  }
  if(cmd==='!차단'||cmd==='!차단해제'||cmd==='!차단목록'){
-  if(!await isStaff(db,room,user,ctx.senderType,botOwner)){
-   await send('⛔ 봇 명령어 차단은 방장·부방장·관리자만 설정할 수 있습니다.');return true;
+  if(!ctx.isBotAccount&&!isSuperAdmin){
+   await send('⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return true;
   }
   const blocks=require('../shared/command-blocks');
   if(cmd==='!차단목록'){
