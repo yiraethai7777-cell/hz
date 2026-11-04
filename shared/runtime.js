@@ -192,6 +192,19 @@ async function transferFish({roomId,roomName,fromId,toId,toName,request,messageI
   '마리\n🎁 받는 사람 보유: '+result.recipientTotal+'마리\n━━━━━━━━━━━━━━\n'+
   result.details.join('\n');
 }
+// Handle plain-text rod restoration choices without requiring a command prefix.
+async function respondRodRestore(context){
+ if(!runtime)throw Error('게임 시스템 초기화가 완료되지 않았습니다.');
+ const text=String(context.text||'').trim();
+ if(text!=='네'&&text!=='아니요')return null;
+ const room=String(context.roomId);
+ const user=String(context.userId??context.msg?.sender?.id??context.msg?.senderId??'');
+ if(!user)return null;
+ return runtime.withRoom(room,String(context.msg?.room?.name||''),async(d,c)=>{
+  if(!d.game||d.locked||!d.fishEnabled||!d.players?.[user]?.rodRestore)return null;
+  return runtime.handleGame(d,c,context.msg,!!context.isBotAccount);
+ });
+}
 let profileWatcher;
 function startProfileWatch(client){if(!runtime)return;profileWatcher ||= require('../manage/profile-watch').createWatcher(runtime,client);profileWatcher.start();}
-module.exports={attachModules,createRuntime,startProfileWatch,buyRod,transferFish};
+module.exports={attachModules,createRuntime,startProfileWatch,buyRod,transferFish,respondRodRestore};
