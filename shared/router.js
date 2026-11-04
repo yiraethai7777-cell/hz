@@ -235,20 +235,22 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       }
       // Extended Valorant commands share the same per-room OFF-by-default switch.
       const newValorantCommand=text.split(/\s+/)[0];
-      if(/^(?:!발로명령어|!요원|!랜덤요원|!맵|!랜덤맵|!무기|!조준점|!스킨비교|!스킨색상|!스킨가격|!발로티어변동|!발로요원통계|!발로비교|!발로랭킹|!발로랭킹등록|!발로랭킹탈퇴|!티어등록|!내전참가|!내전탈퇴|!내전참가자|!내전팀짜기|!내전밸런스|!내전결과|!내전순위|!내전초기화|!듀오모집|!듀오목록|!듀오신청|!듀오취소)(?=\s|$)/.test(text)){
+      if(/^(?:!발로명령어|!요원|!랜덤요원|!맵|!랜덤맵|!무기|!조준점|!스킨비교|!스킨색상|!스킨가격|!발로티어변동|!발로요원통계|!발로비교|!발로랭킹|!발로랭킹등록|!발로랭킹탈퇴|!티어등록|!내전참가|!내전탈퇴|!내전참가자|!내전팀짜기|!내전재편성|!내전선수교체|!내전밸런스|!내전결과|!내전순위|!내전초기화|!듀오모집|!듀오목록|!듀오신청|!듀오취소|!파티모집|!파티참가|!파티퇴장|!파티목록|!파티종료|!파티정보)(?=\s|$)/.test(text)){
         const valGuide=require('./valorant-guides');
         const valStats=require('./valorant-extended-stats');
         const valCommunity=require('./valorant-community');
+        const valParty=require('./valorant-party');
         let enabled=false;
         try{enabled=await require('./valorant-settings').isEnabled(roomId);}
         catch(error){console.error('[VALORANT EXTENSION SWITCH]',String(error?.code||'DB_ERROR'));return;}
         if(!enabled)return;
-        const args={text,msg,roomId,userId:senderId,userName:msg.sender?.name||'참가자',
+        const args={text,msg,client,chat,roomId,userId:senderId,userName:msg.sender?.name||'참가자',
           senderType:msg.sender?.type,isBotAccount,isSuperAdmin,
           send:body=>chat.sendText(roomId,body)};
         if(valGuide.COMMANDS.has(newValorantCommand))await valGuide.handle(args);
         else if(valStats.COMMANDS.has(newValorantCommand))await valStats.handle(args);
-        else await valCommunity.handle(args);
+        else if(valCommunity.COMMANDS.has(newValorantCommand))await valCommunity.handle(args);
+        else if(valParty.COMMANDS.has(newValorantCommand))await valParty.handle(args);
         return;
       }
       // Gate EVERY Valorant-related command before contacting external APIs.
