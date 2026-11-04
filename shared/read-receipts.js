@@ -10,7 +10,7 @@ function numeric(value){
  if(typeof value==='number')return Number.isSafeInteger(value)&&value>0?String(value):'';
  if(typeof value==='bigint')return value>0n?String(value):'';
  const raw=String(typeof value==='object'&&typeof value.toString==='function'?value.toString():value);
- return /^[1-9]\\d{0,24}$/.test(raw)?raw:'';
+ return /^[1-9]\d{0,24}$/.test(raw)?raw:'';
 }
 function parsePush(packet){
  const body=packet?.body||packet?.payload?.body||packet?.payload||packet||{};
@@ -57,7 +57,7 @@ function register(client,ready=Promise.resolve()){
 async function report({roomId,msg,db=getPool(),botId=''}){
  const room=numeric(roomId),ref=reference(msg),messageId=numeric(ref?.log);
  if(!room||!messageId)
-  return '👁️ NEXI | 읽기감지\\n확인할 메시지에 카카오톡 답장으로 !읽기감지를 입력해 주세요.';
+  return '👁️ NEXI | 읽기감지\n확인할 메시지에 카카오톡 답장으로 !읽기감지를 입력해 주세요.';
  await init(db);
  const result=await db.query(`SELECT r.user_id,r.watermark::text AS watermark,r.observed_at,
    COALESCE(NULLIF(m.name,''),NULLIF(g.user_name,''),NULLIF(w.user_name,''),r.user_id) AS user_name
@@ -77,6 +77,6 @@ async function report({roomId,msg,db=getPool(),botId=''}){
   '━━━━━━━━━━━━━━━━',
   '※ 봇이 수신한 DECUNREAD 이벤트만 반영합니다.',
   '※ 목록에 없다고 읽지 않았다는 뜻은 아닙니다.',
-  '※ 실제 이벤트가 수신되지 않는 방은 확인할 수 없습니다.'].join('\\n');
+  '※ 실제 이벤트가 수신되지 않는 방은 확인할 수 없습니다.'].join('\n');
 }
 module.exports={numeric,parsePush,init,observe,register,report};
