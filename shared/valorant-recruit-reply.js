@@ -42,7 +42,7 @@ function marker(chat,roomId,id,name){
    if(typeof token==='string'&&token.startsWith('\u0002')&&token.includes('\u0003')&&token.endsWith('\u0004'))return token;
   }catch(e){console.warn('[RECRUIT MENTION]',String(e?.code||'MENTION_FAILED'));}
  }
- return '@'+display;
+ return '\u0002'+id+'\u0003'+display.replace(/[\u0002-\u0004]/g,'')+'\u0004';
 }
 async function alertOwner({chat,roomId,send,ownerId,ownerName,applicantName,kind}){
  const target=marker(chat,roomId,ownerId,ownerName);
