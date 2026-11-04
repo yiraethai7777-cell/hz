@@ -77,7 +77,7 @@ async function handle(ctx){
   await ctx.send(on?'✅ 방관리 기능을 시작했습니다.':'⏹️ 방관리 기능을 종료했습니다.');return true;
  }
  if(entered==='!방관리명령어'){await ctx.send(ROOM_HELP);return true;}
- if(entered==='!명령어'){await ctx.send('📜 전체 명령어\n!게임명령어 · 게임 기능\n!관리명령어 · 기존 관리 기능\n'+ROOM_HELP);return true;}
+ if(entered==='!명령어'){await ctx.send('📜 전체 명령어\n!게임명령어 · 게임 기능\n!방게임명령어 · 놀이방 게임 기능\n!관리명령어 · 기존 관리 기능\n'+ROOM_HELP);return true;}
  const mapped=ROOM_ALIASES[entered];
  if(mapped){
   const state=await db.query("SELECT data->>'roomManage' AS enabled FROM hz_rooms WHERE room_id=$1",[room]);
