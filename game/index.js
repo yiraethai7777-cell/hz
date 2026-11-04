@@ -48,6 +48,17 @@ function createGame(client) {
       const msg = aliases.toLegacyMessage(context.msg,context.text,text);
       const normalized = text===context.text?context:{...context,text,msg};
       const {roomId,chat,isBotAccount,roomBotAdmin=false,send} = normalized;
+      // Plain-text confirmation for a pending fishing rod restoration.
+      if(text==='네'||text==='아니요'){
+        try{
+          const response=await require('../shared/runtime').respondRodRestore(normalized);
+          if(response){await send(response);return;}
+        }catch(error){
+          console.error('[ROD RESTORE]',String(error?.code||error?.message||error));
+          await send('❌ 낚싯대 복구 선택 처리 중 오류가 발생했습니다.');
+          return;
+        }
+      }
       // Handle rod purchases explicitly. The legacy event adapter could finish
       // without an actionable reply; this always sends the transaction result.
       if(/^#낚시대구매(?:\s|$)/.test(text)){
