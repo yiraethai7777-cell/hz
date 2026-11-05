@@ -104,13 +104,20 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       if(text==='!봇재부팅'){
         if(!isBotAccount)return;
         if(maintenance.active())return;
+        const pool=require('./db').getPool();
+        const rooms=await pool.query("SELECT room_id FROM hz_rooms WHERE COALESCE(data->>'botEnabled','true')<>'false'");
+        const targets=[...new Set([String(roomId),...rooms.rows.map(row=>String(row.room_id))])].filter(id=>/^\d+$/.test(id));
         maintenance.start(30000);
         const pauseEnd=global.__nexiPauseUntil;
+        const broadcast=async body=>{
+          const results=await Promise.allSettled(targets.map(id=>chat.sendText(id,body)));
+          results.forEach((result,index)=>{if(result.status==='rejected')console.warn('[BOT RESTART BROADCAST]',targets[index],String(result.reason?.message||result.reason));});
+        };
+        await broadcast('🔄 봇 재부팅을 시작합니다.');
         setTimeout(()=>{
           if(global.__nexiPauseUntil!==pauseEnd)return;
-          Promise.resolve(chat.sendText(roomId,'✅ 봇 재부팅이 끝났습니다.')).catch(error=>console.error('[BOT RESTART NOTICE]',error));
-        },30000);
-        await chat.sendText(roomId,'🔄 봇 재부팅을 시작합니다.');
+          void broadcast('✅ 봇 재부팅이 끝났습니다.');
+        },Math.max(0,pauseEnd-Date.now()));
         return;
       }
       if(maintenance.active())return;
