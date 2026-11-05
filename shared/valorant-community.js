@@ -1,10 +1,28 @@
 'use strict';
 const {getPool}=require('./db');
 const {fold}=require('./valorant-more');
-const {mentions}=require('../manage/targets');
+const {mentions,reference}=require('../manage/targets');
 const recruit=require('./valorant-recruit-reply');
 const COMMANDS=new Set(['!티어등록','!내전등록','!내전예약','!내전참여','!내전참가','!내전탈퇴','!내전참가자','!내전팀짜기','!내전재편성','!내전선수교체','!내전밸런스','!내전결과','!내전순위','!내전초기화','!듀오모집','!듀오목록','!듀오신청','!듀오취소']);
 let ready=null;
+const pendingCorrections=new Map();
+function profileParts(tail){
+ const input=String(tail||'').trim();
+ if(input.includes('/')){const parts=input.split('/').map(x=>x.trim());return parts.length===3?parts:null;}
+ const match=input.match(/^(\S+)\s+(\S+)\s+(.+#[^#\s]+)$/);
+ return match?[match[1],match[2],match[3].trim()]:input.split(/\s+/).filter(Boolean);
+}
+function tierSuggestion(value){
+ const s=String(value||'').replace(/\s+/g,'').toLowerCase();
+ const known=['아이언','브론즈','실버','골드','플래티넘','다이아몬드','초월자','불멸','레디언트','플레','다이아','초월','레디'];
+ const distance=(a,b)=>{const d=Array.from({length:a.length+1},(_,i)=>i);for(let j=1;j<=b.length;j++){let prev=d[0];d[0]=j;for(let i=1;i<=a.length;i++){const old=d[i];d[i]=Math.min(d[i]+1,d[i-1]+1,prev+(a[i-1]===b[j-1]?0:1));prev=old;}}return d[a.length];};
+ const suffix=/[123]$/.test(s)?s.slice(-1):'';
+ const base=suffix?s.slice(0,-1):s;
+ const options=known.map(k=>({k,d:distance(base,k)})).sort((a,b)=>a.d-b.d);
+ if(!options.length||options[0].d>1||options[1]?.d===options[0].d)return null;
+ return rating(options[0].k+suffix);
+}
+
 async function init(db){
  if(!ready)ready=(async()=>{
   await db.query(`CREATE TABLE IF NOT EXISTS hz_valorant_tier_profiles (
@@ -113,12 +131,20 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
    return true;
   }
   if(cmd==='!내전등록'||cmd==='!내전참여'||cmd==='!내전참가'){
-   const parts=tail.split(/\s+/).filter(Boolean);
+   const parts=profileParts(tail);
    const explicit=parts.length>0;
    let profile=null;
    if(explicit){
     if(parts.length!==3){await send('사용법: '+cmd+' (티어) (디스코드닉) (발로란트 이름#태그)\n예: '+cmd+' 골드2 discord_name Player#KR1');return true;}
     const tier=rating(parts[0]);
+    if(!tier){
+     const suggested=tierSuggestion(parts[0]);
+     if(suggested&&parts[1].length<=80&&parts[2].length<=80&&/^\\S+#[^#\\s]+$/.test(parts[2])){
+      pendingCorrections.set(room+':'+user,{command:cmd,tier:suggested,discord:parts[1],riot:parts[2],expires:Date.now()+120000});
+      await send('❓ '+parts[0]+' → '+suggested.label+'로 입력하신 게 맞나요?\\n이 메시지에 답장으로 네 또는 아니요를 입력해 주세요.');
+      return true;
+     }
+    }
     if(!tier||tier.label==='미입력'||parts[1].length>80||parts[2].length>80||!/^\S+#[^#\s]+$/.test(parts[2])){
      await send('❌ 티어, 디스코드 닉네임 또는 발로란트 이름#태그 형식이 올바르지 않습니다.');return true;
     }
@@ -342,7 +368,19 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
  }catch(e){console.error('[NEXI VALORANT COMMUNITY]',String(e?.message||e).slice(0,220));await send('❌ 내전·파티 기능 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');return true;}
  return true;
 }
-module.exports={COMMANDS,handle,rating,choose,chooseDifferent,init};
+async function handleConfirmation(args){
+ const text=String(args.text||'').trim();
+ if(!/^(네|예|아니요|아니오)$/.test(text))return false;
+ const key=String(args.roomId)+':'+String(args.userId),pending=pendingCorrections.get(key);
+ if(!pending||Date.now()>pending.expires){pendingCorrections.delete(key);return false;}
+ const ref=reference(args.msg);
+ if(!ref||String(ref.userId||'')!==String(args.client?.userId||''))return false;
+ pendingCorrections.delete(key);
+ if(text==='아니요'||text==='아니오'){await args.send('등록을 취소했습니다. 정확한 티어로 다시 입력해 주세요.');return true;}
+ const full=[pending.tier.label,pending.discord,pending.riot].join('/');
+ return handle({...args,text:pending.command+' '+full});
+}
+module.exports={COMMANDS,handle,handleConfirmation,rating,choose,chooseDifferent,init};
 ).test(v)){v=full+v.slice(short.length);break;}}
  if(!v||v==='미입력')return {label:'미입력',value:0};
  const ranks=[['아이언',100],['브론즈',400],['실버',700],['골드',1000],['플래티넘',1300],['다이아몬드',1600],['초월자',1900],['불멸',2200],['레디언트',2500]];
