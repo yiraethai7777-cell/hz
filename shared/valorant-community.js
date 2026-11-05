@@ -679,4 +679,4 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
  }catch(e){console.error('[NEXI VALORANT COMMUNITY]',String(e?.message||e).slice(0,220));await send('❌ 내전·파티 기능 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');return true;}
  return true;
 }
-module.exports={COMMANDS,handle,rating,choose,chooseDifferent,init};
+module.exports={COMMANDS,handle,rating,choose,chooseDifferent,init};  for(const [short,full] of aliases){if(v===short||v.startsWith(short)&&/^[123]$/.test(v.slice(short.length))){v=full+v.slice(short.length);break;}}
