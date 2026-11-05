@@ -49,6 +49,7 @@ async function attachHZBot(client){
       const msg=args.length===1?args[0]:args[1];
       const chat=args.length===1?(client.chat||client):args[0];
       if(!msg?.room?.id)return;
+      if(Date.now()<(global.__nexiPauseUntil||0))return;
       ctx.globalChat=chat;
 
       const rid=ctx.id(msg.room.id),rname=msg.room.name||"",uid=ctx.id(msg.sender?.id??msg.senderId),
