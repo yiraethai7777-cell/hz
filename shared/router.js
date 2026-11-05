@@ -3,6 +3,7 @@ const { handleExtraMessage } = require('./help');
 const gameAliases=require('../game/command-aliases');
 
 const recentMessages=new Map();
+const observedOpenRooms=new Set();
 const MAX_ROOMS=100, MAX_MESSAGES=250;
 function rememberMessage(roomId,msg,text){
  if(/^!가리기(?:\s|$)/.test(text))return;
@@ -96,6 +97,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     let text = String(msg.message?.text ?? msg.text ?? '').trim();
     const roomId = msg.room.id;
     const senderId = msg.sender?.id ?? msg.senderId;
+    if(msg.room?.isOpenChat===true)observedOpenRooms.add(String(roomId));
+    else if(msg.room?.isOpenChat===false)observedOpenRooms.delete(String(roomId));
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
@@ -105,8 +108,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         if(!isBotAccount)return;
         if(maintenance.active())return;
         const pool=require('./db').getPool();
-        const rooms=await pool.query("SELECT room_id FROM hz_rooms WHERE COALESCE(data->>'botEnabled','true')<>'false'");
-        const targets=[...new Set([String(roomId),...rooms.rows.map(row=>String(row.room_id))])].filter(id=>/^\d+$/.test(id));
+        const rooms=await pool.query("SELECT r.room_id FROM hz_rooms r LEFT JOIN gl_manage_rooms m ON m.room_id=r.room_id WHERE COALESCE(r.data->>'botEnabled','true')<>'false' AND (COALESCE((r.data->>'game')::boolean,false)=true OR COALESCE(m.enabled,(r.data->>'manage')::boolean,false)=true)");
+        const targets=[...new Set(rooms.rows.map(row=>String(row.room_id)))].filter(id=>/^\d+$/.test(id)&&observedOpenRooms.has(id));
         maintenance.start(30000);
         const pauseEnd=global.__nexiPauseUntil;
         const broadcast=async body=>{
