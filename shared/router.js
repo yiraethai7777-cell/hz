@@ -105,7 +105,12 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         if(!isBotAccount)return;
         if(maintenance.active())return;
         maintenance.start(30000);
-        await chat.sendText(roomId,'🔄 NEXI | 전체 기능 30초 일시 중지\\n게임·낚시·자동낚시·퀴즈·관리 등 모든 방의 처리를 멈춥니다.\\n30초 후 자동으로 재개됩니다.');
+        const pauseEnd=global.__nexiPauseUntil;
+        setTimeout(()=>{
+          if(global.__nexiPauseUntil!==pauseEnd)return;
+          Promise.resolve(chat.sendText(roomId,'✅ 봇 재부팅이 끝났습니다.')).catch(error=>console.error('[BOT RESTART NOTICE]',error));
+        },30000);
+        await chat.sendText(roomId,'🔄 봇 재부팅을 시작합니다.');
         return;
       }
       if(maintenance.active())return;
