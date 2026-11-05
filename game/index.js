@@ -96,7 +96,7 @@ function createGame(client) {
       }
       const r = await getPool().query('SELECT data FROM hz_rooms WHERE room_id=$1',[String(roomId)]);
       const flags = r.rows[0]?.data || {};
-      if(/^#치트(?:\\s|$)/.test(text)){
+      if(/^#치트(?:\s|$)/.test(text)){
         const senderId=msg.sender?.id??msg.senderId;
         let allowed=isBotAccount;
         if(!allowed&&senderId!=null){
