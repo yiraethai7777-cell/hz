@@ -99,6 +99,17 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Global 30-second maintenance pause: no commands or passive handling.
+      const maintenance=require('./maintenance-pause');
+      if(text==='!봇재부팅'){
+        const authorized=isBotAccount||(senderId!=null&&await require('./super-admin').isSuperAdmin(roomId,senderId));
+        if(!authorized){await chat.sendText(roomId,'⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return;}
+        if(maintenance.active())return;
+        maintenance.start(30000);
+        await chat.sendText(roomId,'🔄 NEXI | 전체 기능 30초 일시 중지\\n게임·낚시·자동낚시·퀴즈·관리 등 모든 방의 처리를 멈춥니다.\\n30초 후 자동으로 재개됩니다.');
+        return;
+      }
+      if(maintenance.active())return;
       // Global per-room kill switch. Skip every handler and cache while OFF;
       // only !봇켜기 can revive the room (authorization checked below).
       const power=await require('./db').getPool().query(
