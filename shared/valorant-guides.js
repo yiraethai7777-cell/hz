@@ -71,7 +71,8 @@ async function handle({text,userId,send,fetcher=globalThis.fetch}){
     '',
     '━━━━━━━━━━━━━━━━',
     '※ 이 방에서 !발로on 활성화 후 이용할 수 있습니다.'
-   ].join('\n')));\n  return true;
+   ].join('\n')));
+  return true;
  }
 
  const key=String(userId||'')+':'+command,now=Date.now();
