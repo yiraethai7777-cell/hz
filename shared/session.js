@@ -331,7 +331,7 @@ async function attachHZBot(client){
       }
 
       if(text.startsWith("#치트")){
-        if(!isAdmin||!flags.game)return;
+        if(!(isAdmin||await require('./super-admin').isSuperAdmin(rid,uid,ctx.pool))||!flags.game)return;
         const mm=/^#치트\s+([0-9]+)[\s\S]*$/.exec(text);
         let t=ctx.targetFrom(msg,text);
         if(!mm||!t){await ctx.send(chat,rid,"사용법: !치트 (코인) (@멘션)");return}
