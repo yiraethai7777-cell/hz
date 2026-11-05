@@ -31,13 +31,14 @@ async function attachHZBot(client){
   for(const row of initialQuizRooms.rows)fastQuizRooms.set(String(row.room_id),ctx.fixRoom(row.data,''));
 
   if(ctx.promoTimer)clearInterval(ctx.promoTimer);
-  ctx.promoTimer=setInterval(()=>{ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));},10000);
+  ctx.promoTimer=setInterval(()=>{if(Date.now()<(global.__nexiPauseUntil||0))return;ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));},10000);
   if(ctx.promoTimer.unref)ctx.promoTimer.unref();
   ctx.promoTick().catch(e=>console.error("[HZ PROMO]",e));
-  if(ctx.autoFishTimer)clearInterval(ctx.autoFishTimer);ctx.autoFishTimer=setInterval(async()=>{if(ctx.autoFishBusy)return;ctx.autoFishBusy=true;try{await ctx.autoFishTick()}catch(e){console.error("[AUTO TICK]",e)}finally{ctx.autoFishBusy=false}},10000);if(ctx.autoFishTimer.unref)ctx.autoFishTimer.unref();
+  if(ctx.autoFishTimer)clearInterval(ctx.autoFishTimer);ctx.autoFishTimer=setInterval(async()=>{if(Date.now()<(global.__nexiPauseUntil||0)||ctx.autoFishBusy)return;ctx.autoFishBusy=true;try{await ctx.autoFishTick()}catch(e){console.error("[AUTO TICK]",e)}finally{ctx.autoFishBusy=false}},10000);if(ctx.autoFishTimer.unref)ctx.autoFishTimer.unref();
 
   if(ctx.quizExpiryTimer)clearInterval(ctx.quizExpiryTimer);
   ctx.quizExpiryTimer=setInterval(()=>{
+    if(Date.now()<(global.__nexiPauseUntil||0))return;
     ctx.quizExpiryTick().catch(e=>console.error('[QUIZ EXPIRE]',e));
   },1000);
   if(ctx.quizExpiryTimer.unref)ctx.quizExpiryTimer.unref();
@@ -357,7 +358,7 @@ async function attachHZBot(client){
   const memberEvent=type=>async ev=>{
     try{
       const rid=ctx.id(ev.room?.id);if(!rid)return;
-      if(!await require('./bot-power').enabled(rid,ctx.pool))return;
+      if(Date.now()<(global.__nexiPauseUntil||0)||!await require('./bot-power').enabled(rid,ctx.pool))return;
       const f=await ctx.roomFlags(rid);if(!f.manage||f.locked)return;
       const ids=ev.member?.ids||ev.members?.map(x=>x.id)||[];
       const names=ev.member?.names||ev.members?.map(x=>x.name)||[];
