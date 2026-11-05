@@ -62,7 +62,7 @@ async function init(db){
 function rating(s){
  let v=String(s||'').toLowerCase().replace(/\s+/g,'');
  const aliases=[['플레','플래티넘'],['플렛','플래티넘'],['플랫','플래티넘'],['다야','다이아몬드'],['다이아','다이아몬드'],['초월','초월자'],['레디','레디언트'],['브론','브론즈'],['실','실버'],['골','골드'],['아연','아이언']];
- for(const [short,full] of aliases){if(v===short||new RegExp('^'+short+'[123]
+ for(const [short,full] of aliases){if(v===short||(v.startsWith(short)&&/^[123]$/.test(v.slice(short.length)))){v=full+v.slice(short.length);break;}}
  if(!v||v==='미입력')return {label:'미입력',value:0};
  const ranks=[['아이언',100],['브론즈',400],['실버',700],['골드',1000],['플래티넘',1300],['다이아몬드',1600],['초월자',1900],['불멸',2200],['레디언트',2500]];
  const found=ranks.find(([name])=>v.startsWith(name));
@@ -679,4 +679,4 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
  }catch(e){console.error('[NEXI VALORANT COMMUNITY]',String(e?.message||e).slice(0,220));await send('❌ 내전·파티 기능 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');return true;}
  return true;
 }
-module.exports={COMMANDS,handle,rating,choose,chooseDifferent,init};  for(const [short,full] of aliases){if(v===short||v.startsWith(short)&&/^[123]$/.test(v.slice(short.length))){v=full+v.slice(short.length);break;}}
+module.exports={COMMANDS,handle,rating,choose,chooseDifferent,init};
