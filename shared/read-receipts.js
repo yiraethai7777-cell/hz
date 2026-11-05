@@ -5,6 +5,8 @@ const {reference}=require('./reply-delete');
 const {enabled:roomEnabled}=require('./bot-power');
 const MAX_ROWS=40;
 let schemaPromise=null;
+const diagnostics={received:0,parsed:0,saved:0,missingRoom:0,missingUser:0,missingWatermark:0,ignored:0,errors:0};
+function logDiagnostics(reason){const n=diagnostics.received;if(n<=10||n%100===0||reason==='error')console.log('[READ RECEIPTS DIAG]',JSON.stringify({reason,...diagnostics}));}
 function numeric(value){
  if(value==null)return '';
  if(typeof value==='number')return Number.isSafeInteger(value)&&value>0?String(value):'';
@@ -48,8 +50,19 @@ function register(client,ready=Promise.resolve()){
   return false;
  }
  client.onPush('DECUNREAD',packet=>{
+  diagnostics.received++;
+  const body=packet?.body||packet?.payload?.body||packet?.payload||packet||{};
+  const parsed=parsePush(packet);
+  if(parsed)diagnostics.parsed++;
+  else{
+   if(!numeric(body.chatId??body.chat_id??body.c))diagnostics.missingRoom++;
+   if(!numeric(body.userId??body.user_id??body.u))diagnostics.missingUser++;
+   if(!numeric(body.watermark??body.waterMark??body.w))diagnostics.missingWatermark++;
+  }
+  logDiagnostics(parsed?'parsed':'missing-fields');
   void Promise.resolve(ready).then(()=>observe(packet,{botId:client.userId}))
-   .catch(error=>console.error('[READ RECEIPTS] push persist failed',String(error?.code||error?.message||error)));
+   .then(saved=>{if(saved)diagnostics.saved++;else diagnostics.ignored++;if(saved&&diagnostics.saved<=5)logDiagnostics('saved');})
+   .catch(error=>{diagnostics.errors++;console.error('[READ RECEIPTS DIAG]',JSON.stringify({reason:'error',code:String(error?.code||error?.message||error),...diagnostics}));});
  });
  console.log('[READ RECEIPTS] DECUNREAD listener registered (open-chat delivery unverified)');
  return true;
