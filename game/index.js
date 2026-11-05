@@ -96,6 +96,18 @@ function createGame(client) {
       }
       const r = await getPool().query('SELECT data FROM hz_rooms WHERE room_id=$1',[String(roomId)]);
       const flags = r.rows[0]?.data || {};
+      if(/^#치트(?:\\s|$)/.test(text)){
+        const senderId=msg.sender?.id??msg.senderId;
+        let allowed=isBotAccount;
+        if(!allowed&&senderId!=null){
+          allowed=await require('../shared/super-admin').isSuperAdmin(roomId,senderId);
+        }
+        if(!allowed){await send('⛔ !치트는 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return;}
+        if(!flags.game){await send('🎮 이 방은 게임 기능이 꺼져 있습니다. !게임on으로 활성화해 주세요.');return;}
+        if(!legacyMessage){await send('❌ 게임 처리기가 준비되지 않았습니다.');return;}
+        await legacyMessage(chat,msg);
+        return;
+      }
       if(text==='#게임상태'){await send(`🎮 게임: ${flags.game?'작동':'중지'}\n🧩 퀴즈: ${flags.quizEnabled!==false?'작동':'중지'}\n🎣 낚시: ${flags.fishEnabled!==false?'작동':'중지'}`);return;}
       if(text==='#게임정보'){await send('🎮 게임 정보\n!게임가입으로 시작하세요.\n코인·낚시(20종)·퀴즈(500문제)·펫·레벨을 즐길 수 있습니다.\n게임과 관리는 독립적으로 작동합니다.\n!게임명령어에서 자세한 사용법을 확인하세요.');return;}
       if (flags.locked&&!isBotAccount) return;
