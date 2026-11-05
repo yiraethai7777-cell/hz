@@ -41,13 +41,13 @@ function rating(s){
  return {label:found[0]+(suffix||''),value:found[1]+(Number(suffix||1)-1)*100};
 }
 function choose(players){
- const n=players.length;if(n!==10)throw Error('내전 참가자는 정확히 10명이 필요합니다.');
+ const n=players.length;if(n<2||n>10)throw Error('내전 참가자는 2~10명이 필요합니다.');
  const total=players.reduce((s,p)=>s+p.rating,0);
  let best=Infinity,chosen=null,draws=0;
  for(let mask=1;mask<(1<<n);mask++){
   let count=0,sum=0;
   for(let i=0;i<n;i++)if(mask&(1<<i)){count++;sum+=players[i].rating;}
-  if(count!==5)continue;
+  if(count!==Math.floor(n/2))continue;
   const delta=Math.abs(2*sum-total);
   if(delta<best){best=delta;chosen=mask;draws=1;}
   else if(delta===best){draws++;if(Math.random()*draws<1)chosen=mask;}
@@ -100,8 +100,8 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
   }
   if(cmd==='!내전팀짜기'){
    const tagged=mentions(msg);
-   if(tagged.length!==10){
-    await send('사용법: !내전팀짜기 (서로 다른 참가자 10명 멘션)\n❌ 현재 확인된 멘션: '+tagged.length+'명 / 10명');
+   if(tagged.length<2||tagged.length>10){
+    await send('사용법: !내전팀짜기 (서로 다른 참가자 2~10명 멘션)\n❌ 현재 확인된 멘션: '+tagged.length+'명 (허용: 2~10명)');
     return true;
    }
    const ids=tagged.map(p=>p.id);
