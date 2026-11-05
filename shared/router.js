@@ -100,7 +100,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       senderId != null && String(client.userId) === String(senderId);
     try {
       // Global 30-second maintenance pause: no commands or passive handling.
-      const maintenance=require('./bot-power').maintenance;
+      const maintenance={active:()=>Date.now()<(global.__nexiPauseUntil||0),start:ms=>{global.__nexiPauseUntil=Date.now()+ms;}};
       if(text==='!봇재부팅'){
         const authorized=isBotAccount||(senderId!=null&&await require('./super-admin').isSuperAdmin(roomId,senderId));
         if(!authorized){await chat.sendText(roomId,'⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return;}
