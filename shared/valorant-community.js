@@ -139,7 +139,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
     const tier=rating(parts[0]);
     if(!tier){
      const suggested=tierSuggestion(parts[0]);
-     if(suggested&&parts[1].length<=80&&parts[2].length<=80&&/^\\S+#[^#\\s]+$/.test(parts[2])){
+     if(suggested&&parts[1].length<=80&&parts[2].length<=80&&parts[2].includes('#')&&parts[2].split('#').length===2&&parts[2].split('#').every(Boolean)){
       pendingCorrections.set(room+':'+user,{command:cmd,tier:suggested,discord:parts[1],riot:parts[2],expires:Date.now()+120000});
       await send('❓ '+parts[0]+' → '+suggested.label+'로 입력하신 게 맞나요?\\n이 메시지에 답장으로 네 또는 아니요를 입력해 주세요.');
       return true;
