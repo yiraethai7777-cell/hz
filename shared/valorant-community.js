@@ -141,7 +141,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
      const suggested=tierSuggestion(parts[0]);
      if(suggested&&parts[1].length<=80&&parts[2].length<=80&&parts[2].includes('#')&&parts[2].split('#').length===2&&parts[2].split('#').every(Boolean)){
       pendingCorrections.set(room+':'+user,{command:cmd,tier:suggested,discord:parts[1],riot:parts[2],expires:Date.now()+120000});
-      await send('❓ '+parts[0]+' → '+suggested.label+'로 입력하신 게 맞나요?\\n이 메시지에 답장으로 네 또는 아니요를 입력해 주세요.');
+      await send('❓ '+parts[0]+' → '+suggested.label+'로 입력하신 게 맞나요?\n이 메시지에 답장으로 네 또는 아니요를 입력해 주세요.');
       return true;
      }
     }
@@ -374,7 +374,8 @@ async function handleConfirmation(args){
  const key=String(args.roomId)+':'+String(args.userId),pending=pendingCorrections.get(key);
  if(!pending||Date.now()>pending.expires){pendingCorrections.delete(key);return false;}
  const ref=reference(args.msg);
- if(!ref||String(ref.userId||'')!==String(args.client?.userId||''))return false;
+ if(!ref)return false;
+ if(ref.userId&&args.client?.userId!=null&&String(ref.userId)!==String(args.client.userId))return false;
  pendingCorrections.delete(key);
  if(text==='아니요'||text==='아니오'){await args.send('등록을 취소했습니다. 정확한 티어로 다시 입력해 주세요.');return true;}
  const full=[pending.tier.label,pending.discord,pending.riot].join('/');
