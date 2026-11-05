@@ -15,7 +15,10 @@ async function init(db){
    discord_name TEXT NOT NULL,riot_id TEXT NOT NULL,updated_at TIMESTAMPTZ DEFAULT NOW())`);
   await db.query(`CREATE TABLE IF NOT EXISTS hz_valorant_scrim_reservations (
    room_id TEXT PRIMARY KEY,starts_at TIMESTAMPTZ NOT NULL,
-   created_by TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT NOW())`);
+   created_by TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT NOW(),
+   started_at TIMESTAMPTZ,claimed_at TIMESTAMPTZ)`);
+  await db.query('ALTER TABLE hz_valorant_scrim_reservations ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ');
+  await db.query('ALTER TABLE hz_valorant_scrim_reservations ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ');
   await db.query(`CREATE TABLE IF NOT EXISTS hz_valorant_scrim_players (
    room_id TEXT NOT NULL,user_id TEXT NOT NULL,display_name TEXT NOT NULL,
    tier TEXT NOT NULL DEFAULT '미입력',rating INTEGER NOT NULL DEFAULT 0,
@@ -165,7 +168,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
    if(pending.rowCount){await send('⛔ 진행 중인 내전을 먼저 종료하거나 초기화해 주세요.');return true;}
    await db.query('DELETE FROM hz_valorant_scrim_players WHERE room_id=$1',[room]);
    await db.query(`INSERT INTO hz_valorant_scrim_reservations(room_id,starts_at,created_by) VALUES($1,$2,$3)
-     ON CONFLICT(room_id) DO UPDATE SET starts_at=$2,created_by=$3,created_at=NOW()`,[room,start,user]);
+     ON CONFLICT(room_id) DO UPDATE SET starts_at=$2,created_by=$3,created_at=NOW(),started_at=NULL,claimed_at=NULL`,[room,start,user]);
    await send('📅 NEXI | 내전 예약 완료\n시작: '+yMd(start)+' (한국시간)\n참가: !내전참여\n최대 10명 · 등록 정보 자동 적용');
    return true;
   }
@@ -337,4 +340,4 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
  }catch(e){console.error('[NEXI VALORANT COMMUNITY]',String(e?.message||e).slice(0,220));await send('❌ 내전·파티 기능 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');return true;}
  return true;
 }
-module.exports={COMMANDS,handle,rating,choose,chooseDifferent};
+module.exports={COMMANDS,handle,rating,choose,chooseDifferent,init};
