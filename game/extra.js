@@ -4,8 +4,8 @@ const coin=require('./coin');
 async function handle(ctx,client){
  const {text,roomId,userId,userName,send,msg}=ctx;
  if(/^#(?:치트|회수)(?:\s|$)/.test(text)){
-  const owners=String(process.env.HZ_OWNER_IDS||process.env.HZ_OWNER_ID||'').split(/[\s,;]+/);
-  if(!ctx.isBotAccount&&!owners.includes(String(userId))){await send('⛔ 최고 관리자만 사용할 수 있습니다.');return true;}
+  const allowed=ctx.isBotAccount || await require('../shared/super-admin').isSuperAdmin(roomId,userId);
+  if(!allowed){await send('⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return true;}
   try{
    const match=/^#(치트|회수)\s+(all|[1-9]\d*)\s+.+$/i.exec(text);if(!match||match[1]==='치트'&&match[2].toLowerCase()==='all')throw Error('사용법: !치트 (금액) (@멘션) 또는 !회수 (금액 또는 all) (@멘션)');
    if(!coin.messageKey(msg))throw Error('메시지 고유번호가 필요합니다.');
