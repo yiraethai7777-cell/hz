@@ -98,8 +98,8 @@ async function handle(ctx){
   return true;
  }
  if(cmd==='!봇켜기'||cmd==='!봇끄기'){
-  if(!ctx.isBotAccount&&!isSuperAdmin){
-   await send('⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return true;
+  if(!ctx.isBotAccount){
+   await send('⛔ 봇 계정만 사용할 수 있습니다.');return true;
   }
   if(tail){await send('사용법: '+cmd);return true;}
   const on=cmd==='!봇켜기';
@@ -116,8 +116,8 @@ async function handle(ctx){
    botId:ctx.botId,isBotAccount:ctx.isBotAccount,chat:ctx.client?.chat||ctx.client,send});
  }
  if(cmd==='!차단'||cmd==='!차단해제'||cmd==='!차단목록'){
-  if(!ctx.isBotAccount&&!isSuperAdmin){
-   await send('⛔ 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return true;
+  if(!ctx.isBotAccount){
+   await send('⛔ 봇 계정만 사용할 수 있습니다.');return true;
   }
   const blocks=require('../shared/command-blocks');
   if(cmd==='!차단목록'){
@@ -172,7 +172,7 @@ async function handle(ctx){
  }
  if(cmd==='!일괄강퇴'){
   if(raw!=='!일괄강퇴')return true;
-  const botAccountOwner=owner(user,ctx.isBotAccount)||isSuperAdmin;
+  const botAccountOwner=ctx.isBotAccount;
   if(!botAccountOwner)return true;
   void require('./bulk-kick').handle({client:ctx.client,roomId:room,msg:ctx.msg,userId:user,kick:ctx.kick,db,owner:true})
     .catch(error=>console.error('[BULK KICK] command failed',String(error?.message||error)));
