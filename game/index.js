@@ -104,8 +104,7 @@ function createGame(client) {
         }
         if(!allowed){await send('⛔ !치트는 봇 계정 또는 이 방의 최고관리자만 사용할 수 있습니다.');return;}
         if(!flags.game){await send('🎮 이 방은 게임 기능이 꺼져 있습니다. !게임on으로 활성화해 주세요.');return;}
-        if(!legacyMessage){await send('❌ 게임 처리기가 준비되지 않았습니다.');return;}
-        await legacyMessage(chat,msg);
+        await require('./extra').handle(normalized,client);
         return;
       }
       if(text==='#게임상태'){await send(`🎮 게임: ${flags.game?'작동':'중지'}\n🧩 퀴즈: ${flags.quizEnabled!==false?'작동':'중지'}\n🎣 낚시: ${flags.fishEnabled!==false?'작동':'중지'}`);return;}
