@@ -145,7 +145,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
       return true;
      }
     }
-    if(!tier||tier.label==='미입력'||parts[1].length>80||parts[2].length>80||!/^\S+#[^#\s]+$/.test(parts[2])){
+    if(!tier||tier.label==='미입력'||parts[1].length>80||parts[2].length>80||!/^[^#\s]+(?: [^#\s]+)*#[^#\s]+$/.test(parts[2])){
      await send('❌ 티어, 디스코드 닉네임 또는 발로란트 이름#태그 형식이 올바르지 않습니다.');return true;
     }
     profile={tier:tier.label,rating:tier.value,discord_name:parts[1],riot_id:parts[2]};
