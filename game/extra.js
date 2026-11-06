@@ -12,7 +12,7 @@ async function handle(ctx,client){
    const target=coin.mentionTarget(msg);
    await require('./economy').ensureLinked(String(roomId),target.id,target.name);
    let n;
-   if(match[2].toLowerCase()==='all'){const r=await getPool().query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[String(roomId),target.id]);n=BigInt(r.rows[0]?.balance||0);}else n=BigInt(match[2]);
+   if(match[2].toLowerCase()==='all'){const r=await getPool().query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[String(roomId),target.id]);n=BigInt(r.rows[0]?.balance||0);if(n===0n){await send('ℹ️ 회수할 코인이 없습니다.');return true;}}else n=BigInt(match[2]);
    const r=await require('./admin-coins').adjust({room:String(roomId),user:target.id,name:target.name,actor:String(userId),amount:(match[1]==='치트'?n:-n).toString(),operationId:'kakao:'+String(roomId)+':'+String(coin.messageKey(msg)||''),reason:match[1]});
    await send(`✅ ${target.name}님 코인 조정 완료\n잔액: ${BigInt(r.balance).toLocaleString('ko-KR')}코인`);
   }catch(e){await send('❌ '+e.message);}return true;
