@@ -31,8 +31,8 @@ async function link(db,room,user,p){
    SELECT wallet.balance, EXISTS(SELECT 1 FROM linked) AS newly_linked FROM wallet
  `,[room,user,legacy,p.name||user]);
  if(added.rows[0].newly_linked&&legacy){
-  const result=await db.query('UPDATE hz_wallets SET balance=balance+$3 WHERE room_id=$1 AND user_id=$2 AND balance<=$4::bigint-$3::bigint RETURNING balance',[room,user,legacy,LIMIT]);
-  if(!result.rowCount)throw Error('코인 합산 한도를 초과했습니다.');
+  const result=await db.query('UPDATE hz_wallets SET balance=balance+$3::numeric WHERE room_id=$1 AND user_id=$2 RETURNING balance',[room,user,String(legacy)]);
+  if(!result.rowCount)throw Error('코인 지갑을 찾지 못했습니다.');
   await db.query("INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,'LEGACY_GAME_MERGE',$3,'기존 게임 코인과 지갑 코인 연결: 1회만 합산')",[room,user,legacy]);
  }
  if(added.rows[0].newly_linked&&legacy){
