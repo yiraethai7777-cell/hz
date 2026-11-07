@@ -397,7 +397,7 @@ async function handleGameCore(d,c,msg,isSelf){
     return `🎣 ${rod} 낚시대 강화\n성공 ${success}회 · 실패 ${fail}회\n💰 사용 ${ctx.n(spent)}코인\n현재 ${p.rod} +${p.rodLevels[p.rod]||0}\n${ctx.MORE}\n${lines.join("\n")}`;
   }
   if(text==="#구매행운"){if(p.luckUntil>now)return `🍀 행운 효과 종료까지 ${Math.ceil((p.luckUntil-now)/60000)}분 남았습니다.`;if(p.points<40000&&!isSelf)return "💰 40,000코인이 필요합니다.";if(!isSelf)p.points-=40000;p.luckUntil=now+600000;return "🍀 행운 구매 완료! 10분간 낚시 행운 50% 상승"}
-  if(text==="#구매자동"){if(p.autoUntil>now)return `⏳ 자동 낚시가 작동 중입니다. 남은 시간 ${Math.ceil((p.autoUntil-now)/1000)}초`;if(p.autoDay!==ctx.dayK()){p.autoDay=ctx.dayK();p.autoBought=0;}if(p.autoBought>=3)return "🤖 오늘 자동 낚시 구매 3회를 모두 사용했습니다. 내일 다시 구매하세요.";if(p.points<ctx.AUTO_COST&&!isSelf)return "💰 50,000코인이 필요합니다.";if(!isSelf)p.points-=ctx.AUTO_COST;p.autoBought++;p.autoUntil=now+ctx.AUTO_DURATION;return `🤖 자동 낚시 구매 완료!\n작동 시간: 10분\n오늘 구매 ${p.autoBought}/3회\n🎣 ${ctx.FISHING_COOLDOWN_SECONDS}초마다 자동 낚시`;}
+  if(text==="#구매자동"){if(p.autoUntil>now)return `⏳ 자동 낚시가 작동 중입니다. 남은 시간 ${Math.ceil((p.autoUntil-now)/1000)}초`;if(p.autoDay!==ctx.dayK()){p.autoDay=ctx.dayK();p.autoBought=0;}if(p.autoBought>=3)return "🤖 오늘 자동 낚시 구매 3회를 모두 사용했습니다. 내일 다시 구매하세요.";if(p.points<ctx.AUTO_COST&&!isSelf)return "💰 50,000코인이 필요합니다.";if(!isSelf)p.points-=ctx.AUTO_COST;p.autoBought++;p.autoUntil=now+ctx.AUTO_DURATION;return `🤖 자동 낚시 구매 완료!\n작동 시간: 5분\n오늘 구매 ${p.autoBought}/3회\n🎣 ${ctx.FISHING_COOLDOWN_SECONDS}초마다 자동 낚시`;}
   if(text==="#펫뽑기"||/^#펫뽑기\s+(10|50|100|500)$/.test(text)){
     const count=Number(text.split(/\s+/)[1]||1),cost=count*ctx.PET_COST;
     if(p.points<cost&&!isSelf)return `💰 ${ctx.n(cost)}코인이 필요합니다.`;
@@ -483,7 +483,7 @@ async function handleGameCore(d,c,msg,isSelf){
     p.points+=total;
     return `🐟 물고기 판매 완료!\n판매 수량: ${targets.length}마리\n💰 판매 금액: +${ctx.n(total)}코인\n💵 보유 코인: ${ctx.n(p.points)}\n${ctx.MORE}\n${details.join("\n")}`;
   }
-  if(text==="#낚시정보")return `🎣 낚시 정보\n쿨타임 ${ctx.FISHING_COOLDOWN_SECONDS}초 · 결과 즉시 표시\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
+  if(text==="#낚시정보")return `🎣 낚시 정보\n쿨타임 ${ctx.FISHING_COOLDOWN_SECONDS}초 · 결과 약 3초 후 표시\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
   if(text==="#인벤"){
     if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";
     // Show every section under KakaoTalk's single "더보기", rather than
