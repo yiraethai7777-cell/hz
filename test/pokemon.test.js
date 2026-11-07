@@ -25,13 +25,14 @@ test('Pokémon roster and canonical PokeAPI art URLs',()=>{
  assert.ok(SPECIES.length>=50);
  assert.equal(BY_NAME.get('피카츄').id,25);
  assert.equal(spriteUrl(25),'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png');
- assert.ok(catchChance(BY_NAME.get('뮤'),15)<catchChance(BY_NAME.get('피카츄'),15));
+ assert.ok(catchChance(BY_NAME.get('뮤'))<catchChance(BY_NAME.get('피카츄')));
 });
 test('Image cards embed official art and all encounter details',()=>{
  const png=Buffer.from([137,80,78,71,13,10,26,10]);
  const svg=renderSvg({pokemon:BY_NAME.get('피카츄'),png,level:7,balls:5,mode:'explore'});
  assert.match(svg,/data:image\/png;base64/);
- for(const expected of ['피카츄','No.025','전기','Lv.7','포획 가능 시간','60초','몬스터볼','!포획'])assert.ok(svg.includes(expected),expected);
+ for(const expected of ['피카츄','No.025','전기','포획 가능 시간','60초','몬스터볼','!포획'])assert.ok(svg.includes(expected),expected);
+ assert.doesNotMatch(svg,/Lv\.|레벨/);
 });
 test('search, capture, inventory and named Pokémon info persist in PostgreSQL',async()=>{
  const db=new PGlite();
@@ -47,8 +48,7 @@ test('search, capture, inventory and named Pokémon info persist in PostgreSQL',
   const ctx=()=>({roomId:'100',userId:'200',userName:'트레이너',messageId:String(++id)});
   const encounter=await service.withPlayer(ctx(),'explore');
   assert.equal(encounter.kind,'explore');
-  assert.equal(encounter.level,6);
-  assert.equal(encounter.balls,5);
+   assert.equal(encounter.balls,5);
   assert.match(encounter.text,/포획 가능 시간 · 60초/);
   const already=await service.withPlayer(ctx(),'explore');
   assert.equal(already.kind,'already');
@@ -59,7 +59,7 @@ test('search, capture, inventory and named Pokémon info persist in PostgreSQL',
   const inv=await service.inventory(ctx());
   assert.match(inv,/보유 포켓몬 · 1마리/);
   assert.match(inv,/몬스터볼 · 4개/);
-  assert.match(inv,/Lv.6/);
+  assert.doesNotMatch(inv,/Lv\./);
   const info=await service.info(ctx(),caught.pokemon.name);
   assert.equal(info.owned,1);
   assert.match(info.text,/내가 보유한 수 · 1마리/);
