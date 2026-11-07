@@ -185,6 +185,14 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
+      // Bot-account-only, bounded repeated announcements. This is intercepted
+      // before game and management handlers so it never runs twice.
+      if(/^!도배(?:시작|중지)(?=\s|$)/.test(text)){
+        await require('./repeat-broadcast').handle({
+          text,roomId,isBotAccount,send:body=>chat.sendText(roomId,body)
+        });
+        return;
+      }
       if(/^!가리기(?:\s|$)/.test(text)){
         let canBlind=isBotAccount||isSuperAdmin||[1,4].includes(Number(msg.sender?.type));
         if(!canBlind&&senderId!=null){
