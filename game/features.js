@@ -360,10 +360,7 @@ async function handleGameCore(d,c,msg,isSelf){
     const r=ctx.awardFish(p,caughtAt);
     await require('./fishing-coin-event').recordCatch(c,{room:ctx.id(msg.room.id),user:uid,name,fish:r.f.name,size:r.size,at:caughtAt});
     const mention=`\u0002${uid}\u0003${name.replace(/[\u0000-\u001f]/g,'')}\u0004`;
-    return `🎣 ${mention}님의 낚시 결과\n🐟 ${r.f.name} [${r.f.tier}] · ${r.size}cm\n${'\u200b'.repeat(1200)}\n💰 낚시 보상 · +${ctx.n(r.value)}코인\n`+
-      `⭐ 획득 경험치 · +${r.xp} XP${r.up?`\n⬆️ 레벨 상승 · Lv.${p.level}`:''}\n`+
-      `🎣 낚시대 · ${p.rod} +${p.rodLevels[p.rod]||0}\n🐾 장착 펫 · ${p.equippedPet||'없음'}\n`+
-      `💰 판매 예상가 · ${ctx.n(r.value)}코인\n🎒 보유 물고기 · ${p.inventory.length}마리\n⏱ 다음 낚시 · ${ctx.FISHING_COOLDOWN_SECONDS}초 후`;
+    return require('./fishing-edit').formatCatchResult({ctx,player:p,catchInfo:r,mention});
   }
   if(text==="네"||text==="아니요"){
     const pending=p.rodRestore;
