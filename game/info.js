@@ -2,7 +2,7 @@
 const {getPool}=require('../shared/db');
 const FOLD='\u200b'.repeat(1200);
 const fmt=n=>typeof n==='bigint'||typeof n==='string'&&/^-?\d+$/.test(n)?BigInt(n).toLocaleString('ko-KR'):Number(n||0).toLocaleString('ko-KR');
-function format({id,name,bot,player={},balance=0,chat,link}) {
+function format({id,name,bot,player={},balance=0,chat,link,permission='일반 멤버'}) {
  const mention=`\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;
  const n=Math.max(1,Math.min(200,Number(player.level)||1));
  
@@ -29,7 +29,26 @@ const fields = [
   '┗━━━━━━━━━━━━━━━━━━━━━━'
 ];
 
- return `${mention}님의 프로필 정보\n${FOLD}\n${fields.join('\n')}`;
+ return `${mention}님의 프로필 정보\n🔑 권한 · ${permission}\n${FOLD}\n${fields.join('\n')}`;
+}
+async function permissionFor(ctx,db,checks={superAdmin:require('../shared/super-admin').isSuperAdmin,roomAdmin:require('../shared/room-bot-admin').isRoomBotAdmin}) {
+ const roles=[];
+ if(ctx.isBotAccount)roles.push('봇 계정');
+ else {
+  const room=String(ctx.roomId),user=String(ctx.userId??ctx.msg?.sender?.id??'');
+  const lookup=async fn=>{try{return await fn(room,user,db);}catch(e){console.warn('[NEXI INFO PERMISSION]',e.code||'LOOKUP_FAILED');return null;}};
+  const [superAdmin,roomAdmin]=await Promise.all([
+   ctx.isSuperAdmin===true?true:lookup(checks.superAdmin),
+   ctx.roomBotAdmin===true?true:lookup(checks.roomAdmin)
+  ]);
+  if(superAdmin)roles.push('최고관리자');
+  else if(roomAdmin)roles.push('봇 관리자');
+  else if(superAdmin===null||roomAdmin===null)roles.push('봇 권한 확인 불가');
+ }
+ const type=Number(ctx.senderType??ctx.msg?.sender?.type);
+ if(type===1)roles.push('방장');
+ else if(type===4)roles.push('부방장');
+ return roles.join(' · ')||'일반 멤버';
 }
 async function handle(ctx,client) {
  if(ctx.text!=='#정보')return false;
@@ -39,14 +58,15 @@ async function handle(ctx,client) {
  if(!ctx.isBotAccount)await require('./economy').ensureLinked(room,id,name);
  // Read profile fields in parallel and use the link saved by profile observation,
  // avoiding a synchronous Kakao API lookup on every !정보 request.
- const [roomResult,walletResult,chatResult,profileResult]=await Promise.all([
+ const [roomResult,walletResult,chatResult,profileResult,permission]=await Promise.all([
    db.query('SELECT data FROM hz_rooms WHERE room_id=$1',[room]),
    db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2',[room,id]),
    db.query(`SELECT count,
      (SELECT COUNT(*)+1 FROM gl_manage_chat_counts b WHERE b.room_id=a.room_id
       AND (b.count>a.count OR (b.count=a.count AND b.user_id<a.user_id))) AS rank
      FROM gl_manage_chat_counts a WHERE room_id=$1 AND user_id=$2`,[room,id]),
-   db.query('SELECT open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,id])
+   db.query('SELECT open_profile_link FROM hz_members WHERE room_id=$1 AND user_id=$2',[room,id]),
+   permissionFor(ctx,db)
  ]);
  const player=roomResult.rows[0]?.data?.players?.[id]||{};
  const balance=walletResult.rows[0]?.balance||0;
@@ -54,8 +74,8 @@ async function handle(ctx,client) {
  const saved=profileResult.rows[0]?.open_profile_link;
  const valid=v=>/^https:\/\/open\.kakao\.com\/o\/[A-Za-z0-9_-]+(?:[?#][^\s]*)?$/.test(v||'');
  const link=valid(saved)?saved:'';
- const output=format({id,name,bot:ctx.isBotAccount,player,balance,chat,link});
+ const output=format({id,name,bot:ctx.isBotAccount,player,balance,chat,link,permission});
  await ctx.send(output);
  return true;
 }
-module.exports={format,handle};
+module.exports={format,handle,permissionFor};
