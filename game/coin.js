@@ -1,13 +1,13 @@
 "use strict";
 const { getPool } = require("../shared/db");
 const { ensureWallet, getBalance, coinRanking } = require("./wallet");
-const fmt = n => Number(n).toLocaleString("ko-KR");
-const MAX = 1000000000;
+// Keep amounts as exact decimal strings from parsing through PostgreSQL NUMERIC.
+const fmt = n => BigInt(String(n)).toLocaleString("ko-KR");
+const ADMIN_GRANT_MAX = 1000000000n;
 function validAmount(raw) {
-  if (!/^[1-9]\d*$/.test(String(raw || ""))) throw new Error("금액은 1 이상의 정수로 입력해 주세요.");
-  const n = Number(raw);
-  if (!Number.isSafeInteger(n) || n > MAX) throw new Error("한 번에 최대 10억 코인까지 가능합니다.");
-  return n;
+  const input = String(raw ?? "");
+  if (!/^[1-9]\d*$/.test(input)) throw new Error("금액은 1 이상의 정수로 입력해 주세요.");
+  return input;
 }
 function sender(msg) {
   const id = msg.sender?.id;
@@ -102,6 +102,9 @@ async function initCoinExtra() {
 async function transfer({ roomId, from, to, coins, kind, messageId, unlimited = false }) {
   coins = validAmount(coins);
   if (!['TRANSFER','GRANT'].includes(kind)) throw new Error('올바르지 않은 거래 종류입니다.');
+  // Preserve the existing 1-billion cap for administrator grants only.
+  if (kind === 'GRANT' && BigInt(coins) > ADMIN_GRANT_MAX)
+    throw new Error("한 번에 최대 10억 코인까지 지급할 수 있습니다.");
   if (!messageId) throw new Error("메시지 고유번호를 확인할 수 없어 안전하게 거래를 중단했습니다.");
   if (from.id === to.id) throw new Error("자기 자신에게 송금하거나 지급할 수 없습니다.");
   const db = await getPool().connect();
@@ -116,15 +119,15 @@ async function transfer({ roomId, from, to, coins, kind, messageId, unlimited = 
     for (const u of users) await db.query(`SELECT balance FROM hz_wallets
       WHERE room_id=$1 AND user_id=$2 FOR UPDATE`, [roomId,u.id]);
     if (kind === "TRANSFER" && !unlimited) {
-      const debited = await db.query(`UPDATE hz_wallets SET balance=balance-$3
-        WHERE room_id=$1 AND user_id=$2 AND balance >= $3 RETURNING balance`, [roomId,from.id,coins]);
+      const debited = await db.query(`UPDATE hz_wallets SET balance=balance-$3::numeric
+        WHERE room_id=$1 AND user_id=$2 AND balance >= $3::numeric RETURNING balance`, [roomId,from.id,coins]);
       if (!debited.rowCount) throw new Error("코인이 부족합니다.");
       await db.query(`INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
         VALUES($1,$2,'TRANSFER_OUT',$3,$4)`, [roomId,from.id,-coins,`받는 사람: ${to.name} (${to.id})`]);
     }
-    const credited = await db.query(`UPDATE hz_wallets SET balance=balance+$3
-      WHERE room_id=$1 AND user_id=$2 AND balance <= 9007199254740991::bigint-$3 RETURNING balance`, [roomId,to.id,coins]);
-    if (!credited.rowCount) throw new Error("받는 사람의 잔액 한도를 초과했습니다.");
+    const credited = await db.query(`UPDATE hz_wallets SET balance=balance+$3::numeric
+      WHERE room_id=$1 AND user_id=$2 RETURNING balance`, [roomId,to.id,coins]);
+    if (!credited.rowCount) throw new Error("받는 사람의 지갑을 확인할 수 없습니다.");
     await db.query(`INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
       VALUES($1,$2,$3,$4,$5)`, [roomId,to.id,kind === "GRANT" ? "ADMIN_GRANT" : "TRANSFER_IN",coins,`${kind === "GRANT" ? "관리자" : "보낸 사람"}: ${from.name} (${from.id})`]);
     await db.query("COMMIT");
