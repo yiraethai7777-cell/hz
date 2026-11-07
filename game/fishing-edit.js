@@ -3,21 +3,24 @@
 // Present a successful catch as a single KakaoTalk message updated by MODIFYMSG.
 // The existing fishing command still handles rewards, cooldowns, and DB writes.
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-// Render the final result compactly, without invisible 1,200-character fold padding.
-// The formatter only reads an already-awarded catch and never grants rewards.
+// Show the catch immediately; keep full reward/gear details behind KakaoTalk's
+// '전체보기' folding marker. No rewards or inventory are changed by this formatter.
+const FISH_RESULT_FOLD='\u200b'.repeat(1200);
 function formatCatchResult({ctx,player,catchInfo,mention}){
  const f=catchInfo.f;
  const tierIcon={
   '일반':'⚪','희귀':'🔵','영웅':'🟣','전설':'🟡','신화':'🔴'
  }[f.tier]||'🐟';
  return '🎣 NEXI | 낚시 결과\n'+
-  '━━━━━━━━━━━━━━━━━━\n'+
   '👤 '+mention+'님\n'+
-  '🐟 '+f.name+' · '+tierIcon+' '+f.tier+' · '+catchInfo.size+'cm\n\n'+
-  '💰 +'+ctx.n(catchInfo.value)+'코인 · ⭐ +'+catchInfo.xp+' XP'+
+  '🐟 '+f.name+' · '+tierIcon+' '+f.tier+' · '+catchInfo.size+'cm\n'+
+  FISH_RESULT_FOLD+'\n'+
+  '━━━━━━━━━━━━━━━━━━\n'+
+  '💰 낚시 보상 · +'+ctx.n(catchInfo.value)+'코인\n'+
+  '⭐ 획득 경험치 · +'+catchInfo.xp+' XP'+
   (catchInfo.up?'\n⬆️ 레벨 UP · Lv.'+player.level:'')+'\n'+
-  '🎣 '+player.rod+' +'+(player.rodLevels[player.rod]||0)+
-  ' · 🐾 '+(player.equippedPet||'없음')+'\n'+
+  '🎣 낚시대 · '+player.rod+' +'+(player.rodLevels[player.rod]||0)+'\n'+
+  '🐾 장착 펫 · '+(player.equippedPet||'없음')+'\n'+
   '💵 판매 예상가 · '+ctx.n(catchInfo.value)+'코인\n'+
   '🎒 보유 물고기 · '+player.inventory.length+'마리\n'+
   '⏱ 다음 낚시 · '+ctx.FISHING_COOLDOWN_SECONDS+'초 후\n'+
