@@ -25,6 +25,7 @@ function createFixture(){
  const pool={query:async (sql,params)=>{calls.push(['query',String(sql).slice(0,30)]);return {rows:[{data:{game:true,quizEnabled:true,fishEnabled:true}}]};}};
  const client={userId:'9999',onMessage(cb){listener=cb;},connected:true};
  const deps={
+  './mining':{init:async()=>{},handle:async()=>false},
   '../shared/db':{getPool:()=>pool,testConnection:async()=>{}},
   './wallet':{initWallet:async()=>{}},
   './members':{initMembers:async()=>{}},
@@ -56,7 +57,7 @@ test('all game help commands use ! prefix and map to real command handlers',()=>
  const body=help.formatCommandHelp({game:true,manage:false},'게임');
  assert.ok(body.startsWith('📜 명령어 안내 · NEXI\n작동 중인 기능 · 게임'+'\u200b'.repeat(1200)));
  const names=[...new Set([...body.matchAll(/^!(\S+)/gm)].map(v=>v[1]))];
- assert.equal(names.length,55);
+ assert.equal(names.length,59);
  for(const name of names)assert.equal(aliases.isGameCommand('!'+name),true,name);
  assert.doesNotMatch(body,/^#\S+/m);
  assert.match(body,/!낚시\n└─[^\n]+\n\n!낚시정보/);
