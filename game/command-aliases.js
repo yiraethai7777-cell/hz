@@ -1,4 +1,5 @@
 'use strict';
+const {normalize}=require('./command-text');
 // Public game command names. The legacy feature modules still parse # internally,
 // but users send ! commands. Do not normalize management or unrelated commands.
 const COMMANDS=new Set(`
@@ -8,7 +9,7 @@ const COMMANDS=new Set(`
 펫뽑기 펫인벤 펫도감 펫기능 펫장착 펫강화
 농장 농장정보 농장확장 씨앗ㄱㅁ 심기 수확 전체수확
 탐색 포획 포켓봇정보 포켓몬정보
-광산 채굴 광물인벤 광물판매
+광산 채굴 광물인벤 광물판매 곡괭이 곡괭이강화 채굴지
 퀴즈 정답 퀴즈정보 퀴즈순위
 발로on 발로off 스킨 발로전적 전적 티어 최근전적 승률 헤드샷
 게임on 게임off 퀴즈작동 퀴즈중지 낚시작동 낚시중지 게임상태 게임정보
@@ -17,7 +18,7 @@ const COMMANDS=new Set(`
 // Block old # commands, including removed game toggles, before the legacy handlers.
 const RETIRED=new Set([...COMMANDS,...[...COMMANDS].filter(x=>x.includes('ㄱㅁ')).map(x=>x.replace(/ㄱㅁ/g,'구매')),'게임순위','게임작동','게임중지']);
 function commandName(text,prefix){
- const raw=String(text||'').trim();
+ const raw=normalize(text);
  if(raw.charAt(0)!==prefix)return null;
  const token=raw.split(/\s+/,1)[0].slice(1);
  return token||null;
@@ -31,7 +32,7 @@ function isRetiredLegacyCommand(text){
  return !!name&&RETIRED.has(name);
 }
 function toLegacy(text){
- const raw=String(text||'').trim();
+ const raw=normalize(text);
  return isGameCommand(raw)?'#'+raw.slice(1).replace(/ㄱㅁ/g,'구매'):raw;
 }
 function toLegacyMessage(msg,original,translated){

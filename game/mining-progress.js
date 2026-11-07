@@ -1,14 +1,6 @@
 'use strict';
-function accepted(r){const status=r?.status??r?.body?.status??r?.complete?.status;if(r===false||r?.ok===false||r?.success===false||(status!=null&&Number(status)!==0))throw Error('Message update rejected');}
-async function send(ctx,result,wait){
+async function send(ctx,result,wait,options={}){
  const owner=typeof ctx.chat?.editMessage==='function'?ctx.chat:typeof ctx.client?.editMessage==='function'?ctx.client:ctx.client?.chat;
- if(typeof owner?.editMessage!=='function'){await ctx.send(result);return 'fallback';}
- try{
-  const sent=await ctx.send('⛏ NEXI | 광질중.');accepted(sent);
-  const log=sent?.body?.logId??sent?.logId;
-  if(log==null||String(log)==='0')throw Error('Missing mining progress logId');
-  for(const dots of ['..','...']){await wait(700);accepted(await owner.editMessage(String(ctx.roomId),log,'⛏ NEXI | 광질중'+dots));}
-  await wait(700);accepted(await owner.editMessage(String(ctx.roomId),log,result));return 'edited';
- }catch(e){console.warn('[NEXI MINING EDIT]',e.code||e.message);await ctx.send(result);return 'fallback';}
+ return require('./message-progress').run({roomId:ctx.roomId,sendStart:ctx.send,edit:typeof owner?.editMessage==='function'?owner.editMessage.bind(owner):null,sendFallback:ctx.send,stages:[1,2,3,4,5].map(n=>'⛏ NEXI | 광질중'+'.'.repeat(n)).concat(result),result,delays:[1000,1000,1000,1000,1000],wait,label:'MINING',...options});
 }
 module.exports={send};

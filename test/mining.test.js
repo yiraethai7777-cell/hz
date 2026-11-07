@@ -22,7 +22,7 @@ test('sale credits exact existing wallet once and rejects insufficient items',()
  const s=createMining({pool,random:()=>0,link:async()=>{}});await s.execute(c('#채굴'));
  await pool.query("INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES('1000','2000','test',900719925474099312345)");
  const sale=c('#광물판매 석탄 1');await s.execute(sale);await assert.rejects(s.execute(sale),/이미 처리/);
- assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'900719925474099312445');
+ assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'900719925474099313345');
  await assert.rejects(s.execute(c('#광물판매 석탄 1')),/부족/);
  assert.equal((await pool.query('SELECT * FROM hz_coin_logs')).rows.length,1);
  assert.match(await s.execute(c('#광물인벤')),/석탄 · 0개/);
@@ -31,7 +31,7 @@ test('coin-log failure rolls back wallet, bag and receipt; retry works',()=>fixt
  const s=createMining({pool,random:()=>0,link:async()=>{}});await s.execute(c('#채굴'));const sale=c('#광물판매 전체');
  pool.fail=sql=>sql.startsWith('INSERT INTO hz_coin_logs');await assert.rejects(s.execute(sale),/simulated/);pool.fail=null;
  assert.equal((await pool.query('SELECT * FROM hz_wallets')).rows.length,0);assert.match(await s.execute(c('#광물인벤')),/석탄 · 1개/);
- await s.execute(sale);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'100');
+ await s.execute(sale);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'1000');
 }));
 test('more than 100 digs are allowed and collection survives restart',()=>fixture(async pool=>{
  let time=100000;const factory=()=>createMining({pool,now:()=>time,random:()=>0,link:async()=>{}});
@@ -54,7 +54,7 @@ test('invalid sale amounts and missing message IDs never mutate inventory',()=>f
 test('progress edits one exact sent message after inventory commit',()=>fixture(async pool=>{
  const edits=[],waits=[],sent=[];const ctx=c('#채굴');ctx.send=async text=>{sent.push(text);return {body:{status:0,logId:'90071992547409931234'}};};ctx.chat={editMessage:async(room,log,text)=>{assert.equal((await pool.query('SELECT bag FROM hz_mining_players')).rows[0].bag['석탄'],1);edits.push({room,log,text});return {body:{status:0}};}};
  await createMining({pool,random:()=>0,wait:async ms=>waits.push(ms)}).handle(ctx);
- assert.deepEqual(sent,['⛏ NEXI | 광질중.']);assert.equal(edits.length,3);assert.equal(edits[0].text,'⛏ NEXI | 광질중..');assert.equal(edits[1].text,'⛏ NEXI | 광질중...');assert.match(edits[2].text,/채굴 성공/);assert.ok(edits.every(e=>e.log==='90071992547409931234'));assert.deepEqual(waits,[700,700,700]);
+ assert.deepEqual(sent,['⛏ NEXI | 광질중.']);assert.equal(edits.length,5);assert.equal(edits[0].text,'⛏ NEXI | 광질중..');assert.equal(edits[1].text,'⛏ NEXI | 광질중...');assert.match(edits[4].text,/채굴 성공/);assert.ok(edits.every(e=>e.log==='90071992547409931234'));assert.deepEqual(waits,[1000,1000,1000,1000,1000]);
 }));
 test('rejected progress edit falls back to result without rolling back loot',()=>fixture(async pool=>{
  const sent=[],ctx=c('#채굴');ctx.send=async text=>{sent.push(text);return {body:{status:0,logId:'12345'}};};ctx.chat={editMessage:async()=>({status:-1})};
@@ -64,3 +64,24 @@ test('missing progress logId never edits the input message',async()=>{
  const sent=[],ctx={roomId:'1000',messageId:'original',send:async t=>{sent.push(t);return {status:0};},chat:{editMessage:()=>assert.fail('No confirmed outgoing logId')}};
  await require('../game/mining-progress').send(ctx,'result',async()=>{});assert.deepEqual(sent,['⛏ NEXI | 광질중.','result']);
 });
+
+test('pick upgrades debit once, unlock locations and retain cooldown and ownership',()=>fixture(async pool=>{
+ const s=createMining({pool,random:()=>0,now:()=>100000,link:async()=>{}});await s.execute(c('#채굴'));
+ await pool.query("INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES('1000','2000','test',1000000)");
+ await assert.rejects(s.execute(c('#채굴지 깊은동굴')),/곡괭이/);
+ const upgrade=c('#곡괭이강화');await s.execute(upgrade);await assert.rejects(s.execute(upgrade),/이미 처리/);await s.execute(c('#곡괭이강화'));await s.execute(c('#채굴지 깊은동굴'));
+ const p=(await pool.query('SELECT * FROM hz_mining_players')).rows[0];assert.equal(p.pick_level,2);assert.equal(p.location,'깊은동굴');assert.equal(p.bag['석탄'],1);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'760000');
+ await assert.rejects(s.execute(c('#채굴')),/다음 채굴/);assert.match(await s.execute(c('#곡괭이','3000')),/나무/);
+ assert.match(await createMining({pool}).execute(c('#채굴지')),/현재 · 깊은동굴/);
+}));
+test('failed upgrade rolls back coins, pick and receipt and insufficient coins cannot upgrade',()=>fixture(async pool=>{
+ const s=createMining({pool,random:()=>0,link:async()=>{}});await s.execute(c('#채굴'));const upgrade=c('#곡괭이강화');
+ await assert.rejects(s.execute(upgrade),/강화 비용/);
+ await pool.query("INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES('1000','2000','test',60000)");
+ pool.fail=sql=>sql.startsWith('INSERT INTO hz_coin_logs');await assert.rejects(s.execute(upgrade),/simulated/);pool.fail=null;assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'60000');assert.equal((await pool.query('SELECT pick_level FROM hz_mining_players')).rows[0].pick_level,0);
+ await s.execute(upgrade);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'0');
+}));
+test('pasted zero-width and encoded Korean sell-all works at new prices',()=>fixture(async pool=>{
+ const s=createMining({pool,random:()=>0,link:async()=>{}});await s.execute(c('#채굴'));
+ await s.execute(c('#광물판\u200b매 전&#xCCB4;'));assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'1000');
+}));
