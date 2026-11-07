@@ -26,4 +26,11 @@ async function handle(ctx,enabled){
  await ctx.send('[ 타자 게임 결과 ]\n━━━━━━━━━━━━━━━━\n🏆 1등: '+String(ctx.userName||ctx.msg?.sender?.name||ctx.userId||'참가자')+'\n소요 시간: '+sec.toFixed(2)+'초\n분당 타수: '+Math.round(chars/sec*60)+'타\n정확도: 100%\n글자 수: '+chars+'자');
  return true;
 }
-module.exports={handle};
+function resetRoom(roomId){
+ const id=String(roomId),round=rounds.get(id);
+ if(!round)return false;
+ rounds.delete(id);
+ if(round.timer)clearTimeout(round.timer);
+ return true;
+}
+module.exports={handle,resetRoom};
