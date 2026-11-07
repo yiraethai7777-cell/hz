@@ -113,15 +113,6 @@ async function roomFlags(rid){const q=await ctx.pool.query("SELECT data FROM hz_
 async function send(chat,rid,text){
  if(!text)return;
  const source=String(text),pages=[];
- if(source.startsWith('NEXI | QUIZ\n')){
-  // Return without holding quiz persistence/answer dispatch on photo upload.
-  void (async()=>{
-   const delivered=await require('../game/quiz-design').sendImage(ctx.globalClient,rid,source);
-   if(!delivered)await chat.sendText(rid,source);
-  })().catch(e=>console.warn('[NEXI QUIZ DELIVERY]',e.code||e.message));
-  return [];
- }
-
  const more=String(ctx.MORE||''),hasMore=more.length>0&&source.includes(more);
  // Keep enough room for a new '더보기' marker in every later chunk.
  // This prevents [2/3], [3/3] etc. from exposing their contents directly.
