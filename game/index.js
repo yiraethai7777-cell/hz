@@ -5,7 +5,7 @@ const { initMembers } = require('./members');
 const { initCoinExtra } = require('./coin');
 const market = require('./commands');
 const aliases = require('./command-aliases');
-const marketCommand = /^#(?:게임가입|코인순위|코인내역|코인송금|코인지급|코인아이디|핑)(?:\s|$)/;
+const marketCommand = /^#(?:게임가입|코인순위|코인내역|코인송금|코인지급|코인아이디|코인초기화|핑)(?:\s|$)/;
 const controls = /^#(?:퀴즈|낚시)(?:작동|중지)$/;
 
 function createGame(client) {
@@ -92,6 +92,13 @@ function createGame(client) {
       if (text==='#정보') {if(await require('./info').handle(normalized,client))return;}
       if(await require('../promotion').handleCommand(normalized,client))return;
       if(await require('./privacy').command(normalized))return;
+      // A room administrator must be able to reset this room's coins even
+      // when its game feature is disabled or the room is game-locked.
+      // The coin handler independently enforces bot / room-super-admin permissions.
+      if (/^#코인초기화(?:\s|$)/.test(text)) {
+        await market.message(normalized);
+        return;
+      }
       if (controls.test(text) && !isBotAccount && !roomBotAdmin) {
         await send('⛔ 봇 계정만 사용할 수 있습니다.'); return;
       }
