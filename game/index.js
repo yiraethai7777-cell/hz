@@ -112,7 +112,7 @@ function createGame(client) {
       if(text==='#게임정보'){await send('🎮 게임 정보\n!게임가입으로 시작하세요.\n코인·낚시(20종)·퀴즈(500문제)·펫·레벨을 즐길 수 있습니다.\n게임과 관리는 독립적으로 작동합니다.\n!게임명령어에서 자세한 사용법을 확인하세요.');return;}
       if (flags.locked&&!isBotAccount) return;
       // Pokémon commands share the room's existing game on/off permissions.
-      if((flags.game||isBotAccount)&&/^#(?:탐색|포획|포켓봇정보|포켓몬정보)(?:\\s|$)/.test(text)){
+      if((flags.game||isBotAccount)&&/^#(?:탐색|포획|포켓봇정보|포켓몬정보)(?:\s|$)/.test(text)){
         await require('./pokemon').handle(normalized,client);
         return;
       }
