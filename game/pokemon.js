@@ -17,20 +17,19 @@ function identity(ctx){
  if(!/^\d+$/.test(room)||!/^\d+$/.test(user))userError('채팅방 또는 사용자 정보를 확인할 수 없습니다.');
  return {room,user,name:String(ctx.userName||'트레이너').slice(0,36)};
 }
-function formatEncounter({pokemon,level,balls}){
+function formatEncounter({pokemon,balls}){
  return '⚡ NEXI | 야생 포켓몬 발견!\n\n'+
   '야생 '+pokemon.name+'가 나타났습니다!\n'+
   '📖 도감번호 · No.'+String(pokemon.id).padStart(3,'0')+'\n'+
   '✨ 타입 · '+pokemon.type+'\n'+
-  '⭐ 레벨 · Lv.'+level+'\n'+
   '🎯 포획 난이도 · '+difficulty(pokemon)+'\n'+
   '⏳ 포획 가능 시간 · 60초\n'+
   '🎒 몬스터볼 · '+balls+'개 보유\n\n'+
   '👉 !포획 으로 잡아보세요!';
 }
-function formatCapture({pokemon,level,iv,balls,success}){
+function formatCapture({pokemon,iv,balls,success}){
  if(!success)return '💨 NEXI | 포획 실패\n'+pokemon.name+'이(가) 몬스터볼에서 빠져나갔습니다.\n🎒 남은 몬스터볼 · '+balls+'개\n🔎 !탐색으로 다시 도전하세요.';
- return '✅ NEXI | 포획 성공!\n'+pokemon.name+' · Lv.'+level+
+ return '✅ NEXI | 포획 성공!\n'+pokemon.name+
   '\n🎯 개체값 · '+iv+'%\n🎒 남은 몬스터볼 · '+balls+
   '개\n📦 !인벤에서 확인할 수 있습니다.';
 }
@@ -91,10 +90,10 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
      const remaining=EXPLORE_COOLDOWN_MS-(current-last);
      if(last>0&&remaining>0)output={kind:'cooldown',text:'🔎 탐색 준비 중입니다. '+Math.ceil(remaining/1000)+'초 후 다시 시도해 주세요.'};
      else{
-      const pokemon=pickSpecies(random),level=Math.floor(random()*16)+5;
+      const pokemon=pickSpecies(random);
       await db.query('UPDATE gl_pokemon_players SET encounter_no=$3,encounter_level=$4,encounter_until=$5,last_explore_at=$6 WHERE room_id=$1 AND user_id=$2',
-       [room,user,pokemon.id,level,new Date(current+EXPLORE_SECONDS*1000),new Date(current)]);
-      output={kind:'explore',pokemon,level,balls:Number(p.balls),text:formatEncounter({pokemon,level,balls:Number(p.balls)})};
+       [room,user,pokemon.id,1,new Date(current+EXPLORE_SECONDS*1000),new Date(current)]);
+      output={kind:'explore',pokemon,balls:Number(p.balls),text:formatEncounter({pokemon,balls:Number(p.balls)})};
      }
     }
    }else if(action==='capture'){
@@ -107,14 +106,14 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
     }else{
      const pokemon=BY_ID.get(Number(p.encounter_no));
      if(!pokemon)throw Error('Pokemon encounter roster missing');
-     const level=Number(p.encounter_level),balls=Number(p.balls)-1;
-     const success=random()<catchChance(pokemon,level);
+     const balls=Number(p.balls)-1;
+     const success=random()<catchChance(pokemon);
      const iv=Math.floor(random()*51)+50;
      await db.query('UPDATE gl_pokemon_players SET balls=$3,encounter_no=NULL,encounter_level=NULL,encounter_until=NULL WHERE room_id=$1 AND user_id=$2',
       [room,user,balls]);
      if(success)await db.query('INSERT INTO gl_pokemon_catches(room_id,user_id,pokemon_no,level,iv) VALUES($1,$2,$3,$4,$5)',
-      [room,user,pokemon.id,level,iv]);
-     output={kind:'capture',pokemon,level,balls,success,iv,text:formatCapture({pokemon,level,balls,iv,success})};
+      [room,user,pokemon.id,1,iv]);
+     output={kind:'capture',pokemon,balls,success,iv,text:formatCapture({pokemon,balls,iv,success})};
     }
    }else throw Error('Unsupported Pokemon action');
    await db.query('COMMIT');
@@ -124,13 +123,13 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
  }
  async function inventory(ctx){
   const {room,user}=identity(ctx);
-  const data=await pool.query('SELECT pokemon_no,level,iv FROM gl_pokemon_catches WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 100',[room,user]);
+  const data=await pool.query('SELECT pokemon_no,iv FROM gl_pokemon_catches WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 100',[room,user]);
   const count=await pool.query('SELECT COUNT(*)::integer AS total FROM gl_pokemon_catches WHERE room_id=$1 AND user_id=$2',[room,user]);
   const player=await pool.query('SELECT balls,daily_marker FROM gl_pokemon_players WHERE room_id=$1 AND user_id=$2',[room,user]);
   const balls=player.rows[0]?Math.max(Number(player.rows[0].balls),player.rows[0].daily_marker===dayKey(now())?0:DAILY_BALLS):DAILY_BALLS;
   const rows=data.rows.map((x,i)=>{
    const pokemon=BY_ID.get(Number(x.pokemon_no));
-   return (i+1)+'. '+(pokemon?.name||'No.'+x.pokemon_no)+' · Lv.'+x.level+' · 개체값 '+x.iv+'%';
+   return (i+1)+'. '+(pokemon?.name||'No.'+x.pokemon_no)+' · 개체값 '+x.iv+'%';
   });
   const total=Number(count.rows[0]?.total||0);
   return '🎒 NEXI | 포켓몬 인벤\n📦 보유 포켓몬 · '+number(total)+'마리\n⚪ 몬스터볼 · '+balls+'개\n'+
@@ -180,14 +179,14 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
     if(text!=='#탐색'){await ctx.send('사용법: !탐색');return true;}
     const result=await withPlayer(ctx,'explore');
     if(result.kind!=='explore'){await ctx.send(result.text);return true;}
-    await photoOrText(ctx,client,result.pokemon,{level:result.level,balls:result.balls,mode:'explore'},result.text);
+    await photoOrText(ctx,client,result.pokemon,{balls:result.balls,mode:'explore'},result.text);
     return true;
    }
    if(command==='#포획'){
     if(text!=='#포획'){await ctx.send('사용법: !포획');return true;}
     const result=await withPlayer(ctx,'capture');
     if(result.kind!=='capture'){await ctx.send(result.text);return true;}
-    if(result.success)await photoOrText(ctx,client,result.pokemon,{level:result.level,balls:result.balls,iv:result.iv,mode:'caught'},result.text);
+    if(result.success)await photoOrText(ctx,client,result.pokemon,{balls:result.balls,iv:result.iv,mode:'caught'},result.text);
     else await ctx.send(result.text);
     return true;
    }
@@ -196,7 +195,7 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
     if(!name){await ctx.send('사용법: !포켓봇정보 (포켓몬 이름)\n예: !포켓봇정보 피카츄');return true;}
     const result=await info(ctx,name);
     if(result.error){await ctx.send(result.error);return true;}
-    await photoOrText(ctx,client,result.pokemon,{level:1,owned:result.owned,mode:'info'},result.text);
+    await photoOrText(ctx,client,result.pokemon,{owned:result.owned,mode:'info'},result.text);
     return true;
    }
    return false;
