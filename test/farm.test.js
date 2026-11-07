@@ -12,7 +12,7 @@ test('farm contracts: shared wallet, private plots, restart-safe growth and atom
   try{await require('../game/wallet').initWallet();await require('../game/coin').initCoinExtra();await require('../game/economy').init();}finally{globalPool.query=originalQuery;if(oldEnv===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=oldEnv;}
   await query('INSERT INTO hz_rooms(room_id,data) VALUES($1,$2::jsonb)',['100',JSON.stringify({game:true,manage:true,players:{'2001':{id:'2001',name:'농부',points:1000,level:12,xp:44,wins:3,inventory:[{name:'기존 물고기'}]}}})]);
   await query("INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES('100','2001','농부',100000000)");
-  const {createFarm,CROPS}=require('../game/farm'),farm=createFarm({pool,now:()=>clock});await farm.init();
+  const {createFarm,CROPS}=require('../game/farm'),farm=createFarm({pool,now:()=>clock,autoRecover:false});await farm.init();
   let seq=0;const run=(text,extra={})=>farm.run({roomId:'100',userId:'2001',userName:'농부',messageId:'farm-'+(++seq),text,...extra});
   const wallet=async()=>Number((await query("SELECT balance FROM hz_wallets WHERE room_id='100' AND user_id='2001'")).rows[0].balance);
   await t.test('eight crops and existing rod prices are shown inside a real fold',async()=>{
@@ -31,20 +31,44 @@ test('farm contracts: shared wallet, private plots, restart-safe growth and atom
   });
   await t.test('planting consumes one seed only; growth survives module recreation and harvesting pays once',async()=>{
    await run('!심기 1 당근');await assert.rejects(()=>run('!심기 1 당근'),/작물/);await assert.rejects(()=>run('!심기 0 당근'),/번호/);
-   await assert.rejects(()=>run('!수확 1'),/남은 시간/);assert.match(await run('!농장'),/🌱/);
+   await assert.rejects(()=>run('!수확 1'),/심는 중/);assert.match(await run('!농장'),/🪴/);
+   clock+=5000;assert.match(await run('!농장'),/🌱/);
    clock+=31000;assert.match(await run('!농장'),/🌿/);clock+=30000;
-   const restarted=createFarm({pool,now:()=>clock});assert.match(await restarted.run({roomId:'100',userId:'2001',userName:'농부',text:'!농장'}),/🥕/);
-   const before=await wallet();const results=await Promise.allSettled([run('!수확 1'),run('!수확 1')]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(await wallet(),before+1000);
+   const restarted=createFarm({pool,now:()=>clock,autoRecover:false});assert.match(await restarted.run({roomId:'100',userId:'2001',userName:'농부',text:'!농장'}),/🥕/);
+   const before=await wallet();const results=await Promise.allSettled([run('!수확 1'),run('!수확 1')]);
+   assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+   assert.equal(await wallet(),before,'no payout until five seconds elapse');
+   assert.match(await run('!농장'),/수확 중: 1칸/);
+   clock+=5000;await run('!농장');assert.equal(await wallet(),before+1000);
+   clock+=5000;await run('!농장');assert.equal(await wallet(),before+1000,'never pay twice');
   });
   await t.test('expansion preserves planted coordinates and player records, charges once and stops at eight by eight',async()=>{
    await run('!심기 9 당근');const before=await wallet();const input={roomId:'100',userId:'2001',userName:'농부',text:'!농장확장',messageId:'expand-once'};
    await farm.run(input);await assert.rejects(()=>farm.run(input),/이미 처리/);assert.equal(await wallet(),before-100000);
-   clock+=60001;assert.match(await run('!수확 11'),/수확/);
+   clock+=65001;assert.match(await run('!수확 11'),/수확 중/);
+   clock+=5000;await run('!농장');
    for(let i=0;i<4;i++)await run('!농장확장');assert.match(await run('!농장정보'),/8×8/);await assert.rejects(()=>run('!농장확장'),/최대/);
    const p=(await query("SELECT data FROM hz_rooms WHERE room_id='100'")).rows[0].data.players['2001'];assert.equal(p.level,12);assert.equal(p.xp,44);assert.deepEqual(p.inventory,[{name:'기존 물고기'}]);assert.equal(p.points,await wallet());
   });
   await t.test('bulk harvest pays only mature plots and leaves growing crops untouched',async()=>{
-   await run('!씨앗구매 파인애플 1');await run('!심기 1 당근');await run('!심기 2 파인애플');clock+=61000;const before=await wallet();await run('!전체수확');assert.equal(await wallet(),before+1000);assert.match(await run('!농장'),/재배 중: 1칸/);
+   await run('!씨앗구매 파인애플 1');await run('!심기 1 당근');await run('!심기 2 파인애플');
+   clock+=66000;const before=await wallet();
+   const start=await run('!전체수확');assert.match(start,/수확 중입니다/);
+   assert.match(start,/\u200b{1200}/);
+   assert.equal(await wallet(),before,'harvest waits five seconds to pay');
+   clock+=5000;assert.match(await run('!농장'),/재배 중: 1칸/);
+   assert.equal(await wallet(),before+1000);
+  });
+  await t.test('all planting folds plot details and waits five seconds before growing',async()=>{
+   await run('!씨앗구매 파인애플 2');
+   const result=await run('!심기 all 파인애플');
+   const [preview,detail]=result.split('\u200b'.repeat(1200));
+   assert.match(preview,/파인애플 2칸을 심는 중입니다/);
+   assert.match(preview,/5초 후 완료/);
+   assert.doesNotMatch(preview,/심은 위치/);
+   assert.match(detail,/심은 위치/);
+   assert.match(await run('!농장'),/심는 중: 2칸/);
+   clock+=5000;assert.match(await run('!농장'),/재배 중: 3칸/);
   });
  }finally{await db.close();}
 });
