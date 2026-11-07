@@ -109,7 +109,15 @@ async function attachHZBot(client){
           if(!d.game||d.locked)return null;
           return ctx.handleGame(d,c,msg,isSelf);
         });
-        if(out)await ctx.send(chat,rid,out);;
+        if(out){
+          if(text==='#낚시'&&require('../game/fishing-edit').isCatchResult(out)){
+            // Keep the original award, cooldown and DB transaction unchanged.
+            await require('../game/fishing-edit').sendEditedCatch({
+              chat,client,roomId:rid,result:out,name,
+              sendFallback:body=>ctx.send(chat,rid,body)
+            });
+          }else await ctx.send(chat,rid,out);
+        }
       }
 
       // Plain-text quiz answers are latency-sensitive. Check them before
