@@ -6,6 +6,7 @@ const recruit=require('./valorant-recruit-reply');
 const COMMANDS=new Set(['!티어등록','!내전등록','!내전예약','!내전참여','!내전참가','!내전탈퇴','!내전참가자','!내전팀짜기','!내전재편성','!내전선수교체','!내전밸런스','!내전결과','!내전순위','!내전초기화','!듀오모집','!듀오목록','!듀오신청','!듀오취소']);
 let ready=null;
 const pendingCorrections=new Map();
+const pendingScrimJoins=new Map();
 function profileParts(tail){
  const input=String(tail||'').trim();
  if(input.includes('/')){const parts=input.split('/').map(x=>x.trim());return parts.length===3?parts:null;}
@@ -158,7 +159,12 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
    }
    if(cmd==='!내전등록'){
     if(!explicit){await send('사용법: !내전등록 (티어) (디스코드닉) (발로란트 이름#태그)');return true;}
-    await send('✅ 내전 프로필 저장 완료\n티어: '+profile.tier+'\n디스코드: '+profile.discord_name+'\n발로란트: '+profile.riot_id);
+    const reservation=await db.query('SELECT starts_at,started_at FROM hz_valorant_scrim_reservations WHERE room_id=$1',[room]);
+    const scheduled=reservation.rows[0];
+    const active=scheduled&&scheduled.starts_at&&new Date(scheduled.starts_at).getTime()>Date.now()&&!scheduled.started_at;
+    if(active)pendingScrimJoins.set(room+':'+user,{expires:Date.now()+300000,riot:profile.riot_id,tier:profile.tier,discord:profile.discord_name});
+    else pendingScrimJoins.delete(room+':'+user);
+    await send('✅ 내전 프로필 저장 완료\n티어: '+profile.tier+'\n디스코드: '+profile.discord_name+'\n발로란트: '+profile.riot_id+(active?'\n\n📅 예약된 내전이 있습니다. 참가하시겠습니까?\n이 메시지에 답장으로 네/아니요를 입력해 주세요.':'\n현재 참가 가능한 예약 내전이 없습니다.'));
     return true;
    }
    if(!profile){
@@ -372,7 +378,22 @@ async function handleConfirmation(args){
  const text=String(args.text||'').trim();
  if(!/^(네|예|아니요|아니오)$/.test(text))return false;
  const key=String(args.roomId)+':'+String(args.userId),pending=pendingCorrections.get(key);
- if(!pending||Date.now()>pending.expires){pendingCorrections.delete(key);return false;}
+ if(!pending||Date.now()>pending.expires){
+  pendingCorrections.delete(key);
+  const join=pendingScrimJoins.get(key);
+  if(!join||Date.now()>join.expires){pendingScrimJoins.delete(key);return false;}
+  const ref=reference(args.msg);
+  if(!ref||ref.userId&&args.client?.userId!=null&&String(ref.userId)!==String(args.client.userId))return false;
+  pendingScrimJoins.delete(key);
+  if(text==='아니요'||text==='아니오'){await args.send('✅ 내전 프로필만 저장했습니다. 참가하지 않습니다.');return true;}
+  const db=args.db||getPool();
+  await init(db);
+  const profile=await db.query('SELECT tier,discord_name,riot_id FROM hz_valorant_scrim_profiles WHERE user_id=$1',[String(args.userId)]);
+  if(!profile.rowCount||profile.rows[0].tier!==join.tier||profile.rows[0].discord_name!==join.discord||profile.rows[0].riot_id!==join.riot){await args.send('❌ 등록 정보가 변경되었습니다. 다시 !내전등록을 입력해 주세요.');return true;}
+  const reservation=await db.query('SELECT starts_at,started_at FROM hz_valorant_scrim_reservations WHERE room_id=$1',[String(args.roomId)]);
+  if(!reservation.rowCount||!reservation.rows[0].starts_at||new Date(reservation.rows[0].starts_at).getTime()<=Date.now()||reservation.rows[0].started_at){await args.send('❌ 현재 참가 가능한 예약 내전이 없습니다.');return true;}
+  return handle({...args,db,text:'!내전참여'});
+ }
  const ref=reference(args.msg);
  if(!ref)return false;
  if(ref.userId&&args.client?.userId!=null&&String(ref.userId)!==String(args.client.userId))return false;
