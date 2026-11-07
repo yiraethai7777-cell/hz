@@ -3,7 +3,7 @@ const {getPool}=require('../shared/db');
 const {ensureWallet}=require('./wallet');
 const {link}=require('./economy');
 const {RODS}=require('./data');
-const {PLANT_MS,HARVEST_MS,settleHarvest,harvestNotice}=require('./farm-timing');
+const {PLANT_MS,HARVEST_MS,settleHarvest,updateFarmMessage}=require('./farm-timing');
 const FOLD='\u200b'.repeat(1200);
 const CROPS=[
  ['당근','🥕',1,500,1000],['감자','🥔',2,1200,2500],['옥수수','🌽',3,2000,4000],['토마토','🍅',4,3000,6000],
@@ -34,7 +34,8 @@ function formatFarm(f,user,now){
  const seeds=CROPS.filter(c=>f.seeds[c.name]>0).map(c=>`${c.emoji} ${c.name} ${fmt(f.seeds[c.name])}개`).join(' · ')||'없음';
  return `${mention(user.id,user.name)}님의 농장\n${FOLD}\n농장\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n심는 중: ${planting}칸\n재배 중: ${growing}칸\n수확 중: ${harvesting}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호 또는 all) (작물이름)\n└─ !수확 (번호)\n└─ !전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
 }
-function createFarm({pool,now=Date.now,schedule=(task,delay)=>setTimeout(task,delay)}){
+function createFarm({pool,now=Date.now,schedule=(task,delay)=>setTimeout(task,delay),autoRecover=true}){
+ let recoverTimer=null;
  function defer(ms,task){
   const handle=schedule(()=>Promise.resolve().then(task).catch(e=>console.error('[FARM TIMER]',String(e?.message||e))),ms);
   if(typeof handle?.unref==='function')handle.unref();
@@ -45,10 +46,17 @@ function createFarm({pool,now=Date.now,schedule=(task,delay)=>setTimeout(task,de
   for(const row of pending.rows)await settle(row.room_id,row.user_id);
  }
 
- async function init(){await pool.query(`CREATE TABLE IF NOT EXISTS gl_farms(
+ async function init(){
+  await pool.query(`CREATE TABLE IF NOT EXISTS gl_farms(
   room_id TEXT NOT NULL,user_id TEXT NOT NULL,level INTEGER NOT NULL DEFAULT 1 CHECK(level BETWEEN 1 AND 6),
   seeds JSONB NOT NULL DEFAULT '{}'::jsonb,plots JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));`);}
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));`);
+  if(autoRecover&&!recoverTimer){
+   recoverTimer=setInterval(()=>recover().catch(error=>console.error('[FARM RECOVERY]',String(error?.message||error))),5000);
+   if(typeof recoverTimer.unref==='function')recoverTimer.unref();
+   await recover();
+  }
+ }
  async function run(ctx){
   const original=String(ctx.text||'').trim();
   const text=original.startsWith('!')?'#'+original.slice(1).replace(/ㄱㅁ/g,'구매'):original;
@@ -144,18 +152,15 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
       // Planting occupies the plot immediately; growth starts after planting finishes.
       f.plots[key]={crop:c.name,plantedAt:time+PLANT_MS};
     }
-    jobs.push({type:'plant',count:keys.length,crop:c.name});
-
     f.seeds[c.name]=owned-keys.length;
-
-    result='🌱 NEXI | 씨앗 심기\n'+
-      c.emoji+' '+c.name+' · '+keys.length+'칸 심는 중\n'+
-      '⏱ 심기 · '+PLANT_MS/1000+'초 / 성장 · '+c.minutes+'분\n'+
-      (isAll?FOLD+'\n':'')+
-      '━━━━━━━━━━━━━━━━━━\n'+
+    const details=(isAll?FOLD+'\n':'')+'━━━━━━━━━━━━━━━━━━\n'+
       '📍 심은 위치 · '+numbers.join(', ')+'번\n'+
-      '🎒 남은 씨앗 · '+fmt(f.seeds[c.name])+'개\n'+
-      '🌿 심기가 완료되면 자동으로 성장합니다.';
+      '🎒 남은 씨앗 · '+fmt(f.seeds[c.name])+'개';
+    result='🌱 NEXI | 심기\n'+c.emoji+' '+c.name+' '+keys.length+'칸을 심는 중입니다…\n'+
+      '⏳ 5초 후 완료\n'+details;
+    const completed='🌱 NEXI | 심기\n✅ '+c.emoji+' '+c.name+' '+keys.length+'칸 '+(isAll?'전부 ':'')+'심었습니다!\n'+
+      '🌿 성장 시간 · '+c.minutes+'분\n'+details;
+    jobs.push({type:'plant',room,user,completedText:completed});
    }
 
 
@@ -211,14 +216,32 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    return result;
   }catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();}
  }
- return {init,run};
+ function scheduleCompletion({ctx,job,receipt}){
+  if(!job?.completedText)return;
+  const duration=job.type==='harvest'?HARVEST_MS:PLANT_MS;
+  defer(duration,async()=>{
+   if(job.type==='harvest')await settle(job.room,job.user);
+   await updateFarmMessage({ctx,receipt,text:job.completedText});
+  });
+ }
+ return {init,run,scheduleCompletion};
 }
 let instance;const service=()=>instance ||= createFarm({pool:getPool()});
 async function init(){await service().init();}
 async function handle(ctx){
  if(!/^#(?:농장|농장정보|농장확장|상점|씨앗구매|심기|수확|전체수확)(?:\s|$)/.test(ctx.text))return false;
- try{await ctx.send(await service().run({...ctx,messageId:ctx.messageId??require('./coin').messageKey(ctx.msg||{})}));}
- catch(e){if(!e.userFacing)console.error('[FARM]',e.message);await ctx.send('❌ '+(e.userFacing?e.message:'농장 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.'));}
+ let committedJobs=[];
+ try{
+  const response=await service().run({...ctx,
+   messageId:ctx.messageId??require('./coin').messageKey(ctx.msg||{}),
+   onCommittedJobs:jobs=>{committedJobs=jobs;}
+  });
+  const receipt=await ctx.send(response);
+  for(const job of committedJobs)service().scheduleCompletion({ctx,job,receipt});
+ }catch(e){
+  if(!e.userFacing)console.error('[FARM]',String(e?.message||e));
+  await ctx.send('❌ '+(e.userFacing?e.message:'농장 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.'));
+ }
  return true;
 }
 module.exports={createFarm,CROPS,EXPANSIONS,shop,formatFarm,init,handle};
