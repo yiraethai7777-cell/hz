@@ -149,11 +149,13 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
    '\n🎯 포획 난이도 · '+difficulty(pokemon)+'\n🎒 내가 보유한 수 · '+owned+'마리'};
  }
  async function photoOrText(ctx,client,pokemon,fields,text){
+  // Show the encounter details immediately; only the unmodified sprite is uploaded.
+  // No generated card, rendering delay, or duplicate fallback message.
+  await ctx.send(text);
   try{
    await photo({client,roomId:ctx.roomId,pokemon,...fields});
   }catch(error){
    console.warn('[NEXI POKEMON PHOTO]',String(error?.message||error));
-   await ctx.send(text);
   }
  }
  async function updateProgress(ctx,receipt,text){
@@ -178,9 +180,6 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
     if(text!=='#탐색'){await ctx.send('사용법: !탐색');return true;}
     const result=await withPlayer(ctx,'explore');
     if(result.kind!=='explore'){await ctx.send(result.text);return true;}
-    const receipt=await ctx.send('🔎 NEXI | 포켓몬 탐색\n\n🌳 풀숲을 탐색하고 있습니다…');
-    await sleep(1600);
-    await updateProgress(ctx,receipt,'⚡ NEXI | 야생 '+result.pokemon.name+' 발견!');
     await photoOrText(ctx,client,result.pokemon,{level:result.level,balls:result.balls,mode:'explore'},result.text);
     return true;
    }
@@ -188,9 +187,6 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
     if(text!=='#포획'){await ctx.send('사용법: !포획');return true;}
     const result=await withPlayer(ctx,'capture');
     if(result.kind!=='capture'){await ctx.send(result.text);return true;}
-    const receipt=await ctx.send('🎯 NEXI | 포획\n\n🔴 몬스터볼을 던지는 중입니다…');
-    await sleep(1500);
-    await updateProgress(ctx,receipt,result.success?'✅ NEXI | '+result.pokemon.name+' 포획 성공!':'💨 NEXI | 포획 실패');
     if(result.success)await photoOrText(ctx,client,result.pokemon,{level:result.level,balls:result.balls,iv:result.iv,mode:'caught'},result.text);
     else await ctx.send(result.text);
     return true;
