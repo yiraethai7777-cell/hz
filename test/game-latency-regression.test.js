@@ -88,14 +88,14 @@ test('QUIZ title and question precede fold; difficulty follows fold',async()=>{
  const fold='\u200b'.repeat(1200);
  const pos=first.indexOf(fold);
  assert.ok(pos>0);
- assert.match(first.slice(0,pos),/^\[ # \] QUIZ\n\nQ\. /);
+ assert.match(first.slice(0,pos),/^🧩 NEXI \| QUIZ\nQ\. /);
  assert.doesNotMatch(first.slice(0,pos),/\[ (쉬움|도전) · /);
  assert.ok(first.slice(pos+fold.length).includes(
-  '[ '+room.quiz.difficulty+' · '+room.quiz.kind+' ]'));
- assert.match(first,/^\[ # \] QUIZ/);
+  ' · '+room.quiz.kind+' / '+room.quiz.difficulty));
+ assert.match(first,/^🧩 NEXI \| QUIZ/);
  const active=await game.handleGame(room,{},msg,false);
  const again=active.indexOf(fold);
- assert.match(active.slice(0,again),/^\[ # \] QUIZ\n\nQ\. /);
+ assert.match(active.slice(0,again),/^🧩 NEXI \| QUIZ\nQ\. /);
  assert.ok(active.slice(again+fold.length).includes(
-  '[ '+room.quiz.difficulty+' · '+room.quiz.kind+' ]'));
+  ' · '+room.quiz.kind+' / '+room.quiz.difficulty));
 });
