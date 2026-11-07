@@ -47,7 +47,29 @@ async function settleHarvest({pool,room,user,crops,now=Date.now}){
   throw error;
  }finally{db.release();}
 }
+async function updateFarmMessage({ctx,receipt,text}){
+ const chat=ctx.chat||ctx.client?.chat||ctx.client;
+ const logId=receipt?.body?.logId??receipt?.logId;
+ const edit=typeof chat?.editMessage==='function'
+  ? chat.editMessage.bind(chat)
+  :typeof ctx.client?.editMessage==='function'
+   ?ctx.client.editMessage.bind(ctx.client):null;
+ if(edit&&logId!=null&&String(logId)!=='0'){
+  try{
+   const response=await edit(ctx.roomId,logId,text);
+   const status=response?.status??response?.body?.status;
+   if(response!==false&&response?.success!==false&&
+      (status==null||Number(status)===0))return 'edited';
+   console.warn('[FARM EDIT]', 'rejected status='+String(status));
+  }catch(error){
+   console.warn('[FARM EDIT]',String(error?.message||error));
+  }
+ }
+ // Preserve completion feedback even when the Kakao API cannot edit a message.
+ await ctx.send(text);
+ return 'fallback';
+}
 function harvestNotice({name,settled}){
  return '🌾 NEXI | 수확 완료\n'+String(name)+'님, 작물 '+settled.count+'개 수확 완료!\n💰 +'+fmt(settled.coins)+'코인 지급';
 }
-module.exports={PLANT_MS,HARVEST_MS,settleHarvest,harvestNotice};
+module.exports={PLANT_MS,HARVEST_MS,settleHarvest,updateFarmMessage,harvestNotice};
