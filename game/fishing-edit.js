@@ -29,19 +29,12 @@ function formatCatchResult({ctx,player,catchInfo,mention}){
 const isCatchResult=text=>typeof text==='string'&&
  text.startsWith('🎣 NEXI | 낚시 결과\n')&&text.includes('\n🐟 ');
 const editableText=text=>String(text).replace(/\u0002\d+\u0003([^\u0004]*)\u0004/g,'@$1');
-const statusOf=response=>response?.status??response?.body?.status;
-function requireAccepted(response,action){
- const status=statusOf(response);
- if(response===false||response?.success===false||response?.ok===false||
-    (status!=null&&Number(status)!==0))
-  throw Error(action+' failed, status='+String(status));
-}
 function editMethod(chat,client){
  if(typeof chat?.editMessage==='function')return chat.editMessage.bind(chat);
  if(typeof client?.editMessage==='function')return client.editMessage.bind(client);
  return null;
 }
-async function sendEditedCatch({chat,client,roomId,result,name,sendFallback,wait=sleep}){
+async function sendEditedCatch({chat,client,roomId,result,name,sendFallback,wait=sleep,timeoutMs=5000}){
  if(!isCatchResult(result)){
   await sendFallback(result);
   return 'normal';
@@ -56,20 +49,6 @@ async function sendEditedCatch({chat,client,roomId,result,name,sendFallback,wait
   '🎣 NEXI | 낚시\n\n🌊 '+displayName+'님이 낚시를 시작했습니다.',
   '🎣 NEXI | 낚시\n\n🐟 물고기를 끌어올리고 있습니다…'
  ];
- try{
-  const sent=await chat.sendText(roomId,stages[0]);
-  requireAccepted(sent,'WRITE');
-  const logId=sent?.body?.logId??sent?.logId;
-  if(logId==null||String(logId)==='0')throw Error('WRITE response missing logId');
-  await wait(1100);
-  requireAccepted(await edit(roomId,logId,stages[1]),'MODIFYMSG (progress)');
-  await wait(1500);
-  requireAccepted(await edit(roomId,logId,editableText(result)),'MODIFYMSG (result)');
-  return 'edited';
- }catch(error){
-  console.warn('[NEXI FISH EDIT FALLBACK]',String(error?.message||error));
-  await sendFallback(result);
-  return 'fallback';
- }
+ return require('./message-progress').run({roomId,sendStart:body=>chat.sendText(roomId,body),edit,sendFallback,stages:stages.concat(editableText(result)),result,delays:[1100,1500],wait,timeoutMs,label:'FISH'});
 }
 module.exports={formatCatchResult,isCatchResult,editableText,sendEditedCatch};

@@ -82,3 +82,8 @@ test('fishing result shows level-up and rarity when applicable',()=>{
  assert.ok(text.includes('🟣 영웅'));
  assert.ok(text.includes('⬆️ 레벨 UP · Lv.5'));
 });
+
+test('stalled final fishing edit falls back instead of remaining on progress',async()=>{
+ const fallback=[];let edits=0;const chat={sendText:async()=>({status:0,body:{logId:'9876'}}),editMessage:async()=>++edits===1?{status:0}:new Promise(()=>{})};
+ const status=await sendEditedCatch({chat,roomId:'321',result:caught,name:'테스터',sendFallback:async t=>fallback.push(t),wait:async()=>{},timeoutMs:15});assert.equal(status,'fallback');assert.equal(edits,2);assert.deepEqual(fallback,[caught]);
+});
