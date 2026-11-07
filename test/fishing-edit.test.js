@@ -3,7 +3,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {isCatchResult,editableText,sendEditedCatch}=require('../game/fishing-edit');
 const caught='🎣 \u0002123\u0003테스터\u0004님의 낚시 결과\n🐟 붕어 [일반] · 21cm\n'+
- '\u200b'.repeat(1200)+'\n💰 낚시 보상 · +100코인\n🎒 보유 물고기 · 1마리\n⏱ 다음 낚시 · 30초 후';
+ '\u200b'.repeat(1200)+'\n💰 낚시 보상 · +100코인\n🎒 보유 물고기 · 1마리\n⏱ 다음 낚시 · 20초 후';
 test('detects only successful fishing outcomes',()=>{
  assert.equal(isCatchResult(caught),true);
  assert.equal(isCatchResult('[ ! ] 아직 낚시 준비 중입니다. 10초 후 다시 시도하세요.'),false);
@@ -25,10 +25,10 @@ test('one fishing message is updated through two MODIFYMSG calls',async()=>{
   sendFallback:async text=>fallback.push(text),wait:async ms=>{waits.push(ms);}});
  assert.equal(status,'edited');
  assert.deepEqual(calls.map(x=>x.kind),['WRITE','MODIFYMSG','MODIFYMSG']);
- assert.deepEqual(waits,[700,900]);
+ assert.deepEqual(waits,[1100,1500]);
  assert.equal(calls[1].logId,'9876');
  assert.ok(calls[2].body.includes('붕어 [일반]'));
- assert.ok(calls[2].body.endsWith('30초 후'));
+ assert.ok(calls[2].body.endsWith('20초 후'));
  assert.deepEqual(fallback,[]);
 });
 test('failed edit falls back to existing fishing result without re-awarding',async()=>{
