@@ -20,6 +20,7 @@ function createGame(client) {
       await require('./farm').init();
       await require('./pokemon').init();
       await require('../api/schema').init();
+      await require('./room-reset').init();
       // Register feature handlers through an adapter; the router keeps the sole listener.
       const adapter = new Proxy(client, {
         get(target, prop) {
@@ -49,6 +50,11 @@ function createGame(client) {
       const msg = aliases.toLegacyMessage(context.msg,context.text,text);
       const normalized = text===context.text?context:{...context,text,msg};
       const {roomId,chat,isBotAccount,roomBotAdmin=false,send} = normalized;
+      // The room-only game reset requires confirmation and is allowed when games are OFF.
+      if(/^#게임초기화(?:\s|$)/.test(text)){
+        await require('./room-reset').handle(normalized);
+        return;
+      }
       // Plain-text confirmation for a pending fishing rod restoration.
       if(text==='네'||text==='아니요'){
         try{
