@@ -49,6 +49,8 @@ async function execute({room,actor,messageId,pool=getPool()}){
  const db=await pool.connect();
  try{
   await db.query('BEGIN');
+  // Serialize this reset with Pokémon actions, game signup, and fishing events.
+  await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[room]);
   // Existing game actions lock this same room row. The reset is atomic.
   await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,'{}'::jsonb) ON CONFLICT DO NOTHING",[room]);
   const current=await db.query('SELECT data FROM hz_rooms WHERE room_id=$1 FOR UPDATE',[room]);
