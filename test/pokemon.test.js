@@ -92,7 +92,7 @@ test('capture messages are deduplicated and daily balls replenish',async()=>{
   assert.match(inv,/몬스터볼 · 5개/);
  }finally{await db.close();}
 });
-test('!탐색 sends progress and photo; !포켓봇정보 uses image and handles unknown names',async()=>{
+test('!탐색 sends immediate details and original photo; info supports names',async()=>{
  const db=new PGlite();
  try{
   const pool=memoryPool(db),photos=[],messages=[],edits=[];
@@ -105,9 +105,9 @@ test('!탐색 sends progress and photo; !포켓봇정보 uses image and handles 
   await service.handle({...ctx,text:'#탐색'}, {connected:true});
   assert.equal(photos.length,1);
   assert.equal(photos[0].mode,'explore');
-  assert.match(messages[0],/탐색/);
-  assert.equal(edits.length,1);
-  assert.equal(edits[0].id,'555');
+  assert.match(messages[0],/야생 포켓몬 발견/);
+  assert.match(messages[0],/포획 가능 시간/);
+  assert.equal(edits.length,0,'no extra edit request or intentional delay');
   await service.handle({...ctx,text:'#포켓봇정보 피카츄'}, {connected:true});
   assert.equal(photos.at(-1).pokemon.id,25);
   assert.equal(photos.at(-1).mode,'info');
