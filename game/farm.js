@@ -190,7 +190,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
      harvested.push(c.emoji+' '+c.name+' · '+fmt(c.sale)+'코인');
     }
     const isAll=cmd==='#전체수확';
-    const details=FOLD+'\n━━━━━━━━━━━━━━━━━━\n'+
+    const details='\n'+FOLD+'\n━━━━━━━━━━━━━━━━━━\n'+
       harvested.join('\n')+'\n💰 지급 예정 · '+fmt(coins)+'코인';
     if(count){
       const completion='🌾 NEXI | 수확\n✅ '+count+'개 '+(isAll?'전부 ':'')+'수확 완료!\n💰 +'+fmt(coins)+'코인 지급'+details;
