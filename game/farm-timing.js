@@ -3,6 +3,7 @@
 // removing paid plots and updating wallet happen in one transaction.
 const PLANT_MS=5000;
 const HARVEST_MS=5000;
+const {gameplayBalance}=require('./farm-balance');
 const fmt=n=>Number(n).toLocaleString('ko-KR');
 async function settleHarvest({pool,room,user,crops,now=Date.now}){
  const db=await pool.connect();
@@ -27,8 +28,8 @@ async function settleHarvest({pool,room,user,crops,now=Date.now}){
   if(!count){await db.query('COMMIT');return null;}
   if(!Number.isSafeInteger(coins))throw Error('Unsafe harvest amount');
   const wallet=await db.query(
-   'UPDATE hz_wallets SET balance=balance+$3::bigint WHERE room_id=$1 AND user_id=$2 AND balance+$3::bigint BETWEEN 0 AND 9007199254740991 RETURNING balance',
-   [String(room),String(user),coins]);
+   'UPDATE hz_wallets SET balance=balance+$3::numeric WHERE room_id=$1 AND user_id=$2 AND balance+$3::numeric>=0 RETURNING balance',
+   [String(room),String(user),String(coins)]);
   if(!wallet.rowCount)throw Error('Harvest wallet update failed');
   await db.query('UPDATE gl_farms SET plots=$3::jsonb,updated_at=NOW() WHERE room_id=$1 AND user_id=$2',
    [String(room),String(user),JSON.stringify(plots)]);
@@ -36,7 +37,7 @@ async function settleHarvest({pool,room,user,crops,now=Date.now}){
    [String(room),String(user),'FARM_HARVEST',coins,'수확 완료 '+count+'개']);
   const data=roomRow.rows[0]?.data;
   if(data?.players?.[String(user)]){
-   data.players[String(user)].points=Number(wallet.rows[0].balance);
+   data.players[String(user)].points=gameplayBalance(wallet.rows[0].balance);
    await db.query('UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1',
     [String(room),JSON.stringify(data)]);
   }
