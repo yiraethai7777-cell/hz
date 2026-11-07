@@ -161,13 +161,37 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
 
    if(cmd==='#수확'||cmd==='#전체수확'){
     if(cmd==='#수확'&&parts.length!==2)fail('사용법: !수확 (번호)');
-    const keys=cmd==='#수확'?[cell(parts[1],size)]:Object.keys(f.plots);let count=0,coins=0;const harvested=[];
-    for(const key of keys){const planted=f.plots[key];if(!planted){if(cmd==='#수확')fail('빈 땅입니다.');continue;}
+    const keys=cmd==='#수확'?[cell(parts[1],size)]:Object.keys(f.plots);
+    let count=0,coins=0;const harvested=[];
+    for(const key of keys){
+     const planted=f.plots[key];
+     if(!planted){if(cmd==='#수확')fail('빈 땅입니다.');continue;}
+     if(Number(planted.harvestReadyAt)>0){
+      if(cmd==='#수확')fail('이미 수확 중입니다. 5초 후 자동으로 완료됩니다.');
+      continue;
+     }
+     if(time<planted.plantedAt){
+      if(cmd==='#수확')fail('아직 씨앗을 심는 중입니다. 남은 시간: '+Math.ceil((planted.plantedAt-time)/1000)+'초');
+      continue;
+     }
      const c=crop(planted.crop),remaining=planted.plantedAt+c.minutes*60000-time;
-     if(remaining>0){if(cmd==='#수확')fail('아직 성장 중입니다. 남은 시간: '+Math.ceil(remaining/1000)+'초');continue;}
-     count++;coins+=c.sale;delete f.plots[key];harvested.push(`${c.emoji} ${c.name} · ${fmt(c.sale)}코인`);
+     if(remaining>0){
+      if(cmd==='#수확')fail('아직 성장 중입니다. 남은 시간: '+Math.ceil(remaining/1000)+'초');
+      continue;
+     }
+     // The crop is reserved for harvesting; payout is made after five seconds.
+     planted.harvestReadyAt=time+HARVEST_MS;
+     count++;coins+=c.sale;
+     harvested.push(c.emoji+' '+c.name+' · '+fmt(c.sale)+'코인');
     }
-    delta+=coins;result=count?`🌾 ${mention(user,name)}님이 작물 ${count}개를 수확했습니다.\n${FOLD}\n${harvested.join('\n')}\n\n💰 총 획득: ${fmt(coins)}코인`:'🌱 아직 수확 가능한 작물이 없습니다.';
+    const isAll=cmd==='#전체수확';
+    const details=FOLD+'\n━━━━━━━━━━━━━━━━━━\n'+
+      harvested.join('\n')+'\n💰 지급 예정 · '+fmt(coins)+'코인';
+    if(count){
+      const completion='🌾 NEXI | 수확\n✅ '+count+'개 '+(isAll?'전부 ':'')+'수확 완료!\n💰 +'+fmt(coins)+'코인 지급'+details;
+      jobs.push({type:'harvest',room,user,count,coins,completedText:completion});
+      result='🌾 NEXI | 수확\n🌿 작물 '+count+'개를 수확 중입니다…\n⏳ 5초 후 완료'+details;
+    }else result='🌱 아직 수확 가능한 작물이 없습니다.';
    }
    if(cmd==='#농장확장'){
     if(f.level>=6)fail('이미 최대 크기 8×8 농장입니다.');const cost=EXPANSIONS[f.level];spend(cost);f.level++;
@@ -182,7 +206,9 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     await db.query('UPDATE gl_farms SET level=$3,seeds=$4::jsonb,plots=$5::jsonb,updated_at=NOW() WHERE room_id=$1 AND user_id=$2',[room,user,f.level,JSON.stringify(f.seeds),JSON.stringify(f.plots)]);
     if(p&&!ctx.isBotAccount){p.points=balance;await db.query('UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1',[room,JSON.stringify(data)]);}
    }
-   await db.query('COMMIT');return result;
+   await db.query('COMMIT');
+   if(jobs.length&&typeof ctx.onCommittedJobs==='function')ctx.onCommittedJobs(jobs);
+   return result;
   }catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();}
  }
  return {init,run};
