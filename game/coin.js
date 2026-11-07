@@ -97,10 +97,16 @@ async function initCoinExtra() {
     operation TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY(room_id, message_id)
   )`);
-  console.log("[HZ 코인] 송금 중복 방지 테이블 준비 완료");
+  await getPool().query(`CREATE TABLE IF NOT EXISTS hz_coin_reset_pending (
+    room_id TEXT NOT NULL, actor_id TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY(room_id,actor_id)
+  )`);
+  console.log("[HZ 코인] 송금 중복 방지 및 코인 초기화 테이블 준비 완료");
 }
 async function transfer({ roomId, from, to, coins, kind, messageId, unlimited = false }) {
-  coins = validAmount(coins);
+  const all = kind === 'TRANSFER' && /^(?:all|전부|모두)$/i.test(String(coins));
+  coins = all ? 'all' : validAmount(coins);
   if (!['TRANSFER','GRANT'].includes(kind)) throw new Error('올바르지 않은 거래 종류입니다.');
   // Preserve the existing 1-billion cap for administrator grants only.
   if (kind === 'GRANT' && BigInt(coins) > ADMIN_GRANT_MAX)
@@ -110,6 +116,9 @@ async function transfer({ roomId, from, to, coins, kind, messageId, unlimited = 
   const db = await getPool().connect();
   try {
     await db.query("BEGIN");
+    // Serialize transfers and room-wide resets with game actions locking hz_rooms.
+    await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,'{}'::jsonb) ON CONFLICT DO NOTHING",[roomId]);
+    await db.query("SELECT room_id FROM hz_rooms WHERE room_id=$1 FOR UPDATE",[roomId]);
     const dedup = await db.query(`INSERT INTO hz_coin_operations(room_id,message_id,operation)
       VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING message_id`, [roomId, messageId, kind]);
     if (!dedup.rowCount) throw new Error("이미 처리된 메시지입니다.");
@@ -118,12 +127,19 @@ async function transfer({ roomId, from, to, coins, kind, messageId, unlimited = 
     for (const u of users) await ensureWallet(db, roomId, u.id, u.name);
     for (const u of users) await db.query(`SELECT balance FROM hz_wallets
       WHERE room_id=$1 AND user_id=$2 FOR UPDATE`, [roomId,u.id]);
+    if (all) {
+      const current = await db.query("SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2",[roomId,from.id]);
+      coins = String(current.rows[0]?.balance ?? '0');
+      if (BigInt(coins) <= 0n) throw new Error("송금할 코인이 없습니다.");
+      // ALL always transfers the sender's actual wallet balance, even for bot accounts.
+      unlimited = false;
+    }
     if (kind === "TRANSFER" && !unlimited) {
       const debited = await db.query(`UPDATE hz_wallets SET balance=balance-$3::numeric
         WHERE room_id=$1 AND user_id=$2 AND balance >= $3::numeric RETURNING balance`, [roomId,from.id,coins]);
       if (!debited.rowCount) throw new Error("코인이 부족합니다.");
       await db.query(`INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
-        VALUES($1,$2,'TRANSFER_OUT',$3,$4)`, [roomId,from.id,-coins,`받는 사람: ${to.name} (${to.id})`]);
+        VALUES($1,$2,'TRANSFER_OUT',$3::numeric,$4)`, [roomId,from.id,(-BigInt(coins)).toString(),`받는 사람: ${to.name} (${to.id})`]);
     }
     const credited = await db.query(`UPDATE hz_wallets SET balance=balance+$3::numeric
       WHERE room_id=$1 AND user_id=$2 RETURNING balance`, [roomId,to.id,coins]);
@@ -131,11 +147,59 @@ async function transfer({ roomId, from, to, coins, kind, messageId, unlimited = 
     await db.query(`INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
       VALUES($1,$2,$3,$4,$5)`, [roomId,to.id,kind === "GRANT" ? "ADMIN_GRANT" : "TRANSFER_IN",coins,`${kind === "GRANT" ? "관리자" : "보낸 사람"}: ${from.name} (${from.id})`]);
     await db.query("COMMIT");
-    return { recipientBalance: credited.rows[0].balance };
+    return { recipientBalance: credited.rows[0].balance, amount:coins };
   } catch (e) {
     await db.query("ROLLBACK"); throw e;
   } finally { db.release(); }
 }
+async function requestCoinReset(roomId,actorId) {
+  const room=String(roomId), actor=String(actorId);
+  await getPool().query(`INSERT INTO hz_coin_reset_pending(room_id,actor_id,expires_at)
+    VALUES($1,$2,NOW()+INTERVAL '60 seconds')
+    ON CONFLICT(room_id,actor_id) DO UPDATE SET expires_at=EXCLUDED.expires_at`,[room,actor]);
+}
+
+async function resetRoomCoins({roomId,actorId,messageId}) {
+  const room=String(roomId),actor=String(actorId);
+  if (!messageId) throw new Error("메시지 고유번호를 확인할 수 없습니다.");
+  const db=await getPool().connect();
+  try {
+    await db.query("BEGIN");
+    // The same room lock used by the game engine protects legacy points from racing.
+    await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,'{}'::jsonb) ON CONFLICT DO NOTHING",[room]);
+    const roomRow=await db.query("SELECT data FROM hz_rooms WHERE room_id=$1 FOR UPDATE",[room]);
+    const pending=await db.query(`SELECT (expires_at>NOW()) AS active FROM hz_coin_reset_pending
+      WHERE room_id=$1 AND actor_id=$2 FOR UPDATE`,[room,actor]);
+    if (!pending.rows[0]?.active)
+      throw new Error("초기화 확인 시간이 만료되었거나 신청 내역이 없습니다. !코인초기화를 다시 입력해 주세요.");
+    const dedup=await db.query(`INSERT INTO hz_coin_operations(room_id,message_id,operation)
+      VALUES($1,$2,'ROOM_RESET') ON CONFLICT DO NOTHING RETURNING message_id`,[room,String(messageId)]);
+    if (!dedup.rowCount) throw new Error("이미 처리된 메시지입니다.");
+    const stats=await db.query(`SELECT COUNT(*)::integer AS holders, COALESCE(SUM(balance),0)::text AS total
+      FROM hz_wallets WHERE room_id=$1 AND balance<>0`,[room]);
+    await db.query(`INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
+      SELECT room_id,user_id,'ROOM_RESET',-balance,'방 코인 전체 초기화 · 실행자: '||$2
+      FROM hz_wallets WHERE room_id=$1 AND balance<>0`,[room,actor]);
+    await db.query("UPDATE hz_wallets SET balance=0 WHERE room_id=$1 AND balance<>0",[room]);
+    // Clear the legacy cached points to prevent old game values being shown or
+    // re-migrated after the reset. Other player inventory/status is untouched.
+    const data=roomRow.rows[0]?.data;
+    if (data && data.players && typeof data.players==='object' && !Array.isArray(data.players)) {
+      for (const player of Object.values(data.players)) {
+        if (player && typeof player==='object') player.points=0;
+      }
+      await db.query("UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1",
+        [room,JSON.stringify(data)]);
+    }
+    await db.query("DELETE FROM hz_coin_reset_pending WHERE room_id=$1",[room]);
+    await db.query("COMMIT");
+    return {holders:Number(stats.rows[0].holders),total:String(stats.rows[0].total)};
+  } catch(error) {
+    await db.query("ROLLBACK");
+    throw error;
+  } finally {db.release();}
+}
+
 async function history(roomId, userId) {
   const result = await getPool().query(`SELECT type,amount,detail,created_at FROM hz_coin_logs
     WHERE room_id=$1 AND user_id=$2 ORDER BY id DESC LIMIT 15`, [roomId,userId]);
@@ -147,7 +211,7 @@ async function history(roomId, userId) {
   }).join("\n\n");
 }
 async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false,isSuperAdmin=false}) {
-  if (!/^#(코인순위|코인내역|코인송금|코인지급|코인아이디)(?:\s|$)/.test(text)) return false;
+  if (!/^#(코인순위|코인내역|코인송금|코인지급|코인아이디|코인초기화)(?:\s|$)/.test(text)) return false;
   const say = s => chat.sendText(roomId,s);
   try {
     const me = sender(msg);
@@ -158,6 +222,22 @@ async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false,isSupe
       await say(await history(room,me.id));
     } else if (text === "#코인아이디") {
       await say(`🔑 내 사용자 ID: ${me.id}\n관리자 설정용으로만 사용하고 공개 공유는 피하세요.`);
+    } else if (/^#코인초기화(?:\s|$)/.test(text)) {
+      const authorized=isBotAccount||isSuperAdmin||
+        await require('../shared/super-admin').isSuperAdmin(room,me.id);
+      if (!authorized) throw new Error("봇 계정 또는 이 방의 최고관리자만 코인을 초기화할 수 있습니다.");
+      if (text==="#코인초기화") {
+        await requestCoinReset(room,me.id);
+        await say("⚠️ NEXI | 코인 전체 초기화\n이 채팅방의 모든 사용자 코인 잔액을 0으로 변경합니다.\n다른 방의 코인·아이템·포켓몬은 유지됩니다.\n\n60초 안에 !코인초기화 확인 을 입력해야 실행됩니다.");
+      } else if (text==="#코인초기화 확인") {
+        const result=await resetRoomCoins({roomId:room,actorId:me.id,messageId:messageKey(msg)});
+        await say("✅ NEXI | 코인 초기화 완료\n초기화한 방: 현재 채팅방\n대상 사용자: "+result.holders+"명\n초기화 금액: "+fmt(result.total)+"코인\n전체 잔액: 0코인");
+      } else if (text==="#코인초기화 취소") {
+        await getPool().query("DELETE FROM hz_coin_reset_pending WHERE room_id=$1 AND actor_id=$2",[room,me.id]);
+        await say("✅ 코인 초기화 요청을 취소했습니다.");
+      } else {
+        throw new Error("사용법: !코인초기화 → !코인초기화 확인 (60초 이내)");
+      }
     } else if (text.startsWith("#코인송금 ") || text.startsWith("#코인지급 ")) {
       const grant = text.startsWith("#코인지급 ");
       if (grant) {
@@ -167,13 +247,15 @@ async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false,isSupe
       }
       const match = /^#코인(?:송금|지급)\s+@.+\s+(\S+)$/.exec(text);
       if (!match) throw new Error(`사용법: !코인${grant ? "지급" : "송금"} (@멘션) (금액)`);
-      const coins = validAmount(match[1]);
+      const amountText=String(match[1]);
+      const all=!grant && /^(?:all|전부|모두)$/i.test(amountText);
+      const coins=all ? 'all' : validAmount(amountText);
       const to = await resolveCoinRecipient(room, mentionTarget(msg));
       await require('./economy').ensureLinked(room,to.id,to.name);
       const result = await transfer({roomId:room,from:me,to,coins,kind:grant ? "GRANT" : "TRANSFER",messageId:messageKey(msg),unlimited:isBotAccount});
-      await say(`${grant ? "🎁 코인 지급 완료" : "💸 코인 송금 완료"}\n받는 사람: ${to.name}\n금액: ${fmt(coins)}코인\n받는 사람 잔액: ${fmt(result.recipientBalance)}코인`);
+      await say(`${grant ? "🎁 코인 지급 완료" : "💸 코인 송금 완료"}\n받는 사람: ${to.name}\n금액: ${fmt(result.amount)}코인\n받는 사람 잔액: ${fmt(result.recipientBalance)}코인`);
     } else {
-      await say("사용법: !정보\n!코인순위\n!코인내역\n!코인송금 (@멘션) (금액)\n!코인지급 (@멘션) (금액)");
+      await say("사용법: !정보\n!코인순위\n!코인내역\n!코인송금 (@멘션) (금액 또는 all)\n!코인지급 (@멘션) (금액)\n!코인초기화 (최고관리자 전용)");
     }
   } catch (e) {
     console.error("[HZ 코인]",e);
@@ -181,4 +263,4 @@ async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false,isSupe
   }
   return true;
 }
-module.exports = {initCoinExtra,handleCoinCommand,validAmount,mentionTarget,messageKey,transfer};
+module.exports = {initCoinExtra,handleCoinCommand,validAmount,mentionTarget,messageKey,transfer,requestCoinReset,resetRoomCoins};
