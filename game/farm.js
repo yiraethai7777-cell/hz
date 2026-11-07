@@ -3,6 +3,7 @@ const {getPool}=require('../shared/db');
 const {ensureWallet}=require('./wallet');
 const {link}=require('./economy');
 const {RODS}=require('./data');
+const {PLANT_MS,HARVEST_MS,settleHarvest,harvestNotice}=require('./farm-timing');
 const FOLD='\u200b'.repeat(1200);
 const CROPS=[
  ['당근','🥕',1,500,1000],['감자','🥔',2,1200,2500],['옥수수','🌽',3,2000,4000],['토마토','🍅',4,3000,6000],
@@ -17,29 +18,45 @@ function cell(number,size){const n=integer(number,'칸 번호');if(n>size*size)f
 function mention(id,name){return `\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;}
 function shop(){return '상점\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
  '\n\n🌱 씨앗\n━━━━━━━━━━━━━━\n'+CROPS.map(c=>`${c.emoji} ${c.name} · ${fmt(c.price)}코인\n   성장 ${c.minutes}분 · 수확 ${fmt(c.sale)}코인`).join('\n')+
- '\n\n🍀 행운 포션\n━━━━━━━━━━━━━━\n가격 · 40,000코인\n효과 · 10분간 낚시 행운 50% 상승\n└─ !ㄱㅁ행운\n\n🤖 자동낚시\n━━━━━━━━━━━━━━\n가격 · 50,000코인\n효과 · 10분간 30초마다 자동 낚시\n하루 최대 3회\n└─ !ㄱㅁ자동\n\n구매 안내\n└─ !낚시대ㄱㅁ (이름)\n└─ !씨앗ㄱㅁ (이름) (수량)\n└─ !농장\n└─ !농장정보';}
+ '\n\n🍀 행운 포션\n━━━━━━━━━━━━━━\n가격 · 40,000코인\n효과 · 10분간 낚시 행운 50% 상승\n└─ !ㄱㅁ행운\n\n🤖 자동낚시\n━━━━━━━━━━━━━━\n가격 · 50,000코인\n효과 · 5분간 20초마다 자동 낚시\n하루 최대 3회\n└─ !ㄱㅁ자동\n\n구매 안내\n└─ !낚시대ㄱㅁ (이름)\n└─ !씨앗ㄱㅁ (이름) (수량)\n└─ !농장\n└─ !농장정보';}
 function formatFarm(f,user,now){
- const size=f.level+2;let empty=0,growing=0,ready=0;const rows=[];
+ const size=f.level+2;let empty=0,planting=0,growing=0,harvesting=0,ready=0;const rows=[];
  for(let r=0;r<size;r++){
   const line=[];for(let col=0;col<size;col++){
    const planted=f.plots[r+':'+col];if(!planted){empty++;line.push('🟫');continue;}
    const c=crop(planted.crop),elapsed=now-planted.plantedAt;
-   if(elapsed>=c.minutes*60000){ready++;line.push(c.emoji);}else{growing++;line.push(elapsed>=c.minutes*30000?'🌿':'🌱');}
+   if(Number(planted.harvestReadyAt)>0){harvesting++;line.push('🌾');}
+   else if(now<planted.plantedAt){planting++;line.push('🪴');}
+   else if(elapsed>=c.minutes*60000){ready++;line.push(c.emoji);}
+   else{growing++;line.push(elapsed>=c.minutes*30000?'🌿':'🌱');}
   }rows.push(line.join(' '));
  }
  const seeds=CROPS.filter(c=>f.seeds[c.name]>0).map(c=>`${c.emoji} ${c.name} ${fmt(f.seeds[c.name])}개`).join(' · ')||'없음';
- return `${mention(user.id,user.name)}님의 농장\n${FOLD}\n농장\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n재배 중: ${growing}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호 또는 all) (작물이름)\n└─ !수확 (번호)\n└─ !전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
+ return `${mention(user.id,user.name)}님의 농장\n${FOLD}\n농장\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n심는 중: ${planting}칸\n재배 중: ${growing}칸\n수확 중: ${harvesting}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호 또는 all) (작물이름)\n└─ !수확 (번호)\n└─ !전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
 }
-function createFarm({pool,now=Date.now}){
+function createFarm({pool,now=Date.now,schedule=(task,delay)=>setTimeout(task,delay)}){
+ function defer(ms,task){
+  const handle=schedule(()=>Promise.resolve().then(task).catch(e=>console.error('[FARM TIMER]',String(e?.message||e))),ms);
+  if(typeof handle?.unref==='function')handle.unref();
+ }
+ const settle=(room,user)=>settleHarvest({pool,room,user,crops:CROPS,now});
+ async function recover(){
+  const pending=await pool.query("SELECT room_id,user_id FROM gl_farms WHERE plots::text LIKE '%harvestReadyAt%' LIMIT 200");
+  for(const row of pending.rows)await settle(row.room_id,row.user_id);
+ }
+
  async function init(){await pool.query(`CREATE TABLE IF NOT EXISTS gl_farms(
   room_id TEXT NOT NULL,user_id TEXT NOT NULL,level INTEGER NOT NULL DEFAULT 1 CHECK(level BETWEEN 1 AND 6),
   seeds JSONB NOT NULL DEFAULT '{}'::jsonb,plots JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(room_id,user_id));`);}
  async function run(ctx){
-  const text=String(ctx.text||'').trim(),parts=text.split(/\s+/),cmd=parts[0];
+  const original=String(ctx.text||'').trim();
+  const text=original.startsWith('!')?'#'+original.slice(1).replace(/ㄱㅁ/g,'구매'):original;
+  const parts=text.split(/\s+/),cmd=parts[0];
   if(cmd==='#상점'){if(parts.length!==1)fail('사용법: !상점');return mention(ctx.userId,ctx.userName||ctx.userId)+'님, 통합 상점입니다.\n'+shop();}
   const room=String(ctx.roomId),user=String(ctx.userId),name=String(ctx.userName||user);
   if(!/^\d+$/.test(room)||!/^\d+$/.test(user))fail('채팅방과 사용자 ID를 확인할 수 없습니다.');
+  await settle(room,user); // Reconcile matured harvests before reading current farm state.
   const readonly=['#농장','#농장정보'].includes(cmd);
 if(!['#농장','#농장정보','#농장확장','#씨앗구매','#심기','#수확','#전체수확'].includes(cmd))fail('지원하지 않는 농장 명령어입니다.');
 if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&parts.length!==1)fail('사용법: !'+cmd.slice(1));
@@ -59,7 +76,7 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    }
    await db.query('INSERT INTO gl_farms(room_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[room,user]);
    const f=(await db.query('SELECT level,seeds,plots FROM gl_farms WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user])).rows[0];
-   f.seeds={...f.seeds};f.plots={...f.plots};const size=f.level+2,time=now();let delta=0,result='';
+   f.seeds={...f.seeds};f.plots={...f.plots};const size=f.level+2,time=now();let delta=0,result='';const jobs=[];
    function spend(cost){if(!ctx.isBotAccount&&balance<cost)fail(`코인이 부족합니다. 필요 ${fmt(cost)}코인 · 보유 ${fmt(balance)}코인`);if(!ctx.isBotAccount)delta-=cost;}
    if(cmd==='#농장')result=formatFarm(f,{id:user,name},time);
    if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\n농장\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n!농장확장으로 한 단계씩 확장합니다.`;
@@ -124,20 +141,21 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     }
 
     for(const key of keys){
-      f.plots[key]={crop:c.name,plantedAt:time};
+      // Planting occupies the plot immediately; growth starts after planting finishes.
+      f.plots[key]={crop:c.name,plantedAt:time+PLANT_MS};
     }
+    jobs.push({type:'plant',count:keys.length,crop:c.name});
 
     f.seeds[c.name]=owned-keys.length;
 
-    result=`[ ✓ ] 심기\n`+
-      `━━━━━━━━━━━━━━━━━━━━\n`+
-      `작물       | ${c.name}\n`+
-      `심은 위치  | ${numbers.join(', ')}번\n`+
-      `심은 수량  | ${keys.length}개\n`+
-      `남은 씨앗  | ${fmt(f.seeds[c.name])}개\n`+
-      `성장 시간  | ${c.minutes}분\n`+
-      `━━━━━━━━━━━━━━━━━━━━\n`+
-      `씨앗 심기가 완료되었습니다.`;
+    result='🌱 NEXI | 씨앗 심기\n'+
+      c.emoji+' '+c.name+' · '+keys.length+'칸 심는 중\n'+
+      '⏱ 심기 · '+PLANT_MS/1000+'초 / 성장 · '+c.minutes+'분\n'+
+      (isAll?FOLD+'\n':'')+
+      '━━━━━━━━━━━━━━━━━━\n'+
+      '📍 심은 위치 · '+numbers.join(', ')+'번\n'+
+      '🎒 남은 씨앗 · '+fmt(f.seeds[c.name])+'개\n'+
+      '🌿 심기가 완료되면 자동으로 성장합니다.';
    }
 
 
