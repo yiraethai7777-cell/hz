@@ -133,14 +133,7 @@ function issueQuizOnly(d,isSelf=false){
      }
 
      if(d.quiz&&d.quiz.expiresAt>now){
-       return `[ # ] QUIZ\n\n`+
-         `Q. ${d.quiz.question}\n`+
-         `${'\u200b'.repeat(1200)}`+
-         `\n[ ${d.quiz.difficulty||'혼합'} · ${d.quiz.kind} ]\n`+
-         `\n━━━━━━━━━━━━━━━━━━━━\n`+
-         `[ QUIZ STATUS ]\n`+
-         `이미 진행 중인 문제입니다.\n`+
-         `남은 시간 | ${Math.ceil((d.quiz.expiresAt-now)/1000)}초`;
+       return require('./quiz-design').questionText(d.quiz,{reward:ctx.QUIZ_REWARD,xp:ctx.QUIZ_XP,now,active:true});
      }
 
      const remain=Math.ceil(
@@ -160,21 +153,7 @@ function issueQuizOnly(d,isSelf=false){
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
-     return `[ # ] QUIZ\n\n`+
-       `Q. ${q[1]}\n`+
-       `${'\u200b'.repeat(1200)}`+
-       `\n[ ${difficulty} · ${q[0]} ]\n`+
-       `\n━━━━━━━━━━━━━━━━━━━━\n`+
-       `[ QUIZ INFORMATION ]\n\n`+
-       `제한 시간  | ${ctx.QUIZ_SECONDS}초\n`+
-       `정답 보상  | ${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
-       `경험치     | +${ctx.QUIZ_XP} XP\n\n`+
-       `[ ANSWER GUIDE ]\n\n`+
-       `정답을 채팅에 입력하세요.\n`+
-       `첫 번째 정답자에게 보상이 지급됩니다.\n`+
-       `!정답 (답) 명령어도 사용 가능합니다.\n\n`+
-       `━━━━━━━━━━━━━━━━━━━━\n`+
-       `QUIZ SYSTEM`;
+     return require('./quiz-design').questionText(d.quiz,{reward:ctx.QUIZ_REWARD,xp:ctx.QUIZ_XP,now});
    }
 
 
