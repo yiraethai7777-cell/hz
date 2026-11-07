@@ -59,6 +59,8 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
   const db=await pool.connect();
   try{
    await db.query('BEGIN');
+   // Prevent a concurrent room-wide game reset from racing this Pokémon action.
+   await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[room]);
    const current=now(),today=dayKey(current);
    await db.query('INSERT INTO gl_pokemon_players(room_id,user_id,daily_marker) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',
     [room,user,today]);
