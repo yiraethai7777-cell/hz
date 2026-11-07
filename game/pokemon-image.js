@@ -11,7 +11,7 @@ const W=920,H=1110,MAX_PNG=4000000;
 const esc=x=>String(x??'').replace(/[<>&"']/g,c=>({
  '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'
 })[c]);
-function renderSvg({pokemon,level,balls=0,mode='explore',iv=null,owned=0,png}){
+function renderSvg({pokemon,balls=0,mode='explore',iv=null,owned=0,png}){
  const title=mode==='explore'?'야생 포켓몬 발견':mode==='caught'?'포획 성공':'포켓몬 정보';
  const accent=pokemon.rarity==='전설'?'#f5c15f':pokemon.rarity==='희귀'?'#ae9efc':'#73e0bc';
  const image='data:image/png;base64,'+png.toString('base64');
@@ -19,11 +19,11 @@ function renderSvg({pokemon,level,balls=0,mode='explore',iv=null,owned=0,png}){
   mode==='caught'?'인벤토리에 보관되었습니다.':'NEXI  /  POKÉDEX';
  const lines=mode==='explore'?
   [['도감번호','No.'+String(pokemon.id).padStart(3,'0')],
-   ['타입',pokemon.type],['레벨','Lv.'+level],['포획 난이도',difficulty(pokemon)],
+   ['타입',pokemon.type],['포획 난이도',difficulty(pokemon)],
    ['포획 가능 시간','60초'],['몬스터볼',String(balls)+'개 보유']]:
   mode==='caught'?
   [['도감번호','No.'+String(pokemon.id).padStart(3,'0')],
-   ['타입',pokemon.type],['레벨','Lv.'+level],['개체값',String(iv)+'%'],
+   ['타입',pokemon.type],['개체값',String(iv)+'%'],
    ['희귀도',pokemon.rarity],['남은 몬스터볼',String(balls)+'개']]:
   [['도감번호','No.'+String(pokemon.id).padStart(3,'0')],
    ['타입',pokemon.type],['희귀도',pokemon.rarity],
@@ -96,10 +96,10 @@ async function fetchArtwork(number,fetcher=globalThis.fetch){
  pendingArtwork.set(id,task);
  return task;
 }
-async function createCard({pokemon,level=1,balls=0,mode='explore',iv=null,owned=0,
+async function createCard({pokemon,balls=0,mode='explore',iv=null,owned=0,
  fetcher=globalThis.fetch,renderer=renderAsync}){
  const png=await fetchArtwork(pokemon.id,fetcher);
- const svg=renderSvg({pokemon,level,balls,mode,iv,owned,png});
+ const svg=renderSvg({pokemon,balls,mode,iv,owned,png});
  const image=await renderer(svg,{font:{loadSystemFonts:false,fontFiles:FONT_FILES,defaultFontFamily:'Noto Sans KR'},languages:['ko'],logLevel:'error'});
  const buffer=image.asPng();
  if(!Buffer.isBuffer(buffer)||buffer.length>MAX_PNG)throw Error('Pokemon result PNG too large');
