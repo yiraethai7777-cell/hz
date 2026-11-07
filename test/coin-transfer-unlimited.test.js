@@ -15,8 +15,8 @@ async function setup(){
  await query(`CREATE TABLE hz_wallets(
   room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,
   balance NUMERIC NOT NULL DEFAULT 0 CHECK(balance>=0),
-  PRIMARY KEY(room_id,user_id));
- CREATE TABLE hz_coin_logs(
+  PRIMARY KEY(room_id,user_id));`);
+ await query(`CREATE TABLE hz_coin_logs(
   id BIGSERIAL PRIMARY KEY,room_id TEXT,user_id TEXT,type TEXT,
   amount NUMERIC NOT NULL,detail TEXT,created_at TIMESTAMPTZ DEFAULT NOW());`);
  const pool={query,connect:async()=>({query,release(){}})};
