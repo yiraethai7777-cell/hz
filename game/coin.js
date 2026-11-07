@@ -175,6 +175,9 @@ async function resetRoomCoins({roomId,actorId,messageId}) {
     const dedup=await db.query(`INSERT INTO hz_coin_operations(room_id,message_id,operation)
       VALUES($1,$2,'ROOM_RESET') ON CONFLICT DO NOTHING RETURNING message_id`,[room,String(messageId)]);
     if (!dedup.rowCount) throw new Error("이미 처리된 메시지입니다.");
+    // Lock all existing wallets before reading balances: the reset logs and
+    // resulting zero balances must describe the same committed snapshot.
+    await db.query("SELECT user_id FROM hz_wallets WHERE room_id=$1 ORDER BY user_id FOR UPDATE",[room]);
     const stats=await db.query(`SELECT COUNT(*)::integer AS holders, COALESCE(SUM(balance),0)::text AS total
       FROM hz_wallets WHERE room_id=$1 AND balance<>0`,[room]);
     await db.query(`INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail)
