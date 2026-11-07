@@ -17,7 +17,7 @@ test('modification shows readable nickname instead of raw mention control codes'
  assert.ok(result.includes('👤 @테스터님'));
  assert.ok(!result.includes('\u0002'));
  assert.ok(result.includes('🐟 붕어 · ⚪ 일반 · 21cm'));
- assert.equal(result.includes('\u200b'),false);
+ assert.equal((result.match(/\u200b/g)||[]).length,1200);
 });
 test('one fishing message is updated through two MODIFYMSG calls',async()=>{
  const calls=[],waits=[],fallback=[];
@@ -58,13 +58,19 @@ test('cooldown notices bypass editable message path',async()=>{
  assert.deepEqual(calls,[notice]);
 });
 
-test('compact fishing result preserves all information without fold padding',()=>{
+test('fishing result hides rewards after KakaoTalk folding marker',()=>{
  assert.ok(caught.startsWith('🎣 NEXI | 낚시 결과\n'));
- assert.ok(caught.includes('💰 +100코인 · ⭐ +48 XP'));
- assert.ok(caught.includes('🎣 나무 +2 · 🐾 창조의 신'));
+ assert.ok(caught.includes('💰 낚시 보상 · +100코인'));
+ assert.ok(caught.includes('⭐ 획득 경험치 · +48 XP'));
+ assert.ok(caught.includes('🎣 낚시대 · 나무 +2'));
+ assert.ok(caught.includes('🐾 장착 펫 · 창조의 신'));
  assert.ok(caught.includes('판매 예상가 · 100코인'));
  assert.ok(caught.includes('보유 물고기 · 1마리'));
- assert.equal(caught.includes('\u200b'),false);
+ const mark='\u200b'.repeat(1200);
+ assert.equal((caught.match(/\u200b/g)||[]).length,1200);
+ assert.ok(caught.indexOf('🐟 붕어')<caught.indexOf(mark));
+ assert.ok(caught.indexOf(mark)<caught.indexOf('💰 낚시 보상'));
+ assert.ok(caught.length<4010);
 });
 test('fishing result shows level-up and rarity when applicable',()=>{
  const text=formatCatchResult({
