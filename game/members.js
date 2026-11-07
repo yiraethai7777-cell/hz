@@ -18,6 +18,7 @@ async function joinGame(roomId,userId,userName) {
   const db=await getPool().connect();
   try {
     await db.query("BEGIN");
+    await db.query("SELECT pg_advisory_xact_lock(hashtext($1))",[room]);
     await db.query("SELECT pg_advisory_xact_lock(hashtext($1),hashtext($2))",[room,user]);
     await ensureWallet(db,room,user,name);
     const inserted=await db.query(`INSERT INTO hz_game_members(room_id,user_id,user_name)
