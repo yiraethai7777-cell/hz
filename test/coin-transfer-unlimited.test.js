@@ -12,6 +12,9 @@ async function setup(){
   const r=await db.query(sql,params);
   return {...r,rowCount:r.affectedRows??r.rows.length};
  }
+ await query(`CREATE TABLE hz_rooms (
+  room_id TEXT PRIMARY KEY,data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW());`);
  await query(`CREATE TABLE hz_wallets(
   room_id TEXT NOT NULL,user_id TEXT NOT NULL,user_name TEXT NOT NULL,
   balance NUMERIC NOT NULL DEFAULT 0 CHECK(balance>=0),
@@ -28,7 +31,8 @@ async function setup(){
  const module={exports:{}};
  const overrides={
   '../shared/db':{getPool:()=>pool},
-  './wallet':{ensureWallet,getBalance:async()=>0,coinRanking:async()=>''}
+  './wallet':{ensureWallet,getBalance:async()=>0,coinRanking:async()=>''},
+  '../shared/super-admin':{isSuperAdmin:async()=>false}
  };
  const injectedRequire=p=>overrides[p]??require(p);
  new Function('require','module','exports',src)(injectedRequire,module,module.exports);
@@ -80,5 +84,67 @@ test('amount validator accepts arbitrary-sized positive integers, rejects invali
   for(const raw of ['0','-1','1.5','1e8','1,000','abc','',' 10'])
    assert.throws(()=>coin.validAmount(raw),/1 이상의 정수/);
   await assert.rejects(()=>coin.transfer({roomId:'1',from:{id:'5'},to:{id:'6'},coins:'1000000001',kind:'GRANT',messageId:'g1'}),/10억 코인/);
+ }finally{await db.close();}
+});
+
+test('ALL transfers the entire current balance exactly, including large numbers',async()=>{
+ const {db,query,coin}=await setup();
+ try{
+  const roomId='5000',from={id:'5010',name:'송금자'},to={id:'5020',name:'수취인'};
+  const amount='1000000000000000000000';
+  await query('INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES($1,$2,$3,$4)',[roomId,from.id,from.name,amount]);
+  const sent=await coin.transfer({roomId,from,to,coins:'all',kind:'TRANSFER',messageId:'all-1'});
+  assert.equal(sent.amount,amount);
+  assert.equal(BigInt(sent.recipientBalance),BigInt(amount));
+  const wallets=await query('SELECT user_id,balance FROM hz_wallets WHERE room_id=$1 ORDER BY user_id',[roomId]);
+  assert.deepEqual(wallets.rows.map(r=>[r.user_id,String(r.balance)]),[['5010','0'],['5020',amount]]);
+  await assert.rejects(()=>coin.transfer({roomId,from,to,coins:'all',kind:'TRANSFER',messageId:'all-2'}),/송금할 코인/);
+  await assert.rejects(()=>coin.transfer({roomId,from,to,coins:'all',kind:'TRANSFER',messageId:'all-1'}),/이미 처리된/);
+  const logs=await query('SELECT type,amount FROM hz_coin_logs ORDER BY id');
+  assert.equal(BigInt(logs.rows[0].amount),-BigInt(amount));
+ }finally{await db.close();}
+});
+test('confirmed coin reset zeros only this room, legacy cached points and keeps items',async()=>{
+ const {db,query,coin}=await setup();
+ try{
+  const actor='10001',room='12000',other='13000';
+  await query('INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES($1,$2,$3,$4)',[room,'12001','A','1000000000000000000000']);
+  await query('INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES($1,$2,$3,$4)',[room,'12002','B','50']);
+  await query('INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES($1,$2,$3,$4)',[other,'12001','A','777']);
+  const roomState={game:true,players:{'12001':{points:123,inventory:[{name:'가재'}]},'12002':{points:50,pets:{dragon:1}}}};
+  await query('INSERT INTO hz_rooms(room_id,data) VALUES($1,$2::jsonb)',[room,JSON.stringify(roomState)]);
+  await coin.requestCoinReset(room,actor);
+  const result=await coin.resetRoomCoins({roomId:room,actorId:actor,messageId:'reset-1'});
+  assert.equal(result.holders,2);
+  assert.equal(BigInt(result.total),1000000000000000000050n);
+  const first=await query('SELECT balance FROM hz_wallets WHERE room_id=$1',[room]);
+  assert.ok(first.rows.every(r=>BigInt(r.balance)===0n));
+  const remain=await query('SELECT balance FROM hz_wallets WHERE room_id=$1',[other]);
+  assert.equal(BigInt(remain.rows[0].balance),777n);
+  const updated=await query('SELECT data FROM hz_rooms WHERE room_id=$1',[room]);
+  assert.equal(updated.rows[0].data.players['12001'].points,0);
+  assert.equal(updated.rows[0].data.players['12002'].points,0);
+  assert.equal(updated.rows[0].data.players['12001'].inventory[0].name,'가재');
+  assert.equal(updated.rows[0].data.players['12002'].pets.dragon,1);
+  const logs=await query("SELECT amount FROM hz_coin_logs WHERE type='ROOM_RESET' ORDER BY id");
+  assert.equal(logs.rows.length,2);
+  assert.equal(logs.rows.reduce((n,x)=>n+BigInt(x.amount),0n),-1000000000000000000050n);
+  await assert.rejects(()=>coin.resetRoomCoins({roomId:room,actorId:actor,messageId:'reset-2'}),/신청 내역/);
+ }finally{await db.close();}
+});
+test('reset requires a valid confirmation and only a bot or room super admin can initiate it',async()=>{
+ const {db,query,coin}=await setup();
+ try{
+  const messages=[];
+  const msg={id:'unauthorized-1',sender:{id:'20001',name:'일반 유저'}};
+  const sendText=async(_room,text)=>messages.push(text);
+  assert.equal(await coin.handleCoinCommand({text:'#코인초기화',msg,roomId:'5555',chat:{sendText},isBotAccount:false,isSuperAdmin:false}),true);
+  assert.match(messages[0],/최고관리자만/);
+  const pending=await query('SELECT * FROM hz_coin_reset_pending WHERE room_id=$1',['5555']);
+  assert.equal(pending.rows.length,0);
+  await assert.rejects(()=>coin.resetRoomCoins({roomId:'5555',actorId:'20001',messageId:'reset-nopending'}),/신청 내역/);
+  await coin.requestCoinReset('5555','20001');
+  await query("UPDATE hz_coin_reset_pending SET expires_at=NOW()-INTERVAL '10 seconds' WHERE room_id=$1",['5555']);
+  await assert.rejects(()=>coin.resetRoomCoins({roomId:'5555',actorId:'20001',messageId:'reset-expired'}),/만료/);
  }finally{await db.close();}
 });
