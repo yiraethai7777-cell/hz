@@ -25,8 +25,8 @@ test('one fishing message is updated through two MODIFYMSG calls',async()=>{
   sendFallback:async text=>fallback.push(text),wait:async ms=>{waits.push(ms);}});
  assert.equal(status,'edited');
  assert.deepEqual(calls.map(x=>x.kind),['WRITE','MODIFYMSG','MODIFYMSG']);
- assert.equal(calls[0].body,'🎣 NEXI | 낚시\n\n🌊 테스터님이 낚싯줄을 던졌습니다.');
- assert.equal(calls[1].body,'🎣 NEXI | 낚시\n\n🎣 낚싯줄을 끌어올리는 중입니다…');
+ assert.equal(calls[0].body,'🎣 NEXI | 낚시\n\n🌊 테스터님이 낚시를 시작했습니다.');
+ assert.equal(calls[1].body,'🎣 NEXI | 낚시\n\n🐟 물고기를 끌어올리고 있습니다…');
  assert.deepEqual(waits,[1100,1500]);
  assert.equal(calls[1].logId,'9876');
  assert.ok(calls[2].body.includes('붕어 [일반]'));
