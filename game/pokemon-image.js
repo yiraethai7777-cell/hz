@@ -50,7 +50,28 @@ function renderSvg({pokemon,level,balls=0,mode='explore',iv=null,owned=0,png}){
   '<text x="460" y="1059" text-anchor="middle" fill="'+accent+'" font-size="28" font-weight="700">'+esc(subtitle)+'</text>'+
   '</g></svg>';
 }
-async function fetchArtwork(number,fetcher=globalThis.fetch){
+// Keep original official artwork in memory: no SVG rendering for outgoing photos.
+const ART_CACHE_LIMIT=32,ART_CACHE_MAX_BYTES=16*1024*1024;
+const artCache=new Map(),pendingArtwork=new Map();
+let artBytes=0;
+function remember(number,bytes){
+ if(bytes.length>ART_CACHE_MAX_BYTES)return;
+ const old=artCache.get(number);
+ if(old){artBytes-=old.length;artCache.delete(number);}
+ artCache.set(number,bytes);artBytes+=bytes.length;
+ while(artCache.size>ART_CACHE_LIMIT||artBytes>ART_CACHE_MAX_BYTES){
+  const oldest=artCache.keys().next().value;
+  artBytes-=artCache.get(oldest).length;artCache.delete(oldest);
+ }
+}
+function validPng(bytes){
+ if(!Buffer.isBuffer(bytes)||bytes.length<24||bytes.length>1600000||
+    !bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))throw Error('Invalid Pokémon PNG');
+ const width=bytes.readUInt32BE(16),height=bytes.readUInt32BE(20);
+ if(!width||!height||width>4096||height>4096)throw Error('Invalid Pokémon image size');
+ return {width,height};
+}
+async function downloadArtwork(number,fetcher){
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),6500);
  if(timer.unref)timer.unref();
  try{
@@ -59,11 +80,21 @@ async function fetchArtwork(number,fetcher=globalThis.fetch){
   if(!response?.ok)throw Error('Pokémon artwork HTTP '+response?.status);
   if(Number(response.headers?.get?.('content-length')||0)>1600000)throw Error('Artwork too large');
   const bytes=Buffer.from(await response.arrayBuffer());
-  if(bytes.length>1600000||bytes.length<24||
-   !bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))
-   throw Error('Invalid Pokémon PNG');
+  validPng(bytes);
   return bytes;
  }finally{clearTimeout(timer);}
+}
+async function fetchArtwork(number,fetcher=globalThis.fetch){
+ const id=Number(number);
+ // An injected mock fetcher is deliberately not cached.
+ if(fetcher!==globalThis.fetch)return downloadArtwork(id,fetcher);
+ const cached=artCache.get(id);
+ if(cached){artCache.delete(id);artCache.set(id,cached);return cached;}
+ if(pendingArtwork.has(id))return pendingArtwork.get(id);
+ const task=downloadArtwork(id,fetcher).then(bytes=>{remember(id,bytes);return bytes;})
+  .finally(()=>pendingArtwork.delete(id));
+ pendingArtwork.set(id,task);
+ return task;
 }
 async function createCard({pokemon,level=1,balls=0,mode='explore',iv=null,owned=0,
  fetcher=globalThis.fetch,renderer=renderAsync}){
@@ -74,19 +105,25 @@ async function createCard({pokemon,level=1,balls=0,mode='explore',iv=null,owned=
  if(!Buffer.isBuffer(buffer)||buffer.length>MAX_PNG)throw Error('Pokemon result PNG too large');
  return {buffer,width:W,height:H};
 }
-async function sendCard({client,roomId,pokemon,level,balls,mode,iv,owned,
- makeCard=createCard,tempRoot=os.tmpdir()}){
+async function sendCard({client,roomId,pokemon,tempRoot=os.tmpdir(),loadArtwork=fetchArtwork}){
  if(client?.connected!==true||typeof client.sendPhoto!=='function')throw Error('Photo client unavailable');
- const image=await makeCard({pokemon,level,balls,mode,iv,owned});
+ const started=Date.now();
+ const bytes=await loadArtwork(pokemon.id);
+ const {width,height}=validPng(bytes);
+ const downloadMs=Date.now()-started;
  const folder=await fs.mkdtemp(path.join(path.resolve(tempRoot),'nexi-pokemon-'));
  try{
-  const filename='nexi-pokemon.png',full=path.join(folder,filename);
-  await fs.writeFile(full,image.buffer,{flag:'wx',mode:0o600});
+  const filename='pokemon-'+pokemon.id+'.png',full=path.join(folder,filename);
+  await fs.writeFile(full,bytes,{flag:'wx',mode:0o600});
   const result=await client.sendPhoto(String(roomId),full,{filename,mime:'image/png',
-   width:image.width,height:image.height,text:'🎮 NEXI | '+pokemon.name});
+   width,height,text:'🎮 NEXI | '+pokemon.name});
   if(!result?.complete||Number(result.complete.status??0)!==0)
    throw Error('Pokémon photo not confirmed by KakaoTalk');
+  const elapsed=Date.now()-started;
+  if(elapsed>900)console.log('[NEXI POKEMON PHOTO TIMING]',{
+    pokemonNo:pokemon.id,downloadMs,uploadMs:elapsed-downloadMs,totalMs:elapsed,bytes:bytes.length
+  });
   return true;
  }finally{await fs.rm(folder,{recursive:true,force:true});}
 }
-module.exports={renderSvg,fetchArtwork,createCard,sendCard};
+module.exports={renderSvg,fetchArtwork,createCard,sendCard,validPng,cacheInfo:()=>({items:artCache.size,bytes:artBytes})};
