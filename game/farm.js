@@ -4,6 +4,7 @@ const {ensureWallet}=require('./wallet');
 const {link}=require('./economy');
 const {RODS}=require('./data');
 const {PLANT_MS,HARVEST_MS,settleHarvest,updateFarmMessage}=require('./farm-timing');
+const {exactBalance,gameplayBalance,formatAmount}=require('./farm-balance');
 const FOLD='\u200b'.repeat(1200);
 const CROPS=[
  ['당근','🥕',1,500,1000],['감자','🥔',2,1200,2500],['옥수수','🌽',3,2000,4000],['토마토','🍅',4,3000,6000],
@@ -74,18 +75,19 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    await db.query('BEGIN');
    const roomRow=await db.query('SELECT data FROM hz_rooms WHERE room_id=$1 FOR UPDATE',[room]);
    if(!roomRow.rows[0]?.data?.game)fail('이 방의 게임 기능이 꺼져 있습니다.');
-   const data=roomRow.rows[0].data,p=data.players?.[user];let balance=0;
+   const data=roomRow.rows[0].data,p=data.players?.[user];let balance=0n;
    if(!readonly){
     const claimed=await db.query("INSERT INTO hz_coin_operations(room_id,message_id,operation) VALUES($1,$2,'FARM') ON CONFLICT DO NOTHING RETURNING message_id",[room,String(ctx.messageId)]);
     if(!claimed.rowCount)fail('이미 처리된 명령어입니다.');
     if(p&&!ctx.isBotAccount)await link(db,room,user,p);else await ensureWallet(db,room,user,name);
     const wallet=await db.query('SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user]);
-    balance=Number(wallet.rows[0].balance);if(!Number.isSafeInteger(balance)||balance<0)fail('잔액을 안전하게 확인할 수 없습니다.');
+    if(!wallet.rows.length)fail('코인 지갑을 찾을 수 없습니다.');
+    balance=exactBalance(wallet.rows[0].balance);
    }
    await db.query('INSERT INTO gl_farms(room_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[room,user]);
    const f=(await db.query('SELECT level,seeds,plots FROM gl_farms WHERE room_id=$1 AND user_id=$2 FOR UPDATE',[room,user])).rows[0];
    f.seeds={...f.seeds};f.plots={...f.plots};const size=f.level+2,time=now();let delta=0,result='';const jobs=[];
-   function spend(cost){if(!ctx.isBotAccount&&balance<cost)fail(`코인이 부족합니다. 필요 ${fmt(cost)}코인 · 보유 ${fmt(balance)}코인`);if(!ctx.isBotAccount)delta-=cost;}
+   function spend(cost){if(!ctx.isBotAccount&&balance<BigInt(cost))fail(`코인이 부족합니다. 필요 ${fmt(cost)}코인 · 보유 ${formatAmount(balance)}코인`);if(!ctx.isBotAccount)delta-=cost;}
    if(cmd==='#농장')result=formatFarm(f,{id:user,name},time);
    if(cmd==='#농장정보')result=`🌾 ${mention(user,name)}님의 농장 정보\n${FOLD}\n농장\nFarm Lv.${f.level} | ${size}×${size} · ${size*size}칸\n${f.level<6?'다음 확장: '+(size+1)+'×'+(size+1)+' · '+fmt(EXPANSIONS[f.level])+'코인':'최대 크기입니다.'}\n칸 번호는 왼쪽 위부터 가로 순서입니다.\n!농장확장으로 한 단계씩 확장합니다.`;
    if(cmd==='#씨앗구매'){
@@ -203,13 +205,13 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     result=`🌾 농장을 Lv.${f.level} · ${f.level+2}×${f.level+2}로 확장했습니다.\n사용 코인: ${fmt(cost)}코인\n기존 작물은 같은 위치에 유지됩니다.`;
    }
    if(delta){
-    const updated=await db.query('UPDATE hz_wallets SET balance=balance+$3::bigint WHERE room_id=$1 AND user_id=$2 AND balance+$3::bigint BETWEEN 0 AND 9007199254740991 RETURNING balance',[room,user,delta]);
-    if(!updated.rowCount)fail('코인 잔액 한도를 초과했습니다.');balance=Number(updated.rows[0].balance);
+    const updated=await db.query('UPDATE hz_wallets SET balance=balance+$3::numeric WHERE room_id=$1 AND user_id=$2 AND balance+$3::numeric>=0 RETURNING balance',[room,user,String(delta)]);
+    if(!updated.rowCount)fail('코인 지갑을 변경할 수 없습니다.');balance=exactBalance(updated.rows[0].balance);
     await db.query('INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,$3,$4,$5)',[room,user,delta>0?'FARM_HARVEST':'FARM_SPEND',delta,text]);
    }
    if(!readonly){
     await db.query('UPDATE gl_farms SET level=$3,seeds=$4::jsonb,plots=$5::jsonb,updated_at=NOW() WHERE room_id=$1 AND user_id=$2',[room,user,f.level,JSON.stringify(f.seeds),JSON.stringify(f.plots)]);
-    if(p&&!ctx.isBotAccount){p.points=balance;await db.query('UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1',[room,JSON.stringify(data)]);}
+    if(p&&!ctx.isBotAccount){p.points=gameplayBalance(balance);await db.query('UPDATE hz_rooms SET data=$2::jsonb,updated_at=NOW() WHERE room_id=$1',[room,JSON.stringify(data)]);}
    }
    await db.query('COMMIT');
    if(jobs.length&&typeof ctx.onCommittedJobs==='function')ctx.onCommittedJobs(jobs);
