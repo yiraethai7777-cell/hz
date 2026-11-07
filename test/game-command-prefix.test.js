@@ -29,6 +29,7 @@ function createFixture(){
   './wallet':{initWallet:async()=>{}},
   './members':{initMembers:async()=>{}},
   './coin':{initCoinExtra:async()=>{}},
+  './room-reset':{init:async()=>{},handle:async()=>true},
   './commands':{message:async ctx=>calls.push(['market',ctx.text,ctx.msg.message.text])},
   '../api/schema':{init:async()=>{}},
   './economy':{init:async()=>{},ensureLinked:async()=>{}},
@@ -55,7 +56,7 @@ test('all game help commands use ! prefix and map to real command handlers',()=>
  const body=help.formatCommandHelp({game:true,manage:false},'게임');
  assert.ok(body.startsWith('📜 명령어 안내 · NEXI\n작동 중인 기능 · 게임'+'\u200b'.repeat(1200)));
  const names=[...new Set([...body.matchAll(/^!(\S+)/gm)].map(v=>v[1]))];
- assert.equal(names.length,57);
+ assert.equal(names.length,58);
  for(const name of names)assert.equal(aliases.isGameCommand('!'+name),true,name);
  assert.doesNotMatch(body,/^#\S+/m);
  assert.match(body,/!낚시\n└─[^\n]+\n\n!낚시정보/);
@@ -74,6 +75,7 @@ test('legacy # inputs are retired without affecting management !',()=>{
   assert.equal(aliases.toLegacy(command),command);
  assert.equal(aliases.toLegacy('!물고기판매 송어 3'),'#물고기판매 송어 3');
  assert.equal(aliases.toLegacy('!코인초기화 확인'),'#코인초기화 확인');
+ assert.equal(aliases.toLegacy('!게임초기화 확인'),'#게임초기화 확인');
  assert.equal(aliases.toLegacy('!코인송금 @유저 all'),'#코인송금 @유저 all');
 });
 test('readonly message and mentions survive text adaptation',()=>{
