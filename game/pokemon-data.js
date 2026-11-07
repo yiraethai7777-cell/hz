@@ -33,8 +33,8 @@ function pickSpecies(random=Math.random){
  const group=SPECIES.filter(x=>x.rarity===rarity);
  return group[Math.floor(Math.min(0.999999,Math.max(0,random()))*group.length)];
 }
-function catchChance(pokemon,level){
- return Math.max(0.04,Math.min(0.9,BASE_CATCH[pokemon.rarity]-Math.floor((level-1)/5)*0.025));
+function catchChance(pokemon){
+ return BASE_CATCH[pokemon.rarity];
 }
 function spriteUrl(number){
  if(!BY_ID.has(Number(number)))throw Error('Unknown Pokémon sprite number');
