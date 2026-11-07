@@ -30,8 +30,8 @@ async function sendEditedCatch({chat,client,roomId,result,name,sendFallback,wait
  }
  const displayName=String(name||'낚시꾼').replace(/[\u0000-\u001f\u007f-\u009f]/g,'').slice(0,36);
  const stages=[
-  '🎣 NEXI | 낚시\n\n🌊 '+displayName+'님이 낚싯줄을 던졌습니다.',
-  '🎣 NEXI | 낚시\n\n🎣 낚싯줄을 끌어올리는 중입니다…'
+  '🎣 NEXI | 낚시\n\n🌊 '+displayName+'님이 낚시를 시작했습니다.',
+  '🎣 NEXI | 낚시\n\n🐟 물고기를 끌어올리고 있습니다…'
  ];
  try{
   const sent=await chat.sendText(roomId,stages[0]);
