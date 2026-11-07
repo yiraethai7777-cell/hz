@@ -18,6 +18,7 @@ function createGame(client) {
       await initCoinExtra();
       await require('./economy').init();
       await require('./farm').init();
+      await require('./pokemon').init();
       await require('../api/schema').init();
       // Register feature handlers through an adapter; the router keeps the sole listener.
       const adapter = new Proxy(client, {
@@ -110,6 +111,18 @@ function createGame(client) {
       if(text==='#게임상태'){await send(`🎮 게임: ${flags.game?'작동':'중지'}\n🧩 퀴즈: ${flags.quizEnabled!==false?'작동':'중지'}\n🎣 낚시: ${flags.fishEnabled!==false?'작동':'중지'}`);return;}
       if(text==='#게임정보'){await send('🎮 게임 정보\n!게임가입으로 시작하세요.\n코인·낚시(20종)·퀴즈(500문제)·펫·레벨을 즐길 수 있습니다.\n게임과 관리는 독립적으로 작동합니다.\n!게임명령어에서 자세한 사용법을 확인하세요.');return;}
       if (flags.locked&&!isBotAccount) return;
+      // Pokémon commands share the room's existing game on/off permissions.
+      if((flags.game||isBotAccount)&&/^#(?:탐색|포획|포켓봇정보|포켓몬정보)(?:\\s|$)/.test(text)){
+        await require('./pokemon').handle(normalized,client);
+        return;
+      }
+      // Keep the original fishing inventory intact; add a Pokémon section first.
+      if((flags.game||isBotAccount)&&text==='#인벤'){
+        try{await send(await require('./pokemon').inventory(normalized));}
+        catch(error){console.error('[POKEMON INVENTORY]',String(error?.message||error));}
+        if(legacyMessage)await legacyMessage(chat,msg);
+        return;
+      }
       if(await require('./typing').handle(normalized,!!flags.game||isBotAccount))return;
       if((flags.game||isBotAccount)&&await require('./farm').handle(normalized))return;
       if((flags.game||isBotAccount)&&await require('./extra').handle(normalized,client))return;
