@@ -127,7 +127,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Global per-room kill switch. Skip every handler and cache while OFF;
       // only !봇켜기 can revive the room (authorization checked below).
       const power=await require('./db').getPool().query(
-        "SELECT data->>'botEnabled' AS enabled FROM hz_rooms WHERE room_id=$1",
+        "SELECT data->>'botEnabled' AS enabled, data->>'ardenClan' AS arden_clan FROM hz_rooms WHERE room_id=$1",
         [String(roomId)]);
       if(!isBotAccount&&power.rows[0]?.enabled==='false'&&text!=='!봇켜기')return;
       rememberMessage(roomId,msg,text);
@@ -185,6 +185,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
+      // ARDEN room membership gate: intercept before every game, attendance,
+      // reply/confirmation, admin/help and event command handler.
+      if(await require('./arden-clan').handle({
+        client,chat,msg,roomId,userId:senderId,userName:msg.sender?.name||'알 수 없음',
+        text,isBotAccount,isSuperAdmin,active:power.rows[0]?.arden_clan==='true',
+        management,ready
+      }))return;
       // Bot-account-only, bounded repeated announcements. This is intercepted
       // before game and management handlers so it never runs twice.
       if(/^!도배(?:시작|중지)(?=\s|$)/.test(text)){
