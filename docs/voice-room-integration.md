@@ -127,3 +127,81 @@ node --test test/voice-room.test.js test/voice-router.test.js
 ```
 
 테스트는 **모의 어댑터 기준의 컨트롤러 동작 확인**이며 실제 카카오톡 보이스룸 서버의 생성 성공을 증명하지 않습니다.
+
+
+## 생성 프로토콜 조사 기록 (2026-11-09)
+
+이 항목은 **실제 보이스룸 생성 구현이 아니라**, 2026-11-09까지 확인한 근거와 미해결 사항을 기록합니다. 기존 `shared/voice-room.js`의 명령어·권한·검증 로직은 변경하지 않습니다.
+
+### 실제 생성 화면에서 호출하는 코드 (제3자 Android APK 역컴파일 결과)
+
+공개 저장소 [KakaoWebTalk](https://github.com/theman001/KakaoWebTalk/tree/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java)의 역컴파일 코드에서 다음 호출 흐름을 확인했습니다.
+
+1. [`VoiceroomCreateBottomSheetDialogFragment`](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p527IS/C12108d.java): `checkValidVoiceroomCreate(context, true, chatId, ...)`로 사전 검사
+2. [`C9129m.java` 63–74행](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p405GS/C9129m.java#L63-L74): `getVoiceroomManager().makeVoiceroom(context, chatId, title, successCallback, errorCallback)` 호출
+3. [`VoiceroomCoreManager` 1690–1707행](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p3093zR/C75899c.java#L1690-L1707): 내부 코루틴 `makeVoiceroom$2` 실행
+4. **한계:** 해당 코루틴의 핵심 `C78695a.invokeSuspend` 메서드는 JADX가 **`Method dump skipped, instructions count: 391`** 로 생략했으며, 실제 서버 생성 패킷·인증·응답 코드를 확보하지 못함
+
+이 제3자 Android 추출물의 버전·동작은 Windows 26.9.0.66과 일치한다고 확인되지 않았습니다. 또한 외부 [VOX30 분석 초안](https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md)에서 `makeVoiceRoomCall()`을 언급하지만 생성 명령에 필요한 완전한 구현은 제공하지 않습니다.
+
+### Windows VOX 바이너리 정적 분석
+
+사용자가 제공한 Windows 카카오톡 버전 **26.9.0.66**의 DLL 두 개를 실행하지 않고 PE 구조 및 심볼을 확인했습니다.
+
+| 항목 | 확인된 결과 |
+|---|---|
+| `Vox.dll` | 32비트 x86, 내보내기 5개 |
+| `Vox3.dll` | 32비트 x86, 내보내기 3개 |
+| `Vox3.dll` 내보내기 | `IVoxManager::GetInstance`, `IVoxScreenShare::Create`, `IVoxScreenShare::Release` |
+| `Vox.dll` 내보내기 | `IVox::GetInstance`, `decrypt_vox_bson_msg`, `decrypt_vox_bson_msg_groupcall`, `decrypt_vox_bson_msg_voiceroom`, `encrypt_vox_bson_msg` |
+| DLL 사이 실제 함수 참조 | `Vox3.dll`이 `Vox.dll`의 `decrypt_vox_bson_msg_voiceroom`을 import |
+| 정적 분석 한계 | 두 파일에 `.vm_sec`, `.themida`, `.boot` 섹션 존재. 내보내기 목록에는 보이스룸 생성 함수가 없음 |
+
+보이스룸 BSON **복호화 함수의 존재만으로** 생성 요청의 필드·키·프로토콜·성공 응답을 알 수 없습니다. 또한 Windows DLL을 Linux Railway에서 직접 로드하거나 Android 내부 메서드를 Node.js API처럼 호출할 수 없습니다.
+
+### 실제 생성 어댑터 구현 전 필수 확인 조건
+
+- [ ] `makeVoiceroom` 내부에서 호출되는 **실제** VOX 생성 요청/시그널링 코드 확보
+- [ ] 기존 인증 세션을 VOX에 연결하는 절차와 해당 채팅방/오픈링크 식별자 검증
+- [ ] 생성 요청 필드 및 서버 성공·실패 응답을 재현 가능한 테스트에서 확인
+- [ ] 진행자 세션 유지, 재시작 복구 및 중복 개설 방지 동작 확인
+- [ ] Railway Linux 환경에서 별도 PC/휴대전화/에뮬레이터 없이 동작 확인
+
+**금지:** `CREATE_VOICEROOM` 같은 미확인 LOCO 메서드나 `vr_invite` 수신 메시지를 생성 요청으로 추정하여 전송하지 않습니다. 응답 검증 없이 `verified: true`를 반환하지 않습니다. 기존 컨트롤러/운영 배포는 검증된 구현이 나올 때까지 유지합니다.
+
+
+### DEX 원본 확보 및 역컴파일 결손 확인 (후속 조사)
+
+- 공개 [KakaoWebTalk 추출 저장소](https://github.com/theman001/KakaoWebTalk)에서 51,696개 트리 경로를 조사한 결과, 소스가 주로 `jadxExport` Java 파일이며 **원본 `.apk`, `.dex`, `.smali` 파일은 포함되어 있지 않음**을 확인했습니다.
+- `p3093zR/C75899c.java`에는 `/* loaded from: classes7.dex */`라는 추출 주석이 있으며, 생성 코루틴 `VoiceroomCoreManager$makeVoiceroom$2$1$1`의 핵심 `C78695a.invokeSuspend`는 JADX에서 `instructions count: 391`와 함께 생략됩니다.
+- [VOX30 분석 초안](https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md)의 `makeVoiceRoomCall()` 섹션은 **STUN/ICE 서버 및 로컬 WebRTC 피어 연결 준비**를 설명하며, VOX 서버에 전송할 보이스룸 생성 메시지 전체를 제공하지 않습니다.
+- 2025년 10월 공개 Android 25.8.3 APK 번들의 [배포 목록](https://www.apkmirror.com/apk/kakao-corp/kakaotalk/kakaotalk-messenger-25-8-3-release/kakaotalk-messenger-25-8-3-android-apk-download/)은 확인했지만 실제 APK/DEX 바이트를 내려받아 검증하지는 못했습니다. 역컴파일 Java 원본의 앱 버전이 동일하다는 보장도 없습니다.
+
+**다음 분석의 진입 조건:** 합법적으로 확보하고 서명을 검증한 카카오톡 Android APK의 `classes7.dex`(해당 버전에 따라 DEX 번호 변경 가능)를 추출하여, `C78695a.invokeSuspend`의 **Smali/DEX 명령**을 분석합니다. 여기서 네이티브 라이브러리 호출이 확인되면 해당 함수 구현까지 별도 분석해야 합니다.
+
+**현재 판정:** 실제 VOX 보이스룸 생성 요청의 인증·패킷 형식과 서버 응답 미확인. 이 근거 없이 `client.voiceRoomAdapter`의 `create()`를 구현하거나 운영 서버에 송신하지 않습니다.
+
+
+
+### 추가 조사: Android 내부 호출 브리지 (Noa)와 Railway 제약
+
+2026-11-09 GitHub 검색에서 [Noa `VoxController.java`](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/kakao-agent/java/dev/noa/kakao/VoxController.java)를 확인했습니다.
+
+- `createVoiceroom(commandId, chatId, title)` 함수는 실행 중인 KakaoTalk Android 프로세스 내부 `VoxModuleFacade`를 reflection으로 읽어 `getVoiceroomManager().makeVoiceroom(context, chatId, title, successCallback, errorCallback)`를 호출합니다.
+- 마이크 권한(`android.permission.RECORD_AUDIO`), Android `ActivityThread.currentApplication()`, KakaoTalk 앱의 클래스 로더, 보이스룸 Activity 진입이 필요합니다.
+- Noa의 `Completion` 클래스는 VOX 측 콜백 및 화면 시작 결과를 처리합니다. 별도 서버 활성 상태 조회 없이 `Bridge.complete(true)` 결과만으로 NEXI의 `verified: true`를 반환해서는 안 됩니다.
+- [Noa README](https://github.com/entworacy/noa#readme)는 루팅된 Android 기기 또는 Redroid 사용을 명시합니다. 따라서 사용자가 요구한 **Android 기기/에뮬레이터 없이 Railway Linux Node.js만으로 생성**하는 요구는 충족하지 않습니다.
+- [공개 KakaoWebTalk 저장소](https://github.com/theman001/KakaoWebTalk/tree/f3e1d5bc0f85c910873e8d95071c4a732cc736b4)는 해당 커밋의 전체 Git 트리(51,696개 항목)를 확인했으나 원본 `.apk`, `.dex`, `.smali`을 포함하지 않았습니다. 핵심 `invokeSuspend`를 복원하려면 별도로 확보한 적법한 DEX/Smali 또는 네이티브 VOX 코드가 필요합니다.
+- Redroid [공식 실행 가이드](https://github.com/remote-android/redroid-doc/blob/master/deploy/ubuntu.md)는 커널 Binder 장치와 `--privileged` 실행을 요구합니다. [Railway의 privileged 서비스 요청 스레드](https://station.railway.com/feedback/allow-services-to-be-run-in-privileged-m-8c66b22b)에서는 일반 Railway 환경의 privileged 실행이 지원되지 않는다는 설명이 있습니다. Railway에서 Redroid가 작동한다고 가정하지 않습니다.
+
+**현재 선택 가능한 구현 경로:** (A) 실제 VOX 생성 시그널링을 더 조사하여 NEXI 서버 측 어댑터로 재구현(미완성, 기기 불필요), (B) 별도 Android/Redroid 호스트에 Noa 방식 브리지를 실행하고 Railway 봇에서 API 호출(별도 호스트/Android 런타임 필요, 사용자 무기기 조건 불충족). 어느 경로에서도 현재 생성 성공을 입증한 상태가 아닙니다.
+
+
+### 현재 공개 코드의 실제 생성 호출 경로 (독립 교차검증)
+
+- [Noa `src/web/vox.rs`](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/src/web/vox.rs#L126-L161): `POST /api/vox/voice-rooms` → `create_voice_room_action` → Android 제어 채널의 `vox_create_room(chat_id, title)`. HTTP 인터페이스가 존재하는 것은 확인되나 **독립적인 VOX 서버 구현은 아님**.
+- [Noa `VoxController.java`](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/kakao-agent/java/dev/noa/kakao/VoxController.java#L69-L86): Android `ActivityThread.currentApplication()`, KakaoTalk `VoxModuleFacade`, 녹음 권한 및 내부 `makeVoiceroom`을 사용. [성공 콜백 구현](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/kakao-agent/java/dev/noa/kakao/VoxController.java#L401-L431)은 Android `VoiceroomActivity`를 여는 경로가 포함됨.
+- [Noa 사용 조건](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/README.md): 루팅된 Android 또는 Redroid + KakaoTalk 앱 필요. 따라서 단순히 서버 측 HTTP 클라이언트 코드를 작성해도 **사용자 요구사항인 Railway 단독 + 기기/에뮬레이터 없음**을 충족할 수 없음.
+- [카카오 DevTalk 공식 답변](https://devtalk.kakao.com/t/webhook-api/141656): 카카오 디벨로퍼스에서 오픈채팅 관련 API를 제공하지 않음(2025-01-03 답변).
+
+**판정:** 서버 단독 VOX 생성은 현재 검증된 공개 API/코드 없이 불가. 기존 `shared/voice-room.js`와 봇 운영 배포 변경 금지. 문서화는 기능 구현과 구별.
