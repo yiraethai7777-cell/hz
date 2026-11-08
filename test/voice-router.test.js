@@ -51,7 +51,7 @@ test('status returns manager-only message for regular member even before ready',
   const {emit,sent}=fixture();
   await emit('#보룸상태',2);
   assert.equal(sent.length,1);
-  assert.match(sent[0].body,/방장 또는 부방장만/);
+  assert.match(sent[0].body,/방장·부방장 또는 봇 계정만/);
 });
 
 test('supported alternative #보이스룸상태 replies before ready',async()=>{

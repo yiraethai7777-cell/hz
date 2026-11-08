@@ -35,7 +35,7 @@ test('room role on requester must be owner or manager',async()=>{
   args.msg.sender.type=2;
   args.adapter={create:async()=>{throw Error('must not call');}};
   await voice.handle(args);
-  assert.match(sent[0],/방장 또는 부방장만/);
+  assert.match(sent[0],/방장·부방장 또는 봇 계정만/);
 });
 
 test('bot must also be owner or manager in the same room',async()=>{
@@ -220,4 +220,73 @@ test('voice room help lists supported commands',async()=>{
   await voice.handle(args);
   assert.match(sent[0],/#보룸켜기/);
   assert.match(sent[0],/#보룸끄기/);
+});
+
+test('bot account can request status even when sender type is ordinary member',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸상태'});
+  args.msg.sender.id=client.userId;
+  args.msg.sender.type=2;
+  const result=await voice.handle(args);
+  assert.equal(result,true);
+  assert.match(sent[0],/보이스룸 상태/);
+  assert.doesNotMatch(sent[0],/봇 계정만 이 명령어를 사용할 수 있습니다/);
+});
+
+test('bot account can use help without a manager sender type',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸명령어'});
+  args.msg.sender.id=client.userId;
+  args.msg.sender.type=undefined;
+  await voice.handle(args);
+  assert.match(sent[0],/NEXI \| 보이스룸 명령어/);
+  assert.match(sent[0],/봇 계정이 사용 가능/);
+});
+
+test('bot account can invoke verified create adapter despite sender type 2',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸켜기 봇 명령 테스트'});
+  args.msg.sender.id=client.userId;
+  args.msg.sender.type=2;
+  let calls=0;
+  args.adapter={create:async payload=>{
+    calls++;
+    assert.equal(payload.roomId,ROOM);
+    assert.equal(payload.title,'봇 명령 테스트');
+    return {created:true,verified:true,status:0,voiceRoomId:'42'};
+  }};
+  await voice.handle(args);
+  assert.equal(calls,1);
+  assert.match(sent[0],/생성 확인/);
+});
+
+test('bot account can invoke verified stop adapter despite sender type 2',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸끄기'});
+  args.msg.sender.id=client.userId;
+  args.msg.sender.type=2;
+  let calls=0;
+  args.adapter={
+    status:async()=>({active:true,verified:true,roomId:ROOM,voiceRoomId:'42'}),
+    stop:async()=>{calls++;return {closed:true,verified:true,roomId:ROOM,status:0};}
+  };
+  await voice.handle(args);
+  assert.equal(calls,1);
+  assert.match(sent[0],/종료가 서버에서 확인/);
+});
+
+test('non-bot sender cannot bypass manager role by using another non-manager ID',async()=>{
+  const {args,sent}=fixture({text:'#보룸상태'});
+  args.msg.sender.id='9007199254740993124';
+  args.msg.sender.type=2;
+  await voice.handle(args);
+  assert.match(sent[0],/방장·부방장 또는 봇 계정만/);
+});
+
+test('bot account command access never bypasses verified room owner/manager role for actual create',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸켜기 테스트'});
+  args.msg.sender.id=client.userId;
+  args.msg.sender.type=2;
+  client._getCachedMemberType=()=>2;
+  let calls=0;
+  args.adapter={create:async()=>{calls++;return {created:true,verified:true};}};
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/봇 계정에도 방장 또는 부방장/);
 });
