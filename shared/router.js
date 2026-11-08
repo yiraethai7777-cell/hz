@@ -185,6 +185,10 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
+      // Isolate the ARDEN design for concurrent messages from different rooms.
+      await require('./arden-style').scope({
+        roomId,text,active:power.rows[0]?.arden_clan==='true'
+      },async()=>{
       // ARDEN room membership gate: intercept before every game, attendance,
       // reply/confirmation, admin/help and event command handler.
       if(await require('./arden-clan').handle({
@@ -645,6 +649,7 @@ if (text === '!이벤추첨테스트') {
       if (text !== '#주식시간' && await handleExtraMessage(client, ...args)) return;
       if (/^#출석(?:확인|순위)?(?:\s|$)/.test(text)) return;
       await game.message({ ...context, msg, chat });
+      }); // ARDEN output scope
     } catch (err) { console.error('[HZ NEW] 메시지 처리 실패:', err); }
   });
 }
