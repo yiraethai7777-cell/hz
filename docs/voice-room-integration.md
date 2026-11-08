@@ -180,3 +180,18 @@ node --test test/voice-room.test.js test/voice-router.test.js
 **다음 분석의 진입 조건:** 합법적으로 확보하고 서명을 검증한 카카오톡 Android APK의 `classes7.dex`(해당 버전에 따라 DEX 번호 변경 가능)를 추출하여, `C78695a.invokeSuspend`의 **Smali/DEX 명령**을 분석합니다. 여기서 네이티브 라이브러리 호출이 확인되면 해당 함수 구현까지 별도 분석해야 합니다.
 
 **현재 판정:** 실제 VOX 보이스룸 생성 요청의 인증·패킷 형식과 서버 응답 미확인. 이 근거 없이 `client.voiceRoomAdapter`의 `create()`를 구현하거나 운영 서버에 송신하지 않습니다.
+
+
+
+### 추가 조사: Android 내부 호출 브리지 (Noa)와 Railway 제약
+
+2026-11-09 GitHub 검색에서 [Noa `VoxController.java`](https://github.com/entworacy/noa/blob/9a20fdac68b1865672c9522269dec3dbca3db/kakao-agent/java/dev/noa/kakao/VoxController.java)를 확인했습니다.
+
+- `createVoiceroom(commandId, chatId, title)` 함수는 실행 중인 KakaoTalk Android 프로세스 내부 `VoxModuleFacade`를 reflection으로 읽어 `getVoiceroomManager().makeVoiceroom(context, chatId, title, successCallback, errorCallback)`를 호출합니다.
+- 마이크 권한(`android.permission.RECORD_AUDIO`), Android `ActivityThread.currentApplication()`, KakaoTalk 앱의 클래스 로더, 보이스룸 Activity 진입이 필요합니다.
+- Noa의 `Completion` 클래스는 VOX 측 콜백 및 화면 시작 결과를 처리합니다. 별도 서버 활성 상태 조회 없이 `Bridge.complete(true)` 결과만으로 NEXI의 `verified: true`를 반환해서는 안 됩니다.
+- [Noa README](https://github.com/entworacy/noa#readme)는 루팅된 Android 기기 또는 Redroid 사용을 명시합니다. 따라서 사용자가 요구한 **Android 기기/에뮬레이터 없이 Railway Linux Node.js만으로 생성**하는 요구는 충족하지 않습니다.
+- [공개 KakaoWebTalk 저장소](https://github.com/theman001/KakaoWebTalk/tree/f3e1d5bc0f85c910873e8d95071c4a732cc736b4)는 해당 커밋의 전체 Git 트리(51,696개 항목)를 확인했으나 원본 `.apk`, `.dex`, `.smali`을 포함하지 않았습니다. 핵심 `invokeSuspend`를 복원하려면 별도로 확보한 적법한 DEX/Smali 또는 네이티브 VOX 코드가 필요합니다.
+- Redroid [공식 실행 가이드](https://github.com/remote-android/redroid-doc/blob/master/deploy/ubuntu.md)는 커널 Binder 장치와 `--privileged` 실행을 요구합니다. [Railway의 privileged 서비스 요청 스레드](https://station.railway.com/feedback/allow-services-to-be-run-in-privileged-m-8c66b22b)에서는 일반 Railway 환경의 privileged 실행이 지원되지 않는다는 설명이 있습니다. Railway에서 Redroid가 작동한다고 가정하지 않습니다.
+
+**현재 선택 가능한 구현 경로:** (A) 실제 VOX 생성 시그널링을 더 조사하여 NEXI 서버 측 어댑터로 재구현(미완성, 기기 불필요), (B) 별도 Android/Redroid 호스트에 Noa 방식 브리지를 실행하고 Railway 봇에서 API 호출(별도 호스트/Android 런타임 필요, 사용자 무기기 조건 불충족). 어느 경로에서도 현재 생성 성공을 입증한 상태가 아닙니다.
