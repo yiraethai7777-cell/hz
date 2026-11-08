@@ -129,11 +129,7 @@ function createGame(client) {
         await require('./mining').handle(normalized);return;
       }
       if(/^#상점(?:\s|$)/.test(text)){if(!flags.game){await send('게임 기능이 꺼져 있습니다.');return;}await require('./shop').handle(normalized);return;}
-      // Pokémon is retired; existing catches, items and wallet data remain intact.
-      if(/^#(?:탐색|포획|포켓봇정보|포켓몬정보|포켓몬구매|포켓몬사용|배틀|기술|배틀상태|도망)(?:\s|$)/.test(text)||/^#(?:상점|인벤)\s+포켓몬(?:\s|$)/.test(text)){
-        await send('포켓몬 기능은 사용하지 않습니다.');return;
-      }
-if(await require('./typing').handle(normalized,!!flags.game||isBotAccount))return;
+      if(await require('./typing').handle(normalized,!!flags.game||isBotAccount))return;
       if((flags.game||isBotAccount)&&await require('./farm').handle(normalized))return;
       if((flags.game||isBotAccount)&&await require('./extra').handle(normalized,client))return;
       if (marketCommand.test(text)) {
