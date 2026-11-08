@@ -41,6 +41,23 @@
 
 추가 확인: 같은 방에서 `#보룸감지시작` → 직접 개설 → `#보룸감지` → 직접 종료 → `#보룸감지`. 두 번째 결과에 서로 다른 표시 후보나 첨부 필드 구조가 나오는지 비교하세요. 
 
+### 유형 52 첨부 데이터로 개설·종료 구분 (3차 시험)
+
+실제 NEXI에서 개설 직후, 종료 직후 각각 **유형 52 1건씩**, 동일한 첨부 필드 `csIP:string,csIP6:string,csPort:number,duration:number,type:string`이 관찰되었습니다.
+
+공개된 제3자 Android 보이스룸 분석 자료에는 유형 52 메시지 첨부의 `type`이 `vr_invite`(개설·초대) 또는 `vr_bye`(종료)라는 정보가 있습니다. 이를 **개설 이벤트 후보 / 종료 이벤트 후보**로만 분류합니다.
+
+- `#보룸감지`를 실행하면 `type=vr_invite` / `type=vr_bye` 및 0~172800 사이의 정수 `duration`(초)만 표시합니다.
+- `csIP`, `csIP6`, `csPort`, `callId`, 인증값 등은 값 자체를 **수집·출력하지 않습니다**. 다른 유형 문자열도 출력하지 않습니다.
+- 수신 이벤트는 실제 보룸의 **현재 활성 상태 조회가 아닙니다**. 단순히 시작 메시지가 왔다는 이유로 `#보룸상태`를 활성으로 판정하지 않습니다.
+- 이번 연구에서는 추가 소켓 연결, 패킷 전송, 음성룸 생성 요청을 하지 않습니다.
+
+출처(공식 자료가 아닌 외부 구현·분석):
+- [Android 25.8.1 유형 52 수신 파서](https://github.com/Lukim99/node-kakao-stable/blob/4d251bf35dccfdc8c241070449907e7eab1aac8b/v5/packages/protocol-android/src/voice-room.ts)
+- [Vox30 VoiceRoom 분석 자료](https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md)
+
+검증 방법: `#보룸감지시작` → 앱에서 보룸 직접 개설 → `#보룸감지` → 보룸 종료 → `#보룸감지`. 두 결과에 `vr_invite`와 `vr_bye`가 각각 표시되는지 확인합니다.
+
 ## 현재 개발 단계 (2026-11-08)
 
 **중요:** 현재 저장소에는 카카오톡의 보이스룸을 실제 생성/종료하는 검증된 프로토콜 구현이 없습니다. `shared/voice-room.js`는 명령어 라우팅, 권한 검증, 상태 확인, 동시 요청 제어를 제공하는 컨트롤러입니다.
