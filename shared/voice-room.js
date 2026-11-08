@@ -30,7 +30,7 @@ function botMemberType(client,roomId) {
 }
 function adapterOf(client) {
   const adapter=client?.voiceRoomAdapter;
-  return adapter && typeof adapter.create==='function'?adapter:null;
+  return adapter && (typeof adapter.create==='function' || typeof adapter.status==='function' || typeof adapter.stop==='function')?adapter:null;
 }
 function parseTitle(value) {
   const raw=String(value??'').replace(/\r\n?/g,'\n').trim();
@@ -48,6 +48,17 @@ function verifiedActive(result,roomId) {
   if(!result || result.active!==true || result.verified!==true)return false;
   if(result.roomId!==undefined && String(result.roomId)!==String(roomId))return false;
   return result.status===undefined || result.status===0;
+}
+function verifiedInactive(result,roomId) {
+  return !!result && result.active===false && result.verified===true &&
+    String(result.roomId??'')===String(roomId) &&
+    (result.status===undefined || result.status===0);
+}
+function verifiedStopped(result,roomId) {
+  return !!result && result.closed===true && result.verified===true &&
+    String(result.roomId??'')===String(roomId) &&
+    result.success!==false && result.ok!==false &&
+    (result.status===undefined || result.status===0);
 }
 async function safeReply(client,send,message) {
   if(client?.connected===false) {
@@ -67,7 +78,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸켜기|보룸상태|보이스룸켜기|보이스룸상태)(?=$|\s)/.exec(raw);
+  const match=/^[#!]?(보룸켜기|보룸끄기|보룸상태|보룸명령어|보이스룸켜기|보이스룸끄기|보이스룸상태|보이스룸명령어)(?=$|\s)/.exec(raw);
   if(!match)return false;
   // Allow commands from the same Kakao account as the bot. Replies never
   // begin with command prefixes, so they will not recurse into this handler.
@@ -84,6 +95,17 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const transport=adapter===undefined?adapterOf(client):adapter;
   const role=botMemberType(client,room);
   const isStatus=match[1].endsWith('상태');
+  const isStop=match[1].endsWith('끄기');
+  const isHelp=match[1].endsWith('명령어');
+  if(isHelp){
+    await safeReply(client,send,'🎙️ NEXI | 보이스룸 명령어\n' +
+      '#보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
+      '#보룸상태 · 서버 상태/연동 확인\n' +
+      '#보룸끄기 · 확인된 보이스룸 종료 요청\n' +
+      '※ 실제 서버 API가 연결된 경우에만 생성·종료합니다.\n' +
+      '※ 방장·부방장 전용이며, 봇 계정에도 해당 방의 권한이 필요합니다.');
+    return true;
+  }
   if(isStatus){
     const roleText=role==null || role===0?'확인 불가':managerRole(role)?'방장/부방장':'일반 멤버';
     let capability=transport?'연동 모듈 설치됨 (실제 서버 개설 여부 미확인)':
@@ -93,6 +115,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
         const state=await transport.status({roomId:room});
         if(verifiedActive(state,room))
           capability='✅ 서버에서 개설 상태 확인'+(state.voiceRoomId?' · ID: '+String(state.voiceRoomId):'');
+        else if(verifiedInactive(state,room))
+          capability='✅ 서버에서 비활성 상태 확인';
         else
           capability='모듈 연결됨 · 현재 보이스룸 개설 여부 미확인';
       }catch(e){
@@ -105,7 +129,44 @@ async function handle({client,roomId,msg,text,send,adapter}){
     return true;
   }
 
-  if(!transport){
+  if(isStop){
+    if(!transport || typeof transport.stop!=='function' || typeof transport.status!=='function'){
+      await safeReply(client,send,'⚠️ 실제 보이스룸 종료 API 또는 서버 상태 조회 API가 연결되지 않았습니다.');
+      return true;
+    }
+    if(!managerRole(role)){
+      await safeReply(client,send,'❌ 보이스룸을 종료하려면 이 방에서 봇 계정의 방장·부방장 권한도 확인되어야 합니다.');
+      return true;
+    }
+    if(running.has(room)){
+      await safeReply(client,send,'⏳ 이 방의 보이스룸 요청을 이미 처리하고 있습니다.');
+      return true;
+    }
+    running.add(room);
+    try{
+      const before=await transport.status({roomId:room});
+      if(!verifiedActive(before,room)){
+        await safeReply(client,send,'⚠️ 서버에서 활성 보이스룸을 확인하지 못해 종료 요청을 보내지 않았습니다.');
+        return true;
+      }
+      const response=await transport.stop({roomId:room,voiceRoomId:before.voiceRoomId??null});
+      let confirmed=verifiedStopped(response,room);
+      if(!confirmed){
+        const after=await transport.status({roomId:room});
+        confirmed=verifiedInactive(after,room);
+      }
+      await safeReply(client,send,confirmed?
+        '🎙️ 보이스룸 종료가 서버에서 확인되었습니다.':
+        '⚠️ 보이스룸 종료 결과를 검증하지 못했습니다. 실제 상태를 확인해 주세요.');
+    }catch(err){
+      console.error('[보이스룸] 종료 요청 실패:',String(err?.message||err));
+      await safeReply(client,send,'❌ 보이스룸 종료 요청에 실패했습니다.');
+    }finally{
+      running.delete(room);
+    }
+    return true;
+  }
+  if(!transport || typeof transport.create!=='function'){
     await safeReply(client,send,'⚠️ 보이스룸 생성 API가 아직 연결되지 않았습니다.\n'+
       'CREATE_VOICEROOM은 검증된 LOCO 명령어가 아니므로 전송하지 않습니다.\n'+
       '카카오톡 앱의 + 메뉴에서 보이스룸을 직접 개설할 수 있습니다.');
@@ -156,4 +217,4 @@ async function handle({client,roomId,msg,text,send,adapter}){
   }
   return true;
 }
-module.exports={handle,adapterOf,botMemberType,parseTitle,verifiedCreated,verifiedActive};
+module.exports={handle,adapterOf,botMemberType,parseTitle,verifiedCreated,verifiedActive,verifiedInactive,verifiedStopped};

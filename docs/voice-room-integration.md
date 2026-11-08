@@ -1,54 +1,66 @@
-# 보이스룸 명령어와 통신 연동 설명
+# NEXI 보이스룸 명령어 및 실제 서버 연동
 
-## 현재 지원 상태
+## 명령어
 
-- #보룸상태 / #보이스룸상태 : 연동 여부와 봇 권한 확인
-- #보룸켜기 [제목] / #보이스룸켜기 [제목] : 실제 개설 어댑터를 호출하는 명령어
+- `#보룸켜기 [제목]` / `#보이스룸켜기 [제목]`: 생성 요청 (최대 40자)
+- `#보룸상태` / `#보이스룸상태`: 실제 서버 상태 및 봇 권한 조회
+- `#보룸끄기` / `#보이스룸끄기`: 실제 서버에서 개설 상태가 확인된 경우에만 종료 요청
+- `#보룸명령어` / `#보이스룸명령어`: 기능 안내
 
-2026-10-24 기준 저장소의 KakaoForge는 실제 보이스룸 생성 API를 구현하지 않았습니다.
-미연동 상태에서는 생성 요청을 전송하지 않고 안내 메시지를 보냅니다.
+기존 `!` 접두사 및 접두사 없는 명령어도 라우터에서 받아들입니다. 방별 접두사 정책과 전체 봇 ON/OFF가 우선합니다.
 
-## 프로토콜 확인
+## 현재 개발 단계 (2026-11-08)
 
-- 일반 LOCO 패킷의 명령어 필드는 11바이트여서 CREATE_VOICEROOM은 검증된 LOCO 명령어가 아닙니다.
-- storycraft의 오래된 VOIP 제어 자료에는 0x272c (create live talk)가 언급되나, 현재 보이스룸의 프로토콜 또는 본문과 같은지는 미확인입니다.
-- 검증되지 않은 LOCO/VOIP 요청을 봇에 직접 보내지 않습니다.
+**중요:** 현재 저장소에는 카카오톡의 보이스룸을 실제 생성/종료하는 검증된 프로토콜 구현이 없습니다. `shared/voice-room.js`는 명령어 라우팅, 권한 검증, 상태 확인, 동시 요청 제어를 제공하는 컨트롤러입니다.
 
-출처:
-https://openkakao.vercel.app/docs/protocol/overview
-https://gist.github.com/storycraft/ffdd727dbd45d9ae047a3ee93a83839f
-https://www.kakaocorp.com/page/service/service/voiceroom
+- 현재 상태에서 `#보룸켜기`는 실제 생성 요청을 보내지 않고 API 미연동을 안내합니다.
+- `#보룸끄기`도 실제 종료 API와 상태 조회 API가 모두 연결되기 전에는 요청하지 않습니다.
+- 임의의 LOCO 메서드, BSON 필드 또는 VOIP 암호화 값을 추정해 실제 카카오톡 서버로 송신하지 않습니다.
+- Railway에서 별도 기기 없이 실제 보룸을 개설하려면 검증된 서버 측 생성·상태·종료 프로토콜 구현이 필요합니다.
 
-## 실제 생성 어댑터 규격
+공식 Kakao Developers REST API에는 카카오톡 오픈채팅 보이스룸 생성/종료 API가 없습니다.
+구형 VOIP 메모의 `0x272c`(create live talk)는 현재 오픈채팅 보이스룸 기능과 동등한지 확인되지 않았고 일반 LOCO 메서드가 아닙니다.
 
-외부에서 실제 동작이 검증된 프로토콜이 확보되면 KakaoForge client 인스턴스에 아래 형태로 연결합니다.
+참고:
+- https://developers.kakao.com/docs/ko/rest-api/reference
+- https://www.kakaocorp.com/page/service/service/voiceroom
+- https://gist.github.com/storycraft/ffdd727dbd45d9ae047a3ee93a83839f
+- https://openkakao.vercel.app/docs/protocol/overview
 
-    client.voiceRoomAdapter = {
-      async create({roomId, title, openLinkId}) {
-        // 검증된 실제 서버 생성 API가 필요한 자리
-        throw Error('보이스룸 서버 생성 API 미구현');
-      },
-      async status({roomId}) {
-        // 서버에서 활동 중인 방을 검증한 경우에만 active:true, verified:true
-        return {active:false, verified:false};
-      }
-    };
+## 검증된 어댑터의 연결 계약
 
-성공 메시지는 create()가 {created:true,verified:true,status:0}을 반환하거나
-status()가 같은 채팅방의 {active:true,verified:true,roomId}을 반환할 때만 보냅니다.
-서버에서 실제 개설되지 않았다면 verified:true를 반환하지 마세요.
+동작 검증이 끝난 서버 프로토콜 구현을 준비한 경우에만 런타임 `client.voiceRoomAdapter`에 연결합니다.
 
-## 권한 및 안정성
+```js
+client.voiceRoomAdapter = {
+  async create({roomId, title, openLinkId}) {
+    // 실제 생성 응답/상태 조회로 검증된 경우에만 반환
+    return {created: true, verified: true, status: 0, voiceRoomId: 'SERVER_ID'};
+  },
+  async status({roomId}) {
+    // 조회 결과가 해당 채팅방의 활성 상태임을 서버 응답으로 확인할 것
+    return {active: true, verified: true, roomId, voiceRoomId: 'SERVER_ID'};
+  },
+  async stop({roomId, voiceRoomId}) {
+    // 검증된 실제 종료 응답인 경우에만 반환
+    return {closed: true, verified: true, status: 0, roomId};
+  }
+};
+```
 
-- 실행자: 오픈채팅 방장(1) / 부방장(4)만 허용
-- 봇 계정: 같은 방에서 방장(1) / 부방장(4) 권한을 확인한 경우에만 호출
-- 미확인 봇 권한은 실패로 처리; 인원 목록 요청을 능동 실행하지 않음
-- 방별 동시 개설 요청 중복 차단
-- 제목 40자 이내
+위 객체는 **메서드의 형식만 설명하는 예시**로, 실제 카카오톡 API를 구현하는 실행 코드는 아닙니다. 서버 검증 없이 `verified: true`를 반환하면 안 됩니다.
 
-## 검증
+안전 조건:
+1. 실행자와 봇 계정이 같은 오픈채팅방에서 방장(1) 또는 부방장(4) 권한을 갖춰야 생성·종료가 가능
+2. 생성 요청은 `created: true, verified: true` 또는 서버 조회의 `active: true, verified: true`를 확인한 뒤에만 성공 안내
+3. 종료 요청 직전에 해당 방의 활성 상태를 확인하고, 종료 응답 `closed: true, verified: true, roomId` 또는 상태 조회의 `active: false, verified: true, roomId`로 종료 검증
+4. 생성·종료 요청은 동일 방에서 동시 실행 차단
+5. 상태 불명, 응답 오류, 인증/권한 오류 시 추정 성공 메시지 금지
 
-실행: node --test test/voice-room.test.js
-모의 테스트는 실제 카카오톡 VoiceRoom 서버에 대한 검증이 아닙니다.
+## 테스트
 
-보이스룸을 수동 생성하려면 카카오톡 오픈채팅방 왼쪽 아래 + 메뉴에서 보이스룸을 선택하세요.
+```bash
+node --test test/voice-room.test.js test/voice-router.test.js
+```
+
+테스트는 **모의 어댑터 기준의 컨트롤러 동작 확인**이며 실제 카카오톡 보이스룸 서버의 생성 성공을 증명하지 않습니다.

@@ -147,6 +147,77 @@ test('room scope and own-account commands are handled',async()=>{
 });
 
 test('unsupported other commands return false',async()=>{
-  const {args}=fixture({text:'#보룸끄기'});
+  const {args}=fixture({text:'#보룸예약'});
   assert.equal(await voice.handle(args),false);
+});
+
+test('verified inactive status is distinct from an unknown status',async()=>{
+  const {args,sent}=fixture({text:'#보룸상태'});
+  args.adapter={status:async()=>({active:false,verified:true,roomId:ROOM,status:0})};
+  await voice.handle(args);
+  assert.match(sent[0],/서버에서 비활성 상태 확인/);
+});
+
+test('stop is handled but does not fake an unsupported API',async()=>{
+  const {args,sent}=fixture({text:'#보룸끄기'});
+  await voice.handle(args);
+  assert.match(sent[0],/종료 API/);
+  assert.doesNotMatch(sent[0],/종료가 서버에서 확인/);
+});
+
+test('stop requires a verified active voice room in same chat',async()=>{
+  const {args,sent}=fixture({text:'#보룸끄기'});
+  let stops=0;
+  args.adapter={
+    status:async()=>({active:true,verified:true,roomId:'999',voiceRoomId:'15'}),
+    stop:async()=>{stops++;return {closed:true,verified:true,roomId:ROOM};}
+  };
+  await voice.handle(args);
+  assert.equal(stops,0);
+  assert.match(sent[0],/활성 보이스룸을 확인하지 못해/);
+});
+
+test('stop calls adapter and requires explicit close confirmation',async()=>{
+  const {args,sent}=fixture({text:'#보이스룸끄기'});
+  const calls=[];
+  args.adapter={
+    status:async()=>({active:true,verified:true,roomId:ROOM,voiceRoomId:'154'}),
+    stop:async payload=>{calls.push(payload);return {closed:true,verified:true,roomId:ROOM,status:0};}
+  };
+  await voice.handle(args);
+  assert.deepEqual(calls,[{roomId:ROOM,voiceRoomId:'154'}]);
+  assert.match(sent[0],/종료가 서버에서 확인/);
+});
+
+test('unverified stop result does not claim success',async()=>{
+  const {args,sent}=fixture({text:'#보룸끄기'});
+  let statusCount=0;
+  args.adapter={
+    status:async()=>++statusCount===1?
+      {active:true,verified:true,roomId:ROOM}:{active:false,verified:false,roomId:ROOM},
+    stop:async()=>({status:0})
+  };
+  await voice.handle(args);
+  assert.equal(statusCount,2);
+  assert.match(sent[0],/종료 결과를 검증하지 못했습니다/);
+});
+
+test('stop can verify inactive server state after ambiguous close response',async()=>{
+  const {args,sent}=fixture({text:'#보룸끄기'});
+  let statusCount=0;
+  args.adapter={
+    status:async()=>++statusCount===1?
+      {active:true,verified:true,roomId:ROOM,voiceRoomId:'11'}:
+      {active:false,verified:true,roomId:ROOM},
+    stop:async()=>({status:0})
+  };
+  await voice.handle(args);
+  assert.match(sent[0],/종료가 서버에서 확인/);
+});
+
+test('voice room help lists supported commands',async()=>{
+  const {args,sent}=fixture({text:'#보룸명령어'});
+  await voice.handle(args);
+  assert.match(sent[0],/#보룸켜기/);
+  assert.match(sent[0],/#보룸끄기/);
 });

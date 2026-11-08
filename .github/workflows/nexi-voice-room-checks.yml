@@ -1,0 +1,26 @@
+name: NEXI voice-room checks
+on:
+  push:
+    branches:
+      - feature/nexi-voice-room-controls-20261108
+  pull_request:
+    branches: [main]
+    paths:
+      - 'shared/voice-room.js'
+      - 'shared/router.js'
+      - 'test/voice-*.test.js'
+      - '.github/workflows/nexi-voice-room-checks.yml'
+permissions:
+  contents: read
+jobs:
+  voice-room:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node --test test/voice-room.test.js test/voice-router.test.js

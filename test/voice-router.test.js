@@ -2,6 +2,10 @@
 
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
+// Voice routing is tested without a real PostgreSQL instance. This only
+// mocks DB reads/command-block schema setup; integration tests use real DB.
+const dbModule=require('../shared/db');
+dbModule.getPool=()=>({query:async()=>({rows:[],rowCount:0})});
 const {attachRouter}=require('../shared/router');
 
 function fixture() {
@@ -119,4 +123,18 @@ test('failed WRITE still returns from command handler and logs failure',async()=
   await emit('#보룸상태');
   assert.equal(attempts,1);
   client.chat.sendText=original;
+});
+
+test('voice stop command routes without waiting for global ready',async()=>{
+  const {emit,sent}=fixture();
+  await emit('#보룸끄기');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/실제 보이스룸 종료 API/);
+});
+
+test('voice help command routes without requiring an active driver',async()=>{
+  const {emit,sent}=fixture();
+  await emit('!보룸명령어');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/NEXI \| 보이스룸 명령어/);
 });
