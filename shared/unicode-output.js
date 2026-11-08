@@ -14,7 +14,7 @@ function install(client){
   const original=target.sendText;
   if(typeof original!=='function')continue;
   target.sendText=function(roomId,body,...args){
-   return original.call(this,roomId,transform(body),...args);
+   return original.call(this,roomId,transform(require('./arden-style').decorate(roomId,body)),...args);
   };
   installed.add(target);
  }
