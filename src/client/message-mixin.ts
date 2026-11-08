@@ -260,11 +260,12 @@ async function editMessage(
     extra = '{}';
   }
   const resolvedChatId = this._resolveChatId(chatId);
-  return await this._carriage.modifyMsg(resolvedChatId, normalized.logId, text, {
-    type,
-    extra,
-    supplement: opts.supplement,
-  });
+  return await this._enqueueSend(() => {
+    if (!this._carriage) throw new Error('LOCO not connected. Call client.connect() first.');
+    return this._carriage.modifyMsg(resolvedChatId, normalized.logId, text, {
+      type, extra, supplement: opts.supplement,
+    });
+  }, { deadlineAt: opts.deadlineAt });
 }
 
 /**

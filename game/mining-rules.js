@@ -12,4 +12,5 @@ const LOCATIONS=Object.freeze([{name:'광산입구',level:0,bonus:0},{name:'깊�
 function state(p={}){const level=Math.max(0,Math.min(PICKS.length-1,Number(p.pick_level)||0));return {level,location:LOCATIONS.find(l=>l.name===p.location&&l.level<=level)||LOCATIONS[0]};}
 function odds(p={}){const s=state(p),weights=ORES.map(o=>o.weight*(1+s.level*.2*o.tier)*(1+s.location.bonus*o.tier)),sum=weights.reduce((a,b)=>a+b,0);return weights.map(w=>w/sum);}
 function pick(random,p){const chances=odds(p);let roll=random();for(let i=0;i<ORES.length;i++){roll-=chances[i];if(roll<0)return ORES[i];}return ORES.at(-1);}
-module.exports={ORES,PICKS,LOCATIONS,state,odds,pick};
+function owned(p={}){const stored=Array.isArray(p.owned_picks)?p.owned_picks:Array.from({length:state(p).level+1},(_,i)=>i);return [...new Set([0,...stored.filter(i=>Number.isInteger(i)&&i>=0&&i<PICKS.length)])].sort((a,b)=>a-b);}
+module.exports={ORES,PICKS,LOCATIONS,state,odds,pick,owned};

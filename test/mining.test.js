@@ -65,18 +65,18 @@ test('missing progress logId never edits the input message',async()=>{
  await require('../game/mining-progress').send(ctx,'result',async()=>{});assert.deepEqual(sent,['⛏ NEXI | 광질중.','result']);
 });
 
-test('pick upgrades debit once, unlock locations and retain cooldown and ownership',()=>fixture(async pool=>{
+test('pick purchases debit once, unlock locations and retain cooldown and ownership',()=>fixture(async pool=>{
  const s=createMining({pool,random:()=>0,now:()=>100000,link:async()=>{}});await s.execute(c('#채굴'));
  await pool.query("INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES('1000','2000','test',1000000)");
  await assert.rejects(s.execute(c('#채굴지 깊은동굴')),/곡괭이/);
- const upgrade=c('#곡괭이강화');await s.execute(upgrade);await assert.rejects(s.execute(upgrade),/이미 처리/);await s.execute(c('#곡괭이강화'));await s.execute(c('#채굴지 깊은동굴'));
+ const upgrade=c('#곡괭이구매 돌');await s.execute(upgrade);await assert.rejects(s.execute(upgrade),/이미 처리/);await s.execute(c('#곡괭이구매 철'));await s.execute(c('#채굴지 깊은동굴'));
  const p=(await pool.query('SELECT * FROM hz_mining_players')).rows[0];assert.equal(p.pick_level,2);assert.equal(p.location,'깊은동굴');assert.equal(p.bag['석탄'],1);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'760000');
  await assert.rejects(s.execute(c('#채굴')),/다음 채굴/);assert.match(await s.execute(c('#곡괭이','3000')),/나무/);
  assert.match(await createMining({pool}).execute(c('#채굴지')),/현재 · 깊은동굴/);
 }));
-test('failed upgrade rolls back coins, pick and receipt and insufficient coins cannot upgrade',()=>fixture(async pool=>{
- const s=createMining({pool,random:()=>0,link:async()=>{}});await s.execute(c('#채굴'));const upgrade=c('#곡괭이강화');
- await assert.rejects(s.execute(upgrade),/강화 비용/);
+test('failed purchase rolls back coins, ownership and receipt',()=>fixture(async pool=>{
+ const s=createMining({pool,random:()=>0,link:async()=>{}});await s.execute(c('#채굴'));const upgrade=c('#곡괭이구매 돌');
+ await assert.rejects(s.execute(upgrade),/구매 비용/);
  await pool.query("INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES('1000','2000','test',60000)");
  pool.fail=sql=>sql.startsWith('INSERT INTO hz_coin_logs');await assert.rejects(s.execute(upgrade),/simulated/);pool.fail=null;assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'60000');assert.equal((await pool.query('SELECT pick_level FROM hz_mining_players')).rows[0].pick_level,0);
  await s.execute(upgrade);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'0');
@@ -84,4 +84,17 @@ test('failed upgrade rolls back coins, pick and receipt and insufficient coins c
 test('pasted zero-width and encoded Korean sell-all works at new prices',()=>fixture(async pool=>{
  const s=createMining({pool,random:()=>0,link:async()=>{}});await s.execute(c('#채굴'));
  await s.execute(c('#광물판\u200b매 전&#xCCB4;'));assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'1000');
+}));
+
+test('independent pick purchases keep ownership and equip only owned tools',()=>fixture(async pool=>{
+ const s=createMining({pool,link:async()=>{}});await pool.query("INSERT INTO hz_wallets(room_id,user_id,user_name,balance) VALUES('1000','2000','test',4000000)");
+ await s.execute(c('#곡괭이구매 미스릴'));await s.execute(c('#채굴지 수정지대'));await s.execute(c('#곡괭이구매 철'));
+ let p=(await pool.query('SELECT * FROM hz_mining_players')).rows[0];assert.deepEqual(p.owned_picks,[0,2,5]);assert.equal(p.pick_level,5);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,'220000');
+ await assert.rejects(s.execute(c('#곡괭이구매 철')),/이미 보유/);await assert.rejects(s.execute(c('#곡괭이장착 강철')),/보유하지 않은/);
+ await s.execute(c('#곡괭이장착 철'));p=(await pool.query('SELECT * FROM hz_mining_players')).rows[0];assert.equal(p.pick_level,2);assert.equal(p.location,'광산입구');assert.deepEqual(p.owned_picks,[0,2,5]);
+ const before=(await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance;assert.match(await s.execute(c('#곡괭이강화')),/상점에서 구매/);assert.equal((await pool.query('SELECT balance FROM hz_wallets')).rows[0].balance,before);
+}));
+test('prior-schema migration retains gear and minerals and is idempotent',()=>fixture(async pool=>{
+ await pool.query("INSERT INTO hz_mining_players(room_id,user_id,pick_level,bag) VALUES('1000','2000',3,'{\"석탄\":7}'::jsonb)");
+ await pool.query('ALTER TABLE hz_mining_players DROP COLUMN owned_picks');await init(pool);await init(pool);const p=(await pool.query('SELECT * FROM hz_mining_players')).rows[0];assert.deepEqual(p.owned_picks,[0,1,2,3]);assert.equal(p.pick_level,3);assert.equal(p.bag['석탄'],7);
 }));

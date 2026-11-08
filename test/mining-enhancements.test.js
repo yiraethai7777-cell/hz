@@ -21,5 +21,5 @@ test('nested edit rejection triggers fallback even when outer status says succes
 test('shop responds once, reuses seed and rod data, and performs reads only',async()=>{
  const {createShop,format}=require('../game/shop'),responses=[];const shop=createShop({pool:{query:async sql=>{assert.match(sql,/^SELECT /);return {rows:[{pick_level:2,location:'깊은동굴'}]};}}});
  for(const category of ['','곡괭이','낚싯대','씨앗','소모품']){const before=responses.length;await shop.handle({text:'#상점'+(category?' '+category:''),roomId:'1000',userId:'2000',send:async t=>responses.push(t)});assert.equal(responses.length,before+1);assert.match(responses.at(-1),/🛒 NEXI/);}
- assert.match(format('곡괭이',{pick_level:2}),/현재 · 철 \+2/);assert.match(format('씨앗'),/!씨앗ㄱㅁ/);assert.match(format('낚싯대'),/!낚시대ㄱㅁ/);
+ assert.match(format('곡괭이',{pick_level:2}),/장착 · 철 곡괭이/);assert.match(format('씨앗'),/!씨앗ㄱㅁ/);assert.match(format('낚싯대'),/!낚시대ㄱㅁ/);
 });
