@@ -116,7 +116,18 @@ async function handle({client,roomId,msg,text,send,adapter}){
     }else{
       const result=observer.get(room);
       if(!result.observing){
-        await safeReply(client,send,'🔎 진행 중인 감지가 없습니다.\n먼저 #보룸감지시작을 입력해 주세요.');
+        const state=require('./voice-room-auto-detect').last(room);
+        if(state){
+          await safeReply(client,send,'🎙️ 마지막 자동 감지 기록\n━━━━━━━━━━━━━━\n'+
+            state.phase+
+            (state.eventType==='vr_bye'&&state.durationSeconds!==undefined
+              ? '\n진행 시간: '+state.durationSeconds+'초':'')+
+            '\n※ 관리 ON 상태에서 수신한 이벤트 기록이며 실시간 서버 상태 조회는 아닙니다.');
+        }else{
+          await safeReply(client,send,'🔎 아직 수신한 자동 감지 기록이 없습니다.\n'+
+            '관리가 ON인 방은 보이스룸 개설·종료 시 자동으로 알립니다.\n'+
+            '수동 진단이 필요하면 #보룸감지시작을 입력해 주세요.');
+        }
       }else if(!result.events.length){
         await safeReply(client,send,'🔎 보이스룸 감지 결과\n━━━━━━━━━━━━━━\n'+
           '관찰된 관련 이벤트: 0건\n남은 시간: '+result.remainingSeconds+'초\n'+
@@ -139,7 +150,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
   if(isHelp){
     await safeReply(client,send,'🎙️ NEXI | 보이스룸 명령어\n' +
       '#보룸시작 (제목) / #보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
-      '#보룸상태 · 서버 상태/연동 확인\n' +
+      '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
+      '※ 관리 ON인 방은 보이스룸 개설·종료 이벤트를 자동 감지해 알립니다.\n' +
       '#보룸감지시작 · 3분간 수신 이벤트 관찰\n' +
       '#보룸감지 · 관찰된 신호 후보 확인\n' +
       '#보룸감지종료 · 관찰 중단\n' +
@@ -167,8 +179,15 @@ async function handle({client,roomId,msg,text,send,adapter}){
         capability='모듈 연결됨 · 상태 조회 실패';
       }
     }
+    const observed=require('./voice-room-auto-detect').last(room);
+    const observedText=observed
+      ? observed.phase+(observed.durationSeconds!==undefined&&observed.eventType==='vr_bye'
+        ? ' · '+observed.durationSeconds+'초' : '')+' (실시간 서버 검증 아님)'
+      : '기록 없음 (재시작 시 초기화)';
     await safeReply(client,send,'🎙️ 보이스룸 상태\n━━━━━━━━━━━━━━\n봇 권한: '+roleText+
-      '\n개설 연동: '+capability+'\n※ 단순 채팅 메시지는 보이스룸을 개설하지 않습니다.');
+      '\n개설 연동: '+capability+
+      '\n마지막 자동 감지: '+observedText+
+      '\n※ 수신 이벤트 기록은 실제 보이스룸 활성 상태 조회가 아닙니다.');
     return true;
   }
 
