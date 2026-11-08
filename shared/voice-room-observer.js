@@ -54,11 +54,60 @@ function record(roomId, candidate, now) {
   if (watch.events.length > MAX_EVENTS) watch.events.shift();
   return true;
 }
+
+/**
+ * Retain only schema names/types and fixed classification labels, never
+ * attachment values, message text, user identifiers, URLs, or server payloads.
+ * Both hints are UI correlations; neither confirms the server's live state.
+ */
+function displayHint(text) {
+  if (typeof text !== 'string') return '';
+  const label = text.trim();
+  if (/^보이스룸$/.test(label)) return '개설 표시 후보';
+  if (/^(?:\d{1,3}:)?\d{1,3}:\d{2}$/.test(label)) return '종료 표시 후보';
+  return '';
+}
+function safeKind(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'object') return 'object';
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'boolean') return 'boolean';
+  return 'other';
+}
+function metadataShape(msg) {
+  const raw = msg?.raw?.chatLog || msg?.raw || {};
+  const parsed = Array.isArray(msg?.attachmentsRaw) && msg.attachmentsRaw.length
+    ? msg.attachmentsRaw : raw.attachment ?? raw.attachments ?? raw.extra;
+  let data = parsed;
+  if (typeof data === 'string') {
+    if (data.length > 8192 || !/^[\s]*[\[{]/.test(data)) return '';
+    try { data = JSON.parse(data); } catch { return ''; }
+  }
+  if (!data || typeof data !== 'object') return '';
+  const obj = Array.isArray(data) ? data[0] : data;
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
+  const keys = Object.keys(obj).sort().filter(k =>
+    /^[A-Za-z][A-Za-z0-9_]{0,30}$/.test(k) &&
+    !/(?:id|token|auth|secret|key|name|title|text|message|url|link|profile|user|mid|uid|member|nick)/i.test(k)
+  ).slice(0, 12);
+  return keys.map(k => k + ':' + safeKind(obj[k])).join(',').slice(0, 260);
+}
+
 function observeMessage(msg, now = Date.now()) {
   if (msg?.room?.isOpenChat !== true) return false;
   const type = Number(msg?.message?.type ?? msg?.type);
   if (!candidateTypes.has(type)) return false;
-  return record(msg.room.id, { source: 'message', type }, now);
+  const room = validId(msg.room.id);
+  const watch = watches.get(room);
+  if (!watch || now < watch.since || now >= watch.until) return false;
+  const candidate = { source: 'message', type };
+  const hint = displayHint(msg?.message?.text ?? msg?.text);
+  const shape = metadataShape(msg);
+  if (hint) candidate.phaseHint = hint;
+  if (shape) candidate.shape = shape;
+  return record(room, candidate, now);
 }
 function observePush(packet, now = Date.now()) {
   const method = typeof packet?.method === 'string' ? packet.method : '';
@@ -89,4 +138,5 @@ function install(client) {
 }
 module.exports = {
   DURATION_MS, start, stop, get, observeMessage, observePush, install,
+  displayHint, metadataShape,
 };
