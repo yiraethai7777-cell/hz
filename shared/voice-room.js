@@ -122,11 +122,14 @@ async function handle({client,roomId,msg,text,send,adapter}){
           '관찰된 관련 이벤트: 0건\n남은 시간: '+result.remainingSeconds+'초\n'+
           '판정: 확인 불가\n※ 이벤트가 없어도 보룸이 열리지 않았다는 의미는 아닙니다.');
       }else{
-        const detail=result.events.map(e=>e.source==='message'?
-          '채팅 유형 '+e.type:'서버 푸시 '+e.method).join(', ');
+        const detail=result.events.map((e,index)=>e.source==='message'?
+          (index+1)+'번째: 채팅 유형 '+e.type+
+          (e.phaseHint?' · '+e.phaseHint:'')+
+          (e.shape?' · 첨부필드 '+e.shape:''):
+          (index+1)+'번째: 서버 푸시 '+e.method).join('\n');
         await safeReply(client,send,'🔎 보이스룸 감지 결과\n━━━━━━━━━━━━━━\n'+
           '관련 이벤트 후보: '+result.events.length+'건\n'+
-          '종류: '+detail.slice(0,350)+'\n남은 시간: '+result.remainingSeconds+'초\n'+
+          '종류:\n'+detail.slice(0,600)+'\n남은 시간: '+result.remainingSeconds+'초\n'+
           '판정: 보이스룸 관련 신호 후보 발견 (실제 개설/활성 여부 미확정)');
       }
     }
