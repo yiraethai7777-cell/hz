@@ -2873,12 +2873,14 @@ export class KakaoForgeClient extends EventEmitter {
     return cached || '';
   }
 
-  async _enqueueSend<T>(task: () => Promise<T>) {
+  async _enqueueSend<T>(task: () => Promise<T>, options: { deadlineAt?: number } = {}) {
     const prev = this._sendQueue;
     const interval = this.sendIntervalMs;
     const next = prev
       .catch(() => {})
       .then(async () => {
+        const expired = () => typeof options.deadlineAt === 'number' && Date.now() >= options.deadlineAt;
+        if (expired()) throw new Error('Send deadline expired');
         if (interval > 0) {
           const now = Date.now();
           let waitMs = this._lastSendAt + interval - now;
@@ -2887,6 +2889,7 @@ export class KakaoForgeClient extends EventEmitter {
             await sleepMs(waitMs);
           }
         }
+        if (expired()) throw new Error('Send deadline expired');
         this._lastSendAt = Date.now();
         return task();
       });

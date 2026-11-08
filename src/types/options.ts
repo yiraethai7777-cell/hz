@@ -69,6 +69,8 @@ export type OpenChatBlindOptions = OpenChatKickOptions & {
 };
 
 export type EditMessageOptions = {
+  /** Drop a queued edit after this epoch-millisecond deadline. */
+  deadlineAt?: number;
   type?: number;
   extra?: string | Record<string, any> | any[];
   supplement?: string;

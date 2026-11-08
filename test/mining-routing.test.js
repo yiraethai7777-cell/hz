@@ -16,12 +16,12 @@ test('actual mining routes normalize once and obey game-off and room lock',async
  const source=fs.readFileSync(path.join(__dirname,'../game/index.js'),'utf8'),aliases=require('../game/command-aliases');
  for(const flags of [{game:true},{game:false},{game:true,locked:true}]){
   const calls=[],sent=[],service=game(source,aliases,flags,calls);
-  for(const name of ['광산','채굴','광물인벤','광물판매 전체','곡괭이','곡괭이강화','채굴지','상점','상점 씨앗']){
+  for(const name of ['광산','채굴','광물인벤','광물판매 전체','곡괭이','곡괭이구매 돌','곡괭이장착 나무','채굴지','상점','상점 씨앗']){
    assert.equal(aliases.isGameCommand('!'+name),true);
    const ctx={roomId:'1000',userId:'2000',text:'!'+name,isBotAccount:false,msg:{text:'!'+name,sender:{id:'2000'}},send:async t=>sent.push(t)};
    await (service.dispatch?service.dispatch(ctx):service.message(ctx));
   }
-  assert.equal(calls.length,flags.game&&!flags.locked?9:0);
-  if(!flags.game)assert.equal(sent.length,9);
+  assert.equal(calls.length,flags.game&&!flags.locked?10:0);
+  if(!flags.game)assert.equal(sent.length,10);
  }
 });
