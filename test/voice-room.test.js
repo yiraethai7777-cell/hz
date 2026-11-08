@@ -35,7 +35,7 @@ test('room role on requester must be owner or manager',async()=>{
   args.msg.sender.type=2;
   args.adapter={create:async()=>{throw Error('must not call');}};
   await voice.handle(args);
-  assert.match(sent[0],/방장 또는 부방장만/);
+  assert.match(sent[0],/방장·부방장 또는 봇 계정만/);
 });
 
 test('bot must also be owner or manager in the same room',async()=>{
