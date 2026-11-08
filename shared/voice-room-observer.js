@@ -76,23 +76,40 @@ function safeKind(value) {
   if (typeof value === 'boolean') return 'boolean';
   return 'other';
 }
-function metadataShape(msg) {
+function attachmentObject(msg) {
   const raw = msg?.raw?.chatLog || msg?.raw || {};
   const parsed = Array.isArray(msg?.attachmentsRaw) && msg.attachmentsRaw.length
     ? msg.attachmentsRaw : raw.attachment ?? raw.attachments ?? raw.extra;
   let data = parsed;
   if (typeof data === 'string') {
-    if (data.length > 8192 || !/^[\s]*[\[{]/.test(data)) return '';
-    try { data = JSON.parse(data); } catch { return ''; }
+    if (data.length > 8192 || !/^[\s]*[\[{]/.test(data)) return null;
+    try { data = JSON.parse(data); } catch { return null; }
   }
-  if (!data || typeof data !== 'object') return '';
+  if (!data || typeof data !== 'object') return null;
   const obj = Array.isArray(data) ? data[0] : data;
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  return obj;
+}
+function metadataShape(msg) {
+  const obj = attachmentObject(msg);
+  if (!obj) return '';
   const keys = Object.keys(obj).sort().filter(k =>
     /^[A-Za-z][A-Za-z0-9_]{0,30}$/.test(k) &&
     !/(?:id|token|auth|secret|key|name|title|text|message|url|link|profile|user|mid|uid|member|nick)/i.test(k)
   ).slice(0, 12);
   return keys.map(k => k + ':' + safeKind(obj[k])).join(',').slice(0, 260);
+}
+function lifecycleMetadata(msg) {
+  const obj = attachmentObject(msg);
+  // Published third-party Android references describe vr_invite and vr_bye.
+  // Only retain known fixed tokens; unknown attachment values are discarded.
+  if (!obj || (obj.type !== 'vr_invite' && obj.type !== 'vr_bye')) return null;
+  const meta = { eventType: obj.type };
+  // Duration is a non-identifying counter in seconds. Bound it to 48 hours.
+  if (Number.isSafeInteger(obj.duration) && obj.duration >= 0 && obj.duration <= 172800) {
+    meta.durationSeconds = obj.duration;
+  }
+  return meta;
 }
 
 function observeMessage(msg, now = Date.now()) {
@@ -103,9 +120,14 @@ function observeMessage(msg, now = Date.now()) {
   const watch = watches.get(room);
   if (!watch || now < watch.since || now >= watch.until) return false;
   const candidate = { source: 'message', type };
+  const lifecycle = type === 52 ? lifecycleMetadata(msg) : null;
   const hint = displayHint(msg?.message?.text ?? msg?.text);
   const shape = metadataShape(msg);
-  if (hint) candidate.phaseHint = hint;
+  if (lifecycle) {
+    Object.assign(candidate, lifecycle);
+    candidate.phaseHint = lifecycle.eventType === 'vr_invite'
+      ? '개설 이벤트 후보(type=vr_invite)' : '종료 이벤트 후보(type=vr_bye)';
+  } else if (hint) candidate.phaseHint = hint;
   if (shape) candidate.shape = shape;
   return record(room, candidate, now);
 }
@@ -138,5 +160,5 @@ function install(client) {
 }
 module.exports = {
   DURATION_MS, start, stop, get, observeMessage, observePush, install,
-  displayHint, metadataShape,
+  displayHint, metadataShape, lifecycleMetadata,
 };

@@ -139,3 +139,63 @@ test('unparseable or too large attachment never leaks its raw body', () => {
   assert.doesNotMatch(JSON.stringify(events), /malformed|private|large/);
   observer.stop(room);
 });
+
+
+test('observed type-52 lifecycle attachment distinguishes allowed vr_invite and vr_bye tokens', () => {
+  const room = '91000000012';
+  observer.start(room, 1000);
+  const invite = message(room, 52, '{"private":"do not show"}');
+  invite.raw.chatLog.attachment = JSON.stringify({
+    type: 'vr_invite', duration: 0, csIP: '192.0.2.99', csIP6: '2001:db8::1',
+    csPort: 9000, callId: 'private-session-123', token: 'secret',
+  });
+  const bye = message(room, 52, '{"private":"also do not show"}');
+  bye.attachmentsRaw = [{
+    type: 'vr_bye', duration: 17, csIP: '192.0.2.99', csIP6: '2001:db8::1',
+    csPort: 9000, callId: 'private-session-123', token: 'secret',
+  }];
+  assert.equal(observer.observeMessage(invite, 1100), true);
+  assert.equal(observer.observeMessage(bye, 1200), true);
+  const result = observer.get(room, 1300);
+  assert.equal(result.verifiedActive, false);
+  assert.equal(result.events[0].eventType, 'vr_invite');
+  assert.equal(result.events[0].durationSeconds, 0);
+  assert.match(result.events[0].phaseHint, /개설 이벤트 후보/);
+  assert.equal(result.events[1].eventType, 'vr_bye');
+  assert.equal(result.events[1].durationSeconds, 17);
+  assert.match(result.events[1].phaseHint, /종료 이벤트 후보/);
+  assert.doesNotMatch(JSON.stringify(result), /192\.0\.2|2001:db8|private-session|secret|do not show/);
+  observer.stop(room);
+});
+
+test('unexpected lifecycle types and duration values are not retained', () => {
+  const room = '91000000013';
+  observer.start(room, 1000);
+  const unknown = message(room, 52, '');
+  unknown.raw.chatLog.attachment = JSON.stringify({
+    type: 'malicious-private-type-999', duration: 99, secret: 'dontlog'
+  });
+  assert.equal(observer.observeMessage(unknown, 1100), true);
+  const outOfRange = message(room, 52, '');
+  outOfRange.raw.chatLog.attachment = JSON.stringify({
+    type: 'vr_invite', duration: 999999999999, auth: 'private'
+  });
+  assert.equal(observer.observeMessage(outOfRange, 1200), true);
+  const events = observer.get(room, 1300).events;
+  assert.equal(events[0].eventType, undefined);
+  assert.equal(events[0].durationSeconds, undefined);
+  assert.equal(events[1].eventType, 'vr_invite');
+  assert.equal(events[1].durationSeconds, undefined);
+  assert.doesNotMatch(JSON.stringify(events), /malicious-private-type|dontlog|999999999999|private/);
+  observer.stop(room);
+});
+
+test('ordinary chat messages cannot forge a lifecycle record even with a voice attachment', () => {
+  const room = '91000000014';
+  observer.start(room, 1000);
+  const msg = message(room, 1, '');
+  msg.raw.chatLog.attachment = JSON.stringify({ type: 'vr_invite', duration: 0 });
+  assert.equal(observer.observeMessage(msg, 1100), false);
+  assert.equal(observer.get(room, 1200).events.length, 0);
+  observer.stop(room);
+});
