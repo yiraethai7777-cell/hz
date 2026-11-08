@@ -185,7 +185,7 @@ node --test test/voice-room.test.js test/voice-router.test.js
 
 ### 추가 조사: Android 내부 호출 브리지 (Noa)와 Railway 제약
 
-2026-11-09 GitHub 검색에서 [Noa `VoxController.java`](https://github.com/entworacy/noa/blob/9a20fdac68b1865672c9522269dec3dbca3db/kakao-agent/java/dev/noa/kakao/VoxController.java)를 확인했습니다.
+2026-11-09 GitHub 검색에서 [Noa `VoxController.java`](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/kakao-agent/java/dev/noa/kakao/VoxController.java)를 확인했습니다.
 
 - `createVoiceroom(commandId, chatId, title)` 함수는 실행 중인 KakaoTalk Android 프로세스 내부 `VoxModuleFacade`를 reflection으로 읽어 `getVoiceroomManager().makeVoiceroom(context, chatId, title, successCallback, errorCallback)`를 호출합니다.
 - 마이크 권한(`android.permission.RECORD_AUDIO`), Android `ActivityThread.currentApplication()`, KakaoTalk 앱의 클래스 로더, 보이스룸 Activity 진입이 필요합니다.
@@ -195,3 +195,13 @@ node --test test/voice-room.test.js test/voice-router.test.js
 - Redroid [공식 실행 가이드](https://github.com/remote-android/redroid-doc/blob/master/deploy/ubuntu.md)는 커널 Binder 장치와 `--privileged` 실행을 요구합니다. [Railway의 privileged 서비스 요청 스레드](https://station.railway.com/feedback/allow-services-to-be-run-in-privileged-m-8c66b22b)에서는 일반 Railway 환경의 privileged 실행이 지원되지 않는다는 설명이 있습니다. Railway에서 Redroid가 작동한다고 가정하지 않습니다.
 
 **현재 선택 가능한 구현 경로:** (A) 실제 VOX 생성 시그널링을 더 조사하여 NEXI 서버 측 어댑터로 재구현(미완성, 기기 불필요), (B) 별도 Android/Redroid 호스트에 Noa 방식 브리지를 실행하고 Railway 봇에서 API 호출(별도 호스트/Android 런타임 필요, 사용자 무기기 조건 불충족). 어느 경로에서도 현재 생성 성공을 입증한 상태가 아닙니다.
+
+
+### 현재 공개 코드의 실제 생성 호출 경로 (독립 교차검증)
+
+- [Noa `src/web/vox.rs`](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/src/web/vox.rs#L126-L161): `POST /api/vox/voice-rooms` → `create_voice_room_action` → Android 제어 채널의 `vox_create_room(chat_id, title)`. HTTP 인터페이스가 존재하는 것은 확인되나 **독립적인 VOX 서버 구현은 아님**.
+- [Noa `VoxController.java`](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/kakao-agent/java/dev/noa/kakao/VoxController.java#L69-L86): Android `ActivityThread.currentApplication()`, KakaoTalk `VoxModuleFacade`, 녹음 권한 및 내부 `makeVoiceroom`을 사용. [성공 콜백 구현](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/kakao-agent/java/dev/noa/kakao/VoxController.java#L401-L431)은 Android `VoiceroomActivity`를 여는 경로가 포함됨.
+- [Noa 사용 조건](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/README.md): 루팅된 Android 또는 Redroid + KakaoTalk 앱 필요. 따라서 단순히 서버 측 HTTP 클라이언트 코드를 작성해도 **사용자 요구사항인 Railway 단독 + 기기/에뮬레이터 없음**을 충족할 수 없음.
+- [카카오 DevTalk 공식 답변](https://devtalk.kakao.com/t/webhook-api/141656): 카카오 디벨로퍼스에서 오픈채팅 관련 API를 제공하지 않음(2025-01-03 답변).
+
+**판정:** 서버 단독 VOX 생성은 현재 검증된 공개 API/코드 없이 불가. 기존 `shared/voice-room.js`와 봇 운영 배포 변경 금지. 문서화는 기능 구현과 구별.
