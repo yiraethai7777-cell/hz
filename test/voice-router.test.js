@@ -243,3 +243,34 @@ test('type-52 open and close presentation hints stay tentative in command replie
     assert.doesNotMatch(reply, /secret-room-token|private/);
   } finally { observer.stop(roomId); }
 });
+
+
+test('room probe outputs recognized lifecycle events but not voice server credentials', async () => {
+  const { emit, sent } = fixture();
+  const observer = require('../shared/voice-room-observer');
+  const roomId = '18495931541358610';
+  try {
+    observer.start(roomId);
+    for (const [eventType, duration] of [['vr_invite', 0], ['vr_bye', 17]]) {
+      observer.observeMessage({
+        room: { id: roomId, isOpenChat: true },
+        message: { type: 52, text: 'private-chat-content' },
+        raw: { chatLog: { attachment: JSON.stringify({
+          type: eventType, duration, csIP: '192.0.2.5', csPort: 9000,
+          csIP6: '2001:db8::1', callId: 'private-call',
+        }) } }
+      });
+    }
+    await emit('#보룸감지');
+    const reply = sent.at(-1).body;
+    assert.match(reply, /개설 이벤트 후보\(type=vr_invite\)/);
+    assert.match(reply, /종료 이벤트 후보\(type=vr_bye\)/);
+    assert.match(reply, /지속시간 17초/);
+    assert.match(reply, /실제 개설\/활성 여부 미확정/);
+    assert.doesNotMatch(reply, /192\.0\.2|2001:db8|private-call|private-chat-content/);
+    await emit('#보룸상태');
+    assert.match(sent.at(-1).body, /미연동/);
+  } finally {
+    observer.stop(roomId);
+  }
+});
