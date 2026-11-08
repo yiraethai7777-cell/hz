@@ -30,6 +30,7 @@ function icon(kind,x,y){
 }
 function buildSvg(input){
  const {name,today,attendanceDate,streak,total,reward}=input;
+ const arden=input.arden===true;
  const year=Number(String(today).slice(0,4)),month=Number(String(today).slice(5,7));
  const dates=input.dates??input.calendar?.cells.filter(c=>c?.attended).map(c=>c.date)??[];
  const grid=calendar({year,month,dates,today});number(streak,'streak');number(total,'total');
@@ -54,10 +55,10 @@ function buildSvg(input){
  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1448" height="1086" viewBox="0 0 1448 1086">
  <defs><filter id="monochrome" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/></filter>
  <linearGradient id="background" x2=".7" y2="1"><stop stop-color="#222222"/><stop offset=".22" stop-color="#0a0a0a"/><stop offset="1" stop-color="#0a0a0a"/></linearGradient>
- <linearGradient id="frame" x2="1" y2="1"><stop stop-color="#d5d5d5"/><stop offset=".28" stop-color="#646464"/><stop offset=".65" stop-color="#b7b7b7"/><stop offset="1" stop-color="#575757"/></linearGradient>
+ <linearGradient id="frame" x2="1" y2="1"><stop stop-color="${arden?'#d9c6ff':'#d5d5d5'}"/><stop offset=".28" stop-color="${arden?'#8d6db2':'#646464'}"/><stop offset=".65" stop-color="#b7b7b7"/><stop offset="1" stop-color="#575757"/></linearGradient>
  <linearGradient id="panel" x2=".2" y2="1"><stop stop-color="#181818"/><stop offset="1" stop-color="#0c0c0c"/></linearGradient>
  <linearGradient id="cell" x2=".5" y2="1"><stop stop-color="#1c1c1c"/><stop offset="1" stop-color="#121212"/></linearGradient>
- <linearGradient id="selected" x2=".4" y2="1"><stop stop-color="#414141"/><stop offset="1" stop-color="#1e1e1e"/></linearGradient>
+ <linearGradient id="selected" x2=".4" y2="1"><stop stop-color="${arden?'#58436f':'#414141'}"/><stop offset="1" stop-color="${arden?'#2a2038':'#1e1e1e'}"/></linearGradient>
  <filter id="glow" x="-25%" y="-65%" width="150%" height="230%"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
  <linearGradient id="fade"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".13" stop-color="#fff"/><stop offset=".98" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
  <linearGradient id="vertical-fade" x2="0" y2="1"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".04" stop-color="#fff"/><stop offset=".96" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
@@ -69,11 +70,11 @@ function buildSvg(input){
  <g><rect width="1448" height="1086" fill="#141414"/>
  <rect x="32" y="24" width="1384" height="1034" rx="44" fill="url(#background)" stroke="url(#frame)" stroke-width="3"/>
  <g font-family="Noto Sans KR" font-weight="400">
- ${text(80,82,'출석체크',26,'#fff','font-weight="800"')}
+ ${text(80,82,arden?'ARDEN | ATTENDANCE':'출석체크',26,arden?'#d9c6ff':'#fff',arden?'font-weight="800" font-style="italic"':'font-weight="800"')}
  ${text(1377,77,today.replaceAll('-','. ')+' ('+label.slice(-2,-1)+')',23,'#bdbdbd','text-anchor="end"')}
  <g mask="url(#art-vertical)"><image filter="url(#monochrome)" x="848" y="85" width="557" height="260" xlink:href="${decorations.calendar}" mask="url(#art-fade)"/></g>
  <image filter="url(#monochrome)" x="91" y="131" width="195" height="190" xlink:href="${decorations.check}" mask="url(#check-mask)"/>
- ${nameSvg}${text(314,256,'출석 완료되셨습니다!',43,'#fff','font-weight="800"')}
+ ${nameSvg}${text(314,256,arden?'ARDEN 클랜 출석 완료!':'출석 완료되셨습니다!',43,'#fff','font-weight="800"')}
  ${text(315,309,'오늘도 함께해 주셔서 감사합니다.',26,'#c6c6c6')}${text(690,309,'♥',27,'#b5b5b5')}
  <rect x="56" y="345" width="1338" height="160" rx="23" fill="url(#panel)" stroke="#5e5e5e"/>
  ${[380,720,940,1156].map(x=>`<path d="M${x} 371v109" stroke="#383838"/>`).join('')}
@@ -89,7 +90,7 @@ function buildSvg(input){
  ${cells}
  <path d="M64 978h1320" stroke="#959595"/>
  <g transform="translate(83 1018)" fill="#bcbcbc"><path d="M0 13V-6 M0 3C-19 4-17-13-17-13 0-15 0 1 0 3 M0 1C0-15 15-15 15-15 17 0 3 3 0 1" stroke="#bcbcbc" stroke-width="2"/></g>
- ${text(122,1027,'오늘도 출석 완료! 꾸준한 하루가 멋진 변화를 만듭니다. 항상 응원할게요!',20,'#f6f6f6')}
+ ${text(122,1027,arden?'ARDEN | 오늘도 출석 완료! 함께 성장하는 아르덴 클랜':'오늘도 출석 완료! 꾸준한 하루가 멋진 변화를 만듭니다. 항상 응원할게요!',20,'#f6f6f6')}
  ${text(1325,1027,'1등 금 · 2등 은 · 3등 동',20,'#bfbfbf','text-anchor="end"')}
  </g></g></svg>`;
 }
