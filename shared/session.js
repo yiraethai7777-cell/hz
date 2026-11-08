@@ -112,7 +112,7 @@ async function attachHZBot(client){
         if(out){
           if(text==='#낚시'&&require('../game/fishing-edit').isCatchResult(out)){
             // Keep the original award, cooldown and DB transaction unchanged.
-            await require('../game/fishing-edit').sendEditedCatch({
+            await require('../game/fishing-edit').sendCatchResult({
               chat,client,roomId:rid,result:out,name,
               sendFallback:body=>ctx.send(chat,rid,body)
             });

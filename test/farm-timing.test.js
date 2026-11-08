@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {PLANT_MS,HARVEST_MS,updateFarmMessage}=require('../game/farm-timing');
+const {PLANT_MS,HARVEST_MS,sendFarmCompletion}=require('../game/farm-timing');
 const {createFarm}=require('../game/farm');
 
 test('planting and harvest stages both take five seconds',()=>{
@@ -8,12 +8,12 @@ test('planting and harvest stages both take five seconds',()=>{
  assert.equal(HARVEST_MS,5000);
 });
 
-test('five-second planting completion edits the original message',async()=>{
+test('five-second planting completion sends a new message without editing',async()=>{
  const events=[],scheduled=[];
  const farm=createFarm({pool:{},autoRecover:false,
   schedule:(fn,delay)=>{scheduled.push({fn,delay});return {unref(){}};}});
  const ctx={roomId:'100',chat:{
-  editMessage:async(room,id,text)=>{events.push({kind:'edit',room,id,text});return {status:0};}
+  editMessage:async()=>assert.fail('Farm must not edit messages')
  },send:async text=>events.push({kind:'send',text})};
  farm.scheduleCompletion({ctx,
   receipt:{status:0,body:{logId:'7654321'}},
@@ -23,30 +23,30 @@ test('five-second planting completion edits the original message',async()=>{
  assert.deepEqual(events,[]);
  await scheduled[0].fn();
  assert.deepEqual(events,[{
-  kind:'edit',room:'100',id:'7654321',
+  kind:'send',
   text:'✅ 파인애플 9칸 전부 심었습니다!'
  }]);
 });
 
-test('completion falls back to a separate message when MODIFYMSG fails',async()=>{
+test('completion sends a new message regardless of edit capability',async()=>{
  const messages=[];
- const result=await updateFarmMessage({
+ const result=await sendFarmCompletion({
   ctx:{roomId:'100',chat:{editMessage:async()=>({status:-1})},
    send:async text=>messages.push(text)},
   receipt:{status:0,body:{logId:'456'}},text:'✅ 작물 전부 수확 완료!'
  });
- assert.equal(result,'fallback');
+ assert.equal(result,'sent');
  assert.deepEqual(messages,['✅ 작물 전부 수확 완료!']);
 });
 
-test('missing logId does not attempt to edit a different message',async()=>{
+test('completion never needs or edits a message logId',async()=>{
  let edited=false;const sent=[];
- const result=await updateFarmMessage({
+ const result=await sendFarmCompletion({
   ctx:{roomId:'100',chat:{editMessage:async()=>{edited=true;return {status:0};}},
    send:async text=>sent.push(text)},
   receipt:{status:0},text:'✅ 심기 완료'
  });
- assert.equal(result,'fallback');
+ assert.equal(result,'sent');
  assert.equal(edited,false);
  assert.deepEqual(sent,['✅ 심기 완료']);
 });

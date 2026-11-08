@@ -1,8 +1,7 @@
 'use strict';
 
-// Present a successful catch as a single KakaoTalk message updated by MODIFYMSG.
+// Format fishing results and send the final text without progress or edits.
 // The existing fishing command still handles rewards, cooldowns, and DB writes.
-const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // Show the catch immediately; keep full reward/gear details behind KakaoTalk's
 // '전체보기' folding marker. No rewards or inventory are changed by this formatter.
 const FISH_RESULT_FOLD='\u200b'.repeat(1200);
@@ -29,26 +28,7 @@ function formatCatchResult({ctx,player,catchInfo,mention}){
 const isCatchResult=text=>typeof text==='string'&&
  text.startsWith('🎣 NEXI | 낚시 결과\n')&&text.includes('\n🐟 ');
 const editableText=text=>String(text).replace(/\u0002\d+\u0003([^\u0004]*)\u0004/g,'@$1');
-function editMethod(chat,client){
- if(typeof chat?.editMessage==='function')return chat.editMessage.bind(chat);
- if(typeof client?.editMessage==='function')return client.editMessage.bind(client);
- return null;
+async function sendCatchResult({result,sendFallback}){
+ await sendFallback(result);return 'normal';
 }
-async function sendEditedCatch({chat,client,roomId,result,name,sendFallback,wait=sleep,timeoutMs=5000}){
- if(!isCatchResult(result)){
-  await sendFallback(result);
-  return 'normal';
- }
- const edit=editMethod(chat,client);
- if(!edit){
-  await sendFallback(result);
-  return 'fallback';
- }
- const displayName=String(name||'낚시꾼').replace(/[\u0000-\u001f\u007f-\u009f]/g,'').slice(0,36);
- const stages=[
-  '🎣 NEXI | 낚시\n\n🌊 '+displayName+'님이 낚시를 시작했습니다.',
-  '🎣 NEXI | 낚시\n\n🐟 물고기를 끌어올리고 있습니다…'
- ];
- return require('./message-progress').run({roomId,sendStart:body=>chat.sendText(roomId,body),edit,sendFallback,stages:stages.concat(editableText(result)),result,delays:[1100,1500],wait,timeoutMs,label:'FISH'});
-}
-module.exports={formatCatchResult,isCatchResult,editableText,sendEditedCatch};
+module.exports={formatCatchResult,isCatchResult,editableText,sendCatchResult};
