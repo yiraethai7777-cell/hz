@@ -21,6 +21,33 @@ async function isStaff(db,room,user,type,isOwner){
  return r.rowCount>0;
 }
 const time=v=>{const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'시간 확인 불가';};
+
+// The historical Kakao OpenChat board adapter can be rejected server-side.
+// Report the concrete failure rather than a generic "registration failed".
+function noticeRegistrationErrorMessage(error){
+ const reason=String(error?.message||error||'');
+ if(/(?:상태\s*-4031|HTTP\s*403|권한이 없습니다)/.test(reason)){
+  return '❌ 실제 카카오톡 공지 등록이 거부되었습니다. (서버 권한 오류 -4031)\n'+
+   '봇 계정에 해당 오픈채팅방의 방장·부방장 권한이 있는지 확인해 주세요.\n'+
+   '권한이 있어도 현재 공지 API가 서버에서 제한될 수 있습니다.\n'+
+   '계속 실패하면 카카오톡 앱에서 직접 공지를 등록해 주세요.';
+ }
+ if(/실제 채팅방 공지 등록 연동을 사용할 수 없습니다|로그인 토큰 또는 기기 정보가 없습니다/.test(reason)){
+  return '❌ NEXI에서 실제 공지 등록 API를 사용할 수 없습니다.\n'+
+   '봇 로그인 상태와 공지 연동 설정을 확인해 주세요.\n'+
+   '카카오톡 앱에서는 직접 공지를 등록할 수 있습니다.';
+ }
+ if(/공지 내용은 최대 \d+자|공지 내용을 입력|오픈채팅 링크 ID/.test(reason)){
+  return '❌ '+reason.slice(0,180);
+ }
+ if(/포스트 .*생성되었을 수 있습니다|공지 등록 여부를 검증하지 못했습니다/.test(reason)){
+  return '⚠️ 공지 등록 결과를 확인하지 못했습니다.\n'+
+   '중복 등록을 피하려면 채팅방 공지 목록을 먼저 확인해 주세요.';
+ }
+ return '❌ 실제 카카오톡 공지 등록에 실패했습니다.\n'+
+  '서버 응답을 확인할 수 없으니 채팅방 공지 목록을 확인해 주세요. (Railway 로그: NOTICE IMMEDIATE)';
+}
+
 async function pages(send,title,rows){
  let bucket=[],len=0,page=1;
  for(const item of rows.length?rows:['기록 없음']){
@@ -251,7 +278,7 @@ async function handle(ctx){
      console.log('[NOTICE IMMEDIATE] registered',{room,user,postId:result.postId||null});
     }catch(e){
      console.error('[NOTICE IMMEDIATE] failed',{room,user,error:String(e?.message||e)});
-     await send('❌ 공지 등록에 실패했거나 등록 결과를 확인하지 못했습니다. 채팅방 공지 목록을 확인해 주세요.');
+     await send(noticeRegistrationErrorMessage(e));
     }
     return true;
    }
@@ -448,4 +475,4 @@ async function handle(ctx){
  }
  return false;
 }
-module.exports={handle,ALL,owner,isStaff,pages};
+module.exports={handle,ALL,owner,isStaff,pages,noticeRegistrationErrorMessage};
