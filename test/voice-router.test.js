@@ -218,3 +218,28 @@ test('status commands still never report unverified observer hits as live VoiceR
     assert.doesNotMatch(sent.at(-1).body, /서버에서 개설 상태 확인/);
   } finally { observer.stop(roomId); }
 });
+
+
+test('type-52 open and close presentation hints stay tentative in command replies', async () => {
+  const { emit, sent } = fixture();
+  const observer = require('../shared/voice-room-observer');
+  const roomId = '18495931541358610';
+  try {
+    observer.start(roomId);
+    for (const text of ['보이스룸', '0:16']) {
+      observer.observeMessage({
+        room: { id: roomId, isOpenChat: true },
+        message: { type: 52, text },
+        raw: { chatLog: { attachment: '{"event":"secret-room-token","state":1,"uid":"private"}' } },
+      });
+    }
+    await emit('#보룸감지');
+    const reply = sent.at(-1).body;
+    assert.match(reply, /관련 이벤트 후보: 2건/);
+    assert.match(reply, /개설 표시 후보/);
+    assert.match(reply, /종료 표시 후보/);
+    assert.match(reply, /첨부필드 event:string,state:number/);
+    assert.match(reply, /실제 개설\/활성 여부 미확정/);
+    assert.doesNotMatch(reply, /secret-room-token|private/);
+  } finally { observer.stop(roomId); }
+});
