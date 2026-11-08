@@ -168,3 +168,15 @@ node --test test/voice-room.test.js test/voice-router.test.js
 - [ ] Railway Linux 환경에서 별도 PC/휴대전화/에뮬레이터 없이 동작 확인
 
 **금지:** `CREATE_VOICEROOM` 같은 미확인 LOCO 메서드나 `vr_invite` 수신 메시지를 생성 요청으로 추정하여 전송하지 않습니다. 응답 검증 없이 `verified: true`를 반환하지 않습니다. 기존 컨트롤러/운영 배포는 검증된 구현이 나올 때까지 유지합니다.
+
+
+### DEX 원본 확보 및 역컴파일 결손 확인 (후속 조사)
+
+- 공개 [KakaoWebTalk 추출 저장소](https://github.com/theman001/KakaoWebTalk)에서 51,696개 트리 경로를 조사한 결과, 소스가 주로 `jadxExport` Java 파일이며 **원본 `.apk`, `.dex`, `.smali` 파일은 포함되어 있지 않음**을 확인했습니다.
+- `p3093zR/C75899c.java`에는 `/* loaded from: classes7.dex */`라는 추출 주석이 있으며, 생성 코루틴 `VoiceroomCoreManager$makeVoiceroom$2$1$1`의 핵심 `C78695a.invokeSuspend`는 JADX에서 `instructions count: 391`와 함께 생략됩니다.
+- [VOX30 분석 초안](https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md)의 `makeVoiceRoomCall()` 섹션은 **STUN/ICE 서버 및 로컬 WebRTC 피어 연결 준비**를 설명하며, VOX 서버에 전송할 보이스룸 생성 메시지 전체를 제공하지 않습니다.
+- 2025년 10월 공개 Android 25.8.3 APK 번들의 [배포 목록](https://www.apkmirror.com/apk/kakao-corp/kakaotalk/kakaotalk-messenger-25-8-3-release/kakaotalk-messenger-25-8-3-android-apk-download/)은 확인했지만 실제 APK/DEX 바이트를 내려받아 검증하지는 못했습니다. 역컴파일 Java 원본의 앱 버전이 동일하다는 보장도 없습니다.
+
+**다음 분석의 진입 조건:** 합법적으로 확보하고 서명을 검증한 카카오톡 Android APK의 `classes7.dex`(해당 버전에 따라 DEX 번호 변경 가능)를 추출하여, `C78695a.invokeSuspend`의 **Smali/DEX 명령**을 분석합니다. 여기서 네이티브 라이브러리 호출이 확인되면 해당 함수 구현까지 별도 분석해야 합니다.
+
+**현재 판정:** 실제 VOX 보이스룸 생성 요청의 인증·패킷 형식과 서버 응답 미확인. 이 근거 없이 `client.voiceRoomAdapter`의 `create()`를 구현하거나 운영 서버에 송신하지 않습니다.
