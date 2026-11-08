@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {formatCatchResult,isCatchResult,editableText,sendEditedCatch}=require('../game/fishing-edit');
+const {formatCatchResult,isCatchResult,editableText,sendCatchResult}=require('../game/fishing-edit');
 const caught=formatCatchResult({
  ctx:{n:amount=>Number(amount).toLocaleString('ko-KR'),FISHING_COOLDOWN_SECONDS:20},
  player:{rod:'나무',rodLevels:{나무:2},equippedPet:'창조의 신',inventory:[{}],level:4},
@@ -19,40 +19,15 @@ test('modification shows readable nickname instead of raw mention control codes'
  assert.ok(result.includes('🐟 붕어 · ⚪ 일반 · 21cm'));
  assert.equal((result.match(/\u200b/g)||[]).length,1200);
 });
-test('one fishing message is updated through two MODIFYMSG calls',async()=>{
- const calls=[],waits=[],fallback=[];
- const chat={
-  async sendText(roomId,body){calls.push({kind:'WRITE',roomId,body});return {status:0,body:{logId:'9876'}};},
-  async editMessage(roomId,logId,body){calls.push({kind:'MODIFYMSG',roomId,logId,body});return {status:0};}
- };
- const status=await sendEditedCatch({chat,roomId:'321',result:caught,name:'테스터',
-  sendFallback:async text=>fallback.push(text),wait:async ms=>{waits.push(ms);}});
- assert.equal(status,'edited');
- assert.deepEqual(calls.map(x=>x.kind),['WRITE','MODIFYMSG','MODIFYMSG']);
- assert.equal(calls[0].body,'🎣 NEXI | 낚시\n\n🌊 테스터님이 낚시를 시작했습니다.');
- assert.equal(calls[1].body,'🎣 NEXI | 낚시\n\n🐟 물고기를 끌어올리고 있습니다…');
- assert.deepEqual(waits,[1100,1500]);
- assert.equal(calls[1].logId,'9876');
- assert.ok(calls[2].body.includes('붕어 · ⚪ 일반'));
- assert.ok(calls[2].body.includes('다음 낚시 · 20초 후'));
- assert.ok(calls[2].body.endsWith('━━━━━━━━━━━━━━━━━━'));
- assert.deepEqual(fallback,[]);
+test('fishing sends exactly one final result without start, wait or edit calls',async()=>{
+ const messages=[];const status=await sendCatchResult({result:caught,chat:{sendText:()=>assert.fail('No start message'),editMessage:()=>assert.fail('No edits')},sendFallback:async text=>messages.push(text),wait:()=>assert.fail('No animation delay')});assert.equal(status,'normal');assert.deepEqual(messages,[caught]);
 });
-test('failed edit falls back to existing fishing result without re-awarding',async()=>{
- const calls=[],fallback=[];
- const chat={
-  async sendText(){calls.push('WRITE');return {status:0,body:{logId:'99'}};},
-  async editMessage(){calls.push('MODIFYMSG');return {status:-1};}
- };
- const status=await sendEditedCatch({chat,roomId:'321',result:caught,name:'테스터',
-  sendFallback:async text=>fallback.push(text),wait:async()=>{}});
- assert.equal(status,'fallback');
- assert.deepEqual(calls,['WRITE','MODIFYMSG']);
- assert.deepEqual(fallback,[caught]);
+test('plain fishing delivery failure propagates without retrying gameplay or editing',async()=>{
+ let writes=0;await assert.rejects(sendCatchResult({result:caught,chat:{editMessage:()=>assert.fail('No edits')},sendFallback:async()=>{writes++;throw Error('offline');}}),/offline/);assert.equal(writes,1);
 });
 test('cooldown notices bypass editable message path',async()=>{
  const calls=[];const notice='[ ! ] 아직 낚시 준비 중입니다. 7초 후 다시 시도하세요.';
- const status=await sendEditedCatch({chat:{},roomId:'321',result:notice,
+ const status=await sendCatchResult({chat:{},roomId:'321',result:notice,
   sendFallback:async x=>calls.push(x),wait:async()=>{}});
  assert.equal(status,'normal');
  assert.deepEqual(calls,[notice]);
@@ -83,7 +58,6 @@ test('fishing result shows level-up and rarity when applicable',()=>{
  assert.ok(text.includes('⬆️ 레벨 UP · Lv.5'));
 });
 
-test('stalled final fishing edit falls back instead of remaining on progress',async()=>{
- const fallback=[];let edits=0;const chat={sendText:async()=>({status:0,body:{logId:'9876'}}),editMessage:async()=>++edits===1?{status:0}:new Promise(()=>{})};
- const status=await sendEditedCatch({chat,roomId:'321',result:caught,name:'테스터',sendFallback:async t=>fallback.push(t),wait:async()=>{},timeoutMs:15});assert.equal(status,'fallback');assert.equal(edits,2);assert.deepEqual(fallback,[caught]);
+test('a hanging edit API cannot delay plain fishing delivery',async()=>{
+ const messages=[];await sendCatchResult({result:caught,chat:{editMessage:()=>new Promise(()=>{})},sendFallback:async text=>messages.push(text)});assert.deepEqual(messages,[caught]);
 });

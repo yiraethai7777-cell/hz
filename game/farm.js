@@ -3,7 +3,7 @@ const {getPool}=require('../shared/db');
 const {ensureWallet}=require('./wallet');
 const {link}=require('./economy');
 const {RODS}=require('./data');
-const {PLANT_MS,HARVEST_MS,settleHarvest,updateFarmMessage}=require('./farm-timing');
+const {PLANT_MS,HARVEST_MS,settleHarvest,sendFarmCompletion}=require('./farm-timing');
 const {exactBalance,gameplayBalance,formatAmount}=require('./farm-balance');
 const FOLD='\u200b'.repeat(1200);
 const CROPS=[
@@ -218,12 +218,12 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
    return result;
   }catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();}
  }
- function scheduleCompletion({ctx,job,receipt}){
+ function scheduleCompletion({ctx,job}){
   if(!job?.completedText)return;
   const duration=job.type==='harvest'?HARVEST_MS:PLANT_MS;
   defer(duration,async()=>{
    if(job.type==='harvest')await settle(job.room,job.user);
-   await updateFarmMessage({ctx,receipt,text:job.completedText});
+   await sendFarmCompletion({ctx,text:job.completedText});
   });
  }
  return {init,run,scheduleCompletion};
@@ -238,8 +238,8 @@ async function handle(ctx){
    messageId:ctx.messageId??require('./coin').messageKey(ctx.msg||{}),
    onCommittedJobs:jobs=>{committedJobs=jobs;}
   });
-  const receipt=await ctx.send(response);
-  for(const job of committedJobs)service().scheduleCompletion({ctx,job,receipt});
+  await ctx.send(response);
+  for(const job of committedJobs)service().scheduleCompletion({ctx,job});
  }catch(e){
   if(!e.userFacing)console.error('[FARM]',String(e?.message||e));
   await ctx.send('❌ '+(e.userFacing?e.message:'농장 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.'));
