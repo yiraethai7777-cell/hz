@@ -82,3 +82,60 @@ test('unknown account or chat ID cannot start observation', () => {
   assert.throws(() => observer.start('abc'), /ID/);
   assert.equal(observer.observePush({ method: 'VOX_STATUS', body: { c: 'not-an-id' } }), false);
 });
+
+
+test('type-52 label and time-shaped text become tentative opening/ending hints', () => {
+  const room = '91000000008';
+  observer.start(room, 1000);
+  assert.equal(observer.observeMessage(message(room, 52, '보이스룸'), 1100), true);
+  assert.equal(observer.observeMessage(message(room, 52, '0:16'), 1200), true);
+  const events = observer.get(room, 1300).events;
+  assert.equal(events[0].phaseHint, '개설 표시 후보');
+  assert.equal(events[1].phaseHint, '종료 표시 후보');
+  assert.equal(observer.get(room, 1300).verifiedActive, false);
+  assert.doesNotMatch(JSON.stringify(events), /"0:16"|"보이스룸"/);
+  observer.stop(room);
+});
+
+test('duration-like ordinary messages never count as type-52 events', () => {
+  const room = '91000000009';
+  observer.start(room, 1000);
+  assert.equal(observer.observeMessage(message(room, 1, '0:19'), 1100), false);
+  assert.equal(observer.get(room, 1200).events.length, 0);
+  observer.stop(room);
+});
+
+test('attachment shape retains sanitized field names/types but never values', () => {
+  const room = '91000000010';
+  observer.start(room, 1000);
+  const msg = message(room, 52, 'secret message');
+  msg.raw.chatLog.attachment = JSON.stringify({
+    eventType: 'private-text-secret',
+    status: 2,
+    token: 'secret-token',
+    userId: '912345678901',
+    title: 'secret title',
+    nested: { message: 'secret nested' },
+    dangerouslyLargeId: '99988877',
+  });
+  assert.equal(observer.observeMessage(msg, 1200), true);
+  const event = observer.get(room, 1300).events[0];
+  assert.equal(event.shape, 'eventType:string,nested:object,status:number');
+  assert.equal(event.phaseHint, undefined);
+  assert.doesNotMatch(JSON.stringify(event), /private-text-secret|secret-token|912345678901|secret title|secret nested|99988877/);
+  observer.stop(room);
+});
+
+test('unparseable or too large attachment never leaks its raw body', () => {
+  const room = '91000000011';
+  observer.start(room, 1000);
+  for (const attachment of ['{malformed private', '{"large":"' + 'private'.repeat(2000) + '"}']) {
+    const msg = message(room, 52, '');
+    msg.raw.chatLog.attachment = attachment;
+    assert.equal(observer.observeMessage(msg, 1200), true);
+  }
+  const events = observer.get(room, 1300).events;
+  assert.ok(events.every(e => !e.shape));
+  assert.doesNotMatch(JSON.stringify(events), /malformed|private|large/);
+  observer.stop(room);
+});
