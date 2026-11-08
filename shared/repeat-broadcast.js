@@ -1,9 +1,9 @@
 'use strict';
 
-// Bounded owner-only repeat sender. It never floods without a per-command limit.
-// Staggered sends avoid overwhelming KakaoTalk and keep the chat usable.
-const MAX_MESSAGES=5;
-const MIN_INTERVAL_MS=1500;
+// Bot-account-only, capped repeat sender. It stops on command or send failure.
+// Only one room can run at once; a per-room cooldown remains enforced.
+const MAX_MESSAGES=100;
+const MIN_INTERVAL_MS=100;
 const MAX_BODY_LENGTH=200;
 const ROOM_COOLDOWN_MS=60000;
 const jobs=new Map();
@@ -61,7 +61,7 @@ function createRepeatSender({maxMessages=MAX_MESSAGES,intervalMs=MIN_INTERVAL_MS
   }
   const matched=/^!도배시작\s+([\s\S]+)$/.exec(text);
   if (!matched || !matched[1].trim()) {
-   await send('사용법: !도배시작 (내용) · 최대 5회, 1.5초 간격\n중지: !도배중지');
+   await send('사용법: !도배시작 (내용) · 최대 '+maxMessages+'회, '+intervalMs+'ms 간격\n중지: !도배중지');
    return true;
   }
   const body=matched[1].trim();
