@@ -139,7 +139,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
   if(isHelp){
     await safeReply(client,send,'🎙️ NEXI | 보이스룸 명령어\n' +
       '#보룸시작 (제목) / #보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
-      '#보룸상태 · 서버 상태/연동 확인\n' +
+      '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
+      '※ 관리 ON인 방은 보이스룸 개설·종료 이벤트를 자동 감지해 알립니다.\n' +
       '#보룸감지시작 · 3분간 수신 이벤트 관찰\n' +
       '#보룸감지 · 관찰된 신호 후보 확인\n' +
       '#보룸감지종료 · 관찰 중단\n' +
@@ -167,8 +168,15 @@ async function handle({client,roomId,msg,text,send,adapter}){
         capability='모듈 연결됨 · 상태 조회 실패';
       }
     }
+    const observed=require('./voice-room-auto-detect').last(room);
+    const observedText=observed
+      ? observed.phase+(observed.durationSeconds!==undefined&&observed.eventType==='vr_bye'
+        ? ' · '+observed.durationSeconds+'초' : '')+' (실시간 서버 검증 아님)'
+      : '기록 없음 (재시작 시 초기화)';
     await safeReply(client,send,'🎙️ 보이스룸 상태\n━━━━━━━━━━━━━━\n봇 권한: '+roleText+
-      '\n개설 연동: '+capability+'\n※ 단순 채팅 메시지는 보이스룸을 개설하지 않습니다.');
+      '\n개설 연동: '+capability+
+      '\n마지막 자동 감지: '+observedText+
+      '\n※ 수신 이벤트 기록은 실제 보이스룸 활성 상태 조회가 아닙니다.');
     return true;
   }
 
