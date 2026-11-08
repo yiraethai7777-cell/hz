@@ -78,7 +78,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
+  const match=/^[#!]?(보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
@@ -102,10 +102,43 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const isStatus=match[1].endsWith('상태');
   const isStop=match[1].endsWith('끄기') || match[1].endsWith('종료');
   const isHelp=match[1].endsWith('명령어');
+  if(match[1].includes('감지')){
+    const observer=require('./voice-room-observer');
+    if(match[1].endsWith('감지시작')){
+      observer.start(room);
+      await safeReply(client,send,'🔎 보이스룸 감지를 3분간 시작했습니다.\n'+
+        '이 방에서 카카오톡 앱으로 보이스룸을 직접 개설한 뒤 #보룸감지를 입력해 주세요.\n'+
+        '※ 관련 이벤트를 관찰할 뿐, 실제 개설/활성 상태를 확인하는 API는 아닙니다.');
+    }else if(match[1].endsWith('감지종료')){
+      const removed=observer.stop(room);
+      await safeReply(client,send,removed?'🔎 보이스룸 이벤트 감지를 종료했습니다.':
+        '🔎 이 방에서 진행 중인 보이스룸 감지가 없습니다.');
+    }else{
+      const result=observer.get(room);
+      if(!result.observing){
+        await safeReply(client,send,'🔎 진행 중인 감지가 없습니다.\n먼저 #보룸감지시작을 입력해 주세요.');
+      }else if(!result.events.length){
+        await safeReply(client,send,'🔎 보이스룸 감지 결과\n━━━━━━━━━━━━━━\n'+
+          '관찰된 관련 이벤트: 0건\n남은 시간: '+result.remainingSeconds+'초\n'+
+          '판정: 확인 불가\n※ 이벤트가 없어도 보룸이 열리지 않았다는 의미는 아닙니다.');
+      }else{
+        const detail=result.events.map(e=>e.source==='message'?
+          '채팅 유형 '+e.type:'서버 푸시 '+e.method).join(', ');
+        await safeReply(client,send,'🔎 보이스룸 감지 결과\n━━━━━━━━━━━━━━\n'+
+          '관련 이벤트 후보: '+result.events.length+'건\n'+
+          '종류: '+detail.slice(0,350)+'\n남은 시간: '+result.remainingSeconds+'초\n'+
+          '판정: 보이스룸 관련 신호 후보 발견 (실제 개설/활성 여부 미확정)');
+      }
+    }
+    return true;
+  }
   if(isHelp){
     await safeReply(client,send,'🎙️ NEXI | 보이스룸 명령어\n' +
       '#보룸시작 (제목) / #보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
       '#보룸상태 · 서버 상태/연동 확인\n' +
+      '#보룸감지시작 · 3분간 수신 이벤트 관찰\n' +
+      '#보룸감지 · 관찰된 신호 후보 확인\n' +
+      '#보룸감지종료 · 관찰 중단\n' +
       '#보룸종료 / #보룸끄기 · 확인된 보이스룸 종료 요청\n' +
       '※ 실제 서버 API가 연결된 경우에만 생성·종료합니다.\n' +
       '※ 방장·부방장 및 봇 계정이 사용 가능합니다.\n' +
