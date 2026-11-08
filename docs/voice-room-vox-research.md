@@ -12,9 +12,9 @@
 5. **구형 LIVE_TALK 채팅 유형 및 일반 LOCO 명령은 현재 오픈채팅 VOX 생성 명령으로 검증되지 않았습니다.**
 
 ### 조사 출처 (제3자 자료·미검증 부분 포함)
-- 앱 보이스룸 UI→매니저 흐름: https://github.com/theman001/KakaoWebTalk/blob/main/app/kakaotalk_apk_jadxExport/app/src/main/java/p405GS/C9129m.java
-- 보이스룸 코어 매니저: https://github.com/theman001/KakaoWebTalk/blob/main/app/kakaotalk_apk_jadxExport/app/src/main/java/p3093zR/C75899c.java
-- PC 음성 라이브러리 분석 메모: https://github.com/theman001/KakaoWebTalk/blob/main/report/02_Binary_Logic_DeepDive.md
+- 앱 보이스룸 UI→매니저 흐름: https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p405GS/C9129m.java
+- 보이스룸 코어 매니저: https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p3093zR/C75899c.java
+- PC 음성 라이브러리 분석 메모: https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/report/02_Binary_Logic_DeepDive.md
 - LOCO 메시징 개요: https://openkakao.vercel.app/docs/protocol/overview
 
 **주의:** 위 링크의 코드·메모는 공식 문서가 아니며 카카오톡 버전과 실제 서버 동작이 일치하는지 확인되지 않았습니다. 분석 자료의 코드를 NEXI에 복제하지 않습니다.
