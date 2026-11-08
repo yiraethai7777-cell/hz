@@ -125,6 +125,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         const detail=result.events.map((e,index)=>e.source==='message'?
           (index+1)+'번째: 채팅 유형 '+e.type+
           (e.phaseHint?' · '+e.phaseHint:'')+
+          (e.durationSeconds!==undefined?' · 지속시간 '+e.durationSeconds+'초':'')+
           (e.shape?' · 첨부필드 '+e.shape:''):
           (index+1)+'번째: 서버 푸시 '+e.method).join('\n');
         await safeReply(client,send,'🔎 보이스룸 감지 결과\n━━━━━━━━━━━━━━\n'+
