@@ -34,7 +34,7 @@ function adapterOf(client) {
 }
 function parseTitle(value) {
   const raw=String(value??'').replace(/\r\n?/g,'\n').trim();
-  if(!raw) return '보이스룸';
+  if(!raw || /^[.!。]$/.test(raw)) return '보이스룸';
   if(raw.length>MAX_TITLE)throw Error('보이스룸 이름은 '+MAX_TITLE+'자 이하로 입력해 주세요.');
   if(/[\u0000-\u001f\u007f]/.test(raw))throw Error('보이스룸 이름에 줄바꿈 또는 제어문자를 사용할 수 없습니다.');
   return raw;
@@ -78,13 +78,14 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸켜기|보룸끄기|보룸상태|보룸명령어|보이스룸켜기|보이스룸끄기|보이스룸상태|보이스룸명령어)(?=$|\s)/.exec(raw);
+  const match=/^[#!]?(보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
   // Bot owner privileges for server create/stop are still checked below.
   const botId=client?.userId==null?'':String(client.userId);
-  const senderId=msg?.sender?.id==null?'':String(msg.sender.id);
+  const senderValue=msg?.sender?.id ?? msg?.senderId;
+  const senderId=senderValue==null?'':String(senderValue);
   const isBotAccount=botId!=='' && botId!=='0' && senderId!=='' && botId===senderId;
   if(msg?.room?.isOpenChat!==true){
     await safeReply(client,send,'❌ 보이스룸 명령어는 오픈채팅방에서만 사용할 수 있습니다.');
@@ -99,16 +100,16 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const transport=adapter===undefined?adapterOf(client):adapter;
   const role=botMemberType(client,room);
   const isStatus=match[1].endsWith('상태');
-  const isStop=match[1].endsWith('끄기');
+  const isStop=match[1].endsWith('끄기') || match[1].endsWith('종료');
   const isHelp=match[1].endsWith('명령어');
   if(isHelp){
     await safeReply(client,send,'🎙️ NEXI | 보이스룸 명령어\n' +
-      '#보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
+      '#보룸시작 (제목) / #보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
       '#보룸상태 · 서버 상태/연동 확인\n' +
-      '#보룸끄기 · 확인된 보이스룸 종료 요청\n' +
+      '#보룸종료 / #보룸끄기 · 확인된 보이스룸 종료 요청\n' +
       '※ 실제 서버 API가 연결된 경우에만 생성·종료합니다.\n' +
       '※ 방장·부방장 및 봇 계정이 사용 가능합니다.\n' +
-      '※ 실제 생성·종료는 봇 계정이 해당 방의 방장·부방장이어야 가능합니다.');
+      '※ 봇 계정은 명령어를 직접 사용할 수 있지만 실제 생성·종료는 카카오톡 서버 권한 및 API 지원에 따릅니다.');
     return true;
   }
   if(isStatus){
@@ -139,8 +140,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
       await safeReply(client,send,'⚠️ 실제 보이스룸 종료 API 또는 서버 상태 조회 API가 연결되지 않았습니다.');
       return true;
     }
-    if(!managerRole(role)){
-      await safeReply(client,send,'❌ 보이스룸을 종료하려면 이 방에서 봇 계정의 방장·부방장 권한도 확인되어야 합니다.');
+    if(!isBotAccount && !managerRole(role)){
+      await safeReply(client,send,'❌ 보이스룸 종료 요청을 보내려면 봇 계정의 방장·부방장 권한을 확인해야 합니다.');
       return true;
     }
     if(running.has(room)){
@@ -177,7 +178,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '카카오톡 앱의 + 메뉴에서 보이스룸을 직접 개설할 수 있습니다.');
     return true;
   }
-  if(!managerRole(role)){
+  if(!isBotAccount && !managerRole(role)){
     await safeReply(client,send,role==null || role===0?
       '❌ 이 방에서 봇 계정의 방장/부방장 권한을 확인할 수 없습니다. 안전을 위해 생성 요청을 보내지 않습니다.':
       '❌ 보이스룸을 생성하려면 봇 계정에도 방장 또는 부방장 권한이 필요합니다.');

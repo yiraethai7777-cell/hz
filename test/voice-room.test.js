@@ -279,14 +279,75 @@ test('non-bot sender cannot bypass manager role by using another non-manager ID'
   assert.match(sent[0],/방장·부방장 또는 봇 계정만/);
 });
 
-test('bot account command access never bypasses verified room owner/manager role for actual create',async()=>{
-  const {args,client,sent}=fixture({text:'#보룸켜기 테스트'});
+test('bot account may request creation even without cached manager role',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸시작 테스트'});
   args.msg.sender.id=client.userId;
   args.msg.sender.type=2;
   client._getCachedMemberType=()=>2;
   let calls=0;
+  args.adapter={create:async payload=>{
+    calls++;
+    assert.equal(payload.title,'테스트');
+    return {created:true,verified:true,status:0};
+  }};
+  await voice.handle(args);
+  assert.equal(calls,1);
+  assert.match(sent[0],/생성 확인/);
+});
+
+test('bot account may request stop even without cached manager role',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸종료'});
+  args.msg.sender.id=client.userId;
+  args.msg.sender.type=2;
+  client._getCachedMemberType=()=>2;
+  let calls=0;
+  args.adapter={
+    status:async()=>({active:true,verified:true,roomId:ROOM,voiceRoomId:'777'}),
+    stop:async()=>{calls++;return {closed:true,verified:true,roomId:ROOM};}
+  };
+  await voice.handle(args);
+  assert.equal(calls,1);
+  assert.match(sent[0],/종료가 서버에서 확인/);
+});
+
+test('screenshotted #보룸시작. is recognized and has default voice room title',async()=>{
+  const {args,sent}=fixture({text:'#보룸시작.'});
+  let name;
+  args.adapter={create:async ({title})=>{name=title;return {created:true,verified:true};}};
+  await voice.handle(args);
+  assert.equal(name,'보이스룸');
+  assert.match(sent[0],/생성 확인/);
+});
+
+test('aliases for start, stop and voice-room commands are all recognized',async()=>{
+  for(const command of ['#보룸시작','!보룸시작','보룸시작','#보이스룸시작']){
+    const {args,sent}=fixture({text:command});
+    assert.equal(await voice.handle(args),true);
+    assert.match(sent[0],/생성 API가 아직 연결되지 않았습니다/);
+  }
+  for(const command of ['#보룸종료','!보룸종료','보룸종료','#보이스룸종료.']){
+    const {args,sent}=fixture({text:command});
+    assert.equal(await voice.handle(args),true);
+    assert.match(sent[0],/종료 API/);
+  }
+});
+
+test('bot account command can use a top-level senderId fallback',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸상태'});
+  args.msg.sender.id=undefined;
+  args.msg.sender.type=2;
+  args.msg.senderId=client.userId;
+  assert.equal(await voice.handle(args),true);
+  assert.match(sent[0],/보이스룸 상태/);
+});
+
+test('manager role is still needed for non-bot users',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸시작'});
+  client._getCachedMemberType=()=>2;
+  args.msg.sender.type=2;
+  let calls=0;
   args.adapter={create:async()=>{calls++;return {created:true,verified:true};}};
   await voice.handle(args);
   assert.equal(calls,0);
-  assert.match(sent[0],/봇 계정에도 방장 또는 부방장/);
+  assert.match(sent[0],/방장·부방장 또는 봇 계정만/);
 });

@@ -24,9 +24,9 @@ function fixture() {
     message:async()=>{throw Error('not applicable');}};
   const management={message:async()=>{throw Error('not applicable');}};
   attachRouter(client,{game,management,ready});
-  const emit=(text,senderType=1)=>callback({
+  const emit=(text,senderType=1,senderId='9007199254740993444')=>callback({
     room:{id:'18495931541358610',isOpenChat:true},
-    sender:{id:'9007199254740993444',type:senderType},
+    sender:{id:senderId,type:senderType},
     message:{text}
   });
   return {client,ready,emit,sent};
@@ -137,4 +137,40 @@ test('voice help command routes without requiring an active driver',async()=>{
   await emit('!보룸명령어');
   assert.equal(sent.length,1);
   assert.match(sent[0].body,/NEXI \| 보이스룸 명령어/);
+});
+
+test('screenshotted #보룸시작 receives an unsupported API response',async()=>{
+  const {emit,sent}=fixture();
+  await emit('#보룸시작 .');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/보이스룸 생성 API가 아직 연결되지 않았습니다/);
+});
+
+test('bot account with ordinary sender role can issue #보룸시작',async()=>{
+  const {emit,sent,client}=fixture();
+  await emit('#보룸시작',2,client.userId);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/보이스룸 생성 API가 아직 연결되지 않았습니다/);
+  assert.doesNotMatch(sent[0].body,/방장·부방장 또는 봇 계정만/);
+});
+
+test('ordinary non-bot chat members still cannot issue voice-room commands',async()=>{
+  const {emit,sent}=fixture();
+  await emit('#보룸시작',2);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/방장·부방장 또는 봇 계정만/);
+});
+
+test('bot account with ordinary sender role can query status',async()=>{
+  const {emit,sent,client}=fixture();
+  await emit('#보룸상태',2,client.userId);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/보이스룸 상태/);
+});
+
+test('alias #보룸종료 routes to stop handler',async()=>{
+  const {emit,sent}=fixture();
+  await emit('#보룸종료');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/종료 API/);
 });
