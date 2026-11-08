@@ -39,7 +39,9 @@ async function sendAttendanceImage(client, context) {
       throw new Error("실제 출석 보상을 확인할 수 없습니다.");
     }
 
+    const arden=require('../../shared/arden-style').activeFor(room);
     const image = await renderAttendance({
+      arden,
       name: context.userName || data.name,
       today: data.today,
       attendanceDate: data.attendanceDate,
@@ -57,7 +59,7 @@ async function sendAttendanceImage(client, context) {
     });
 
     const result = await sendPng(client, room, image, {
-      caption: '📅 ' + (context.userName || data.name) + '님의 출석 달력 · ' + data.attendanceDate
+      caption: (arden?'✅ 𝑨𝑹𝑫𝑬𝑵 | ATTENDANCE · ':'📅 ') + (context.userName || data.name) + '님의 출석 달력 · ' + data.attendanceDate
     });
 
     if (!result.confirmed) {
