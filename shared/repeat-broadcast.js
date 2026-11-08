@@ -3,7 +3,7 @@
 // Bot-account-only, capped repeat sender. It stops on command or send failure.
 // Only one room can run at once; a per-room cooldown remains enforced.
 const MAX_MESSAGES=500;
-const MIN_INTERVAL_MS=10;
+const MIN_INTERVAL_MS=1;
 const MAX_BODY_LENGTH=200;
 const ROOM_COOLDOWN_MS=60000;
 const jobs=new Map();
