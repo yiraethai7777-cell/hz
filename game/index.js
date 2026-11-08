@@ -126,7 +126,7 @@ function createGame(client) {
       if (flags.locked&&!isBotAccount) return;
       if(/^#(?:광산|채굴|광물인벤|광물판매|곡괭이|곡괭이강화|곡괭이구매|곡괭이장착|채굴지)(?:\s|$)/.test(text)){
         if(!flags.game){await send('게임 기능이 꺼져 있습니다. !게임on 이후 이용해 주세요.');return;}
-        await require('./mining').handle(normalized);return;
+        await require('./mining').handle({...normalized,isArdenClan:String(flags.ardenClan)==='true'});return;
       }
       if(/^#상점(?:\s|$)/.test(text)){if(!flags.game){await send('게임 기능이 꺼져 있습니다.');return;}await require('./shop').handle(normalized);return;}
       if(await require('./typing').handle(normalized,!!flags.game||isBotAccount))return;
