@@ -33,9 +33,15 @@ function start() {
   ready.catch(err => console.error('[HZ NEW] 초기화 실패:', err));
 
   attachRouter(client, { game, management: manage, ready });
-  // Read-only: observe VOX-related signal candidates only during an authorized
-  // three-minute #보룸감지시작 window. Never sends requests or logs payloads.
+  // Keep the existing opt-in 3-minute diagnostic unchanged.
   require('./shared/voice-room-observer').install(client);
+  // Independent automatic lifecycle notices in management-enabled OpenChat rooms.
+  // Management and the full bot power switch are checked for EVERY event.
+  require('./shared/voice-room-auto-detect').install(client, {
+    isManaged: roomId => manage.enabled(roomId),
+    isBotEnabled: roomId => require('./shared/bot-power').enabled(roomId),
+    send: (roomId, body) => client.chat.sendText(roomId, body),
+  });
   // KakaoForge member callbacks are registered separately from chat messages.
   const memberEvent=kind=>async (...args)=>{
     const event=args.length===1?args[0]:args[1];
