@@ -274,3 +274,38 @@ test('room probe outputs recognized lifecycle events but not voice server creden
     observer.stop(roomId);
   }
 });
+
+
+test('management-enabled automatic detection appears in #보룸상태 and #보룸감지', async () => {
+  const auto=require('../shared/voice-room-auto-detect');
+  const roomId='18495931541358610';
+  const observer=require('../shared/voice-room-observer');
+  observer.stop(roomId); // command should work without a manual 3-minute watch
+  const send=[];
+  const event={ room:{ id:roomId, isOpenChat:true },
+    message:{ type:52, logId:'9988776655441', text:'should not be copied' },
+    raw:{ chatLog:{ attachment: JSON.stringify({
+      type:'vr_invite', duration:0, csIP:'192.0.2.10', callId:'sensitive'
+    }) } } };
+  assert.equal(await auto.handleMessage(event,{
+    isManaged:async()=>true,
+    isBotEnabled:async()=>true,
+    send:async(id,text)=>send.push({id,text})
+  }),true);
+  const {emit,sent}=fixture();
+  await emit('#보룸상태');
+  assert.match(sent.at(-1).body,/마지막 자동 감지: 개설 이벤트 수신/);
+  assert.match(sent.at(-1).body,/미연동/);
+  await emit('#보룸감지');
+  assert.match(sent.at(-1).body,/마지막 자동 감지 기록/);
+  assert.match(sent.at(-1).body,/개설 이벤트 수신/);
+  assert.doesNotMatch(JSON.stringify(sent),/192\.0\.2|sensitive|should not be copied/);
+  assert.equal(send.length,1);
+});
+
+test('automatic room detection does not claim active voice server from a received event', async () => {
+  const {emit,sent}=fixture();
+  await emit('#보룸상태');
+  assert.match(sent.at(-1).body,/실시간 서버 검증 아님/);
+  assert.match(sent.at(-1).body,/미연동/);
+});
