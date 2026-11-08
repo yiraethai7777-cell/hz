@@ -80,14 +80,18 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
   const match=/^[#!]?(보룸켜기|보룸끄기|보룸상태|보룸명령어|보이스룸켜기|보이스룸끄기|보이스룸상태|보이스룸명령어)(?=$|\s)/.exec(raw);
   if(!match)return false;
-  // Allow commands from the same Kakao account as the bot. Replies never
-  // begin with command prefixes, so they will not recurse into this handler.
+  // Authorize the actual bot account by its Kakao ID, independently of the
+  // sender.type carried by the message. Never trust a boolean from the event.
+  // Bot owner privileges for server create/stop are still checked below.
+  const botId=client?.userId==null?'':String(client.userId);
+  const senderId=msg?.sender?.id==null?'':String(msg.sender.id);
+  const isBotAccount=botId!=='' && botId!=='0' && senderId!=='' && botId===senderId;
   if(msg?.room?.isOpenChat!==true){
     await safeReply(client,send,'❌ 보이스룸 명령어는 오픈채팅방에서만 사용할 수 있습니다.');
     return true;
   }
-  if(!managerRole(msg?.sender?.type)){
-    await safeReply(client,send,'❌ 방장 또는 부방장만 이 명령어를 사용할 수 있습니다.');
+  if(!isBotAccount && !managerRole(msg?.sender?.type)){
+    await safeReply(client,send,'❌ 방장·부방장 또는 봇 계정만 이 명령어를 사용할 수 있습니다.');
     return true;
   }
 
@@ -103,7 +107,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸상태 · 서버 상태/연동 확인\n' +
       '#보룸끄기 · 확인된 보이스룸 종료 요청\n' +
       '※ 실제 서버 API가 연결된 경우에만 생성·종료합니다.\n' +
-      '※ 방장·부방장 전용이며, 봇 계정에도 해당 방의 권한이 필요합니다.');
+      '※ 방장·부방장 및 봇 계정이 사용 가능합니다.\n' +
+      '※ 실제 생성·종료는 봇 계정이 해당 방의 방장·부방장이어야 가능합니다.');
     return true;
   }
   if(isStatus){
