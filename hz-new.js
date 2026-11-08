@@ -33,6 +33,9 @@ function start() {
   ready.catch(err => console.error('[HZ NEW] 초기화 실패:', err));
 
   attachRouter(client, { game, management: manage, ready });
+  // Read-only: observe VOX-related signal candidates only during an authorized
+  // three-minute #보룸감지시작 window. Never sends requests or logs payloads.
+  require('./shared/voice-room-observer').install(client);
   // KakaoForge member callbacks are registered separately from chat messages.
   const memberEvent=kind=>async (...args)=>{
     const event=args.length===1?args[0]:args[1];

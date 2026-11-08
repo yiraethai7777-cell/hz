@@ -174,3 +174,47 @@ test('alias #보룸종료 routes to stop handler',async()=>{
   assert.equal(sent.length,1);
   assert.match(sent[0].body,/종료 API/);
 });
+
+
+test('observation commands route before unrelated DB/game ready', async () => {
+  const { emit, sent } = fixture();
+  const observer = require('../shared/voice-room-observer');
+  const roomId = '18495931541358610';
+  try {
+    await emit('#보룸감지시작');
+    assert.match(sent.at(-1).body, /3분간 시작/);
+    await emit('#보룸감지');
+    assert.match(sent.at(-1).body, /판정: 확인 불가/);
+    observer.observeMessage({
+      room: { id: roomId, isOpenChat: true },
+      message: { type: 52, text: 'do not include me' },
+    });
+    await emit('#보룸감지');
+    assert.match(sent.at(-1).body, /관련 이벤트 후보: 1건/);
+    assert.match(sent.at(-1).body, /실제 개설\/활성 여부 미확정/);
+    assert.doesNotMatch(sent.at(-1).body, /do not include me/);
+    await emit('#보룸감지종료');
+    assert.match(sent.at(-1).body, /감지를 종료/);
+  } finally {
+    observer.stop(roomId);
+  }
+});
+
+test('observation commands remain manager-or-bot-account only', async () => {
+  const { emit, sent } = fixture();
+  await emit('#보룸감지시작', 2);
+  assert.match(sent.at(-1).body, /방장·부방장 또는 봇 계정만/);
+});
+
+test('status commands still never report unverified observer hits as live VoiceRoom', async () => {
+  const { emit, sent } = fixture();
+  const observer = require('../shared/voice-room-observer');
+  const roomId = '18495931541358610';
+  try {
+    observer.start(roomId);
+    observer.observeMessage({ room: { id: roomId, isOpenChat: true }, message: { type: 52 } });
+    await emit('#보룸상태');
+    assert.match(sent.at(-1).body, /미연동/);
+    assert.doesNotMatch(sent.at(-1).body, /서버에서 개설 상태 확인/);
+  } finally { observer.stop(roomId); }
+});
