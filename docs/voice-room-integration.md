@@ -127,3 +127,44 @@ node --test test/voice-room.test.js test/voice-router.test.js
 ```
 
 테스트는 **모의 어댑터 기준의 컨트롤러 동작 확인**이며 실제 카카오톡 보이스룸 서버의 생성 성공을 증명하지 않습니다.
+
+
+## 생성 프로토콜 조사 기록 (2026-11-09)
+
+이 항목은 **실제 보이스룸 생성 구현이 아니라**, 2026-11-09까지 확인한 근거와 미해결 사항을 기록합니다. 기존 `shared/voice-room.js`의 명령어·권한·검증 로직은 변경하지 않습니다.
+
+### 실제 생성 화면에서 호출하는 코드 (제3자 Android APK 역컴파일 결과)
+
+공개 저장소 [KakaoWebTalk](https://github.com/theman001/KakaoWebTalk/tree/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java)의 역컴파일 코드에서 다음 호출 흐름을 확인했습니다.
+
+1. [`VoiceroomCreateBottomSheetDialogFragment`](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p527IS/C12108d.java): `checkValidVoiceroomCreate(context, true, chatId, ...)`로 사전 검사
+2. [`C9129m.java` 63–74행](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p405GS/C9129m.java#L63-L74): `getVoiceroomManager().makeVoiceroom(context, chatId, title, successCallback, errorCallback)` 호출
+3. [`VoiceroomCoreManager` 1690–1707행](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p3093zR/C75899c.java#L1690-L1707): 내부 코루틴 `makeVoiceroom$2` 실행
+4. **한계:** 해당 코루틴의 핵심 `C78695a.invokeSuspend` 메서드는 JADX가 **`Method dump skipped, instructions count: 391`** 로 생략했으며, 실제 서버 생성 패킷·인증·응답 코드를 확보하지 못함
+
+이 제3자 Android 추출물의 버전·동작은 Windows 26.9.0.66과 일치한다고 확인되지 않았습니다. 또한 외부 [VOX30 분석 초안](https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md)에서 `makeVoiceRoomCall()`을 언급하지만 생성 명령에 필요한 완전한 구현은 제공하지 않습니다.
+
+### Windows VOX 바이너리 정적 분석
+
+사용자가 제공한 Windows 카카오톡 버전 **26.9.0.66**의 DLL 두 개를 실행하지 않고 PE 구조 및 심볼을 확인했습니다.
+
+| 항목 | 확인된 결과 |
+|---|---|
+| `Vox.dll` | 32비트 x86, 내보내기 5개 |
+| `Vox3.dll` | 32비트 x86, 내보내기 3개 |
+| `Vox3.dll` 내보내기 | `IVoxManager::GetInstance`, `IVoxScreenShare::Create`, `IVoxScreenShare::Release` |
+| `Vox.dll` 내보내기 | `IVox::GetInstance`, `decrypt_vox_bson_msg`, `decrypt_vox_bson_msg_groupcall`, `decrypt_vox_bson_msg_voiceroom`, `encrypt_vox_bson_msg` |
+| DLL 사이 실제 함수 참조 | `Vox3.dll`이 `Vox.dll`의 `decrypt_vox_bson_msg_voiceroom`을 import |
+| 정적 분석 한계 | 두 파일에 `.vm_sec`, `.themida`, `.boot` 섹션 존재. 내보내기 목록에는 보이스룸 생성 함수가 없음 |
+
+보이스룸 BSON **복호화 함수의 존재만으로** 생성 요청의 필드·키·프로토콜·성공 응답을 알 수 없습니다. 또한 Windows DLL을 Linux Railway에서 직접 로드하거나 Android 내부 메서드를 Node.js API처럼 호출할 수 없습니다.
+
+### 실제 생성 어댑터 구현 전 필수 확인 조건
+
+- [ ] `makeVoiceroom` 내부에서 호출되는 **실제** VOX 생성 요청/시그널링 코드 확보
+- [ ] 기존 인증 세션을 VOX에 연결하는 절차와 해당 채팅방/오픈링크 식별자 검증
+- [ ] 생성 요청 필드 및 서버 성공·실패 응답을 재현 가능한 테스트에서 확인
+- [ ] 진행자 세션 유지, 재시작 복구 및 중복 개설 방지 동작 확인
+- [ ] Railway Linux 환경에서 별도 PC/휴대전화/에뮬레이터 없이 동작 확인
+
+**금지:** `CREATE_VOICEROOM` 같은 미확인 LOCO 메서드나 `vr_invite` 수신 메시지를 생성 요청으로 추정하여 전송하지 않습니다. 응답 검증 없이 `verified: true`를 반환하지 않습니다. 기존 컨트롤러/운영 배포는 검증된 구현이 나올 때까지 유지합니다.
