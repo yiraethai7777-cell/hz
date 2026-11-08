@@ -390,7 +390,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         .catch(error => console.error('[JUNGGAE] alert error:', error));
       // Voice-room help/status must remain responsive even if unrelated
       // game/database initialization is still pending or has failed.
-      if (/^[#!]?(?:보룸켜기|보룸끄기|보룸상태|보룸명령어|보이스룸켜기|보이스룸끄기|보이스룸상태|보이스룸명령어)(?=$|\s)/.test(text)) {
+      if (/^[#!]?(?:보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸명령어)(?=$|\s|[.!。])/.test(text)) {
         console.log('[보이스룸] 명령 수신:', JSON.stringify({
           roomId: String(roomId),
           command: text.split(/\s/,1)[0],
