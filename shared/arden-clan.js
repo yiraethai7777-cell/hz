@@ -39,7 +39,7 @@ async function handle({client,chat,roomId,userId,userName,text,isBotAccount=fals
     "ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{ardenClan}',to_jsonb($2::boolean),true),updated_at=NOW()",
     [room,on]
    );
-   await send(on?'⚜️ ARDEN | 클랜 가입 제한 활성화\n!클랜가입 후 게임·출석 등 명령어를 사용할 수 있습니다.':'⚜️ ARDEN | 클랜 가입 제한 비활성화');
+   await send(on?'⚜️ 𝑨𝑹𝑫𝑬𝑵 | 클랜 가입 제한 활성화\n!클랜가입 후 게임·출석 등 명령어를 사용할 수 있습니다.':'⚜️ 𝑨𝑹𝑫𝑬𝑵 | 클랜 가입 제한 비활성화');
    return true;
   }
   if(!active)return false;
@@ -53,7 +53,7 @@ async function handle({client,chat,roomId,userId,userName,text,isBotAccount=fals
     [room,user,String(userName||'').slice(0,80)]
    );
    await send(result.rowCount
-    ?'⚜️ ARDEN | 클랜 가입 완료\n👤 '+String(userName||'클랜원')+'님, 환영합니다!\n✅ 승인 없이 즉시 가입되었습니다.\n🎮 이제 출석·낚시·채굴·퀴즈 등 봇 기능을 사용할 수 있습니다.'
+    ?'⚜️ 𝑨𝑹𝑫𝑬𝑵 | 클랜 가입 완료\n👤 '+String(userName||'클랜원')+'님, 환영합니다!\n✅ 승인 없이 즉시 가입되었습니다.\n🎮 이제 출석·낚시·채굴·퀴즈 등 봇 기능을 사용할 수 있습니다.'
     :'ℹ️ 이미 ARDEN 클랜에 가입되어 있습니다.');
    return true;
   }
@@ -78,7 +78,7 @@ async function handle({client,chat,roomId,userId,userName,text,isBotAccount=fals
     try{
      await db.query("INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,'KICK_RELEASE',$4)",[room,user,user,'ARDEN 자발적 클랜 탈퇴 · 자동 내풀']);
     }catch(logError){console.warn('[ARDEN LEAVE LOG]',String(logError?.message||logError));}
-    await send('⚜️ ARDEN | 클랜 탈퇴 완료\n'+String(userName||'클랜원')+'님의 자동 내풀(내보내기 후 해제)을 요청했습니다.\n언제든 재입장 후 다시 가입할 수 있습니다.');
+    await send('⚜️ 𝑨𝑹𝑫𝑬𝑵 | 클랜 탈퇴 완료\n'+String(userName||'클랜원')+'님의 자동 내풀(내보내기 후 해제)을 요청했습니다.\n언제든 재입장 후 다시 가입할 수 있습니다.');
    }catch(error){
     console.error('[ARDEN AUTO KICK RELEASE]',String(error?.message||error));
     await send(kicked
@@ -93,7 +93,7 @@ async function handle({client,chat,roomId,userId,userName,text,isBotAccount=fals
     db.query('SELECT count(*)::int AS count FROM hz_arden_members WHERE room_id=$1',[room]),
     db.query('SELECT 1 FROM hz_arden_members WHERE room_id=$1 AND user_id=$2',[room,user])
    ]);
-   await send('⚜️ ARDEN | 클랜 정보\n👥 정식 클랜원: '+count.rows[0].count+'명\n📋 내 가입 상태: '+(mine.rowCount?'가입 완료':'미가입')+'\n!클랜가입 / !클랜탈퇴');
+   await send('⚜️ 𝑨𝑹𝑫𝑬𝑵 | 클랜 정보\n👥 정식 클랜원: '+count.rows[0].count+'명\n📋 내 가입 상태: '+(mine.rowCount?'가입 완료':'미가입')+'\n!클랜가입 / !클랜탈퇴');
    return true;
   }
   if(isBotAccount)return false;

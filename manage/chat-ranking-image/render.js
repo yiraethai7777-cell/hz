@@ -9,6 +9,7 @@ function fitName(value,max){
  return chars.length>max?chars.slice(0,max-1).join('')+'…':clean;
 }
 function buildSvg(snapshot){
+ const arden=snapshot.arden===true;
  const data=snapshot.top;
  if(!Array.isArray(data)||data.length>10)throw Error('Invalid ranking');
  const valueSize=(value,width,max)=>Math.min(max,Math.floor(width/(String(value).length*.65)));
@@ -28,13 +29,13 @@ const rows=data.map((entry,i)=>{
  </g>`;
 }).join('');
 const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1370" viewBox="0 0 1200 1370">
-<defs><linearGradient id="bg" x2="0.3" y2="1"><stop stop-color="#1b1b1b"/><stop offset="0.45" stop-color="#080808"/><stop offset="1" stop-color="#101010"/></linearGradient><linearGradient id="edge"><stop stop-color="#ccc"/><stop offset=".5" stop-color="#565656"/><stop offset="1" stop-color="#999"/></linearGradient></defs>
+<defs><linearGradient id="bg" x2="0.3" y2="1"><stop stop-color="#1b1b1b"/><stop offset="0.45" stop-color="#080808"/><stop offset="1" stop-color="#101010"/></linearGradient><linearGradient id="edge"><stop stop-color="${arden?'#d9c6ff':'#ccc'}"/><stop offset=".5" stop-color="${arden?'#755a90':'#565656'}"/><stop offset="1" stop-color="#999"/></linearGradient></defs>
 <rect width="1200" height="1370" fill="#111"/>
 <rect x="24" y="24" width="1152" height="1322" rx="36" fill="url(#bg)" stroke="url(#edge)" stroke-width="2"/>
 <g font-family="Noto Sans KR">
-${txt(60,83,'!채팅순위',24,'#c6c6c6','font-weight="800"')}${txt(1138,83,'우리 방 누적 기록',21,'#999','text-anchor="end"')}
-${txt(64,171,'우리 방 채팅 순위',64,'#fff','font-weight="800"')}
-${txt(67,220,'가장 활발하게 대화한 멤버 TOP 10',27,'#b8b8b8')}
+${txt(60,83,arden?'ARDEN | ACTIVITY':'!채팅순위',24,arden?'#d9c6ff':'#c6c6c6',arden?'font-weight="800" font-style="italic"':'font-weight="800"')}${txt(1138,83,'우리 방 누적 기록',21,'#999','text-anchor="end"')}
+${txt(64,171,arden?'ARDEN 채팅 순위':'우리 방 채팅 순위',64,'#fff','font-weight="800"')}
+${txt(67,220,arden?'ARDEN 클랜 활동 TOP 10':'가장 활발하게 대화한 멤버 TOP 10',27,'#b8b8b8')}
 <g transform="translate(1020 133)" fill="none" stroke="#ddd" stroke-width="5"><path d="M-39-35h75a15 15 0 0 1 15 15v37a15 15 0 0 1-15 15H3l-28 21V32h-14a15 15 0 0 1-15-15v-37a15 15 0 0 1 15-15Z"/><path d="M-27-6h52M-27 9H8" stroke-linecap="round"/></g>
 <rect x="56" y="258" width="1088" height="79" rx="17" fill="#191919" stroke="#414141"/>
 ${txt(83,307,'집계 기준',23,'#929292')}${txt(203,307,'누적 채팅',27,'#fff','font-weight="800"')}
