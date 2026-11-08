@@ -2,6 +2,10 @@
 
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
+// Voice routing is tested without a real PostgreSQL instance. This only
+// mocks DB reads/command-block schema setup; integration tests use real DB.
+const dbModule=require('../shared/db');
+dbModule.getPool=()=>({query:async()=>({rows:[],rowCount:0})});
 const {attachRouter}=require('../shared/router');
 
 function fixture() {
