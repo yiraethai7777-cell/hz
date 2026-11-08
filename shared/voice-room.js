@@ -116,7 +116,18 @@ async function handle({client,roomId,msg,text,send,adapter}){
     }else{
       const result=observer.get(room);
       if(!result.observing){
-        await safeReply(client,send,'🔎 진행 중인 감지가 없습니다.\n먼저 #보룸감지시작을 입력해 주세요.');
+        const state=require('./voice-room-auto-detect').last(room);
+        if(state){
+          await safeReply(client,send,'🎙️ 마지막 자동 감지 기록\n━━━━━━━━━━━━━━\n'+
+            state.phase+
+            (state.eventType==='vr_bye'&&state.durationSeconds!==undefined
+              ? '\n진행 시간: '+state.durationSeconds+'초':'')+
+            '\n※ 관리 ON 상태에서 수신한 이벤트 기록이며 실시간 서버 상태 조회는 아닙니다.');
+        }else{
+          await safeReply(client,send,'🔎 아직 수신한 자동 감지 기록이 없습니다.\n'+
+            '관리가 ON인 방은 보이스룸 개설·종료 시 자동으로 알립니다.\n'+
+            '수동 진단이 필요하면 #보룸감지시작을 입력해 주세요.');
+        }
       }else if(!result.events.length){
         await safeReply(client,send,'🔎 보이스룸 감지 결과\n━━━━━━━━━━━━━━\n'+
           '관찰된 관련 이벤트: 0건\n남은 시간: '+result.remainingSeconds+'초\n'+
