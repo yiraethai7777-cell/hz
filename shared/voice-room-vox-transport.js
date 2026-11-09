@@ -42,6 +42,7 @@ class VoxFrameSocket extends EventEmitter {
     this.decoder = new wire.FrameDecoder();
     this.closed = false;
     this._onData = chunk => {
+      if (this.closed) return;
       try {
         for (const packet of this.decoder.push(chunk)) {
           // The caller must validate authentication and BSON meaning.
@@ -58,8 +59,12 @@ class VoxFrameSocket extends EventEmitter {
       this.close();
     };
     this._onClose = () => {
+      if (this.closed) return;
       this.closed = true;
       this.decoder.reset();
+      socket.removeListener('data', this._onData);
+      socket.removeListener('error', this._onError);
+      socket.removeListener('close', this._onClose);
       this.emit('closed');
     };
     socket.on('data', this._onData);
@@ -74,8 +79,7 @@ class VoxFrameSocket extends EventEmitter {
   }
   close() {
     if (this.closed) return;
-    this.closed = true;
-    this.decoder.reset();
+    this._onClose();
     this.socket.destroy();
   }
 }
