@@ -361,6 +361,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
     const response=await transport.create({
       roomId:room,
       title,
+      botUserId:botId,
       openLinkId:msg?.room?.openLinkId == null?null:String(msg.room.openLinkId)
     });
     let confirmed=verifiedCreated(response);
