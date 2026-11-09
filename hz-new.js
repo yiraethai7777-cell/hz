@@ -22,7 +22,7 @@ function start() {
 
   });
 
-  // Optional experimental VOX bridge. Disabled unless explicitly configured.
+  // Voice commands are always available. Attach the Android VOX bridge when credentials exist.
   require('./shared/voice-room-noa-bridge').installFromEnv(client);
   const game = createGame(client);
 

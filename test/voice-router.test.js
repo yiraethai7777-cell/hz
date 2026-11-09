@@ -309,3 +309,29 @@ test('automatic room detection does not claim active voice server from a receive
   assert.match(sent.at(-1).body,/실시간 서버 검증 아님/);
   assert.match(sent.at(-1).body,/미연동/);
 });
+
+
+test('voice join, join status and leave route without global initialization or a feature toggle', async () => {
+  const {emit,sent}=fixture();
+  for(const cmd of ['#보룸참가','#보룸참가상태','#보룸퇴장']){
+    await emit(cmd);
+    assert.equal(sent.length,cmd==='#보룸참가'?1:cmd==='#보룸참가상태'?2:3);
+    assert.match(sent.at(-1).body,/VOX|브리지|보이스룸/);
+  }
+});
+
+test('ordinary chat participants cannot execute join or leave', async () => {
+  const {emit,sent}=fixture();
+  await emit('#보룸참가',2);
+  await emit('#보룸퇴장',2);
+  assert.equal(sent.length,2);
+  assert.ok(sent.every(x=>/방장·부방장 또는 봇 계정만/.test(x.body)));
+});
+
+test('bot account with nonmanager message role can reach the voice join handler', async () => {
+  const {emit,sent,client}=fixture();
+  await emit('#보룸참가',2,client.userId);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/명령어는 등록되어 있지만/);
+  assert.doesNotMatch(sent[0].body,/방장·부방장 또는 봇 계정만/);
+});

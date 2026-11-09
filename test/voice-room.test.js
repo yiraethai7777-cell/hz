@@ -386,3 +386,145 @@ test('experimental Noa local session does not authorize room shutdown', async ()
   await voice.handle(args);
   assert.match(sent[0], /실제 보이스룸 종료 API/);
 });
+
+
+test('voice join command is registered without a VOX transport and tells the missing dependency', async () => {
+  const {args,sent}=fixture({text:'#보룸참가'});
+  assert.equal(await voice.handle(args),true);
+  assert.match(sent[0],/명령어는 등록되어 있지만/);
+  assert.match(sent[0],/Noa Android 브리지/);
+});
+
+test('voice join status command is registered without any enable switch', async () => {
+  const {args,sent}=fixture({text:'#보룸참가상태'});
+  await voice.handle(args);
+  assert.match(sent[0],/명령어는 사용 가능합니다/);
+  assert.match(sent[0],/Android VOX 브리지 연결 정보가 없습니다/);
+});
+
+test('voice join calls the adapter for this bot account and never claims server membership', async () => {
+  const {args,sent,client}=fixture({text:'#보룸참가'});
+  const calls=[];
+  args.adapter={
+    status:async data=>{
+      calls.push({method:'status',data});
+      return {statusKnown:true,localActive:false,verified:false};
+    },
+    join:async data=>{
+      calls.push({method:'join',data});
+      return {requestAccepted:true,verified:false};
+    },
+  };
+  await voice.handle(args);
+  assert.deepEqual(calls,[
+    {method:'status',data:{roomId:ROOM,botUserId:client.userId}},
+    {method:'join',data:{roomId:ROOM,botUserId:client.userId}},
+  ]);
+  assert.match(sent[0],/참가 요청을 Android 브리지에 전달/);
+  assert.match(sent[0],/실제 참가 여부/);
+  assert.doesNotMatch(sent[0],/참가 확인!|서버에서 개설 상태 확인/);
+});
+
+test('join never replaces a voice session active in another room', async () => {
+  const {args,sent}=fixture({text:'#보룸참가'});
+  let calls=0;
+  args.adapter={
+    status:async()=>({statusKnown:true,localActive:false,localBusyOtherRoom:true}),
+    join:async()=>{calls++;return {requestAccepted:true};},
+  };
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/다른 방에서 보이스룸 세션/);
+});
+
+test('duplicate voice join to a room with an existing local session does not rejoin', async () => {
+  const {args,sent}=fixture({text:'#보룸참가'});
+  let calls=0;
+  args.adapter={
+    status:async()=>({statusKnown:true,localActive:true}),
+    join:async()=>{calls++;return {requestAccepted:true};},
+  };
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/이미 감지됩니다/);
+  assert.doesNotMatch(sent[0],/진행자 권한 확인/);
+});
+
+test('voice leave only calls Android session leave with same-room status', async () => {
+  const {args,sent,client}=fixture({text:'#보룸퇴장'});
+  const calls=[];
+  args.adapter={
+    status:async data=>{calls.push({method:'status',data});
+      return {statusKnown:true,localActive:true,verified:false};},
+    leave:async data=>{calls.push({method:'leave',data});
+      return {requestAccepted:true,verified:false};},
+  };
+  await voice.handle(args);
+  assert.deepEqual(calls,[
+    {method:'status',data:{roomId:ROOM,botUserId:client.userId}},
+    {method:'leave',data:{roomId:ROOM,botUserId:client.userId}},
+  ]);
+  assert.match(sent[0],/퇴장 요청을 전달/);
+  assert.match(sent[0],/보룸 전체 종료 명령은 아닙니다/);
+  assert.doesNotMatch(sent[0],/서버에서 확인되었습니다/);
+});
+
+test('voice leave refuses without a same-room active session', async () => {
+  const {args,sent}=fixture({text:'#보룸퇴장'});
+  let calls=0;
+  args.adapter={
+    status:async()=>({statusKnown:true,localActive:false}),
+    leave:async()=>{calls++;return {requestAccepted:true};},
+  };
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/퇴장 요청을 보내지 않았습니다/);
+});
+
+test('ordinary member cannot issue voice join or leave even with adapter', async () => {
+  for(const command of ['#보룸참가','#보룸퇴장','#보룸참가상태']){
+    const {args,sent}=fixture({text:command});
+    args.msg.sender.type=2;
+    args.adapter={
+      join:async()=>{throw Error('must not run');},
+      leave:async()=>{throw Error('must not run');}
+    };
+    await voice.handle(args);
+    assert.match(sent[0],/방장·부방장 또는 봇 계정만/);
+  }
+});
+
+test('bot account can request voice join even with nonmanager sender role', async () => {
+  const {args,sent,client}=fixture({text:'#보룸참가'});
+  args.msg.sender.id=client.userId;
+  args.msg.sender.type=2;
+  args.adapter={
+    status:async()=>({statusKnown:true,localActive:false}),
+    join:async()=>({requestAccepted:true,verified:false}),
+  };
+  await voice.handle(args);
+  assert.match(sent[0],/참가 요청을 Android 브리지에 전달/);
+});
+
+test('voice join or leave fail closed when Android session status cannot be checked',async()=>{
+  for(const command of ['#보룸참가','#보룸퇴장']){
+    const {args,sent}=fixture({text:command});
+    let calls=0;
+    args.adapter={
+      status:async()=>({statusKnown:false}),
+      join:async()=>{calls++;return {requestAccepted:true};},
+      leave:async()=>{calls++;return {requestAccepted:true};},
+    };
+    await voice.handle(args);
+    assert.equal(calls,0);
+    assert.match(sent[0],/상태를 확인할 수 없어/);
+  }
+});
+
+test('voice help shows join, join status and leave command names',async()=>{
+  const {args,sent}=fixture({text:'#보룸명령어'});
+  await voice.handle(args);
+  assert.match(sent[0],/#보룸참가/);
+  assert.match(sent[0],/#보룸참가상태/);
+  assert.match(sent[0],/#보룸퇴장/);
+});
