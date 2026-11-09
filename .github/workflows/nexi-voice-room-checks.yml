@@ -8,6 +8,7 @@ on:
     paths:
       - 'shared/voice-room.js'
       - 'shared/voice-room-observer.js'
+      - 'shared/voice-room-noa-bridge.js'
       - 'shared/voice-room-auto-detect.js'
       - 'hz-new.js'
       - 'shared/router.js'
@@ -26,4 +27,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: node --test test/voice-room.test.js test/voice-router.test.js test/voice-room-observer.test.js test/voice-room-auto-detect.test.js
+      - run: node --test test/voice-room.test.js test/voice-router.test.js test/voice-room-observer.test.js test/voice-room-noa-bridge.test.js test/voice-room-auto-detect.test.js

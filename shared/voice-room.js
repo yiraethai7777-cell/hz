@@ -172,6 +172,10 @@ async function handle({client,roomId,msg,text,send,adapter}){
           capability='✅ 서버에서 개설 상태 확인'+(state.voiceRoomId?' · ID: '+String(state.voiceRoomId):'');
         else if(verifiedInactive(state,room))
           capability='✅ 서버에서 비활성 상태 확인';
+        else if(state?.localSession===true)
+          capability=state.localActive?
+            'Android 브리지에서 이 방의 보룸 세션 표시 (서버 상태 미검증)':
+            'Android 브리지에서 이 방의 보룸 세션 확인 안 됨 (서버 상태 미검증)';
         else
           capability='모듈 연결됨 · 현재 보이스룸 개설 여부 미확인';
       }catch(e){
@@ -259,7 +263,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
     });
     let confirmed=verifiedCreated(response);
     let id=response?.voiceRoomId||null;
-    if(!confirmed && typeof transport.status==='function'){
+    if(!confirmed && response?.requestAccepted!==true && typeof transport.status==='function'){
       const state=await transport.status({roomId:room});
       confirmed=verifiedActive(state,room);
       if(confirmed)id=state.voiceRoomId||id;
@@ -267,6 +271,11 @@ async function handle({client,roomId,msg,text,send,adapter}){
     if(confirmed){
       await safeReply(client,send,'🎙️ 보이스룸 생성 확인!\n이름: '+title+
         (id?'\n보이스룸 ID: '+String(id):''));
+    }else if(response?.requestAccepted===true){
+      await safeReply(client,send,'📨 보이스룸 생성 요청이 Android 브리지에 전달됐습니다.\n'+
+        '이름: '+title+'\n'+
+        '※ 실제 카카오톡 서버 개설은 아직 확인되지 않았습니다.\n'+
+        '개설 이벤트(vr_invite) 또는 카카오톡 화면에서 확인해 주세요.');
     }else{
       await safeReply(client,send,'⚠️ 보이스룸 생성 요청 결과를 검증하지 못했습니다.\n'+
         '실제 카카오톡 화면에서 상태를 확인한 뒤 재시도해 주세요.');
