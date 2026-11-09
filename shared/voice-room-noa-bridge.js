@@ -100,6 +100,8 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
       return {
         roomId: chatId, verified: false,
         localSession: true, localActive: Boolean(inSameRoom),
+        ...(result.moduleLoaded === true && vr && vr.idle === false && !inSameRoom
+          ? { localBusyOtherRoom: true } : {}),
         statusKnown: result.moduleLoaded === true && vr && typeof vr.idle === 'boolean',
       };
     },
