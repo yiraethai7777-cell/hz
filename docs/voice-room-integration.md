@@ -205,3 +205,33 @@ node --test test/voice-room.test.js test/voice-router.test.js
 - [카카오 DevTalk 공식 답변](https://devtalk.kakao.com/t/webhook-api/141656): 카카오 디벨로퍼스에서 오픈채팅 관련 API를 제공하지 않음(2025-01-03 답변).
 
 **판정:** 서버 단독 VOX 생성은 현재 검증된 공개 API/코드 없이 불가. 기존 `shared/voice-room.js`와 봇 운영 배포 변경 금지. 문서화는 기능 구현과 구별.
+
+### 2026-11-09 Windows VOX DLL 원본 재검사 — 실제 보관 파일 기준
+
+사용자가 앞서 제공한 **Windows `Vox.dll`, `Vox3.dll`의 원본 바이트를 다시 확보해** 정적 검사를 수행했습니다. 이 검사는 파일 내용을 읽기만 하며 DLL 로드·실행·후킹·네트워크 전송을 수행하지 않았습니다. 저장소에는 원본 DLL이나 사용자 인증 데이터 대신 아래 해시와 요약만 보존합니다.
+
+| 항목 | `Vox.dll` | `Vox3.dll` |
+|---|---|---|
+| 파일 크기 | 5,606,504바이트 | 10,350,696바이트 |
+| PE 형식 | PE32 x86 (`pei-i386`) | PE32 x86 (`pei-i386`) |
+| Export 함수 수 | 5 | 3 |
+| Import DLL 수 | 12 | 23 |
+| PDB 파일명(CodeView RSDS) | `Vox.pdb` | `Vox3.pdb` |
+| 보호 섹션 | `.vm_sec`, `.themida`, `.boot` | `.vm_sec`, `.themida`, `.boot` |
+| `.boot` 영역 엔트로피 | 약 7.941 bits/byte | 약 7.934 bits/byte |
+
+- `Vox.dll` SHA-256: `abaf506dd912dc9a076cb03f9f68a0dcdc08e913793053d328099e21ad95a109`
+- `Vox3.dll` SHA-256: `2539e7517efa110e293e1a9ee2bf5a079cf7a6d68a3c2a64671a8990b865b8df`
+- `Vox.dll`의 노출 이름 중 `decrypt_vox_bson_msg_voiceroom`, `decrypt_vox_bson_msg_groupcall`, `decrypt_vox_bson_msg`, `encrypt_vox_bson_msg`을 확인함.
+- `Vox3.dll`은 실제 Import Table에서 **`Vox.dll`의 `decrypt_vox_bson_msg_voiceroom`을 참조**함. 다만 이 관계는 보이스룸의 BSON 데이터 *복호화* 경로 단서이며 **개설 명령을 전송하는 경로가 확인됐다는 뜻이 아님**.
+- 일부 메인 코드/데이터 영역에서도 7.9~7.99 bits/byte 엔트로피가 나옴. 보호 섹션명과 결합하면 패킹·암호화된 정적 영역의 **강한 정황**이나 구체적인 보호 방식 및 내부 제어 흐름을 증명하지는 않음.
+- 두 DLL의 공개 Export 목록에서는 보룸 생성 요청이나 명시적인 `createVoiceroom`을 찾지 못함. 보룸 생성 경로가 존재하지 않는다는 뜻은 아님(내부 가상 메서드·보호 영역·본체 EXE 호출 가능).
+- 구형 [VOIP 제어 프로토콜 참고](https://gist.github.com/storycraft/ffdd727dbd45d9ae047a3ee93a83839f)의 `0x272c`는 **create live talk**이며 현재 보이스룸 생성과 동등하다고 확인되지 않음. 따라서 현재 KakaoTalk 서버에 해당 임의 명령을 발신하지 않음.
+
+#### 다음으로 필요한 검증
+
+1. **동일한 설치본의 `KakaoTalk.exe` 파일**을 정적으로 분석하여 `Vox3.dll`의 `IVoxManager::GetInstance` 호출 지점과 보이스룸 UI의 함수 연결을 찾는 것이 Windows 경로의 다음 검사임. 카카오톡 계정 데이터·auth.json은 불필요하며 업로드하지 않음.
+2. DLL 보호 기능 때문에 정적 분석만으로 함수 본문이 드러나지 않을 수 있음. 이 경우 제어된 본인 계정 테스트 환경에서 보룸 개설 **직전·직후의 비밀값을 제거한 메타데이터**를 비교하되, 패킷 캡처만으로 암호화된 VOX 본문이 보인다고 가정하지 않음.
+3. **보룸 생성 요청/응답 계약이 검증되기 전까지** `#보룸시작`을 임의 LOCO/BSON 패킷으로 구현하지 않음. 이미 추가된 [PR #75 실험용 Noa 브리지](https://github.com/yiraethai7777-cell/hz/pull/75)는 Android 환경이 필요한 **기본 OFF** 방식으로, Railway 단독 생성 기능과 구분함.
+
+**현재 결론:** 업로드된 원본 Windows DLL에 보이스룸 복호화 연결은 실재하지만, Railway에서 직접 생성할 VOX 패킷의 실제 구조·인증·호스트 세션 유지 요구사항은 여전히 미확인입니다.
