@@ -127,3 +127,38 @@ node --test test/voice-room.test.js test/voice-router.test.js
 ```
 
 테스트는 **모의 어댑터 기준의 컨트롤러 동작 확인**이며 실제 카카오톡 보이스룸 서버의 생성 성공을 증명하지 않습니다.
+
+
+## 실험용 생성 브리지 (2026-11-09, 기본 OFF)
+
+현재 확보된 공개 소스 중 실제 생성 호출을 포함한 것은 제3자 [Noa VOX API](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/src/web/vox.rs)입니다.
+Noa의 `POST /api/vox/voice-rooms`는 `{ "chatId": "문자열", "title": "문자열" }`을 받아 실행 중인 Android 카카오톡의 `makeVoiceroom()`을 호출합니다.
+Noa는 **루팅된 Android 또는 Redroid + 실제 로그인된 카카오톡 앱**이 필요합니다. 따라서 이 브리지는 **Railway 단독 생성 구현이 아니며**, Windows PC 카카오톡 또는 KakaoForge의 LOCO 전송만으로 작동하지 않습니다.
+
+### 구현 범위
+
+- `shared/voice-room-noa-bridge.js`: 확인된 Noa HTTP 생성 호출을 HTTPS + Bearer Token으로 호출하는 선택형 어댑터입니다. 리디렉션 차단, 12초 제한 시간, JSON 크기 제한 및 채팅방 ID 확인을 적용합니다.
+- `hz-new.js` 시작 시 `NEXI_VOICE_BRIDGE_ENABLED=1`을 명시한 경우에만 어댑터를 설치합니다. 기본값은 **OFF**여서 기존 NEXI 동작을 바꾸지 않습니다.
+- Noa의 `{ok:true,chatId}`는 **Android 브리지 호출 접수**일 뿐 **서버의 실제 보이스룸 개설 성공을 증명하지 않습니다**. `#보룸시작`은 요청 전달만 안내합니다.
+- `GET /api/vox/status`는 Android 보이스룸 매니저의 로컬 세션 단서만 제공하며, 실제 카카오 서버의 활성 확인으로 취급하지 않습니다.
+- Noa의 `/api/vox/leave`는 Android가 보룸에서 나가는 동작일 수 있어 `#보룸종료`에 연결하지 않았습니다.
+- `vr_invite` 메시지를 **생성 요청 대신 전송하거나**, 현재 활동 여부가 불분명한데도 `verified:true`로 처리하지 않습니다.
+
+### 실험 환경 설정 (별도 Noa 운영 환경이 준비된 경우에만)
+
+Railway Variables에 다음을 설정합니다. 실제 토큰이나 계정 정보를 GitHub에 올리지 마세요.
+
+```text
+NEXI_VOICE_BRIDGE_ENABLED=1
+NEXI_VOICE_NOA_URL=https://your-own-noa-bridge.example
+NEXI_VOICE_NOA_TOKEN=<16자 이상 보안 토큰>
+```
+
+- 전제: 외부에서 접근할 수 있는 **사용자 소유 Noa HTTPS 게이트웨이**가 있어야 하며, 전용 인증 토큰과 접근 제한이 필요합니다. Noa를 인터넷에 무인증으로 공개하지 마세요.
+- 설정 미완료 또는 OFF: `#보룸시작`은 기존처럼 '생성 API 미연동' 안내만 합니다.
+- 설정 완료: 기존 명령어 권한 검사가 통과하면 Noa 브리지에 생성 요청을 전달하지만, **수신 `vr_invite` 또는 실제 앱 화면에서 개설됐는지 별도로 확인해야** 합니다.
+- 이번 PR은 실제 Noa 서버, 루팅된 Android, 운영 카카오톡에서 **라이브 생성 시험을 수행하지 않았습니다**. 테스트는 모의 HTTP 응답 기준입니다.
+
+### 다음 단계
+
+사용자가 원하는 **기기 없는 Railway 단독 생성**을 달성하려면 Android 내부 `makeVoiceroom()`을 재현할 독립적인 VOX 생성·인증·세션 유지 프로토콜이 필요합니다. 이 작업은 아직 완료되지 않았습니다.
