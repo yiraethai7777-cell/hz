@@ -273,7 +273,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         (id?'\n보이스룸 ID: '+String(id):''));
     }else if(response?.requestAccepted===true){
       await safeReply(client,send,'📨 보이스룸 생성 요청이 Android 브리지에 전달됐습니다.\n'+
-        '방: '+room+'\n이름: '+title+'\n'+
+        '이름: '+title+'\n'+
         '※ 실제 카카오톡 서버 개설은 아직 확인되지 않았습니다.\n'+
         '개설 이벤트(vr_invite) 또는 카카오톡 화면에서 확인해 주세요.');
     }else{
