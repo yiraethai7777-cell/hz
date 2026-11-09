@@ -65,7 +65,7 @@ test('verified adapter may create named voice room',async()=>{
     return {created:true,verified:true,status:0,voiceRoomId:'901'};
   }};
   await voice.handle(args);
-  assert.deepEqual(calls,[{roomId:ROOM,title:'테스트 방',openLinkId:'9007199254740993333'}]);
+  assert.deepEqual(calls,[{roomId:ROOM,title:'테스트 방',botUserId:client.userId,openLinkId:'9007199254740993333'}]);
   assert.match(sent[0],/보이스룸 생성 확인/);
   assert.match(sent[0],/901/);
 });
