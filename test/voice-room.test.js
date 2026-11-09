@@ -351,3 +351,38 @@ test('manager role is still needed for non-bot users',async()=>{
   assert.equal(calls,0);
   assert.match(sent[0],/방장·부방장 또는 봇 계정만/);
 });
+
+
+test('experimental Noa accepted request is only an unverified dispatch, never creation success', async () => {
+  const { args, sent } = fixture({ text: '#보룸시작 NEXI' });
+  args.adapter = {
+    create: async () => ({ requestAccepted: true, verified: false }),
+    status: async () => { throw Error('must not be queried after acknowledged dispatch'); },
+  };
+  await voice.handle(args);
+  assert.match(sent[0], /생성 요청이 Android 브리지에 전달/);
+  assert.match(sent[0], /실제 카카오톡 서버 개설은 아직 확인되지 않았습니다/);
+  assert.doesNotMatch(sent[0], /보이스룸 생성 확인!/);
+});
+
+test('experimental Noa current local session is not displayed as server verified', async () => {
+  const { args, sent } = fixture({ text: '#보룸상태' });
+  args.adapter = {
+    create: async () => ({ requestAccepted: false, verified: false }),
+    status: async () => ({ roomId: ROOM, localSession: true, localActive: true, verified: false }),
+  };
+  await voice.handle(args);
+  assert.match(sent[0], /Android 브리지에서 이 방의 보룸 세션 표시/);
+  assert.match(sent[0], /서버 상태 미검증/);
+  assert.doesNotMatch(sent[0], /서버에서 개설 상태 확인/);
+});
+
+test('experimental Noa local session does not authorize room shutdown', async () => {
+  const { args, sent } = fixture({ text: '#보룸종료' });
+  args.adapter = {
+    create: async () => ({ requestAccepted: true, verified: false }),
+    status: async () => ({ roomId: ROOM, localSession: true, localActive: true, verified: false }),
+  };
+  await voice.handle(args);
+  assert.match(sent[0], /실제 보이스룸 종료 API/);
+});
