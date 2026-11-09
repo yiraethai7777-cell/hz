@@ -391,15 +391,15 @@ test('experimental Noa local session does not authorize room shutdown', async ()
 test('voice join command is registered without a VOX transport and tells the missing dependency', async () => {
   const {args,sent}=fixture({text:'#보룸참가'});
   assert.equal(await voice.handle(args),true);
-  assert.match(sent[0],/명령어는 등록되어 있지만/);
-  assert.match(sent[0],/Noa Android 브리지/);
+  assert.match(sent[0],/보이스룸 참가 실행 불가/);
+  assert.match(sent[0],/외부 Noa Android 브리지/);
 });
 
 test('voice join status command is registered without any enable switch', async () => {
   const {args,sent}=fixture({text:'#보룸참가상태'});
   await voice.handle(args);
-  assert.match(sent[0],/명령어는 사용 가능합니다/);
-  assert.match(sent[0],/Android VOX 브리지 연결 정보가 없습니다/);
+  assert.match(sent[0],/VOX 접속정보/);
+  assert.match(sent[0],/Railway 전용 VOX 인증·음성 세션 미구현/);
 });
 
 test('voice join calls the adapter for this bot account and never claims server membership', async () => {
