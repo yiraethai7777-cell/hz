@@ -78,11 +78,14 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
 
   return {
     kind: 'noa-android-experimental',
-    async create({ roomId, title }) {
+    async create({ roomId, title, botUserId }) {
       const chatId = roomKey(roomId);
       const name = String(title ?? '').trim();
       if (!name || name.length > 40 || /[\x00-\x1f\x7f]/.test(name))
         throw Error('보이스룸 제목이 올바르지 않습니다.');
+      // A standalone multi-room command MUST verify the Android account matches
+      // NEXI before invoking the already implemented Android makeVoiceroom hook.
+      if (botUserId !== undefined) await requireBotIdentity(botUserId);
       const result = await request('api/vox/voice-rooms', 'POST', { chatId, title: name });
       // Noa's OK indicates its Android callback was accepted, not server activation.
       return {
