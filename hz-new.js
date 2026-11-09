@@ -22,6 +22,8 @@ function start() {
 
   });
 
+  // Optional experimental VOX bridge. Disabled unless explicitly configured.
+  require('./shared/voice-room-noa-bridge').installFromEnv(client);
   const game = createGame(client);
 
   let resolveReady, rejectReady;
