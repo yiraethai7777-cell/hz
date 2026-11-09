@@ -107,9 +107,17 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const isLeave=match[1].endsWith('퇴장');
   if(isJoinStatus){
     if(!transport || typeof transport.status!=='function'){
+      const signal=require('./voice-room-join-info').status(room);
+      const signalText=signal.endpointReady
+        ? '최근 보룸 초대의 접속정보 수신 확인'
+        : signal.phase==='ended'?'마지막 수신 신호: 보룸 종료'
+          : signal.phase==='invite'?'최근 보룸 초대 수신 (접속정보 불완전)'
+            :'최근 VOX 접속정보 없음';
       await safeReply(client,send,'🎙️ NEXI | 보룸 참가 상태\n'+
-        '명령어는 사용 가능합니다. 다만 실제 Android VOX 브리지 연결 정보가 없습니다.\n'+
-        'Railway KakaoForge 채팅 연결만으로는 보룸 음성 참가 상태를 확인할 수 없습니다.');
+        signalText+'\n'+
+        'Railway 전용 VOX 인증·음성 세션 미구현 → 실제 참가 불가\n'+
+        'Noa Android 브리지도 연결되어 있지 않습니다.\n'+
+        '※ 접속정보 수신은 참가나 진행자 권한의 증거가 아닙니다.');
       return true;
     }
     try{
@@ -133,9 +141,14 @@ async function handle({client,roomId,msg,text,send,adapter}){
     const operation=isJoin?'참가':'퇴장';
     if(!transport || typeof transport[isJoin?'join':'leave']!=='function' ||
        typeof transport.status!=='function'){
-      await safeReply(client,send,'⚠️ 보이스룸 '+operation+' 명령어는 등록되어 있지만 실제 VOX 연결이 아직 없습니다.\n'+
-        'Noa Android 브리지 주소·인증 토큰과 보이스룸 세션이 필요합니다.\n'+
-        '기존 Railway 카카오톡 로그인에는 변경을 가하지 않았습니다.');
+      const signal=require('./voice-room-join-info').status(room);
+      const detail=signal.endpointReady
+        ? '현재 초대에서 보룸 접속정보는 확보했지만, VOX 인증·세션 연결 구현이 없어 참가할 수 없습니다.'
+        : '유효한 보룸 접속정보 및 인증된 VOX 클라이언트가 없습니다.';
+      await safeReply(client,send,'⚠️ 보이스룸 '+operation+' 실행 불가\n'+
+        detail+'\n'+
+        '외부 Noa Android 브리지도 연결되어 있지 않습니다.\n'+
+        '기존 Railway 카카오톡 로그인은 변경하지 않았습니다.');
       return true;
     }
     if(client?.connected===false)return true;

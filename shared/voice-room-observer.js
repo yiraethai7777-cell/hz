@@ -160,5 +160,5 @@ function install(client) {
 }
 module.exports = {
   DURATION_MS, start, stop, get, observeMessage, observePush, install,
-  displayHint, metadataShape, lifecycleMetadata,
+  displayHint, metadataShape, lifecycleMetadata, attachmentObject,
 };

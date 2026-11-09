@@ -190,3 +190,28 @@ NEXI_VOICE_NOA_TOKEN=<16자 이상 보안 토큰>
 - [Noa API 레퍼런스](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/docs/6-api.md)
 
 테스트는 실제 서버 접속이 아닌 모의 Noa HTTP 응답을 사용합니다. Noa 자체를 실행하거나 카카오톡 음성 세션·계정을 새로 연결하지 않습니다.
+
+
+## Railway 서버형 VOX 참가 전제: 수신 초대의 접속 정보 추출 (2026-11-09)
+
+**이 단계는 독립적인 음성 참가 클라이언트 완성이 아닙니다.** Noa의 [실제 참가 소스](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/src/web/vox.rs)는 채팅 유형 52의 최신 `vr_invite` 첨부에서 `callId`, `csIP`, `csIP6`, `csPort`를 가져와 로그인된 Android 카카오톡의 `joinVoiceroom()` 메서드에 전달합니다. VOX 인증·세션 협상·오디오 연결은 카카오톡 앱이 수행하므로 서버형 Node.js 클라이언트는 해당 부분을 별도로 구현해야 합니다.
+
+### 구현
+
+- `shared/voice-room-join-info.js`: 기존 `voice-room-observer.js`의 attachment parser를 재사용해 이미 수신한 `vr_invite`에서 정확한 정수 ID, 올바른 IP, 1~65535 범위의 포트만 허용합니다.
+- `vr_bye`를 받으면 접속 정보를 즉시 폐기하고, 이전 로그 ID의 중복/재동기화 초대가 다시 활성으로 보이지 않도록 차단합니다.
+- 접속 정보는 **메모리에서만 최대 5분** 유지하며 SQLite·PostgreSQL·디스크 파일·채팅 메시지·로그에는 저장하지 않습니다. 최대 128개 방만 유지합니다.
+- `#보룸참가상태` 및 `#보룸참가`에서는 수신 준비 여부만 알립니다. **통화 ID·VOX 서버 IP/포트는 출력하지 않습니다.**
+- `hz-new.js`에 별도 수신 리스너를 추가했습니다. 기존 Railway QR 인증·KakaoForge 연결·명령어 접두사·보이스룸 알림 로직은 유지합니다.
+- 공개 Noa 브리지가 없더라도 명령어는 인식합니다. 접속 정보를 받았어도 **독립적인 VOX 암호화/인증 클라이언트가 없으므로 참가하지 못했다고 분명히 안내합니다.**
+
+### 다음으로 반드시 구현·검증할 단계
+
+1. 앱의 **현재 버전**에서 사용되는 VOX 참가 요청의 정확한 인증 절차·바이트 규격·암호화 및 서버 응답 확인
+2. NEXI의 기존 로그인 세션을 끊지 않고 VOX에 적법하게 인증하는 방법
+3. VOX 참가 후 유지할 heartbeat, media/ICE/WebRTC 연결 및 정상 퇴장 처리
+4. 실제 참가자 목록에서 NEXI 계정이 나타나는 라이브 시험
+
+2020년 VOIP 메모에 있는 TLS/SEED 기반 구형 제어 패킷은 **2026년 보이스룸 참가와 동일하다고 검증되지 않았으므로 임의로 송신하지 않습니다.** 제공된 DLL의 복호화 함수만으로 가입 인증이 가능하다고 판단하지 않습니다.
+
+테스트: `node --test test/voice-room-join-info.test.js`. 테스트는 실제 네트워크나 VOX 세션에 접속하지 않고 이미 알려진 이벤트 구조를 모의합니다.
