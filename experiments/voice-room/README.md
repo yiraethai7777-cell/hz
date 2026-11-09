@@ -41,3 +41,37 @@ node --test test/voice-room-frida-observe.test.js
 ~~~
 
 참고: 공식 Frida JS API https://frida.re/docs/javascript-api/ , Android Noa 소스 https://github.com/entworacy/noa/blob/main/kakao-agent/java/dev/noa/kakao/VoxController.java
+
+## Android 후킹으로 실제 개설 요청하기 (다중 방)
+
+이 부분은 **관찰용 Frida 스크립트가 아니라 실행 코드**입니다.
+
+Noa의 Android 후킹 API `POST /api/vox/voice-rooms`는 카카오톡 앱 내부 `makeVoiceroom()`을 호출합니다. 준비된 Noa/Android를 NEXI의 HTTPS 브리지에 연결한 뒤 다음 CLI를 실행하면 방 ID마다 개설 요청을 **순차적으로 전송합니다**. 별도 검증용 플래그나 보룸 ON/OFF 스위치는 없습니다.
+
+필요한 실행 환경: 별도 Android 또는 Redroid에서 Noa가 실행 중이어야 합니다. 해당 Android에는 **Railway NEXI와 같은 카카오톡 사용자 ID**의 계정이 로그인돼 있어야 하며, `RECORD_AUDIO` 권한과 VOX 후킹 준비가 필요합니다. 추가 로그인으로 인해 기존 Railway 세션이 끊길 가능성이 있으므로 먼저 테스트 계정으로 확인하세요.
+
+Windows PowerShell 환경변수 예시 (실제 값은 GitHub에 올리지 마세요):
+
+~~~powershell
+$env:NEXI_VOICE_NOA_URL="https://본인-noa-게이트웨이"
+$env:NEXI_VOICE_NOA_TOKEN="실제-비공개-인증-토큰"
+$env:NEXI_BOT_USER_ID="NEXI-카카오-숫자-ID"
+$env:NEXI_VOICE_TITLE="NEXI 보이스룸"
+node experiments/voice-room/noa-multi-start.js 1234567890123456 2345678901234567
+~~~
+
+- 방 ID는 1~12개의 정확한 양수 64비트 문자열을 전달합니다. 요청은 1.2초 간격으로 순차적으로 전송됩니다.
+- NEXI 사용자 ID와 Android Noa 로그인 사용자 ID가 다르면 **서버 개설 요청을 전송하지 않습니다**.
+- 한 방에서 개설 요청이 실패해도 다음 방 요청을 계속합니다. 임의 자동 재시도·퇴장·로그인 변경은 하지 않습니다.
+- `request_accepted`는 Android 후킹 함수 요청이 Noa에서 접수된 상태입니다. 실제 서버 개설, 보룸 유지, 진행자 권한, 여러 방의 **동시 활성화 성공**을 의미하지 않습니다.
+- 하나의 Android 카카오톡 계정은 보통 하나의 로컬 VOX 세션 상태를 갖습니다. 후킹 호출만으로 여러 보룸이 동시에 유지된다고 보장할 수 없습니다.
+- 기존 카카오톡 명령어 `#보룸시작 제목`은 Noa 설정이 연결되어 있으면 같은 생성 엔드포인트를 사용합니다. 이번 실험 브랜치에서는 생성 전에 봇 계정 일치 검사를 하도록 연결했습니다.
+- Railway 운영 서비스의 `main` 브랜치와 `auth.json`은 변경하지 않습니다. PR 병합 및 라이브 배포 전까지는 실험 코드입니다.
+
+관련 구현: `experiments/voice-room/noa-multi-start.js`, `shared/voice-room-noa-bridge.js`, `test/voice-room-noa-multi-start.test.js`.
+
+검사:
+~~~bash
+node --check experiments/voice-room/noa-multi-start.js
+node --test test/voice-room-noa-multi-start.test.js test/voice-room-noa-bridge.test.js
+~~~
