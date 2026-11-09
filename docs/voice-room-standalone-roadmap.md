@@ -54,3 +54,30 @@ node --openssl-legacy-provider --test test/voice-room-vox-wire.test.js
 ```
 
 이 테스트는 프레임 인코딩과 암복호화만 검사하고 실제 카카오톡 보이스룸 참가를 수행하지 않습니다.
+
+
+## 2026-11-09 추가 확인: VOX 전송 계층과 진행자 권한 검증
+
+[카카오톡 Android의 VoiceroomCoreManager 역분석 코드](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p3093zR/C75899c.java)에서 다음 네이티브 SDK 호출을 확인했습니다.
+
+- `joinVoiceRoomCall(networkHost, networkPort, chatId, userId, callId, new VoxType.VCallMediaType(1), new VoxType.VServiceType(11), openChatUserType, true)` 형태. 네트워크 호스트와 포트는 Android 내부 선택 함수가 결정하므로 `vr_invite.csPort`를 무조건 TLS 포트로 사용하면 안 됩니다.
+- `Vox30Manager.queryVoiceRoomMemberList(host, port, userId, chatId, callId, callback)`는 응답 코드 0일 때 **moderatorUserIdList**, **speakerUserIdList**, **listenerUserIdList**를 반환합니다.
+- 기존 진행자의 `vRCInviteAsModerator(targetUserId)` 초대 호출과 초대받은 측의 `vRCAcceptModeratorInvitation()` 수락 호출이 모두 있습니다. 그러나 이는 Android VOX 엔진에 대한 메서드이며, 독립 Railway의 VOX 명령 번호와 BSON 요청 구조는 아닙니다.
+
+**추가된 개발 코드**
+
+- `shared/voice-room-vox-transport.js`: Node.js `tls.connect`를 이용하는 독립 VOX 프레임 전송 계층. 외부 `vr_invite`의 IP를 임의 접속지로 사용하지 않으며, 사전 확인된 IP 허용목록 및 TLS DNS 인증서 검증이 필수입니다. TLS 1.2 미만으로 보안 검증을 끄고 접속하는 방식은 허용하지 않습니다. 현재 서비스 포트 5228은 제3자 2025년 분석의 **참고값**일 뿐 최신 서버에서 검증되지 않았습니다.
+- `shared/voice-room-vox-membership.js`: VOX 참가자 명단의 진행자·스피커·청취자 역할을 정확한 Int64 ID로 구분하는 **순수 파서**. 응답 코드가 실패했거나 중복 역할·잘못된 ID를 반환하면 반드시 `unknown`으로 처리합니다. 파서 실행만으로 실제 서버 응답을 신뢰했다는 의미는 아닙니다.
+- `test/voice-room-vox-transport.test.js`, `test/voice-room-vox-membership.test.js`: 모의 TLS 소켓·멤버십 응답을 이용해 검증합니다. 기존 Railway 런타임과 사용자 카카오톡 인증정보는 사용하지 않습니다.
+
+**남은 핵심 검증: 현행 VOX LOGIN(11002)의 BSON 필드명·인증 방식·서버 성공 응답과 현재 TLS 인증서의 실제 서버 이름이 공개되어 있지 않습니다.** 승인된 실제 통화 세션을 유지하는 코드도 아직 없습니다. 이 정보가 확인되기 전에는 운영 NEXI에서 임의 로그인 패킷을 전송하지 않고, 아직 미완성인 `#보룸참가`를 실제 성공한 것으로 표시하지 않습니다.
+
+### 개발 진행의 명확한 성공 조건
+
+1. 실제 2026년 VOX 패킷과 로컬 코덱의 바이트 단위 동등성 검증
+2. 로그인 요청의 필수 인자와 인증 증명 확보 및 **실제 VOX 승인 응답 확인**
+3. 인증된 세션에서 실제 참가자 목록에 봇의 64비트 ID 등장
+4. 사용자가 진행자로 초대한 뒤, 봇이 초대를 수락하고 역할 목록에 moderator로 표시되는지 확인
+5. 기존 Railway 채팅 연결이 유지되는지, 중복 로그인을 초래하지 않는지 확인
+
+검증이 끝나지 않은 실제 네트워크 접속을 무리하게 자동 실행하는 것은 기존 채팅 봇의 세션을 망가뜨릴 수 있으므로, 전송 모듈은 현재 NEXI 본 프로세스에서 로드하지 않습니다.
