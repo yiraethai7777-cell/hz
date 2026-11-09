@@ -63,6 +63,19 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
     }
   }
 
+  // Mutating VOX calls must target the actual Railway bot account.
+  // Noa needs an independently hosted Android runtime; this never logs in or touches auth.json.
+  async function requireBotIdentity(botUserId) {
+    const expected = roomKey(botUserId);
+    const state = await request('api/status', 'GET');
+    if (String(state.currentUserId ?? '') !== expected ||
+        state.androidAvailable !== true || state.kakaoHookActive !== true ||
+        state.voxControlActive !== true) {
+      throw Error('Noa 계정 또는 Android VOX 실행 상태를 확인하지 못했습니다.');
+    }
+    return true;
+  }
+
   return {
     kind: 'noa-android-experimental',
     async create({ roomId, title }) {
@@ -77,8 +90,9 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
         verified: false,
       };
     },
-    async status({ roomId }) {
+    async status({ roomId, botUserId }) {
       const chatId = roomKey(roomId);
+      if (botUserId !== undefined) await requireBotIdentity(botUserId);
       const result = await request('api/vox/status', 'GET');
       const vr = result.voiceroom;
       const inSameRoom = result.moduleLoaded === true && vr && vr.idle === false &&
@@ -89,13 +103,37 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
         statusKnown: result.moduleLoaded === true && vr && typeof vr.idle === 'boolean',
       };
     },
-    // Intentionally NO stop(): Noa /api/vox/leave leaves the Android
-    // voice session; it has not been validated as ending the whole room.
+    async join({ roomId, botUserId }) {
+      const chatId = roomKey(roomId);
+      await requireBotIdentity(botUserId);
+      // Noa resolves VOX join-info from its logged-in Android KakaoTalk database.
+      // Never derive host/callId from old chat attachment and never send VOX packets from LOCO.
+      const result = await request('api/vox/voice-rooms/join', 'POST', { chatId });
+      return {
+        requestAccepted: result.ok === true && String(result.chatId ?? '') === chatId,
+        verified: false,
+      };
+    },
+    async leave({ roomId, botUserId }) {
+      const chatId = roomKey(roomId);
+      await requireBotIdentity(botUserId);
+      // This leaves only Noa's Android voice session, not the whole open chat room.
+      const result = await request('api/vox/leave', 'POST', { chatId, kind: 'voiceroom' });
+      return {
+        requestAccepted: result.ok === true && String(result.chatId ?? '') === chatId &&
+          result.kind === 'voiceroom',
+        verified: false,
+      };
+    },
+    // Deliberately NO stop(): leaving one's Android audio session does not
+    // prove the KakaoTalk voice room itself has ended.
   };
 }
 
 function installFromEnv(client, env = process.env, fetchImpl) {
-  if (env.NEXI_VOICE_BRIDGE_ENABLED !== '1') return false;
+  // Commands are always registered; usable Noa credentials connect automatically.
+  // Missing credentials mean no transport, not a disabled command.
+  if (!env.NEXI_VOICE_NOA_URL || !env.NEXI_VOICE_NOA_TOKEN) return false;
   try {
     if (!client || typeof client !== 'object') throw Error('클라이언트 없음');
     client.voiceRoomAdapter = createNoaBridge({
