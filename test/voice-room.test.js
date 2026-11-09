@@ -58,7 +58,7 @@ test('uncertain bot role refuses create without scanning chat members',async()=>
 });
 
 test('verified adapter may create named voice room',async()=>{
-  const {args,sent}=fixture();
+  const {args,sent,client}=fixture();
   const calls=[];
   args.adapter={create:async data=>{
     calls.push(data);
