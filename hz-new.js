@@ -37,6 +37,8 @@ function start() {
   attachRouter(client, { game, management: manage, ready });
   // Keep the existing opt-in 3-minute diagnostic unchanged.
   require('./shared/voice-room-observer').install(client);
+  // Ephemeral VOX invitation coordinates only; no network joins, auth changes or disk writes.
+  require('./shared/voice-room-join-info').install(client);
   // Independent automatic lifecycle notices in management-enabled OpenChat rooms.
   // Management and the full bot power switch are checked for EVERY event.
   require('./shared/voice-room-auto-detect').install(client, {
