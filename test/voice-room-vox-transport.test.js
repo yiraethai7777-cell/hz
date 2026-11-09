@@ -112,3 +112,23 @@ test('TLS handshake error never exposes remote exception internals',async()=>{
   }),err=>!err.message.includes('secret_session_token')&&/TLS 연결 실패/.test(err.message));
   assert.equal(socket.destroyed,true);
 });
+
+
+test('closing detaches frame listeners, wipes buffered bytes and emits closed exactly once',()=>{
+  const socket=new FakeTls();
+  const channel=new vox.VoxFrameSocket(socket);
+  let closed=0,frames=0;
+  channel.on('closed',()=>closed++);
+  channel.on('frame',()=>frames++);
+  const full=wire.pack(wire.METHODS.PING,fixture());
+  socket.emit('data',full.subarray(0,10));
+  channel.close();
+  assert.equal(socket.destroyed,true);
+  assert.equal(socket.listenerCount('data'),0);
+  assert.equal(socket.listenerCount('error'),0);
+  assert.equal(socket.listenerCount('close'),0);
+  socket.emit('data',full);
+  socket.emit('close');
+  assert.equal(closed,1);
+  assert.equal(frames,0);
+});
