@@ -243,3 +243,40 @@ test('join rejects invalid bot identity or room before mutating VOX', async () =
   await assert.rejects(()=>bridge.join({roomId:ROOM,botUserId:'bad'}), /ID/);
   assert.equal(calls.length,0);
 });
+
+test('create with NEXI bot ID uses same-account Android hook and blocks mismatch', async () => {
+  const mismatchedCalls = [];
+  const mismatch = createNoaBridge({
+    baseUrl: 'https://noa.example', token: TOKEN,
+    fetchImpl: async (url, opts) => {
+      mismatchedCalls.push(new URL(url).pathname);
+      return response({ currentUserId: '123', androidAvailable: true,
+        kakaoHookActive: true, voxControlActive: true });
+    },
+  });
+  await assert.rejects(() => mismatch.create({
+    roomId: ROOM, title: '방 개설', botUserId: BOT_ID,
+  }), /계정/);
+  assert.deepEqual(mismatchedCalls, ['/api/status']);
+
+  const acceptedCalls = [];
+  const accepted = createNoaBridge({
+    baseUrl: 'https://noa.example', token: TOKEN,
+    fetchImpl: async (url, opts) => {
+      const path = new URL(url).pathname;
+      acceptedCalls.push({ path, method: opts.method });
+      if (path === '/api/status') {
+        return response({ currentUserId: BOT_ID, androidAvailable: true,
+          kakaoHookActive: true, voxControlActive: true });
+      }
+      return response({ ok: true, chatId: ROOM });
+    },
+  });
+  assert.deepEqual(await accepted.create({
+    roomId: ROOM, title: 'NEXI', botUserId: BOT_ID,
+  }), { requestAccepted: true, verified: false });
+  assert.deepEqual(acceptedCalls, [
+    { path: '/api/status', method: 'GET' },
+    { path: '/api/vox/voice-rooms', method: 'POST' },
+  ]);
+});
