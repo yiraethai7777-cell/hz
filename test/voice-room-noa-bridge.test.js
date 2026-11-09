@@ -20,7 +20,7 @@ test('bridge without Noa credentials does not override an existing adapter', () 
   const client = { voiceRoomAdapter: old };
   assert.equal(installFromEnv(client, {
     NEXI_VOICE_NOA_URL: 'https://noa.example/',
-    NEXI_VOICE_NOA_TOKEN: TOKEN,
+    // Missing token: do not replace an existing adapter.
   }), false);
   assert.equal(client.voiceRoomAdapter, old);
 });
