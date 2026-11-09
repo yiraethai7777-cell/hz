@@ -332,6 +332,6 @@ test('bot account with nonmanager message role can reach the voice join handler'
   const {emit,sent,client}=fixture();
   await emit('#보룸참가',2,client.userId);
   assert.equal(sent.length,1);
-  assert.match(sent[0].body,/명령어는 등록되어 있지만/);
+  assert.match(sent[0].body,/보이스룸 참가 실행 불가/);
   assert.doesNotMatch(sent[0].body,/방장·부방장 또는 봇 계정만/);
 });
