@@ -258,7 +258,7 @@ async function join({roomId,userId,userName,send}){
     return;
   }
   await send(require('./leave-reply').joinNotice({
-    name:userName,userId:user,joins,leaves,time:formatKST(joinedAt),bans,
+    name:userName,userId:user,joins,leaves,time:formatKST(joinedAt),bans,warnings,
     profileLink:saved.open_profile_link||'',profileImage:saved.last_profile_url||'',
     profileType:saved.open_profile_link?'오픈프로필':'확인 불가'
   }));
@@ -318,7 +318,7 @@ async function leave({roomId,userId,userName,send}){
   }
   await send(require('./leave-reply').leaveNotice({
     name:userName,userId:user,joins,leaves,time:formatKST(leftAt),
-    joinedAt:lastJoinedAt?formatKST(lastJoinedAt):'확인 불가',stay,bans,
+    joinedAt:lastJoinedAt?formatKST(lastJoinedAt):'확인 불가',stay,bans,warnings,
     profileLink:saved.open_profile_link||'',profileImage:saved.last_profile_url||'',
     profileType:saved.open_profile_link?'오픈프로필':'확인 불가'
   }));
