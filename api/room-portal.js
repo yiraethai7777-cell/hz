@@ -8,7 +8,7 @@ const bad=(message,status=400)=>{const e=Error(message);e.status=status;throw e;
 const hash=s=>crypto.createHash('sha256').update(String(s)).digest('hex');
 const passwordHash=(s,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+crypto.scryptSync(s,salt,64).toString('hex');
 const same=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);};
-const PERMISSIONS=['manage','mention','profile','deleted','spam','templates','warnings','roles','prefixes','chatStats','blocks'];
+const PERMISSIONS=['manage','mention','profile','deleted','spam','game','quiz','fishing','templates','warnings','roles','prefixes','chatStats','notes','kick'];
 const attempts=new Map();
 async function init(){
  const db=getPool();
@@ -21,6 +21,11 @@ async function init(){
  await db.query(`CREATE TABLE IF NOT EXISTS gl_room_portal_sessions (
   token_hash TEXT PRIMARY KEY,portal_id BIGINT NOT NULL REFERENCES gl_room_portals(id) ON DELETE CASCADE,
   csrf TEXT NOT NULL,expires_at TIMESTAMPTZ NOT NULL
+ )`);
+ await db.query(`CREATE TABLE IF NOT EXISTS gl_room_portal_notes (
+  room_id TEXT NOT NULL,user_id TEXT NOT NULL,note TEXT NOT NULL,
+  updated_by TEXT NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(room_id,user_id)
  )`);
 }
 function parsePermissions(x){
@@ -135,11 +140,11 @@ async function loginFromAdmin(req,res,body){
 async function settings(s){
  const room=s.room_id,db=getPool();
  const [r,mention,profile]=await Promise.all([
- db.query("SELECT m.enabled,m.deleted_enabled,m.spam_enabled,h.data->>'joinTemplate' AS join_template,h.data->>'leaveTemplate' AS leave_template FROM gl_manage_rooms m FULL JOIN hz_rooms h ON h.room_id=m.room_id WHERE COALESCE(m.room_id,h.room_id)=$1",[room]),
+ db.query("SELECT m.enabled,m.deleted_enabled,m.spam_enabled,h.data->>'joinTemplate' AS join_template,h.data->>'leaveTemplate' AS leave_template,h.data->>'game' AS game_enabled,h.data->>'quizEnabled' AS quiz_enabled,h.data->>'fishEnabled' AS fish_enabled FROM gl_manage_rooms m FULL JOIN hz_rooms h ON h.room_id=m.room_id WHERE COALESCE(m.room_id,h.room_id)=$1",[room]),
  db.query("SELECT enabled FROM hz_mention_settings WHERE room_id=$1",[room]),
  db.query("SELECT data->'profileAlerts' AS enabled FROM hz_rooms WHERE room_id=$1",[room])]);
  const v=r.rows[0]||{};
- return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,prefixes:await require('../shared/command-prefixes').get(room),flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
+ return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,prefixes:await require('../shared/command-prefixes').get(room),flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false,game:v.game_enabled==='true',quiz:v.quiz_enabled!=='false',fishing:v.fish_enabled!=='false'},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
 }
 async function warnings(room){
  const r=await getPool().query(`SELECT user_id,max(user_name) AS user_name,count(*)::int AS count,
@@ -236,7 +241,7 @@ async function routes(req,res,url,body){
   ]);
   const adminIds=new Set(admins.rows.map(r=>r.user_id)),superIds=new Set(superAdmins.map(r=>r.user_id));
   return {count:roster.members.length,checkedAt:new Date(roster.at).toISOString(),
-   canEditRoles:!!s.permissions?.roles,
+   canEditRoles:!!s.permissions?.roles,canManageNotes:!!s.permissions?.notes,canKick:!!s.permissions?.kick,
    members:roster.members.map(m=>({
     id:m.id,name:m.name,imageUrl:m.imageUrl,
     roomRole:m.type===1?'방장':m.type===4?'부방장':'',
@@ -261,12 +266,66 @@ async function routes(req,res,url,body){
   await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',[s.room_id,'portal:'+s.id,user,on?'WEB_ROLE_ADD':'WEB_ROLE_REMOVE',role]);
   return {ok:true};
  }
+
+ if(p==='/api/room-portal/note'&&method==='GET'){
+  allowed(s,'notes');
+  const user=id(url.searchParams.get('userId'));
+  if(!/^[1-9]\\d{3,24}$/.test(user))bad('사용자 ID를 확인해 주세요.');
+  const row=await getPool().query('SELECT note,updated_by,updated_at FROM gl_room_portal_notes WHERE room_id=$1 AND user_id=$2',[s.room_id,user]);
+  return {userId:user,note:row.rows[0]?.note||'',updatedAt:row.rows[0]?.updated_at||null};
+ }
+ if(p==='/api/room-portal/note'&&method==='POST'){
+  allowed(s,'notes');
+  const user=id(body.userId),note=String(body.note||'').trim();
+  if(!/^[1-9]\\d{3,24}$/.test(user)||note.length>1000)bad('사용자 ID 또는 메모 길이(최대 1,000자)를 확인해 주세요.');
+  const db=getPool();
+  if(note){
+   await db.query(`INSERT INTO gl_room_portal_notes(room_id,user_id,note,updated_by)
+      VALUES($1,$2,$3,$4) ON CONFLICT(room_id,user_id)
+      DO UPDATE SET note=$3,updated_by=$4,updated_at=NOW()`,
+    [s.room_id,user,note,'portal:'+s.id]);
+  }else await db.query('DELETE FROM gl_room_portal_notes WHERE room_id=$1 AND user_id=$2',[s.room_id,user]);
+  await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
+   [s.room_id,'portal:'+s.id,user,note?'WEB_NOTE_UPDATE':'WEB_NOTE_DELETE','관리 메모']);
+  return {ok:true};
+ }
+ if(p==='/api/room-portal/kick'&&method==='POST'){
+  allowed(s,'kick');
+  const user=id(body.userId);
+  if(!/^[1-9]\\d{3,24}$/.test(user)||body.confirm!=='KICK_CONFIRMED')bad('강퇴 대상 및 최종 확인을 검증해 주세요.');
+  const client=status.client;
+  if(!status.connected||!client?.connected||typeof client.openChatKick!=='function')bad('봇 강퇴 기능을 이용할 수 없습니다.',503);
+  if(String(client.userId)===user)bad('봇 계정은 강퇴할 수 없습니다.',403);
+  const joined=await joinedRooms();
+  if(!joined.some(r=>r.id===s.room_id))bad('봇이 현재 참여 중인 방이 아닙니다.',403);
+  const roster=await require('../shared/live-roster').refresh(client,s.room_id,{force:true});
+  const member=roster.members.find(m=>m.id===user);
+  if(!member)bad('현재 방에 있는 사용자만 강퇴할 수 있습니다.',404);
+  if([1,4].includes(Number(member.type)))bad('방장 또는 부방장은 강퇴할 수 없습니다.',403);
+  if(await require('../shared/super-admin').isSuperAdmin(s.room_id,user))bad('최고관리자는 강퇴할 수 없습니다.',403);
+  const result=await client.openChatKick(s.room_id,user);
+  if(result===false||result?.success===false||result?.ok===false||
+    (typeof result?.status==='number'&&result.status!==0))bad('카카오톡에서 강퇴 요청이 거부되었습니다.',502);
+  await getPool().query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
+   [s.room_id,'portal:'+s.id,user,'WEB_KICK',String(member.name||user).slice(0,80)]);
+  return {ok:true,userId:user,name:member.name};
+ }
  if(p==='/api/room-portal/settings'&&method==='GET')return settings(s);
  if(p==='/api/room-portal/warnings'&&method==='GET'){allowed(s,'warnings');return warnings(s.room_id);}
  if(p==='/api/room-portal/feature'&&method==='POST'){
-  const key=String(body.feature||'');if(!['manage','mention','profile','deleted','spam'].includes(key)||typeof body.enabled!=='boolean')bad('잘못된 기능 설정입니다.');
+  const key=String(body.feature||'');if(!['manage','mention','profile','deleted','spam','game','quiz','fishing'].includes(key)||typeof body.enabled!=='boolean')bad('잘못된 기능 설정입니다.');
   allowed(s,key);const db=getPool(),room=s.room_id,on=body.enabled;
-  if(key==='mention')await require('../manage/mention-notify').setEnabled(db,room,on);
+  if(['game','quiz','fishing'].includes(key)){
+   const field={game:'game',quiz:'quizEnabled',fishing:'fishEnabled'}[key];
+   await db.query(`INSERT INTO hz_rooms(room_id,data)
+     VALUES($1,jsonb_build_object($2::text,$3::boolean))
+     ON CONFLICT(room_id) DO UPDATE SET
+     data=jsonb_set(hz_rooms.data,ARRAY[$2::text],to_jsonb($3::boolean),true)
+       || CASE WHEN $3::boolean=FALSE AND $2::text IN ('game','quizEnabled')
+          THEN '{"quiz":null}'::jsonb ELSE '{}'::jsonb END,updated_at=NOW()`,[room,field,on]);
+   await require('../shared/runtime').syncQuizRoom(room);
+  }
+  else if(key==='mention')await require('../manage/mention-notify').setEnabled(db,room,on);
   else if(key==='profile')await require('../manage/profile-alerts').setEnabled(db,room,on);
   else if(key==='manage'){
    const c=await db.connect();try{await c.query('BEGIN');await c.query('INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,$2) ON CONFLICT(room_id) DO UPDATE SET enabled=$2',[room,on]);await c.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('manage',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{manage}',to_jsonb($2::boolean),true)",[room,on]);await c.query('COMMIT');}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
