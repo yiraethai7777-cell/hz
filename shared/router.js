@@ -106,7 +106,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       const roomAccess=await require('./room-subscriptions').access(roomId);
       const license=roomAccess.subscription;
       if(!roomAccess.allowed)return;
-      if((text==='!요금제'||text==='!남은시간')&&license){
+      if(license&&text==='!봇방지정')return; // Owner-room bootstrap must never override a purchased package.
+      if((text==='!요금제'||text==='!남은시간')&&license&&await require('./bot-power').enabled(roomId)){
         const sub=require('./room-subscriptions');
         await chat.sendText(roomId,
           '📦 카카오톡 매니저 | 요금제 현황\n'+
