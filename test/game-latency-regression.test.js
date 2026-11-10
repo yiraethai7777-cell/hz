@@ -88,14 +88,14 @@ test('QUIZ title and question precede fold; difficulty follows fold',async()=>{
  const fold='\u200b'.repeat(1200);
  const pos=first.indexOf(fold);
  assert.ok(pos>0);
- assert.match(first.slice(0,pos),/^🧩 NEXI \| QUIZ\nQ\. /);
+ assert.match(first.slice(0,pos),/^🧩 카카오톡 게임 매니저 \| 퀴즈\n━━━━━━━━━━━━━━━━━━\nQ\. /);
  assert.doesNotMatch(first.slice(0,pos),/\[ (쉬움|도전) · /);
  assert.ok(first.slice(pos+fold.length).includes(
   ' · '+room.quiz.kind+' / '+room.quiz.difficulty));
- assert.match(first,/^🧩 NEXI \| QUIZ/);
+ assert.match(first,/^🧩 카카오톡 게임 매니저 \| 퀴즈/);
  const active=await game.handleGame(room,{},msg,false);
  const again=active.indexOf(fold);
- assert.match(active.slice(0,again),/^🧩 NEXI \| QUIZ\nQ\. /);
+ assert.match(active.slice(0,again),/^🧩 카카오톡 게임 매니저 \| 퀴즈\n━━━━━━━━━━━━━━━━━━\nQ\. /);
  assert.ok(active.slice(again+fold.length).includes(
   ' · '+room.quiz.kind+' / '+room.quiz.difficulty));
 });
