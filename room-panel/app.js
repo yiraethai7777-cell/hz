@@ -8,25 +8,45 @@ async function api(path,method='GET',body){
  const data=await r.json();if(!r.ok)throw Error(data.error||'요청 실패');return data;
 }
 async function task(fn){try{note('');await fn();}catch(e){note(e.message,true);}}
+let expiryTimer;
+function renderSubscription(sub){
+ const panel=$('#subscriptionPanel');
+ panel.hidden=!sub;
+ if(expiryTimer){clearInterval(expiryTimer);expiryTimer=null;}
+ if(!sub)return;
+ const expired=()=>!sub.active||new Date(sub.expiresAt).getTime()<=Date.now();
+ $('#subscriptionTitle').textContent='요금제 · '+sub.planLabel;
+ $('#subscriptionDescription').textContent=expired()?'서비스 이용기간이 종료되었습니다. 연장은 총관리자 웹에서만 가능합니다.':'이 방의 관리/게임 서비스 이용권이 적용 중입니다.';
+ $('#subscriptionExpiry').textContent='종료 예정: '+new Date(sub.expiresAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' (한국 시간)';
+ const tick=()=>{
+  const seconds=Math.max(0,Math.ceil((new Date(sub.expiresAt)-Date.now())/1000));
+  const days=Math.floor(seconds/86400),hours=Math.floor(seconds%86400/3600),minutes=Math.floor(seconds%3600/60);
+  $('#subscriptionCountdown').textContent=seconds?days+'일 '+hours+'시간 '+minutes+'분 남음':'이용 기간 만료';
+ };
+ tick();expiryTimer=setInterval(tick,60000);
+}
 async function render(){
- const d=await api('/api/room-portal/settings');$('#subtitle').textContent=d.label+' · '+d.roomName;
+ const d=await api('/api/room-portal/settings');
+ renderSubscription(d.subscription);$('#subtitle').textContent=d.label+' · '+d.roomName;
+ const licensed=!d.subscription||d.subscription.active;
+ $('#tabMembers').hidden=!licensed;
  const list=$('#features');list.replaceChildren();
  for(const [key,label] of Object.entries(names)){
   if(!d.permissions[key])continue;
   const row=document.createElement('label');row.className='feature';const span=document.createElement('span');span.textContent=label;
-  const input=document.createElement('input');input.type='checkbox';input.checked=d.flags[key];
+  const input=document.createElement('input');input.type='checkbox';input.checked=d.flags[key];input.disabled=!licensed;
   input.addEventListener('change',()=>task(async()=>{input.disabled=true;try{await api('/api/room-portal/feature','POST',{feature:key,enabled:input.checked});note(label+' 설정이 저장되었습니다.');}catch(e){input.checked=!input.checked;throw e;}finally{input.disabled=false;}}));
   row.append(span,input);list.append(row);
  }
  if(!list.children.length)list.textContent='현재 사용할 수 있는 기능이 없습니다.';
- $('#fishEventPanel').hidden=!d.permissions.manage;
- if(d.permissions.manage)await refreshFishEvent();
- $('#templates').hidden=!d.permissions.templates;$('#warningPanel').hidden=!d.permissions.warnings;
+ $('#fishEventPanel').hidden=!d.permissions.manage||!licensed;
+ if(d.permissions.manage&&licensed)await refreshFishEvent();
+ $('#templates').hidden=!d.permissions.templates||!licensed;$('#warningPanel').hidden=!d.permissions.warnings||!licensed;
  $('#commandBlockPanel').hidden=true; // Command blocks are reserved for super-admin chat commands and the master web console.
- $('#prefixPanel').hidden=!d.permissions.prefixes;$('#tabRanks').hidden=!d.permissions.chatStats;
+ $('#prefixPanel').hidden=!d.permissions.prefixes||!licensed;$('#tabRanks').hidden=!d.permissions.chatStats||!licensed;
  canWarnMembers=!!d.permissions.warnings;$('#prefixInput').value=(d.prefixes||['!']).join(', ');
  $('#newUsername').value=d.username||'';$('#joinTemplate').value=d.joinTemplate;$('#leaveTemplate').value=d.leaveTemplate;
- if(d.permissions.warnings)await renderWarnings();
+ if(d.permissions.warnings&&licensed)await renderWarnings();
 }
 async function refreshFishEvent(){
  const d=await api('/api/room-portal/fishing-coin-event');
@@ -229,7 +249,7 @@ async function loadMembers(){
  drawMembers();
 }
 async function openInitialTab(){
- if(location.hash==='#members'){switchTab('members');await loadMembers();}
+ if(location.hash==='#members'&&!$('#tabMembers').hidden){switchTab('members');await loadMembers();}
  else if(location.hash==='#ranks'&&!$('#tabRanks').hidden){switchTab('ranks');await loadRanks();}
  else switchTab('settings');
 }
