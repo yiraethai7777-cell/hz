@@ -1,0 +1,35 @@
+name: Room Subscription Checks
+
+on:
+  pull_request:
+    paths:
+      - 'shared/room-subscriptions.js'
+      - 'shared/bot-power.js'
+      - 'shared/router.js'
+      - 'api/room-portal.js'
+      - 'admin-web/room-portals.js'
+      - 'test/room-subscriptions.test.js'
+      - 'test/manager-web.test.js'
+      - '.github/workflows/room-subscriptions.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'shared/room-subscriptions.js'
+      - 'shared/bot-power.js'
+      - 'api/room-portal.js'
+      - 'test/room-subscriptions.test.js'
+      - '.github/workflows/room-subscriptions.yml'
+
+jobs:
+  subscriptions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node --test test/room-subscriptions.test.js test/manager-web.test.js

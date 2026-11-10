@@ -155,6 +155,8 @@ function start() {
 
       await manage.init();
 
+      await require('./shared/room-subscriptions').start(client);
+
       require('./manage/scheduled-notices').start(client);
 
       require('./shared/runtime').startProfileWatch(client);

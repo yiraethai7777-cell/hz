@@ -4,6 +4,7 @@ const {getPool}=require('../shared/db');
 const {id}=require('../shared/store');
 const {session:masterSession,csrf:masterCsrf}=require('./auth');
 const {status}=require('./routes');
+const subscriptions=require('../shared/room-subscriptions');
 const bad=(message,status=400)=>{const e=Error(message);e.status=status;throw e;};
 const hash=s=>crypto.createHash('sha256').update(String(s)).digest('hex');
 const passwordHash=(s,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+crypto.scryptSync(s,salt,64).toString('hex');
@@ -27,6 +28,7 @@ async function init(){
   updated_by TEXT NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY(room_id,user_id)
  )`);
+ await subscriptions.init();
 }
 function parsePermissions(x){
  if(!x||typeof x!=='object'||Array.isArray(x)||Object.keys(x).some(k=>!PERMISSIONS.includes(k)||typeof x[k]!=='boolean'))bad('허용 기능 설정이 올바르지 않습니다.');
@@ -54,8 +56,19 @@ async function master(req,url,body){
  const s=await masterSession(req);if(!s)bad('총관리자 로그인이 필요합니다.',401);
  if(req.method!=='GET')masterCsrf(req,s);
  if(req.method==='GET'){
-  const q=await getPool().query('SELECT id,room_id,room_name,label,slug,username,permissions,enabled FROM gl_room_portals ORDER BY id DESC');
-  return {portals:q.rows,permissions:PERMISSIONS};
+  const q=await getPool().query(
+   "SELECT p.id,p.room_id,p.room_name,p.label,p.slug,p.username,p.permissions,p.enabled,"+
+   " b.plan AS sub_plan,b.status AS sub_status,b.duration_days AS sub_duration_days,"+
+   " b.started_at AS sub_started_at,b.expires_at AS sub_expires_at"+
+   " FROM gl_room_portals p LEFT JOIN gl_room_subscriptions b USING(room_id) ORDER BY p.id DESC");
+  return {portals:q.rows.map(row=>{
+   const subscription=row.sub_plan?subscriptions.view({
+    room_id:row.room_id,plan:row.sub_plan,status:row.sub_status,
+    duration_days:row.sub_duration_days,started_at:row.sub_started_at,expires_at:row.sub_expires_at
+   }):null;
+   const {sub_plan,sub_status,sub_duration_days,sub_started_at,sub_expires_at,...portal}=row;
+   return {...portal,subscription};
+  }),permissions:PERMISSIONS,rooms:await joinedRooms()};
  }
  if(req.method!=='POST')bad('지원되지 않는 요청입니다.',405);
  const rooms=await joinedRooms(),room=id(body.roomId);
@@ -63,23 +76,65 @@ async function master(req,url,body){
  const label=String(body.label||'').trim().slice(0,60);
  const username=String(body.username||'').trim();
  if(!label||!/^[a-zA-Z0-9_.-]{4,40}$/.test(username))bad('웹사이트 이름 및 아이디(영문·숫자 4~40자)를 확인해 주세요.');
- const perms=parsePermissions(body.permissions);
- const password=String(body.password||'');
- const exists=await getPool().query('SELECT id FROM gl_room_portals WHERE room_id=$1',[room]);
- if(!exists.rowCount&&password.length<10)bad('새 웹사이트 비밀번호는 10자 이상이어야 합니다.');
+ const perms=parsePermissions(body.permissions),password=String(body.password||'');
+ const db=getPool(),existing=await db.query('SELECT id FROM gl_room_portals WHERE room_id=$1',[room]);
+ const license=await subscriptions.get(room,db);
+ if(!existing.rowCount&&password.length<10)bad('새 웹사이트 비밀번호는 10자 이상이어야 합니다.');
  if(password&&password.length<10)bad('비밀번호는 10자 이상이어야 합니다.');
- const portalEnabled=body.enabled!==false;
- const slug=crypto.randomBytes(12).toString('hex');
+ const activate=body.activatePlan===true;
+ if(!existing.rowCount&&!activate)bad('새 방 관리자 웹 발급 시 요금제와 이용 일수를 설정해 주세요.');
+ const plan=activate||license&&body.plan?subscriptions.validPlan(body.plan):license?.plan||null;
+ const days=activate?subscriptions.validDays(body.days):null;
+ if(activate&&license)bad('이미 발급한 요금제는 연장 메뉴에서 기간을 추가해 주세요.');
+ if(license&&body.plan&&license.plan!==plan&&!license.active)
+  bad('만료된 요금제는 먼저 기간을 연장한 뒤 유형을 변경해 주세요.');
+ // The package controls actual bot functions independently of which controls
+ // the room administrator can see. Disallowed controls are not delegated.
+ if(plan==='manage')for(const k of ['game','quiz','fishing'])perms[k]=false;
+ if(plan==='game')for(const k of ['manage','mention','profile','deleted','spam','templates','warnings','roles','notes','kick'])perms[k]=false;
+ const portalEnabled=body.enabled!==false,slug=crypto.randomBytes(12).toString('hex');
  const pw=password?passwordHash(password):null;
- const db=getPool();
- const q=await db.query(`INSERT INTO gl_room_portals(room_id,room_name,label,slug,username,password_hash,permissions,enabled)
- VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
- ON CONFLICT(room_id) DO UPDATE SET room_name=$2,label=$3,username=$5,
- password_hash=COALESCE($9,gl_room_portals.password_hash),permissions=$7::jsonb,enabled=$8
- RETURNING id,room_id,room_name,label,slug,username,permissions,enabled`,
- [room,active.name,label,slug,username,pw||passwordHash(crypto.randomBytes(32).toString('hex')),JSON.stringify(perms),portalEnabled,pw]);
- if(exists.rowCount&&(password||!portalEnabled||body.revokeSessions===true))await db.query('DELETE FROM gl_room_portal_sessions WHERE portal_id=$1',[q.rows[0].id]);
- return {ok:true,portal:q.rows[0],url:'/room-panel?site='+q.rows[0].slug};
+ const c=await db.connect();let result,updatedLicense=null;
+ try{
+  await c.query('BEGIN');
+  const q=await c.query(
+   "INSERT INTO gl_room_portals(room_id,room_name,label,slug,username,password_hash,permissions,enabled)"+
+   " VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)"+
+   " ON CONFLICT(room_id) DO UPDATE SET room_name=$2,label=$3,username=$5,"+
+   " password_hash=COALESCE($9,gl_room_portals.password_hash),permissions=$7::jsonb,enabled=$8"+
+   " RETURNING id,room_id,room_name,label,slug,username,permissions,enabled",
+   [room,active.name,label,slug,username,pw||passwordHash(crypto.randomBytes(32).toString('hex')),JSON.stringify(perms),portalEnabled,pw]);
+  result=q.rows[0];
+  if(activate)updatedLicense=await subscriptions.grant(c,{roomId:room,plan,days,actor:'master:'+s.user});
+  else if(license&&body.plan&&license.plan!==plan)
+   updatedLicense=await subscriptions.changePlan(c,{roomId:room,plan,actor:'master:'+s.user});
+  if(existing.rowCount&&(password||!portalEnabled||body.revokeSessions===true))
+   await c.query('DELETE FROM gl_room_portal_sessions WHERE portal_id=$1',[result.id]);
+  await c.query('COMMIT');
+ }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
+ if(updatedLicense){
+  try{await require('../shared/runtime').syncQuizRoom(room);}catch(error){console.warn('[ROOM PLAN CACHE]',String(error?.message||error));}
+  try{await subscriptions.sendNotice(status.client,room,db);}catch(error){console.warn('[ROOM PLAN NOTICE]',String(error?.message||error));}
+ }
+ return {ok:true,portal:{...result,subscription:updatedLicense||license},
+  url:'/room-panel?site='+result.slug,notificationPending:!!updatedLicense};
+}
+async function masterExtend(req,body){
+ await init();
+ const s=await masterSession(req);if(!s)bad('총관리자 로그인이 필요합니다.',401);
+ masterCsrf(req,s);
+ const room=id(body.roomId),days=subscriptions.validDays(body.days);
+ const db=getPool(),exists=await db.query('SELECT 1 FROM gl_room_portals WHERE room_id=$1',[room]);
+ if(!exists.rowCount)bad('방 관리자 웹사이트를 먼저 발급해 주세요.',404);
+ const c=await db.connect();let updated;
+ try{
+  await c.query('BEGIN');
+  updated=await subscriptions.extend(c,{roomId:room,days,actor:'master:'+s.user});
+  await c.query('COMMIT');
+ }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
+ try{await require('../shared/runtime').syncQuizRoom(room);}catch(error){console.warn('[ROOM PLAN CACHE]',String(error?.message||error));}
+ try{await subscriptions.sendNotice(status.client,room,db);}catch(error){console.warn('[ROOM PLAN NOTICE]',String(error?.message||error));}
+ return {ok:true,subscription:updated};
 }
 async function masterResetPassword(req,body){
  await init();
@@ -144,7 +199,7 @@ async function settings(s){
  db.query("SELECT enabled FROM hz_mention_settings WHERE room_id=$1",[room]),
  db.query("SELECT data->'profileAlerts' AS enabled FROM hz_rooms WHERE room_id=$1",[room])]);
  const v=r.rows[0]||{};
- return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,prefixes:await require('../shared/command-prefixes').get(room),flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false,game:v.game_enabled==='true',quiz:v.quiz_enabled!=='false',fishing:v.fish_enabled!=='false'},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
+ return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,subscription:await subscriptions.get(room),prefixes:await require('../shared/command-prefixes').get(room),flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false,game:v.game_enabled==='true',quiz:v.quiz_enabled!=='false',fishing:v.fish_enabled!=='false'},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
 }
 async function warnings(room){
  const r=await getPool().query(`SELECT user_id,max(user_name) AS user_name,count(*)::int AS count,
@@ -156,6 +211,7 @@ async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
  if(p==='/api/admin/room-portal-password-reset'&&method==='POST')return masterResetPassword(req,body);
  if(p==='/api/admin/room-portals')return master(req,url,body);
+ if(p==='/api/admin/room-portal-extend'&&method==='POST')return masterExtend(req,body);
  if(p==='/api/room-portal/login'&&method==='POST')return login(req,res,body);
  if(p==='/api/room-portal/login-from-admin'&&method==='POST')return loginFromAdmin(req,res,body);
  await init();
@@ -165,10 +221,12 @@ async function routes(req,res,url,body){
  if(!/^[a-f0-9]{24}$/.test(requestedSite))bad('고객 웹사이트 주소가 올바르지 않습니다.',400);
  const sessionCandidate=await roomSession(req);
  const s=sessionCandidate?.slug===requestedSite?sessionCandidate:null;
- if(p==='/api/room-portal/session'&&method==='GET')return s?{authenticated:true,csrf:s.csrf,label:s.label,roomName:s.room_name,permissions:s.permissions}:{authenticated:false};
+ if(p==='/api/room-portal/session'&&method==='GET')return s?{authenticated:true,csrf:s.csrf,label:s.label,roomName:s.room_name,permissions:s.permissions,subscription:await subscriptions.get(s.room_id)}:{authenticated:false};
  if(sessionCandidate&&!s)bad('다른 고객 웹사이트에 로그인되어 있습니다. 이 사이트의 계정으로 로그인해 주세요.',401);
  if(!s)bad('고객 웹사이트 로그인이 필요합니다.',401);
  if(method!=='GET')verifyCsrf(req,s);
+ const license=await subscriptions.get(s.room_id);
+ if(license&&!license.active&&!['/api/room-portal/settings','/api/room-portal/logout'].includes(p))bad('이 채팅방의 봇 이용 기간이 만료되었습니다. 총관리자에게 연장을 요청해 주세요.',403);
  if(p==='/api/room-portal/logout'&&method==='POST'){
   await getPool().query('DELETE FROM gl_room_portal_sessions WHERE token_hash=$1',[hash(cookieValue(req))]);setCookie(res,'',req,0);return {ok:true};
  }
@@ -315,6 +373,7 @@ async function routes(req,res,url,body){
  if(p==='/api/room-portal/feature'&&method==='POST'){
   const key=String(body.feature||'');if(!['manage','mention','profile','deleted','spam','game','quiz','fishing'].includes(key)||typeof body.enabled!=='boolean')bad('잘못된 기능 설정입니다.');
   allowed(s,key);const db=getPool(),room=s.room_id,on=body.enabled;
+  if(license?.plan==='manage'&&['game','quiz','fishing'].includes(key)||license?.plan==='game'&&['manage','mention','profile','deleted','spam'].includes(key))bad('현재 요금제에서 제공하지 않는 기능입니다.',403);
   if(['game','quiz','fishing'].includes(key)){
    const field={game:'game',quiz:'quizEnabled',fishing:'fishEnabled'}[key];
    await db.query(`INSERT INTO hz_rooms(room_id,data)

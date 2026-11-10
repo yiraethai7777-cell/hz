@@ -67,6 +67,7 @@ async function attachHZBot(client){
       // run after the game response and cannot delay its delivery.
       // When locked, no commands or event work may run, even from the bot account.
       // The authorized explicit unlock is the only exception.
+      if(!await require('./bot-power').enabled(rid,ctx.pool))return;
       const initialFlags=await ctx.roomFlags(rid);
       if(initialFlags.locked && !(isAdmin && text==="#봇작동"))return;
       const priorityGame=msg.__gameCommandFastPath===true &&

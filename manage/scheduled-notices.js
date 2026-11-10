@@ -180,6 +180,7 @@ async function tick({db,client,logger=console,adapter}){
     "WITH due AS (SELECT n.room_id,n.notice_no FROM hz_scheduled_notices n "+
     "WHERE n.state='pending' AND n.scheduled_at<=NOW() AND n.next_attempt_at<=NOW() "+
     "AND COALESCE((SELECT (data->>'botEnabled')::boolean FROM hz_rooms WHERE room_id=n.room_id),TRUE)=TRUE "+
+    "AND NOT EXISTS (SELECT 1 FROM gl_room_subscriptions sub WHERE sub.room_id=n.room_id AND (sub.status<>'active' OR sub.expires_at<=NOW())) "+
     "AND COALESCE((SELECT enabled FROM gl_manage_rooms WHERE room_id=n.room_id),"+
     "(SELECT (data->>'manage')::boolean FROM hz_rooms WHERE room_id=n.room_id),FALSE)=TRUE "+
     "ORDER BY n.scheduled_at,n.room_id,n.notice_no LIMIT 10 FOR UPDATE OF n SKIP LOCKED) "+
@@ -191,6 +192,7 @@ async function tick({db,client,logger=console,adapter}){
   for(const notice of claimed.rows){
     try{
       if(client?.connected===false)throw Error('카카오톡 연결이 끊어졌습니다.');
+      if(!await require('../shared/bot-power').enabled(notice.room_id))throw Error('방 봇 이용 기간이 종료되었습니다.');
       const result=await registerActualNotice(client,notice.room_id,notice.content,notice.open_link_id,adapter);
       await db.query("UPDATE hz_scheduled_notices SET state='sent',sent_at=NOW(),claim_token=NULL,"+
         "claimed_at=NULL,last_error=NULL,post_id=$4 WHERE room_id=$1 AND notice_no=$2 "+

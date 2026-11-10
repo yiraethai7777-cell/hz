@@ -6,6 +6,9 @@ const assert=require('node:assert/strict');
 // mocks DB reads/command-block schema setup; integration tests use real DB.
 const dbModule=require('../shared/db');
 dbModule.getPool=()=>({query:async()=>({rows:[],rowCount:0})});
+// Mock a grandfathered, active room so voice routing tests stay focused on the
+// voice handler; subscription-expiry behavior is exercised by room-subscriptions.test.js.
+require('../shared/room-subscriptions').access=async()=>({allowed:true,subscription:null});
 const {attachRouter}=require('../shared/router');
 
 function fixture() {
@@ -136,7 +139,7 @@ test('voice help command routes without requiring an active driver',async()=>{
   const {emit,sent}=fixture();
   await emit('!보룸명령어');
   assert.equal(sent.length,1);
-  assert.match(sent[0].body,/NEXI \| 보이스룸 명령어/);
+  assert.match(sent[0].body,/카카오톡 관리 매니저 \| 보이스룸 명령어/);
 });
 
 test('screenshotted #보룸시작 receives an unsupported API response',async()=>{
