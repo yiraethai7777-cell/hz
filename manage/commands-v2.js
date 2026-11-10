@@ -5,7 +5,7 @@ const {messages:chatRanks}=require('./chat-ranking');
 const {mentions,reference,resolve:resolveReply}=require('./targets');
 const {formatCommandHelp}=require('../shared/help');
 const {reset:resetSpam}=require('./spam');
-const PUBLIC=new Set(['!읽기감지','ㅊㅅ','!출석','!출석이미지','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
+const PUBLIC=new Set(['!읽기감지','ㅊㅅ','!출석','!출석순위','!채팅순위','!채팅순위전체','!채팅정보']);
 const STAFF=new Set(['!멘션','!차단','!차단해제','!차단목록','!봇켜기','!봇끄기','!현공지삭제','!경고','!경고내역','!경고삭제','!경고초기화','!kick','!k','!내풀','!벤해제','!벤기록','!관리로그','!입퇴장로그','!입장변경','!퇴장변경','!프로필로그','!공지등록','!공지예약','!공지목록','!공지삭제']);
 const OWNER=new Set(['!관리on','!관리off','!관리자추가','!관리자삭제','!최고관리자추가','!최고관리자삭제','!최고관리자목록','!도배감지on','!프로필감지on','!프로필감지off','!일괄강퇴']);
 const ALL=new Set([...PUBLIC,...STAFF,...OWNER,'!관리명령어','!id','!멘션감지on','!멘션감지off','!멘션감지상태']);
@@ -309,21 +309,10 @@ async function handle(ctx){
    return true;
   }
  }
- if(cmd==='ㅊㅅ'||cmd==='!출석'||cmd==='!출석이미지'){
-  let attendanceDate,completionMessage;
-  if(cmd==='ㅊㅅ'||cmd==='!출석'){
-   // Commit once, then confirm photo upload before sending completion text.
-   const result=await attend(room,user,ctx.userName||user,{detailed:true});
-   if(!result.isNew){await send(result.message);return true;}
-   attendanceDate=result.date;
-   completionMessage=result.message;
-  }
-  try{
-   await require('./attendance-image/automatic').sendAttendanceImage(ctx.client,{
-   roomId:room,userId:user,send,attendanceDate,userName:ctx.userName||user,onDemand:cmd==='!출석이미지'
-   });
-  }catch(error){console.error('[ATTENDANCE IMAGE TASK]',error);}
-  finally{if(completionMessage)await send(completionMessage);}
+ if(cmd==='ㅊㅅ'||cmd==='!출석'){
+  // Text-only attendance: no image render, photo upload or second message.
+  const result=await attend(room,user,ctx.userName||user);
+  await send(result);
   return true;
  }
  if(cmd==='!출석순위'){
