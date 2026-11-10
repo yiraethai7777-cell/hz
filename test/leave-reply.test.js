@@ -5,12 +5,43 @@ const feature=require('../manage/leave-reply');
 const target='9007199254740993123',log='9007199254740993456';
 const msg=(author='9999',id=log)=>({message:{type:26},attachmentsRaw:[`{"src_userId":${author},"src_logId":${id}}`]});
 
-test('leave notice folds details and shows profile URL without changing exact IDs',()=>{
- const out=feature.leaveNotice({name:'테스트',userId:target,joins:3,leaves:2,time:'오늘',profileLink:'https://open.kakao.com/o/example'});
- assert.equal(out.split('\u200b')[0],'👋 테스트님이 나갔습니다.\n');
- assert.match(out,/\u200b{1200}/);assert.match(out,new RegExp(target));
- assert.match(out,/입장 3회 · 퇴장 2회/);assert.match(out,/https:\/\/open.kakao.com\/o\/example/);
- assert.match(feature.leaveNotice({name:'A'}),/확인된 오픈프로필 링크 없음/);
+test('manager join notice shows summary above fold and detailed activity below',()=>{
+ const out=feature.joinNotice({
+  name:'테스트',userId:target,joins:3,leaves:2,warnings:2,bans:1,
+  time:'2026.11.10 09:00',profileLink:'https://open.kakao.com/o/example'
+ });
+ const [summary,details]=out.split('\u200b'.repeat(1200));
+ assert.match(summary,/^💛 카카오톡 관리 매니저 \| 입장 안내/);
+ assert.match(summary,/님, 환영합니다!/);
+ assert.match(summary,/📊 입장 \/ 퇴장 : 3회 \/ 2회/);
+ assert.match(summary,/⚠️ 누적 경고 : 2회/);
+ assert.match(summary,new RegExp(target));
+ assert.match(summary,/📋 상세 활동 기록/);
+ assert.match(details,/2026.11.10 09:00/);
+ assert.match(details,/https:\/\/open.kakao.com\/o\/example/);
+ assert.match(details,/🛡️ 강퇴 기록 : 1회/);
+ assert.match(details,/KakaoTalk Manager/);
+ assert.match(feature.joinNotice({name:'A'}),/확인 불가/);
+});
+
+test('manager leave notice shows exit details, real warnings and reply-to-ban help',()=>{
+ const out=feature.leaveNotice({
+  name:'테스트',userId:target,joins:3,leaves:3,warnings:2,bans:1,
+  joinedAt:'2026.11.10 09:00',time:'2026.11.10 10:30',stay:'1시간 30분'
+ });
+ const [summary,details]=out.split('\u200b'.repeat(1200));
+ assert.match(summary,/^💛 카카오톡 관리 매니저 \| 퇴장 안내/);
+ assert.match(summary,/님이 퇴장하셨습니다/);
+ assert.match(summary,/📊 입장 \/ 퇴장 : 3회 \/ 3회/);
+ assert.match(summary,/⚠️ 누적 경고 : 2회/);
+ assert.match(summary,new RegExp(target));
+ assert.match(details,/📅 입장 시각\n2026.11.10 09:00/);
+ assert.match(details,/📅 퇴장 시각\n2026.11.10 10:30/);
+ assert.match(details,/⏱️ 체류 시간\n1시간 30분/);
+ assert.match(details,/🛡️ 강퇴 기록 : 1회/);
+ assert.match(details,/k 또는 p 입력 시 내보내기 처리/);
+ assert.match(details,/방장·부방장·지정 관리자/);
+ assert.match(details,/KakaoTalk Manager/);
  assert.equal(feature.replyReference(msg(),'9999'),log);
  assert.equal(feature.replyReference(msg('8888'),'9999'),null);
  assert.equal(feature.replyReference({message:{type:1},attachmentsRaw:msg().attachmentsRaw},'9999'),null);
