@@ -54,7 +54,7 @@ test('invalid sale amounts and missing message IDs never mutate inventory',()=>f
 test('progress edits one exact sent message after inventory commit',()=>fixture(async pool=>{
  const edits=[],waits=[],sent=[];const ctx=c('#채굴');ctx.send=async text=>{sent.push(text);return {body:{status:0,logId:'90071992547409931234'}};};ctx.chat={editMessage:async(room,log,text)=>{assert.equal((await pool.query('SELECT bag FROM hz_mining_players')).rows[0].bag['석탄'],1);edits.push({room,log,text});return {body:{status:0}};}};
  await createMining({pool,random:()=>0,wait:async ms=>waits.push(ms)}).handle(ctx);
- assert.deepEqual(sent,['⛏ NEXI | 광질중.']);assert.equal(edits.length,5);assert.equal(edits[0].text,'⛏ NEXI | 광질중..');assert.equal(edits[1].text,'⛏ NEXI | 광질중...');assert.match(edits[4].text,/채굴 성공/);assert.ok(edits.every(e=>e.log==='90071992547409931234'));assert.deepEqual(waits,[1000,1000,1000,1000,1000]);
+ assert.deepEqual(sent,['⛏ 카카오톡 게임 매니저 | 광질중.']);assert.equal(edits.length,5);assert.equal(edits[0].text,'⛏ 카카오톡 게임 매니저 | 광질중..');assert.equal(edits[1].text,'⛏ 카카오톡 게임 매니저 | 광질중...');assert.match(edits[4].text,/채굴 성공/);assert.ok(edits.every(e=>e.log==='90071992547409931234'));assert.deepEqual(waits,[1000,1000,1000,1000,1000]);
 }));
 test('rejected progress edit falls back to result without rolling back loot',()=>fixture(async pool=>{
  const sent=[],ctx=c('#채굴');ctx.send=async text=>{sent.push(text);return {body:{status:0,logId:'12345'}};};ctx.chat={editMessage:async()=>({status:-1})};
@@ -62,7 +62,7 @@ test('rejected progress edit falls back to result without rolling back loot',()=
 }));
 test('missing progress logId never edits the input message',async()=>{
  const sent=[],ctx={roomId:'1000',messageId:'original',send:async t=>{sent.push(t);return {status:0};},chat:{editMessage:()=>assert.fail('No confirmed outgoing logId')}};
- await require('../game/mining-progress').send(ctx,'result',async()=>{});assert.deepEqual(sent,['⛏ NEXI | 광질중.','result']);
+ await require('../game/mining-progress').send(ctx,'result',async()=>{});assert.deepEqual(sent,['⛏ 카카오톡 게임 매니저 | 광질중.','result']);
 });
 
 test('pick purchases debit once, unlock locations and retain cooldown and ownership',()=>fixture(async pool=>{
