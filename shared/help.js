@@ -409,38 +409,67 @@ const bodies={
   "└─ 멘션 기록 및 알람을 끕니다",
  ].join('\n'),
 };
-const NEXI_CONTACT='💬 NEXI 봇 문의방\nhttps://open.kakao.com/o/gK32HUUi';
-const NEXI_SIGNOFF='\n\n━━━━━━━━━━━━━━\n✦ NEXI · 게임 & 관리 도우미';
-const MANAGEMENT_MENU='📜 명령어 안내 · NEXI\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 관리 명령어 · NEXI\n━━━━━━━━━━━━━━\n'+NEXI_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리)+NEXI_SIGNOFF;
-const GAME_MENU='📜 명령어 안내 · NEXI\n작동 중인 기능 · 게임'+FOLD+'\n🎮 게임 명령어 · NEXI\n━━━━━━━━━━━━━━\n'+NEXI_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임+NEXI_SIGNOFF;
+const MANAGER_CONTACT='💬 카카오톡 매니저 문의방\nhttps://open.kakao.com/o/gK32HUUi';
+const MANAGER_SIGNOFF='\n\n━━━━━━━━━━━━━━\n✦ 카카오톡 매니저 · 게임 & 관리 도우미';
+const MANAGEMENT_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 카카오톡 관리 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리).replace(/NEXI/g,'카카오톡 매니저')+MANAGER_SIGNOFF;
+const GAME_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 카카오톡 게임 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임.replace(/NEXI/g,'카카오톡 매니저')+MANAGER_SIGNOFF;
 function formatCommandHelpBase(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
  if(groupName==='게임')return flags.game?GAME_MENU:'⏹️ 이 방의 게임 기능은 중지되어 있습니다. !게임on';
- return '📜 명령어 안내\n🎮 게임: !게임명령어\n🛡️ 관리: !관리명령어';
+ return '📜 카카오톡 매니저 | 명령어 안내\n🎮 게임: !게임명령어\n🛡️ 관리: !관리명령어';
 }
 function formatCommandHelp(flags,requested='',prefix='!'){
  const result=formatCommandHelpBase(flags,requested);
  return prefix==='!'?result:result.replace(/!([a-zA-Z0-9가-힣ㄱ-ㅎ]+)/g,(_,command)=>prefix+command);
 }
 const commandLists=Object.fromEntries(['기본','게임','관리'].map(group=>[group,formatCommandHelp({game:true,manage:true},group)]));
+
+const HELP_COMMANDS=new Set(['!명령어','!help','!관리명령어','!게임명령어']);
+// Match the effective flags used by the actual game and management handlers.
+// A gl_manage_rooms override takes precedence over the legacy hz_rooms JSON flag.
+async function getRoomHelpFlags(roomId,db=require('./db').getPool()){
+ const result=await db.query(
+  "SELECT COALESCE((SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS game,"+
+  " COALESCE((SELECT enabled FROM gl_manage_rooms WHERE room_id=$1),"+
+  " (SELECT (data->>'manage')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS manage",
+  [String(roomId)]
+ );
+ return {game:result.rows[0]?.game===true,manage:result.rows[0]?.manage===true};
+}
+// Returns individual chat bubbles; never concatenate the comprehensive menus.
+function commandMenuMessages(flags,requested='',prefix='!'){
+ const active={game:flags?.game===true,manage:flags?.manage===true};
+ let messages;
+ if(requested==='게임')messages=[formatCommandHelpBase(active,'게임')];
+ else if(requested==='관리')messages=[formatCommandHelpBase(active,'관리')];
+ else if(active.game&&active.manage)messages=[GAME_MENU,MANAGEMENT_MENU];
+ else if(active.game)messages=[GAME_MENU];
+ else if(active.manage)messages=[MANAGEMENT_MENU];
+ else messages=['⏹️ 이 방에서는 게임과 관리 기능이 모두 꺼져 있습니다.'];
+ const normalizedPrefix=String(prefix||'!');
+ return normalizedPrefix==='!'?messages:messages.map(body=>body.replace(/!([a-zA-Z0-9가-힣ㄱ-ㅎ]+)/g,(_,command)=>normalizedPrefix+command));
+}
+async function sendRoomCommandHelp({text,roomId,send,db,prefix}){
+ const command=String(text??'').trim();
+ if(!HELP_COMMANDS.has(command))return false;
+ const flags=await getRoomHelpFlags(roomId,db);
+ const requested=command==='!게임명령어'?'게임':command==='!관리명령어'?'관리':'';
+ const actualPrefix=prefix??(await require('./command-prefixes').get(roomId))[0];
+ for(const message of commandMenuMessages(flags,requested,actualPrefix))await send(message);
+ return true;
+}
+
 async function handleExtraMessage(client,...args){
  const msg=args.length===1?args[0]:args[1],chat=args.length===1?(client.chat||client):args[0];
  if(msg?.room?.id==null)return false;
  const text=String(msg.message?.text??msg.text??'').trim();
  if(text==='!문의방'){
-  await chat.sendText(msg.room.id,NEXI_CONTACT);
+  await chat.sendText(msg.room.id,MANAGER_CONTACT);
   return true;
  }
- if(text==='!게임명령어'){
-  const start=Date.now();
-  const {getPool}=require('./db');
-  const r=await getPool().query("SELECT COALESCE((SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS game",[String(msg.room.id)]);
-  const queried=Date.now();
-  await chat.sendText(msg.room.id,formatCommandHelp({game:r.rows[0]?.game===true},'게임',(await require('./command-prefixes').get(msg.room.id))[0]));
-  const sent=Date.now();
-  if(sent-start>=800)console.warn('[GAME HELP SLOW]',{dbMs:queried-start,sendMs:sent-queried,totalMs:sent-start});
-  return true;
+ if(HELP_COMMANDS.has(text)){
+  return sendRoomCommandHelp({text,roomId:msg.room.id,send:body=>chat.sendText(msg.room.id,body)});
  }
  if(!/^#명령어(?:\s+.*)?$/.test(text))return false;
  if(text.slice('#명령어'.length).trim()==='게임'){
@@ -455,4 +484,4 @@ async function handleExtraMessage(client,...args){
  return true;
 }
 async function attachExtraCommands(client){client.onMessage((...args)=>handleExtraMessage(client,...args));}
-module.exports={handleExtraMessage,attachExtraCommands,formatCommandHelp,commandLists,hidePrivateHelpCommands};
+module.exports={handleExtraMessage,attachExtraCommands,formatCommandHelp,commandLists,hidePrivateHelpCommands,getRoomHelpFlags,commandMenuMessages,sendRoomCommandHelp};

@@ -504,9 +504,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
          await chat.sendText(roomId,'🏓 퐁! NEXI 정상 작동 중\n⏱️ 명령 처리: '+elapsed+'ms');
          return;
        }
-       // Serve the (static) game help before management and event pipelines.
-      if(text==='!게임명령어'){
-        await handleExtraMessage(client,msg);
+       // Centralized help routing uses actual room game + management flags.
+       // For comprehensive mode, send game and management menus as TWO bubbles.
+       // Intercept before legacy management/event/game handlers to avoid duplicate replies.
+      if(['!명령어','!help','!게임명령어','!관리명령어'].includes(text)){
+        await require('./help').sendRoomCommandHelp({
+          text,roomId,send:body=>chat.sendText(roomId,body)
+        });
         return;
       }
       
