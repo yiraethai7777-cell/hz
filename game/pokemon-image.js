@@ -16,7 +16,7 @@ function renderSvg({pokemon,balls=0,mode='explore',iv=null,owned=0,png}){
  const accent=pokemon.rarity==='전설'?'#f5c15f':pokemon.rarity==='희귀'?'#ae9efc':'#73e0bc';
  const image='data:image/png;base64,'+png.toString('base64');
  const subtitle=mode==='explore'?'!포획 으로 잡아보세요!':
-  mode==='caught'?'인벤토리에 보관되었습니다.':'NEXI  /  POKÉDEX';
+  mode==='caught'?'인벤토리에 보관되었습니다.':'KAKAOTALK MANAGER / POKÉDEX';
  const lines=mode==='explore'?
   [['도감번호','No.'+String(pokemon.id).padStart(3,'0')],
    ['타입',pokemon.type],['포획 난이도',difficulty(pokemon)],
@@ -39,7 +39,7 @@ function renderSvg({pokemon,balls=0,mode='explore',iv=null,owned=0,png}){
   '<rect width="920" height="1110" rx="32" fill="url(#b)"/>'+
   '<rect x="35" y="35" width="850" height="1040" rx="32" fill="none" stroke="#2c425c" stroke-width="3"/>'+
   '<g font-family="Noto Sans KR">'+
-  '<text x="75" y="94" fill="'+accent+'" font-size="33" font-weight="800">NEXI  /  POKÉMON</text>'+
+  '<text x="75" y="94" fill="'+accent+'" font-size="33" font-weight="800">KAKAOTALK MANAGER / POKÉMON</text>'+
   '<text x="75" y="158" fill="#f4faff" font-size="40" font-weight="800">'+esc(title)+'</text>'+
   '<rect x="68" y="181" width="784" height="418" rx="23" fill="#1e3146"/>'+
   '<circle cx="460" cy="390" r="192" fill="#2c455b"/>'+
@@ -116,7 +116,7 @@ async function sendCard({client,roomId,pokemon,tempRoot=os.tmpdir(),loadArtwork=
   const filename='pokemon-'+pokemon.id+'.png',full=path.join(folder,filename);
   await fs.writeFile(full,bytes,{flag:'wx',mode:0o600});
   const result=await client.sendPhoto(String(roomId),full,{filename,mime:'image/png',
-   width,height,text:'🎮 NEXI | '+pokemon.name});
+   width,height,text:'🎮 카카오톡 게임 매니저 | '+pokemon.name});
   if(!result?.complete||Number(result.complete.status??0)!==0)
    throw Error('Pokémon photo not confirmed by KakaoTalk');
   const elapsed=Date.now()-started;
