@@ -36,12 +36,12 @@ function validateWire(wire) {
   return wire;
 }
 
-function withDeadline(action, ms) {
+function withDeadline(action, ms, onTimeout) {
   let timer;
   return Promise.race([
     Promise.resolve().then(action),
     new Promise((_, reject) => {
-      timer = setTimeout(() => reject(Error('VOX 요청 제한 시간 초과')), ms);
+      timer = setTimeout(() => { onTimeout?.(); reject(Error('VOX 요청 제한 시간 초과')); }, ms);
       timer.unref?.();
     }),
   ]).finally(() => clearTimeout(timer));
@@ -92,6 +92,7 @@ function createDirectVoxBridge({wire, expectedUserId, timeoutMs = REQUEST_TIMEOU
     const roomTitle = voiceTitle(title);
     if (inFlight) throw Error('VOX 계정에서 다른 생성 요청을 처리 중입니다.');
     inFlight = true;
+    let timedOut = false;
     try {
       return await withDeadline(async () => {
         await validateSession(chatId, botUserId);
@@ -112,9 +113,11 @@ function createDirectVoxBridge({wire, expectedUserId, timeoutMs = REQUEST_TIMEOU
           ...(verified && state.voiceRoomId != null
             ? {voiceRoomId:String(state.voiceRoomId)} : {}),
         };
-      }, timeoutMs);
+      }, timeoutMs, () => { timedOut = true; });
     } finally {
-      inFlight = false;
+      // The remote operation cannot be cancelled by a local timeout. Do not
+      // permit a second create after an uncertain result; restart/reconcile.
+      if (!timedOut) inFlight = false;
     }
   }
 
