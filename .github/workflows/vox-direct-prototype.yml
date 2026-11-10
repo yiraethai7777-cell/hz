@@ -1,0 +1,21 @@
+name: Direct VOX protocol prototype checks
+on:
+  pull_request:
+    paths:
+      - 'shared/voice-room-direct-protocol.js'
+      - 'test/voice-room-direct-protocol.test.js'
+      - '.github/workflows/vox-direct-prototype.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test isolated direct VOX adapter
+        run: node --test test/voice-room-direct-protocol.test.js
