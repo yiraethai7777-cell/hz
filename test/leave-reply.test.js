@@ -39,7 +39,7 @@ test('manager leave notice shows exit details, real warnings and reply-to-ban he
  assert.match(details,/📅 퇴장 시각\n2026.11.10 10:30/);
  assert.match(details,/⏱️ 체류 시간\n1시간 30분/);
  assert.match(details,/🛡️ 강퇴 기록 : 1회/);
- assert.match(details,/k 또는 p 입력 시 내보내기 처리/);
+ assert.match(details,/k 또는 p 입력 시 강퇴 확인 요청/);
  assert.match(details,/방장·부방장·지정 관리자/);
  assert.match(details,/KakaoTalk Manager/);
  assert.equal(feature.replyReference(msg(),'9999'),log);
@@ -51,26 +51,94 @@ test('manager leave notice shows exit details, real warnings and reply-to-ban he
  assert.equal(feature.replyReference({message:{type:1},text:'a'},'9999'),null);
 });
 
-test('reply ban survives restart, enforces room and role, retries errors and claims each notice once',async()=>{
- const storage=new PGlite();const db={query:async(sql,params)=>storage.query(sql,params)};
+async function setupLeaveFixture(){
+ const storage=new PGlite(),db={query:async(sql,params)=>storage.query(sql,params)};
+ await feature.init(db);await feature.init(db);
+ await db.query('CREATE TABLE gl_manage_admins(room_id TEXT,user_id TEXT,PRIMARY KEY(room_id,user_id))');
+ await db.query('CREATE TABLE gl_manage_actions(room_id TEXT,actor_id TEXT,target_id TEXT,action TEXT,detail TEXT)');
+ await feature.record(db,{roomId:'100',botId:'9999',userId:target,name:'테스트',result:{body:{logId:log}}});
+ let calls=0;const replies=[];
+ const ctx={roomId:'100',botId:'9999',userId:'7777',senderType:1,text:'k',msg:msg(),
+  send:async s=>{replies.push(s);},kick:async id=>{assert.equal(id,target);calls++;}};
+ return {storage,db,ctx,replies,called:()=>calls};
+}
+
+test('k/p only ask for confirmation; the same operator y authorizes a single kick after restart',async()=>{
+ const {storage,db,ctx,replies,called}=await setupLeaveFixture();
  try{
-  await feature.init(db);await feature.init(db);
-  await feature.record(db,{roomId:'100',botId:'9999',userId:target,name:'테스트',result:[{body:{logId:log}}]});
-  let calls=0;const replies=[];
-  const context={roomId:'100',botId:'9999',userId:'7777',senderType:1,text:'a',msg:msg(),send:async s=>replies.push(s),kick:async id=>{assert.equal(id,target);calls++;}};
-  assert.equal(await feature.handle({...context,text:'hello'},db),false);
-  assert.equal(await feature.handle({...context,msg:{message:{type:1}}},db),false);
-  assert.equal(await feature.handle({...context,roomId:'200'},db),false);
-  assert.equal(await feature.handle({...context,msg:msg('8888')},db),false);
-  await feature.handle({...context,senderType:2},db);assert.equal(calls,0);
-  await feature.handle({...context,kick:async()=>{throw Error('server refused')}},db);
-  assert.match(replies.at(-1),/server refused/);
+  assert.equal(await feature.handle({...ctx,text:'hello'},db),false);
+  assert.equal(await feature.handle({...ctx,text:'y'},db),false);
+  assert.equal(await feature.handle({...ctx,msg:{message:{type:1}}},db),false);
+  assert.equal(await feature.handle({...ctx,roomId:'200'},db),false);
+  assert.equal(await feature.handle({...ctx,msg:msg('8888')},db),false);
+  await feature.handle({...ctx,senderType:2},db);
+  assert.equal(called(),0,'unprivileged k never kicks');
+  await feature.handle(ctx,db);
+  assert.equal(called(),0,'k only requests confirmation');
+  assert.match(replies.at(-1),/정말 테스트 님을 강퇴하시겠습니까\?/);
+  assert.match(replies.at(-1),/동의: y/);
+  assert.equal((await db.query('SELECT state FROM gl_leave_replies')).rows[0].state,'pending');
   const restarted=require('../manage/leave-reply');
   const comment={message:{type:1},raw:{chatLog:{threadId:log}}};
-  assert.equal(await restarted.handle({...context,msg:comment,roomId:'200'},db),false);
-  await Promise.all([restarted.handle({...context,senderType:4,msg:comment},db),restarted.handle(context,db)]);
-  assert.equal(calls,1);
-  await restarted.handle(context,db);assert.equal(calls,1);assert.match(replies.at(-1),/이미 벤 요청/);
+  assert.equal(await restarted.handle({...ctx,text:'y',userId:'1234',msg:comment},db),false);
+  assert.equal(await restarted.handle({...ctx,text:'y',roomId:'200'},db),false);
+  assert.equal(called(),0,'another person/room cannot approve');
+  await Promise.all([
+   restarted.handle({...ctx,text:'y',msg:{message:{type:1}}},db),
+   restarted.handle({...ctx,text:'y',msg:{message:{type:1}}},db)
+  ]);
+  assert.equal(called(),1,'duplicate y does not duplicate the kick');
+  assert.equal((await db.query('SELECT state FROM gl_leave_replies')).rows[0].state,'done');
+  assert.match(replies.at(-1),/강퇴했습니다|이미 처리된/);
+  await feature.handle({...ctx,text:'p'},db);
+  assert.equal(called(),1);
+  assert.match(replies.at(-1),/이미 강퇴 요청을 완료한/);
+ }finally{await storage.close();}
+});
+
+test('n cancels and 60-second expiry refuses y without a kick',async()=>{
+ const {storage,db,ctx,replies,called}=await setupLeaveFixture();
+ try{
+  await feature.handle(ctx,db);
+  await feature.handle({...ctx,text:'n',msg:{message:{type:1}}},db);
+  assert.equal(called(),0);
+  assert.match(replies.at(-1),/취소했습니다/);
+  assert.equal(await feature.handle({...ctx,text:'y'},db),false,'after n there is no pending approval');
+  await feature.handle({...ctx,text:'p'},db);
+  await db.query("UPDATE gl_leave_ban_confirmations SET expires_at=NOW()-INTERVAL '1 second'");
+  await feature.handle({...ctx,text:'y'},db);
+  assert.equal(called(),0);
+  assert.match(replies.at(-1),/확인 시간이 만료/);
+  assert.equal((await db.query('SELECT state FROM gl_leave_replies')).rows[0].state,'pending');
+ }finally{await storage.close();}
+});
+
+test('role is rechecked on y; declined permissions cannot execute a pending kick',async()=>{
+ const {storage,db,ctx,replies,called}=await setupLeaveFixture();
+ try{
+  await feature.handle(ctx,db);
+  await feature.handle({...ctx,text:'y',senderType:2},db);
+  assert.equal(called(),0);
+  assert.match(replies.at(-1),/강퇴 확인 권한이 없습니다/);
+  assert.equal((await db.query('SELECT count(*)::int AS count FROM gl_leave_ban_confirmations')).rows[0].count,1);
+  await db.query("INSERT INTO gl_manage_admins(room_id,user_id) VALUES('100','7777')");
+  await feature.handle({...ctx,text:'y',senderType:2},db);
+  assert.equal(called(),1,'verified delegated admin can approve');
+ }finally{await storage.close();}
+});
+
+test('failed kick resets state; user must explicitly re-confirm on retry',async()=>{
+ const {storage,db,ctx,replies,called}=await setupLeaveFixture();
+ try{
+  await feature.handle(ctx,db);
+  await feature.handle({...ctx,text:'y',kick:async()=>{throw Error('server refused')}},db);
+  assert.equal(called(),0);
+  assert.match(replies.at(-1),/server refused/);
+  assert.equal((await db.query('SELECT state FROM gl_leave_replies')).rows[0].state,'pending');
+  assert.equal(await feature.handle({...ctx,text:'y'},db),false,'approval is single-use after failure');
+  await feature.handle(ctx,db);
+  await feature.handle({...ctx,text:'y'},db);
+  assert.equal(called(),1,'second k + y may retry');
   assert.equal((await db.query('SELECT state FROM gl_leave_replies')).rows[0].state,'done');
  }finally{await storage.close();}
 });

@@ -109,7 +109,7 @@ async function message({client,roomId,userId,userName,messageId,text,send,kick,u
   try{const who=await resolveTarget();await send(who?`🔎 ${who.name}\n사용자 ID: ${who.id}`:'대상 메시지에 답장·댓글을 하거나 실제 멘션 또는 사용자 ID를 지정해 주세요.');}
   catch(e){await send('대상 확인 실패: '+e.message);}return true;
  }
- if((s==='k'||s==='p')&&await require('./leave-reply').handle({roomId:room,userId:user,text:s,msg,senderType,botId,send,kick},db))return true;
+ if(['k','p','y','n'].includes(s.toLowerCase())&&await require('./leave-reply').handle({roomId:room,userId:user,text:s,msg,senderType,botId,send,kick},db))return true;
  // Count ordinary messages without retaining their text.
  if(!s.startsWith('#')){
   await db.query(`INSERT INTO gl_manage_chat_counts(room_id,user_id,user_name,count) VALUES($1,$2,$3,1) ON CONFLICT(room_id,user_id) DO UPDATE SET count=gl_manage_chat_counts.count+1,user_name=$3`,[room,user,userName]);
