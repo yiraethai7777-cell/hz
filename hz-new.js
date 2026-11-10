@@ -22,6 +22,9 @@ function start() {
 
   });
 
+  // Apply the KakaoTalk Manager brand to every outgoing text response (not stored data).
+  require('./shared/manager-output').install(client);
+
   // Voice commands are always available. Attach the Android VOX bridge when credentials exist.
   require('./shared/voice-room-noa-bridge').installFromEnv(client);
   const game = createGame(client);
