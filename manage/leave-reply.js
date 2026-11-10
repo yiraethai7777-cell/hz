@@ -29,73 +29,80 @@ function renderMemberTemplate(template,{name,userId,joins=0,leaves=0,warnings=0,
  };
  return String(template).replace(/\((?:입장횟수|퇴장횟수|경고횟수|경고사유|이름|멘션|아이디|해시|방이름|날짜|옾링)\)/g,variable=>values[variable]);
 }
+// Keep the existing Kakao mention token, the archived reply-to-ban mapping,
+// and the 1,200-character native KakaoTalk "전체보기" folding spacer.
+const MEMBER_NOTICE_FOLD='\u200b'.repeat(1200);
+const MEMBER_NOTICE_BRAND='💛 카카오톡 관리 매니저';
+const MEMBER_NOTICE_SIGNOFF='KakaoTalk Manager';
+const count=value=>Math.max(0,Number(value)||0);
+function joinNotice({
+ name,userId,roomName,joins=0,leaves=0,time,
+ profileLink='',profileType=null,profileImage='',bans=0,warnings=0,detail=''
+}){
+ const {id,clean,mention}=displayMember(name,userId);
+ return [
+  MEMBER_NOTICE_BRAND+' | 입장 안내',
+  '━━━━━━━━━━━━━━━━━━',
+  '👋 '+mention+'님, 환영합니다!',
+  '',
+  '👤 닉네임 : '+clean,
+  '🆔 사용자 ID : '+(id||'확인 불가'),
+  '📊 입장 / 퇴장 : '+count(joins)+'회 / '+count(leaves)+'회',
+  '⚠️ 누적 경고 : '+count(warnings)+'회',
+  '',
+  '━━━━━━━━━━━━━━━━━━',
+  '📋 상세 활동 기록',
+  MEMBER_NOTICE_FOLD,
+  '📅 입장 시각',
+  time||'확인 불가',
+  '',
+  '🔗 오픈프로필',
+  profileLink||'확인 불가',
+  '',
+  '🛡️ 강퇴 기록 : '+count(bans)+'회',
+  '',
+  '━━━━━━━━━━━━━━━━━━',
+  '💛 즐거운 채팅 부탁드립니다!',
+  MEMBER_NOTICE_SIGNOFF
+ ].join('\n')+(detail?'\n\n💬 '+detail:'');
+}
 function leaveNotice({
  name,userId,joins=0,leaves=0,time,detail='',
  profileLink='',profileType='확인 불가',profileImage='',
- joinedAt=null,stay='확인 불가',bans=0
+ joinedAt=null,stay='확인 불가',bans=0,warnings=0
 }){
  const {id,clean,mention}=displayMember(name,userId);
- return (
-  mention+' 님이 채팅방에서 퇴장하셨습니다.\n'+ '\u200b'.repeat(1200)+
-  '\n┏━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃회원 프로필'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃└ 닉네임       '+clean+
-  '\n┃└ 유저 ID      '+(id||'확인 불가')+
-  '\n┃└ 프로필       '+profileType+
-  '\n┃└ 프사 URL     '+(profileImage||'확인 불가')+
-  '\n┃└ 오픈프로필 URL '+(profileLink||'확인 불가')+
-  '\n┃'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃세션 기록'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃└ 입장 시각    '+(joinedAt||'확인 불가')+
-  '\n┃└ 퇴장 시각    '+(time||'확인 불가')+
-  '\n┃└ 체류 시간    '+(stay||'확인 불가')+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃활동 기록'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃└ 누적 입장    '+Number(joins||0)+'회'+
-  '\n┃└ 누적 퇴장    '+Number(leaves||0)+'회'+
-  '\n┃└ 강퇴 기록    '+Number(bans||0)+'회'+
-  '\n┗━━━━━━━━━━━━━━━━━━━━'+
-  '\n퇴장 알림에 답장으로 p 또는 k 입력 시 벤합니다. (방장·부방장·지정 관리자)'+
-  (detail?'\n\n💬 '+detail:'')
- );
-}
-function joinNotice({
- name,userId,roomName,joins=0,leaves=0,time,
- profileLink='',profileType=null,profileImage='',bans=0,detail=''
-}){
- const {id,clean,mention}=displayMember(name,userId);
- const typeName=['기본프로필','오픈프로필','확인 불가'].includes(profileType)?profileType:
-  profileType==null?(profileLink?'오픈프로필':'확인 불가'):
-  [1,2,4].includes(Number(profileType))?'기본프로필':
-  Number(profileType)===0?'오픈프로필':'확인 불가';
- return (
-  mention+' 님이 채팅방에 입장하셨습니다.\n'+'\u200b'.repeat(1200)+
-  '\n┏━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃회원 프로필'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃└ 닉네임       '+clean+
-  '\n┃└ 유저 ID      '+(id||'확인 불가')+
-  '\n┃└ 프로필       '+typeName+
-  '\n┃└ 프사 URL     '+(profileImage||'확인 불가')+
-  '\n┃└ 오픈프로필 URL '+(profileLink||'확인 불가')+
-  '\n┃'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃세션 기록'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃└ 입장 시각    '+(time||'확인 불가')+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃활동 기록'+
-  '\n┣━━━━━━━━━━━━━━━━━━━━'+
-  '\n┃└ 누적 입장    '+Number(joins||0)+'회'+
-  '\n┃└ 누적 퇴장    '+Number(leaves||0)+'회'+
-  '\n┃└ 강퇴 기록    '+Number(bans||0)+'회'+
-  '\n┗━━━━━━━━━━━━━━━━━━━━'+
-  (detail?'\n\n💬 '+detail:'')
- );
+ return [
+  MEMBER_NOTICE_BRAND+' | 퇴장 안내',
+  '━━━━━━━━━━━━━━━━━━',
+  '👋 '+mention+'님이 퇴장하셨습니다.',
+  '',
+  '👤 닉네임 : '+clean,
+  '🆔 사용자 ID : '+(id||'확인 불가'),
+  '📊 입장 / 퇴장 : '+count(joins)+'회 / '+count(leaves)+'회',
+  '⚠️ 누적 경고 : '+count(warnings)+'회',
+  '',
+  '━━━━━━━━━━━━━━━━━━',
+  '📋 상세 활동 기록',
+  MEMBER_NOTICE_FOLD,
+  '📅 입장 시각',
+  joinedAt||'확인 불가',
+  '',
+  '📅 퇴장 시각',
+  time||'확인 불가',
+  '',
+  '⏱️ 체류 시간',
+  stay||'확인 불가',
+  '',
+  '🛡️ 강퇴 기록 : '+count(bans)+'회',
+  '',
+  '━━━━━━━━━━━━━━━━━━',
+  '🔨 퇴장 알림에 답장으로',
+  'k 또는 p 입력 시 내보내기 처리',
+  '(방장·부방장·지정 관리자)',
+  '',
+  MEMBER_NOTICE_SIGNOFF
+ ].join('\n')+(detail?'\n\n💬 '+detail:'');
 }
 function profileNotice(change,time){
   return `👤 ${change.newName}님이 프로필을 변경했습니다.\n${'\u200b'.repeat(1200)}\n${change.oldName||'확인 불가'} → ${change.newName||'확인 불가'}\n예전 옾링: ${change.oldOpenLink||'확인된 링크 없음'}\n현재 옾링: ${change.newOpenLink||'확인된 링크 없음'}\n시간: ${time}`;
