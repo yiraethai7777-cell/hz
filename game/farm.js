@@ -17,7 +17,7 @@ function integer(value,label){if(!/^[1-9]\d*$/.test(String(value||'')))fail(labe
 function crop(name){const c=CROPS.find(c=>c.name===name);if(!c)fail('존재하지 않는 작물입니다. #상점에서 씨앗 종류를 확인해 주세요.');return c;}
 function cell(number,size){const n=integer(number,'칸 번호');if(n>size*size)fail(`칸 번호는 1~${size*size}까지입니다.`);return Math.floor((n-1)/size)+':'+((n-1)%size);}
 function mention(id,name){return `\u0002${id}\u0003${String(name).replace(/[\u0000-\u001f]/g,'')}\u0004`;}
-function shop(){return '상점\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
+function shop(){return '🛒 카카오톡 게임 매니저 | 통합 상점\n낚시대 · 씨앗 통합 상점\n'+FOLD+'\n🎣 낚시대\n━━━━━━━━━━━━━━\n'+RODS.map(r=>`${r.name} · ${r.price?fmt(r.price)+'코인':'무료'}`).join('\n')+
  '\n\n🌱 씨앗\n━━━━━━━━━━━━━━\n'+CROPS.map(c=>`${c.emoji} ${c.name} · ${fmt(c.price)}코인\n   성장 ${c.minutes}분 · 수확 ${fmt(c.sale)}코인`).join('\n')+
  '\n\n🍀 행운 포션\n━━━━━━━━━━━━━━\n가격 · 40,000코인\n효과 · 10분간 낚시 행운 50% 상승\n└─ !ㄱㅁ행운\n\n🤖 자동낚시\n━━━━━━━━━━━━━━\n가격 · 50,000코인\n효과 · 5분간 20초마다 자동 낚시\n하루 최대 3회\n└─ !ㄱㅁ자동\n\n구매 안내\n└─ !낚시대ㄱㅁ (이름)\n└─ !씨앗ㄱㅁ (이름) (수량)\n└─ !농장\n└─ !농장정보';}
 function formatFarm(f,user,now){
@@ -33,7 +33,7 @@ function formatFarm(f,user,now){
   }rows.push(line.join(' '));
  }
  const seeds=CROPS.filter(c=>f.seeds[c.name]>0).map(c=>`${c.emoji} ${c.name} ${fmt(f.seeds[c.name])}개`).join(' · ')||'없음';
- return `${mention(user.id,user.name)}님의 농장\n${FOLD}\n농장\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n심는 중: ${planting}칸\n재배 중: ${growing}칸\n수확 중: ${harvesting}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호 또는 all) (작물이름)\n└─ !수확 (번호)\n└─ !전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
+ return `🌾 카카오톡 게임 매니저 | 농장\n👤 ${mention(user.id,user.name)}님\n${FOLD}\n농장\n━━━━━━━━━━━━━━\nFarm Lv.${f.level} | ${size}×${size}\n\n${rows.join('\n')}\n\n━━━━━━━━━━━━━━\n빈 땅: ${empty}칸\n심는 중: ${planting}칸\n재배 중: ${growing}칸\n수확 중: ${harvesting}칸\n수확 가능: ${ready}칸\n\n🎒 보유 씨앗\n${seeds}\n\n└─ !심기 (번호 또는 all) (작물이름)\n└─ !수확 (번호)\n└─ !전체수확\n└─ !농장확장\n칸 번호는 왼쪽 위부터 가로 순서입니다.`;
 }
 function createFarm({pool,now=Date.now,schedule=(task,delay)=>setTimeout(task,delay),autoRecover=true}){
  let recoverTimer=null;
@@ -158,9 +158,9 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     const details=(isAll?FOLD+'\n':'')+'━━━━━━━━━━━━━━━━━━\n'+
       '📍 심은 위치 · '+numbers.join(', ')+'번\n'+
       '🎒 남은 씨앗 · '+fmt(f.seeds[c.name])+'개';
-    result='🌱 NEXI | 심기\n'+c.emoji+' '+c.name+' '+keys.length+'칸을 심는 중입니다…\n'+
+    result='🌱 카카오톡 게임 매니저 | 심기\n'+c.emoji+' '+c.name+' '+keys.length+'칸을 심는 중입니다…\n'+
       '⏳ 5초 후 완료\n'+details;
-    const completed='🌱 NEXI | 심기\n✅ '+c.emoji+' '+c.name+' '+keys.length+'칸 '+(isAll?'전부 ':'')+'심었습니다!\n'+
+    const completed='🌱 카카오톡 게임 매니저 | 심기\n✅ '+c.emoji+' '+c.name+' '+keys.length+'칸 '+(isAll?'전부 ':'')+'심었습니다!\n'+
       '🌿 성장 시간 · '+c.minutes+'분\n'+details;
     jobs.push({type:'plant',room,user,completedText:completed});
    }
@@ -195,9 +195,9 @@ if(['#농장','#농장정보','#농장확장','#전체수확'].includes(cmd)&&pa
     const details='\n'+FOLD+'\n━━━━━━━━━━━━━━━━━━\n'+
       harvested.join('\n')+'\n💰 지급 예정 · '+fmt(coins)+'코인';
     if(count){
-      const completion='🌾 NEXI | 수확\n✅ '+count+'개 '+(isAll?'전부 ':'')+'수확 완료!\n💰 +'+fmt(coins)+'코인 지급'+details;
+      const completion='🌾 카카오톡 게임 매니저 | 수확\n✅ '+count+'개 '+(isAll?'전부 ':'')+'수확 완료!\n💰 +'+fmt(coins)+'코인 지급'+details;
       jobs.push({type:'harvest',room,user,count,coins,completedText:completion});
-      result='🌾 NEXI | 수확\n🌿 작물 '+count+'개를 수확 중입니다…\n⏳ 5초 후 완료'+details;
+      result='🌾 카카오톡 게임 매니저 | 수확\n🌿 작물 '+count+'개를 수확 중입니다…\n⏳ 5초 후 완료'+details;
     }else result='🌱 아직 수확 가능한 작물이 없습니다.';
    }
    if(cmd==='#농장확장'){
