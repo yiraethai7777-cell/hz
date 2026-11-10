@@ -7,10 +7,17 @@ function exactId(v){
  if(v&&typeof v==='object')return exactId(typeof v.value==='string'?v.value:v.toString());
  return '';
 }
-async function init(db){await db.query(`CREATE TABLE IF NOT EXISTS gl_leave_replies(
+async function init(db){
+ await db.query(`CREATE TABLE IF NOT EXISTS gl_leave_replies(
  room_id TEXT NOT NULL,log_id TEXT NOT NULL,bot_id TEXT NOT NULL,target_id TEXT NOT NULL,
  target_name TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
- PRIMARY KEY(room_id,log_id))`);}
+ PRIMARY KEY(room_id,log_id))`);
+ await db.query(`CREATE TABLE IF NOT EXISTS gl_leave_ban_confirmations(
+ room_id TEXT NOT NULL,actor_id TEXT NOT NULL,notice_log_id TEXT NOT NULL,
+ bot_id TEXT NOT NULL,target_id TEXT NOT NULL,target_name TEXT NOT NULL,
+ expires_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ PRIMARY KEY(room_id,actor_id))`);
+}
 
 function displayMember(name,userId){
  const id=exactId(userId),clean=String(name||id||'알 수 없음').replace(/[\u0002-\u0004]/g,'').trim()||id||'알 수 없음';
@@ -98,7 +105,7 @@ function leaveNotice({
   '',
   '━━━━━━━━━━━━━━━━━━',
   '🔨 퇴장 알림에 답장으로',
-  'k 또는 p 입력 시 내보내기 처리',
+  'k 또는 p 입력 시 강퇴 확인 요청',
   '(방장·부방장·지정 관리자)',
   '',
   MEMBER_NOTICE_SIGNOFF
@@ -137,29 +144,99 @@ function replyReference(msg,botId){
  }
  return null;
 }
+// Leave-notice reply handling uses two-step confirmation and DB-backed TTL.
+async function isLeaveModerator(db,roomId,userId,senderType){
+ if([1,4].includes(Number(senderType)))return true;
+ const row=await db.query('SELECT 1 FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[roomId,userId]);
+ return row.rowCount>0;
+}
 async function handle(context,db){
  const {text,msg,roomId,userId,senderType,botId,send,kick}=context;
- if(text!=='k'&&text!=='p')return false;
- const log=replyReference(msg,botId);if(!log)return false;
- const isManager=[1,4].includes(Number(senderType));
- const assigned=isManager?false:(await db.query('SELECT 1 FROM gl_manage_admins WHERE room_id=$1 AND user_id=$2',[String(roomId),String(userId)])).rowCount>0;
- if(!isManager&&!assigned){await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;}
- const found=await db.query(`SELECT target_id,target_name,state FROM gl_leave_replies WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
- const row=found.rows[0];if(!row)return false;
- if(row.target_id===String(userId)||row.target_id===String(botId)){await send('⛔ 봇 또는 명령 실행자 본인은 벤할 수 없습니다.');return true;}
- const claimed=await db.query(`UPDATE gl_leave_replies SET state='sending' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3 AND state='pending' RETURNING target_id`,[String(roomId),log,String(botId)]);
- if(!claimed.rows.length){await send(row.state==='done'?'이미 벤 요청을 완료한 퇴장 알림입니다.':'이 퇴장 알림의 벤 요청이 처리 중입니다.');return true;}
- try{
-  await kick(row.target_id);
- }catch(e){
-  await db.query(`UPDATE gl_leave_replies SET state='pending' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
-  await send('벤 요청 실패: '+e.message);return true;
+ const command=String(text||'').trim().toLowerCase();
+ if(!['k','p','y','n'].includes(command))return false;
+ const room=String(roomId),actor=String(userId),bot=String(botId);
+ if(command==='y'||command==='n'){
+  const pending=await db.query(
+   'SELECT notice_log_id,bot_id,target_id,target_name,expires_at FROM gl_leave_ban_confirmations WHERE room_id=$1 AND actor_id=$2',
+   [room,actor]);
+  if(!pending.rows.length)return false;
+  if(!await isLeaveModerator(db,room,actor,senderType)){
+   await send('⛔ 강퇴 확인 권한이 없습니다.');return true;
+  }
+  // Single-use approval: concurrent y messages never kick twice.
+  const claimed=await db.query(
+   'DELETE FROM gl_leave_ban_confirmations WHERE room_id=$1 AND actor_id=$2 RETURNING notice_log_id,bot_id,target_id,target_name,expires_at',
+   [room,actor]);
+  const request=claimed.rows[0];
+  if(!request){await send('ℹ️ 이미 처리된 강퇴 확인 요청입니다.');return true;}
+  if(new Date(request.expires_at).getTime()<=Date.now()){
+   await send('⌛ 강퇴 확인 시간이 만료됐습니다. 퇴장 알림에 다시 k 또는 p로 답장해 주세요.');
+   return true;
+  }
+  if(command==='n'){
+   await send('✅ '+request.target_name+'님의 강퇴 요청을 취소했습니다.');return true;
+  }
+  if(request.target_id===actor||request.target_id===bot){
+   await send('⛔ 봇 또는 명령 실행자 본인은 강퇴할 수 없습니다.');return true;
+  }
+  const inProgress=await db.query(
+   "UPDATE gl_leave_replies SET state='sending' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3 AND target_id=$4 AND state='pending' RETURNING target_id",
+   [room,request.notice_log_id,request.bot_id,request.target_id]);
+  if(!inProgress.rows.length){
+   await send('ℹ️ 이미 강퇴 요청이 처리 중이거나 완료된 퇴장 알림입니다.');return true;
+  }
+  try{
+   if(typeof kick!=='function')throw Error('강퇴 API를 사용할 수 없습니다.');
+   await kick(request.target_id);
+  }catch(error){
+   await db.query(
+    "UPDATE gl_leave_replies SET state='pending' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3 AND state='sending'",
+    [room,request.notice_log_id,request.bot_id]);
+   await send('❌ 강퇴 요청 실패: '+String(error?.message||error));return true;
+  }
+  await db.query(
+   "UPDATE gl_leave_replies SET state='done' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3 AND state='sending'",
+   [room,request.notice_log_id,request.bot_id]);
+  try{
+   await db.query(
+    'INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
+    [room,actor,request.target_id,'KICK','퇴장 알림 y 확인 후 강퇴']);
+  }catch(error){console.error('[LEAVE CONFIRMED KICK LOG]',String(error?.message||error));}
+  await send('🚫 '+request.target_name+'님을 강퇴했습니다.\n사용자 ID: '+request.target_id);
+  return true;
  }
- await db.query(`UPDATE gl_leave_replies SET state='done' WHERE room_id=$1 AND log_id=$2 AND bot_id=$3`,[String(roomId),log,String(botId)]);
+ // k/p must reply to an authentic, previously indexed bot departure notice.
+ const log=replyReference(msg,botId);
+ if(!log)return false;
+ if(!await isLeaveModerator(db,room,actor,senderType)){
+  await send('⛔ 방장·부방장 또는 지정 관리자만 사용할 수 있습니다.');return true;
+ }
+ const found=await db.query(
+  'SELECT target_id,target_name,state FROM gl_leave_replies WHERE room_id=$1 AND log_id=$2 AND bot_id=$3',
+  [room,log,bot]);
+ const row=found.rows[0];if(!row)return false;
+ if(row.target_id===actor||row.target_id===bot){
+  await send('⛔ 봇 또는 명령 실행자 본인은 강퇴할 수 없습니다.');return true;
+ }
+ if(row.state!=='pending'){
+  await send(row.state==='done'?'이미 강퇴 요청을 완료한 퇴장 알림입니다.':'이 퇴장 알림의 강퇴 요청이 처리 중입니다.');
+  return true;
+ }
+ await db.query(
+  "INSERT INTO gl_leave_ban_confirmations(room_id,actor_id,notice_log_id,bot_id,target_id,target_name,expires_at)"+
+  " VALUES($1,$2,$3,$4,$5,$6,NOW()+INTERVAL '60 seconds')"+
+  " ON CONFLICT(room_id,actor_id) DO UPDATE SET"+
+  " notice_log_id=EXCLUDED.notice_log_id,bot_id=EXCLUDED.bot_id,target_id=EXCLUDED.target_id,"+
+  " target_name=EXCLUDED.target_name,expires_at=EXCLUDED.expires_at,created_at=NOW()",
+  [room,actor,log,bot,row.target_id,row.target_name]);
  try{
-  await db.query('INSERT INTO gl_manage_actions(room_id,actor_id,target_id,action,detail) VALUES($1,$2,$3,$4,$5)',
-    [String(roomId),String(userId),row.target_id,'KICK','퇴장 알림 답장 강퇴']);
- }catch(e){console.error('[LEAVE K LOG]',String(e?.message||e));}
- await send(`🚫 ${row.target_name}님을 벤했습니다.\n사용자 ID: ${row.target_id}`);return true;
+  await send('❓ 정말 '+row.target_name+' 님을 강퇴하시겠습니까?\n✅ 동의: y\n❌ 취소: n\n⏱️ 60초 이내에 입력해 주세요.');
+ }catch(error){
+  await db.query(
+   'DELETE FROM gl_leave_ban_confirmations WHERE room_id=$1 AND actor_id=$2 AND notice_log_id=$3',
+   [room,actor,log]);
+  throw error;
+ }
+ return true;
 }
 module.exports={init,leaveNotice,joinNotice,renderMemberTemplate,profileNotice,record,replyReference,handle};
