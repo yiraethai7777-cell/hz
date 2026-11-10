@@ -270,14 +270,14 @@ async function routes(req,res,url,body){
  if(p==='/api/room-portal/note'&&method==='GET'){
   allowed(s,'notes');
   const user=id(url.searchParams.get('userId'));
-  if(!/^[1-9]\\d{3,24}$/.test(user))bad('사용자 ID를 확인해 주세요.');
+  if(!/^[1-9]\d{3,24}$/.test(user))bad('사용자 ID를 확인해 주세요.');
   const row=await getPool().query('SELECT note,updated_by,updated_at FROM gl_room_portal_notes WHERE room_id=$1 AND user_id=$2',[s.room_id,user]);
   return {userId:user,note:row.rows[0]?.note||'',updatedAt:row.rows[0]?.updated_at||null};
  }
  if(p==='/api/room-portal/note'&&method==='POST'){
   allowed(s,'notes');
   const user=id(body.userId),note=String(body.note||'').trim();
-  if(!/^[1-9]\\d{3,24}$/.test(user)||note.length>1000)bad('사용자 ID 또는 메모 길이(최대 1,000자)를 확인해 주세요.');
+  if(!/^[1-9]\d{3,24}$/.test(user)||note.length>1000)bad('사용자 ID 또는 메모 길이(최대 1,000자)를 확인해 주세요.');
   const db=getPool();
   if(note){
    await db.query(`INSERT INTO gl_room_portal_notes(room_id,user_id,note,updated_by)
@@ -292,7 +292,7 @@ async function routes(req,res,url,body){
  if(p==='/api/room-portal/kick'&&method==='POST'){
   allowed(s,'kick');
   const user=id(body.userId);
-  if(!/^[1-9]\\d{3,24}$/.test(user)||body.confirm!=='KICK_CONFIRMED')bad('강퇴 대상 및 최종 확인을 검증해 주세요.');
+  if(!/^[1-9]\d{3,24}$/.test(user)||body.confirm!=='KICK_CONFIRMED')bad('강퇴 대상 및 최종 확인을 검증해 주세요.');
   const client=status.client;
   if(!status.connected||!client?.connected||typeof client.openChatKick!=='function')bad('봇 강퇴 기능을 이용할 수 없습니다.',503);
   if(String(client.userId)===user)bad('봇 계정은 강퇴할 수 없습니다.',403);
