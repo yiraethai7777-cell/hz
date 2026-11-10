@@ -231,10 +231,10 @@ async function handleCoinCommand({text,msg,roomId,chat,isBotAccount=false,isSupe
       if (!authorized) throw new Error("봇 계정 또는 이 방의 최고관리자만 코인을 초기화할 수 있습니다.");
       if (text==="#코인초기화") {
         await requestCoinReset(room,me.id);
-        await say("⚠️ NEXI | 코인 전체 초기화\n이 채팅방의 모든 사용자 코인 잔액을 0으로 변경합니다.\n다른 방의 코인·아이템·포켓몬은 유지됩니다.\n\n60초 안에 !코인초기화 확인 을 입력해야 실행됩니다.");
+        await say("⚠️ 카카오톡 게임 매니저 | 코인 전체 초기화\n이 채팅방의 모든 사용자 코인 잔액을 0으로 변경합니다.\n다른 방의 코인·아이템·포켓몬은 유지됩니다.\n\n60초 안에 !코인초기화 확인 을 입력해야 실행됩니다.");
       } else if (text==="#코인초기화 확인") {
         const result=await resetRoomCoins({roomId:room,actorId:me.id,messageId:messageKey(msg)});
-        await say("✅ NEXI | 코인 초기화 완료\n초기화한 방: 현재 채팅방\n대상 사용자: "+result.holders+"명\n초기화 금액: "+fmt(result.total)+"코인\n전체 잔액: 0코인");
+        await say("✅ 카카오톡 게임 매니저 | 코인 초기화 완료\n초기화한 방: 현재 채팅방\n대상 사용자: "+result.holders+"명\n초기화 금액: "+fmt(result.total)+"코인\n전체 잔액: 0코인");
       } else if (text==="#코인초기화 취소") {
         await getPool().query("DELETE FROM hz_coin_reset_pending WHERE room_id=$1 AND actor_id=$2",[room,me.id]);
         await say("✅ 코인 초기화 요청을 취소했습니다.");
