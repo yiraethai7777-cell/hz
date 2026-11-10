@@ -158,7 +158,6 @@ function start() {
       require('./manage/scheduled-notices').start(client);
 
       require('./shared/runtime').startProfileWatch(client);
-      require('./shared/valorant-scrim-scheduler').start(client);
 
       resolveReady();
 
