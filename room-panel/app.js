@@ -59,7 +59,7 @@ async function renderCommandBlocks(){
   const label=document.createElement('span');label.textContent=(user.user_name||user.user_id)+' · '+user.user_id+(user.reason?' · '+user.reason:'');
   const remove=document.createElement('button');remove.type='button';remove.textContent='차단 해제';remove.className='secondary';
   remove.addEventListener('click',()=>task(async()=>{
-   if(!confirm('사용자 '+user.user_id+'의 NEXI 명령어 차단을 해제하시겠습니까?'))return;
+   if(!confirm('사용자 '+user.user_id+'의 카카오톡 매니저 명령어 차단을 해제하시겠습니까?'))return;
    await api('/api/room-portal/command-blocks','POST',{userId:user.user_id,action:'unblock'});
    await renderCommandBlocks();note('명령어 차단을 해제했습니다.');
   }));
