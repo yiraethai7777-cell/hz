@@ -35,7 +35,7 @@ function fixture({image}={}){
  const source=fs.readFileSync(path.join(__dirname,'../manage/commands-v2.js'),'utf8');
  const deps={
   '../shared/db':{getPool:()=>db},
-  './attendance':{attend:async(room,user)=>{state.attenders.push(user);return {message:state.attenders.length===1?'✅ 출석 성공':'📌 이미 출석',isNew:state.attenders.length===1,date:'2026-10-24'};}},
+  './attendance':{attend:async(room,user)=>{state.attenders.push(user);return state.attenders.length===1?'✅ 출석 성공':'📌 이미 출석';}},
   './attendance-image/automatic':{sendAttendanceImage:async(client,context)=>{state.images.push(context);return image?image(context):true;}},
   './chat-ranking-image/automatic':{sendRankingImage:async(db,ctx)=>{state.rankingImage=ctx;return true;}},
   './chat-ranking':{messages:async(db,room,all)=>[all?'전체 채팅 순위 20명':'채팅 순위 TOP 10']},
@@ -63,29 +63,20 @@ function fixture({image}={}){
 test('public commands work for a regular user',async()=>{
  const f=fixture();
  assert.match((await f.emit('!출석')).sent[0],/출석 성공/);
- assert.deepEqual((await f.emit('!채팅순위')).sent,[]);
- assert.equal(f.state.rankingImage.userName,'Tester');
+ assert.deepEqual((await f.emit('!채팅순위')).sent,['채팅 순위 TOP 10']);
+ assert.equal(f.state.rankingImage,undefined);
  assert.match((await f.emit('!채팅순위전체')).sent[0],/전체 채팅 순위/);
 });
-test('attendance image auto-send is new-only and manual resend does not reward again',async()=>{
+test('attendance sends only chat and the removed image command does nothing',async()=>{
  const f=fixture();
- const first=await f.emit('!출석');
- assert.match(first.sent[0],/출석 성공/);
- await Promise.resolve();
- assert.equal(f.state.images.length,1);
- assert.equal(f.state.images[0].onDemand,false);
- assert.equal(f.state.images[0].attendanceDate,'2026-10-24');
- assert.equal(f.state.attenders.length,1);
- const duplicate=await f.emit('!출석');
- assert.match(duplicate.sent[0],/이미 출석/);
- await Promise.resolve();
- assert.equal(f.state.images.length,1,'duplicate must not upload an image');
- const manual=await f.emit('!출석이미지');
- assert.equal(manual.handled,true);
- await Promise.resolve();
- assert.equal(f.state.images.length,2);
- assert.equal(f.state.images[1].onDemand,true);
- assert.equal(f.state.attenders.length,2,'manual resend must not update attendance');
+ assert.match((await f.emit('!출석')).sent[0],/출석 성공/);
+ assert.match((await f.emit('!출석')).sent[0],/이미 출석/);
+ assert.equal(f.state.attenders.length,2);
+ assert.equal(f.state.images.length,0);
+ const retired=await f.emit('!출석이미지');
+ assert.equal(retired.handled,false);
+ assert.deepEqual(retired.sent,[]);
+ assert.equal(f.state.images.length,0);
 });
 
 test('attendance ranking includes everyone and splits if needed',async()=>{
@@ -145,21 +136,20 @@ test('greeting text reaches room config and retired # prefix is not recognized h
  assert.equal((await f.emit('#관리작동',{self:true})).handled,false);
 });
 
-test('attendance completion text waits until the photo finishes uploading',async()=>{
- let release,started;const uploading=new Promise(r=>started=r);
- const f=fixture({image:async()=>{started();await new Promise(r=>release=r);}});
- const pending=f.emit('!출석');await uploading;
- assert.deepEqual(f.state.sent,[],'no completion text before photo confirmation');
- release();await pending;assert.match(f.state.sent[0],/출석 성공/);
+test('attendance completion text is immediate without any photo upload',async()=>{
+ const f=fixture({image:async()=>{throw Error('photo must not upload');}});
+ const res=await f.emit('!출석');
+ assert.equal(res.sent.length,1);
+ assert.match(res.sent[0],/출석 성공/);
+ assert.equal(f.state.images.length,0);
 });
-test('photo failure still sends committed attendance completion without another reward',async()=>{
- const f=fixture({image:async()=>{throw Error('upload unavailable');}});
+test('duplicate text attendance never uploads or awards again',async()=>{
+ const f=fixture({image:async()=>{throw Error('photo must not upload');}});
  assert.match((await f.emit('!출석')).sent[0],/출석 성공/);
  assert.match((await f.emit('!출석')).sent[0],/이미 출석/);
- assert.equal(f.state.images.length,1);
+ assert.equal(f.state.attenders.length,2);
+ assert.equal(f.state.images.length,0);
 });
-
-
 test('only bot administrators can persist room profile alert toggles',async()=>{
  const f=fixture();
  for(const role of [1,2,4]){
