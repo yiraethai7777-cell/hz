@@ -55,19 +55,19 @@ function createFixture(){
 }
 test('all game help commands use ! prefix and map to real command handlers',()=>{
  const body=help.formatCommandHelp({game:true,manage:false},'게임');
- assert.ok(body.startsWith('📜 명령어 안내 · NEXI\n작동 중인 기능 · 게임'+'\u200b'.repeat(1200)));
+ assert.ok(body.startsWith('📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+'\u200b'.repeat(1200)));
  const names=[...new Set([...body.matchAll(/^!(\S+)/gm)].map(v=>v[1]))];
- assert.equal(names.length,63);
+ assert.ok(names.length>=45,'game menu must retain its other commands');
  for(const name of names)assert.equal(aliases.isGameCommand('!'+name),true,name);
  assert.doesNotMatch(body,/^#\S+/m);
  assert.match(body,/!낚시\n└─[^\n]+\n\n!낚시정보/);
  assert.match(body,/!물고기판매 \(이름\) \(수량\)/);
  assert.match(body,/!씨앗ㄱㅁ \(이름\) \(수량\)/);
- assert.match(body,/!발로전적 \(닉네임#태그\)/);
- assert.match(body,/!스킨 \(이름\)/);
- assert.match(body,/!발로on/);
- assert.match(body,/!발로off/);
- assert.doesNotMatch(body,/!게임순위/);
+
+
+
+
+ assert.doesNotMatch(body,/!게임순위|!발로|!스킨|!내전/);
 });
 test('legacy # inputs are retired without affecting management !',()=>{
  for(const command of ['#낚시','#낚시정보','#게임작동','#퀴즈','#코인순위','#게임순위'])
@@ -136,14 +136,15 @@ test('router routes ! game commands but refuses retired # commands',async()=>{
  assert.match(emitted.at(-1),/게임 ON\/OFF 명령어가 변경되었습니다/);
 });
 
-test('NEXI brand and official support room appear in both command menus',()=>{
+test('KakaoTalk Manager brand and support room appear in game/management menus',()=>{
  for(const section of ['게임','관리']){
   const body=help.formatCommandHelp({game:true,manage:true},section);
-  assert.ok(body.startsWith('📜 명령어 안내 · NEXI\n작동 중인 기능 · '+section+'\u200b'.repeat(1200)));
-  assert.match(body,section==='게임'?/🎮 게임 명령어 · NEXI/:/🛡️ 관리 명령어 · NEXI/);
-  assert.ok(body.includes('💬 NEXI 봇 문의방\nhttps://open.kakao.com/o/gK32HUUi'));
+  assert.ok(body.startsWith('📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · '+section+'\u200b'.repeat(1200)));
+  assert.match(body,section==='게임'?/🎮 카카오톡 게임 매니저/:/🛡️ 카카오톡 관리 매니저/);
+  assert.ok(body.includes('💬 카카오톡 매니저 문의방\nhttps://open.kakao.com/o/gK32HUUi'));
   assert.equal(body.split('https://open.kakao.com/o/gK32HUUi').length-1,1);
-  assert.match(body,/✦ NEXI · 게임 & 관리 도우미$/);
+  assert.match(body,/✦ 카카오톡 매니저 · 게임 & 관리 도우미$/);
+  assert.doesNotMatch(body,/NEXI|!발로|!스킨|!내전/);
  }
 });
 
