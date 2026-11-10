@@ -9,7 +9,7 @@ function questionText(q,{reward=10000,xp=30,now=Date.now(),active=false}={}){
  '정답만 입력하거나 !정답 (답)\n'+
  '첫 정답자 1명에게 보상이 지급됩니다.';
 }
-function correctAnswerText({mention,answer,reward=10000,xp=30,wins=0,level=1,levelUps=0}){
+function correctAnswerText({mention,answer,reward=10000,xp=30,wins=null,level=1,levelUps=0}){
  const lines=[
   '🧩 카카오톡 게임 매니저 | 퀴즈 정답',
   '━━━━━━━━━━━━',
@@ -18,7 +18,7 @@ function correctAnswerText({mention,answer,reward=10000,xp=30,wins=0,level=1,lev
   '✅ 정답 : '+answer,
   '🪙 획득 코인 : +'+Number(reward).toLocaleString('ko-KR')+'코인',
   '✨ 획득 경험치 : +'+xp+' XP',
-  '🏆 누적 정답 : '+wins+'회',
+  ...(Number.isSafeInteger(wins)&&wins>=0?['🏆 누적 정답 : '+wins+'회']:[]),
   ...(levelUps>0?['🌟 레벨업! Lv.'+level]:[]),
   '━━━━━━━━━━━━'
  ];
