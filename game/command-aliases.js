@@ -15,7 +15,7 @@ const COMMANDS=new Set(`
 치트 회수 초기화 초기화확인 랭킹공개 랭킹비공개
 핑`.trim().split(/\s+/));
 // Block old # commands, including removed game toggles, before the legacy handlers.
-const RETIRED=new Set([...COMMANDS,...[...COMMANDS].filter(x=>x.includes('ㄱㅁ')).map(x=>x.replace(/ㄱㅁ/g,'구매')),'게임순위','게임작동','게임중지',...["발로on","발로off","발로명령어","발로전적","발로저장","발로전적확인","발로삭제","발로승인","발로승인해제","스킨","스킨비교","스킨색상","스킨가격","전적","티어","최근전적","승률","헤드샷","챔스노래","요원","랜덤요원","맵","랜덤맵","무기","조준점","발로티어변동","발로요원통계","발로비교","발로랭킹","발로랭킹등록","발로랭킹탈퇴","티어등록","내전예약","내전등록","내전참여","내전참가","내전탈퇴","내전참가자","내전팀짜기","내전재편성","내전선수교체","내전밸런스","내전결과","내전순위","내전초기화","듀오모집","듀오목록","듀오신청","듀오취소","파티모집","파티참가","파티퇴장","파티목록","파티종료","파티정보"]]);
+const RETIRED=new Set([...COMMANDS,...[...COMMANDS].filter(x=>x.includes('ㄱㅁ')).map(x=>x.replace(/ㄱㅁ/g,'구매')),'게임순위','게임작동','게임중지']);
 function commandName(text,prefix){
  const raw=normalize(text);
  if(raw.charAt(0)!==prefix)return null;
