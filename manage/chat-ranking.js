@@ -8,7 +8,10 @@ function format(rows,all=false){
 }
 async function messages(db,room,all=false,botId=''){
  const ranks=await require('./chat-ranking-data').getRanking(db,room,botId);
- return format(all?ranks:ranks.slice(0,10),all);
+ // Keep the old image graph's relative bars, but render them in the chat itself.
+ return all?format(ranks,true):[formatTopBars({top:ranks.slice(0,10).map(row=>({
+  name:row.user_name,rank:row.rank,count:row.count
+ }))})];
 }
 
 const FOLD='\u200b'.repeat(1200);
