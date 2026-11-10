@@ -561,12 +561,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         await game.message({...context,msg,chat});
         return;
       }
-      if (text === "!테스트") {
-        await require("../manage/attendance-image/command")
-          .handleTest(client, context);
-        return;
-      }
-      
+
 if(gameAliases.isGameCommand(text) && text!=='!게임on' && text!=='!게임off'){
   const started=Date.now();
   await game.message({...context,msg,chat});
