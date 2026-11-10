@@ -26,8 +26,12 @@ function roomKey(value) {
   return id;
 }
 
-function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeoutMs = TIMEOUT_MS }) {
+function createNoaBridge({ baseUrl, token, actorUserId, fetchImpl = globalThis.fetch, timeoutMs = TIMEOUT_MS }) {
   const config = bridgeConfig(baseUrl, token);
+  // A separately logged-in Android account is explicitly opt-in. Without it,
+  // preserve the legacy same-account rule to avoid unintended account switching.
+  const separateActor = actorUserId !== undefined && actorUserId !== null && String(actorUserId).trim() !== '';
+  const configuredActorId = separateActor ? roomKey(actorUserId) : null;
   if (typeof fetchImpl !== 'function') throw Error('HTTP 클라이언트를 사용할 수 없습니다.');
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000)
     throw Error('브리지 요청 제한 시간이 올바르지 않습니다.');
@@ -63,17 +67,28 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
     }
   }
 
-  // Mutating VOX calls must target the actual Railway bot account.
-  // Noa needs an independently hosted Android runtime; this never logs in or touches auth.json.
-  async function requireBotIdentity(botUserId) {
-    const expected = roomKey(botUserId);
+  // Validate the actual Android account, not merely that a token is accepted.
+  // Legacy mode requires the Railway bot account. Explicit actor mode requires
+  // the configured Noa user ID; Railway's bot login and auth.json are untouched.
+  async function requireActorIdentity(botUserId) {
+    if (botUserId !== undefined) roomKey(botUserId);
+    const expected = separateActor ? configuredActorId : roomKey(botUserId);
     const state = await request('api/status', 'GET');
     if (String(state.currentUserId ?? '') !== expected ||
         state.androidAvailable !== true || state.kakaoHookActive !== true ||
         state.voxControlActive !== true) {
-      throw Error('Noa 계정 또는 Android VOX 실행 상태를 확인하지 못했습니다.');
+      throw Error('Noa 실행 계정 또는 Android VOX 상태를 확인하지 못했습니다.');
     }
-    return true;
+  }
+
+  // A dedicated Android actor must know the exact OM room before mutation.
+  // Noa's open-profile participants are not always marked isMine; leave actual
+  // membership/room creation permissions to Noa and the KakaoTalk server.
+  async function requireActorRoom(chatId) {
+    if (!separateActor) return;
+    const room = await request('api/rooms/' + chatId, 'GET');
+    if (String(room.chatId ?? '') !== chatId || room.roomType !== 'OM')
+      throw Error('Noa 실행 계정에서 대상 오픈채팅방을 확인하지 못했습니다.');
   }
 
   return {
@@ -83,9 +98,8 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
       const name = String(title ?? '').trim();
       if (!name || name.length > 40 || /[\x00-\x1f\x7f]/.test(name))
         throw Error('보이스룸 제목이 올바르지 않습니다.');
-      // A standalone multi-room command MUST verify the Android account matches
-      // NEXI before invoking the already implemented Android makeVoiceroom hook.
-      if (botUserId !== undefined) await requireBotIdentity(botUserId);
+      if (separateActor || botUserId !== undefined) await requireActorIdentity(botUserId);
+      await requireActorRoom(chatId);
       const result = await request('api/vox/voice-rooms', 'POST', { chatId, title: name });
       // Noa's OK indicates its Android callback was accepted, not server activation.
       return {
@@ -95,7 +109,8 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
     },
     async status({ roomId, botUserId }) {
       const chatId = roomKey(roomId);
-      if (botUserId !== undefined) await requireBotIdentity(botUserId);
+      if (separateActor || botUserId !== undefined) await requireActorIdentity(botUserId);
+      await requireActorRoom(chatId);
       const result = await request('api/vox/status', 'GET');
       const vr = result.voiceroom;
       const inSameRoom = result.moduleLoaded === true && vr && vr.idle === false &&
@@ -110,7 +125,8 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
     },
     async join({ roomId, botUserId }) {
       const chatId = roomKey(roomId);
-      await requireBotIdentity(botUserId);
+      await requireActorIdentity(botUserId);
+      await requireActorRoom(chatId);
       // Noa resolves VOX join-info from its logged-in Android KakaoTalk database.
       // Never derive host/callId from old chat attachment and never send VOX packets from LOCO.
       const result = await request('api/vox/voice-rooms/join', 'POST', { chatId });
@@ -121,7 +137,8 @@ function createNoaBridge({ baseUrl, token, fetchImpl = globalThis.fetch, timeout
     },
     async leave({ roomId, botUserId }) {
       const chatId = roomKey(roomId);
-      await requireBotIdentity(botUserId);
+      await requireActorIdentity(botUserId);
+      await requireActorRoom(chatId);
       // This leaves only Noa's Android voice session, not the whole open chat room.
       const result = await request('api/vox/leave', 'POST', { chatId, kind: 'voiceroom' });
       return {
@@ -142,7 +159,8 @@ function installFromEnv(client, env = process.env, fetchImpl) {
   try {
     if (!client || typeof client !== 'object') throw Error('클라이언트 없음');
     client.voiceRoomAdapter = createNoaBridge({
-      baseUrl: env.NEXI_VOICE_NOA_URL, token: env.NEXI_VOICE_NOA_TOKEN, fetchImpl,
+      baseUrl: env.NEXI_VOICE_NOA_URL, token: env.NEXI_VOICE_NOA_TOKEN,
+      actorUserId: env.NEXI_VOICE_NOA_ACTOR_USER_ID, fetchImpl,
     });
     console.log('[VOICE BRIDGE] experimental Noa adapter enabled (Android host required)');
     return true;
