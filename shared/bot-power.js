@@ -8,9 +8,11 @@ async function enabled(roomId,db=getPool()){
  await require('./room-subscriptions').init(db);
  const r=await db.query(
   "SELECT (SELECT data->>'botEnabled' FROM hz_rooms WHERE room_id=$1) AS enabled,"+
-  " (SELECT status='active' AND expires_at>NOW() FROM gl_room_subscriptions WHERE room_id=$1) AS subscribed",
+  " EXISTS(SELECT 1 FROM gl_room_subscriptions WHERE room_id=$1) AS issued,"+
+  " EXISTS(SELECT 1 FROM gl_room_subscriptions WHERE room_id=$1 AND status='active' AND expires_at>NOW()) AS subscribed,"+
+  " EXISTS(SELECT 1 FROM gl_room_subscription_legacy WHERE room_id=$1) AS legacy",
   [room]);
  const row=r.rows[0]||{};
- return row.enabled!=='false'&&row.subscribed!==false;
+ return row.enabled!=='false'&&(row.issued?row.subscribed:row.legacy);
 }
 module.exports={enabled};
