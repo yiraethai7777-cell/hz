@@ -266,7 +266,7 @@ async function handleGameCore(d,c,msg,isSelf){
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
-     return `🧩 카카오톡 게임 매니저 | 퀴즈\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
+     return `🧩 카카오톡 게임 매니저 | 퀴즈\n━━━━━━━━━━━━━━━━━━\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
    }
 
    const m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);
@@ -284,7 +284,7 @@ async function handleGameCore(d,c,msg,isSelf){
 
        d.quiz=null;
 
-       return `[ ! ] 퀴즈 제한 시간이 종료되었습니다.\n`+
+       return `🧩 카카오톡 게임 매니저 | 퀴즈 종료\n⏰ 제한 시간이 종료되었습니다.\n`+
          `${'\u200b'.repeat(1200)}`+
          `\n━━━━━━━━━━━━━━━━━━━━\n`+
          `⏰ 퀴즈 종료\n\n`+
@@ -319,7 +319,7 @@ async function handleGameCore(d,c,msg,isSelf){
        ?`\u0002${uid}\u0003${cleanName}\u0004`
        :`@${cleanName}`;
 
-     return `[ ✓ ] ${mention} 님이 정답을 맞혔습니다.\n`+
+     return `🧩 카카오톡 게임 매니저 | 퀴즈 정답!\n✅ ${mention} 님이 정답을 맞혔습니다.\n`+
        `${'\u200b'.repeat(1200)}`+
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
        `🎉 정답 결과\n\n`+
