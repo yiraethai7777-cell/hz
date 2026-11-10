@@ -68,7 +68,7 @@ test('Skin info folds after two lines and omits advisory notices while preservin
  };
  const info=skins.explain(data);
  assert.match(info.text,/1,775 VP \(등급 일반가\)/);
- assert.ok(info.text.startsWith('🎨 NEXI | 발로란트 스킨 도감\n🔫 싱귤래리티 밴달'+'\u200b'.repeat(1200)+'\n━━━━━━━━━━━━━━'));
+ assert.ok(info.text.startsWith('🎨 카카오톡 게임 매니저 | 발로란트 스킨 도감\n🔫 싱귤래리티 밴달'+'\u200b'.repeat(1200)+'\n━━━━━━━━━━━━━━'));
  assert.doesNotMatch(info.text,/※|정확한 개별 가격은 공개 스킨 API/);
  assert.match(info.text,/3단계 \(기본 Lv.1 포함\)/);
  assert.match(info.text,/마무리 연출/);
@@ -164,7 +164,7 @@ test('Replying 1-5 to the original bot suggestion shows that exact skin and its 
   userId:'another-user',send,sendImage:async a=>uploads.push(a)}),false);
  assert.equal(await skins.handleReply({msg:quoted(),text:'2',client,roomId:'888',
   userId:'skin-chooser-one',send,sendImage:async a=>uploads.push(a)}),true);
- assert.match(messages[1],/🎨 NEXI \| 발로란트 스킨 도감/);
+ assert.match(messages[1],/🎨 카카오톡 게임 매니저 \| 발로란트 스킨 도감/);
  assert.ok(messages[1].includes('🔫 '+suggestion.split('\n').find(l=>l.startsWith('2. ')).slice(3)));
  assert.equal(uploads.length,1);
  assert.equal(await skins.handleReply({msg:quoted(),text:'2',client,roomId:'888',
@@ -233,7 +233,7 @@ test('Kakao raw.chat attachment quote is recognized as a reply',async()=>{
  assert.equal(skins.isSkinReply(msg),true);
  assert.equal(await skins.handleReply({msg,text:'1',client,roomId:'chat-attachment',
   userId:'quote-user',send,sendImage:async()=>{}}),true);
- assert.ok(messages[1].includes('🎨 NEXI | 발로란트 스킨 도감'));
+ assert.ok(messages[1].includes('🎨 카카오톡 게임 매니저 | 발로란트 스킨 도감'));
 });
 test('Actual Kakao shortened preview selects a numbered skin when replying',async()=>{
  const messages=[],uploads=[],client={userId:'990001',connected:true};
