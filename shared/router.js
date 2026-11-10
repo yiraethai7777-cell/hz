@@ -105,6 +105,17 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // power commands. An expired plan cannot be revived from KakaoTalk.
       const license=await require('./room-subscriptions').get(roomId);
       if(license&&!license.active)return;
+      if((text==='!요금제'||text==='!남은시간')&&license){
+        const sub=require('./room-subscriptions');
+        await chat.sendText(roomId,
+          '📦 카카오톡 매니저 | 요금제 현황\n'+
+          '━━━━━━━━━━━━\n'+
+          '요금제: '+license.planLabel+'\n'+
+          '구매 기간: '+license.durationDays+'일\n'+
+          '⏳ 봇 자동 종료까지: '+sub.timeLeft(license.remainingSeconds)+'\n'+
+          '🗓️ 종료 예정: '+new Date(license.expiresAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' (한국 시간)');
+        return;
+      }
       if(license?.plan==='manage'&&(/^!게임(?:on|off|명령어|상태)?$/.test(text)||gameAliases.isGameCommand(text)))return;
       if(license?.plan==='game'&&(/^!(?:관리on|관리off|관리자추가|관리자삭제|입장변경|퇴장변경|경고|kick|k|봇방지정)(?:\s|$)/.test(text)))return;
       // Global 30-second maintenance pause: no commands or passive handling.
@@ -113,7 +124,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         if(!isBotAccount)return;
         if(maintenance.active())return;
         const pool=require('./db').getPool();
-        const rooms=await pool.query("SELECT r.room_id FROM hz_rooms r LEFT JOIN gl_manage_rooms m ON m.room_id=r.room_id WHERE COALESCE(r.data->>'botEnabled','true')<>'false' AND (COALESCE((r.data->>'game')::boolean,false)=true OR COALESCE(m.enabled,(r.data->>'manage')::boolean,false)=true)");
+        const rooms=await pool.query("SELECT r.room_id FROM hz_rooms r LEFT JOIN gl_manage_rooms m ON m.room_id=r.room_id LEFT JOIN gl_room_subscriptions sub ON sub.room_id=r.room_id WHERE (sub.room_id IS NULL OR (sub.status='active' AND sub.expires_at>NOW())) AND COALESCE(r.data->>'botEnabled','true')<>'false' AND (COALESCE((r.data->>'game')::boolean,false)=true OR COALESCE(m.enabled,(r.data->>'manage')::boolean,false)=true)");
         const targets=[...new Set(rooms.rows.map(row=>String(row.room_id)))].filter(id=>/^\d+$/.test(id)&&observedOpenRooms.has(id));
         maintenance.start(30000);
         const pauseEnd=global.__nexiPauseUntil;
