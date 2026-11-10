@@ -280,3 +280,88 @@ test('create with NEXI bot ID uses same-account Android hook and blocks mismatch
     { path: '/api/vox/voice-rooms', method: 'POST' },
   ]);
 });
+
+
+const ACTOR_ID = '418692594';
+function mockDedicatedActor(calls, {
+  currentUserId = ACTOR_ID, roomType = 'OM', chatId = ROOM,
+  available = true,
+} = {}) {
+  return async (url, opts) => {
+    const path = new URL(url).pathname;
+    calls.push({path, method: opts.method, body: opts.body});
+    if (path === '/api/status')
+      return response({currentUserId, androidAvailable: available,
+        kakaoHookActive: true, voxControlActive: true});
+    if (path === '/api/rooms/' + ROOM)
+      return response({chatId, roomType,
+        // Open-profile users may not be marked isMine by Noa's catalog.
+        members: [{userId:'777',isMine:false}]});
+    if (path === '/api/vox/status')
+      return response({moduleLoaded:true,voiceroom:{idle:true,chatId:'0'}});
+    if (path === '/api/vox/voice-rooms')
+      return response({ok:true,chatId:ROOM});
+    if (path === '/api/vox/voice-rooms/join')
+      return response({ok:true,chatId:ROOM});
+    if (path === '/api/vox/leave')
+      return response({ok:true,chatId:ROOM,kind:'voiceroom'});
+    throw Error('Unexpected URL ' + path);
+  };
+}
+
+test('explicit Noa actor creates in the intended OM room without changing the Railway bot identity', async () => {
+  const calls = [];
+  const bridge = createNoaBridge({
+    baseUrl: 'https://noa.example', token: TOKEN,
+    actorUserId: ACTOR_ID, fetchImpl: mockDedicatedActor(calls),
+  });
+  assert.deepEqual(await bridge.create({roomId:ROOM,title:'학교 보이스룸',botUserId:BOT_ID}),
+    {requestAccepted:true,verified:false});
+  assert.deepEqual(calls.map(x=>x.path), [
+    '/api/status','/api/rooms/'+ROOM,'/api/vox/voice-rooms',
+  ]);
+  assert.deepEqual(JSON.parse(calls[2].body),{chatId:ROOM,title:'학교 보이스룸'});
+});
+
+test('dedicated Noa actor keeps VOX status/join/leave bound to its own identity and room', async () => {
+  const calls = [];
+  const bridge = createNoaBridge({
+    baseUrl:'https://noa.example',token:TOKEN,
+    actorUserId:ACTOR_ID,fetchImpl:mockDedicatedActor(calls),
+  });
+  const state=await bridge.status({roomId:ROOM,botUserId:BOT_ID});
+  assert.equal(state.statusKnown,true);
+  assert.equal(state.localActive,false);
+  assert.deepEqual(await bridge.join({roomId:ROOM,botUserId:BOT_ID}),
+    {requestAccepted:true,verified:false});
+  assert.deepEqual(await bridge.leave({roomId:ROOM,botUserId:BOT_ID}),
+    {requestAccepted:true,verified:false});
+  assert.deepEqual(calls.map(x=>x.path),[
+    '/api/status','/api/rooms/'+ROOM,'/api/vox/status',
+    '/api/status','/api/rooms/'+ROOM,'/api/vox/voice-rooms/join',
+    '/api/status','/api/rooms/'+ROOM,'/api/vox/leave',
+  ]);
+});
+
+test('dedicated Noa actor rejects wrong logged-in account or stale/missing OM room', async () => {
+  for (const opts of [
+    {currentUserId:BOT_ID}, {currentUserId:'0'}, {available:false},
+    {roomType:'M'}, {chatId:'99999999999'},
+  ]) {
+    const calls=[];
+    const bridge=createNoaBridge({baseUrl:'https://noa.example',token:TOKEN,
+      actorUserId:ACTOR_ID,fetchImpl:mockDedicatedActor(calls,opts)});
+    await assert.rejects(()=>bridge.create({roomId:ROOM,title:'테스트',botUserId:BOT_ID}));
+    assert.equal(calls.some(c=>c.path==='/api/vox/voice-rooms'),false);
+  }
+});
+
+test('invalid dedicated actor config must not install a bridge', () => {
+  const client={};
+  assert.equal(installFromEnv(client,{
+    NEXI_VOICE_NOA_URL:'https://noa.example',
+    NEXI_VOICE_NOA_TOKEN:TOKEN,
+    NEXI_VOICE_NOA_ACTOR_USER_ID:'not-a-user',
+  }),false);
+  assert.equal(client.voiceRoomAdapter,undefined);
+});
