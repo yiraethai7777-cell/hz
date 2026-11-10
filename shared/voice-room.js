@@ -113,7 +113,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         : signal.phase==='ended'?'마지막 수신 신호: 보룸 종료'
           : signal.phase==='invite'?'최근 보룸 초대 수신 (접속정보 불완전)'
             :'최근 VOX 접속정보 없음';
-      await safeReply(client,send,'🎙️ NEXI | 보룸 참가 상태\n'+
+      await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+
         signalText+'\n'+
         'Railway 전용 VOX 인증·음성 세션 미구현 → 실제 참가 불가\n'+
         'Noa Android 브리지도 연결되어 있지 않습니다.\n'+
@@ -129,11 +129,11 @@ async function handle({client,roomId,msg,text,send,adapter}){
           : state?.statusKnown===true
             ? '이 방의 Android 보이스룸 참가 세션 확인 안 됨'
             : 'Android 보이스룸 참가 상태 확인 불가';
-      await safeReply(client,send,'🎙️ NEXI | 보룸 참가 상태\n'+line+
+      await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+line+
         '\n※ 카카오톡 서버의 참가자 명단 및 진행자 권한을 확인한 결과는 아닙니다.');
     }catch{
       await safeReply(client,send,'⚠️ Android 브리지 참가 상태 조회 실패\n'+
-        'Noa 연결 및 NEXI 계정 일치 여부를 확인해 주세요.');
+        'Noa 연결 및 카카오톡 매니저 계정 일치 여부를 확인해 주세요.');
     }
     return true;
   }
@@ -195,7 +195,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       }
     }catch{
       await safeReply(client,send,'❌ 보이스룸 '+operation+' 요청 실패\n'+
-        'Noa VOX 상태·동일한 NEXI 계정 연결 여부를 확인해 주세요.');
+        'Noa VOX 상태·동일한 카카오톡 매니저 계정 연결 여부를 확인해 주세요.');
     }finally{
       running.delete(room);
     }
@@ -247,7 +247,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
     return true;
   }
   if(isHelp){
-    await safeReply(client,send,'🎙️ NEXI | 보이스룸 명령어\n' +
+    await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보이스룸 명령어\n' +
       '#보룸시작 (제목) / #보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
       '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
       '#보룸참가 · 기존 보룸에 참가 요청 (Android VOX 브리지 필요)\n' +

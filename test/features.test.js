@@ -140,7 +140,7 @@ test('fishing is text only with 20 species; old inventory remains saleable',asyn
 test('game and management help remain separate, folded and unnamed',()=>{
  const {formatCommandHelp}=require('../shared/help');
  const manageOnly=formatCommandHelp({manage:true,game:false},'관리');
- assert.match(manageOnly,/🛡️ 관리 명령어/);
+ assert.match(manageOnly,/🛡️ 카카오톡 관리 매니저/);
  assert.match(manageOnly,/!출석/);
  assert.doesNotMatch(manageOnly,/!낚시/);
  const gameOnly=formatCommandHelp({manage:false,game:true},'게임');
@@ -148,7 +148,7 @@ test('game and management help remain separate, folded and unnamed',()=>{
  assert.doesNotMatch(gameOnly,/!출석|!경고/);
  for(const [menu,heading] of [[gameOnly,'게임'],[manageOnly,'관리']]){
   assert.equal(menu.split('\u200b'.repeat(1200))[0],
-    '📜 명령어 안내 · NEXI\n작동 중인 기능 · '+heading);
+    '📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · '+heading);
   assert.equal([...menu].filter(ch=>ch==='\u200b').length,1200);
  }
  const generic=formatCommandHelp({manage:true,game:true});

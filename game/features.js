@@ -86,7 +86,7 @@ async function autoFishTick(){
       :award();
      if(!r)continue;
      await require('./fishing-coin-event').recordCatch(c,{room:rid,user:p.id,name:p.name,fish:r.f.name,size:r.size,at:time});
-     out.push(`🎣 자동낚시 @${String(p.name||p.id).replace(/^@/, '')}${ctx.MORE}\n━━━━━━━━━━━━━━━━━━\n🐟 획득 물고기: ${r.f.name} (${r.size}cm)\n💰 획득 코인: +${ctx.n(r.value)}\n⭐ 획득 경험치: +${r.xp} XP\n⏱️ 남은 시간: ${Math.max(0,Math.ceil((p.autoUntil-time)/60000))}분\n🍀 행운포션: ${p.luckUntil>time?'사용 중':'미사용'}\n━━━━━━━━━━━━━━━━━━`);
+     out.push(`🎣 카카오톡 게임 매니저 | 자동낚시\n👤 @${String(p.name||p.id).replace(/^@/, '')}${ctx.MORE}\n━━━━━━━━━━━━━━━━━━\n🐟 획득 물고기: ${r.f.name} (${r.size}cm)\n💰 획득 코인: +${ctx.n(r.value)}\n⭐ 획득 경험치: +${r.xp} XP\n⏱️ 남은 시간: ${Math.max(0,Math.ceil((p.autoUntil-time)/60000))}분\n🍀 행운포션: ${p.luckUntil>time?'사용 중':'미사용'}\n━━━━━━━━━━━━━━━━━━`);
     }
     return out;
    });
@@ -113,7 +113,7 @@ async function quizExpiryTick(){
      d.quiz=null;
      return String(q.answers[0]);
     });
-    if(answer!==null)await ctx.send(ctx.globalChat,room,'⏰ 퀴즈 시간이 종료되었습니다.\n✅ 정답: '+answer);
+    if(answer!==null)await ctx.send(ctx.globalChat,room,'🧩 카카오톡 게임 매니저 | 퀴즈 종료\n━━━━━━━━━━━━━━━━━━\n⏰ 제한 시간이 종료됐습니다.\n✅ 정답: '+answer);
    } catch(error){console.error('[QUIZ TIMEOUT]',entry.room_id,error);}
   }
  }finally{quizExpiryBusy=false;}
@@ -186,9 +186,9 @@ async function handleGameCore(d,c,msg,isSelf){
   if(text==="#명령어")return null;
   
    if(text==='#퀴즈정보'){
-     return `[ # ] QUIZ\n`+
+     return `🧩 카카오톡 게임 매니저 | 퀴즈 정보\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
-       `[ QUIZ INFORMATION ]\n\n`+
+       `📋 퀴즈 안내\n\n`+
        `문제 수    | ${ctx.QUIZZES.length}개\n`+
        `출제 분야  | 일반상식 · 수학\n`+
        `제한 시간  | ${ctx.QUIZ_SECONDS}초\n`+
@@ -198,7 +198,7 @@ async function handleGameCore(d,c,msg,isSelf){
        `작동 상태  | ${d.quizEnabled?'ON':'OFF'}\n`+
        `진행 상태  | ${d.quiz?'진행 중':'대기 중'}\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
-       `QUIZ SYSTEM`;
+       `KakaoTalk Manager`;
    }
 
    if(text==='#퀴즈순위'){
@@ -207,7 +207,7 @@ async function handleGameCore(d,c,msg,isSelf){
        .sort((a,b)=>(b.wins||0)-(a.wins||0))
        .slice(0,10);
 
-     return `[ # ] QUIZ RANKING\n`+
+     return `🏆 카카오톡 게임 매니저 | 퀴즈 순위\n`+
        `━━━━━━━━━━━━━━━━━━━━\n`+
        (ranking.length
          ?ranking.map((x,i)=>
@@ -239,12 +239,12 @@ async function handleGameCore(d,c,msg,isSelf){
      }
 
      if(d.quiz&&d.quiz.expiresAt>now){
-       return `[ # ] QUIZ\n\n`+
+       return `🧩 카카오톡 게임 매니저 | 퀴즈 정보\n\n`+
          `Q. ${d.quiz.question}\n`+
          `${'\u200b'.repeat(1200)}`+
          `\n[ ${d.quiz.difficulty||'혼합'} · ${d.quiz.kind} ]\n`+
          `\n━━━━━━━━━━━━━━━━━━━━\n`+
-         `[ QUIZ STATUS ]\n`+
+         `📋 진행 중인 퀴즈\n`+
          `이미 진행 중인 문제입니다.\n`+
          `남은 시간 | ${Math.ceil((d.quiz.expiresAt-now)/1000)}초`;
      }
@@ -266,14 +266,14 @@ async function handleGameCore(d,c,msg,isSelf){
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
-     return `[ QUIZ ]\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
+     return `🧩 카카오톡 게임 매니저 | 퀴즈\n━━━━━━━━━━━━━━━━━━\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
    }
 
    const m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);
 
    if(m){
      if(!d.quiz)
-       return '[ ! ] 현재 진행 중인 퀴즈가 없습니다.';
+       return '🧩 카카오톡 게임 매니저 | 진행 중인 퀴즈가 없습니다.';
 
      if(now>=d.quiz.expiresAt){
        const answer=d.quiz.answers[0];
@@ -284,13 +284,13 @@ async function handleGameCore(d,c,msg,isSelf){
 
        d.quiz=null;
 
-       return `[ ! ] 퀴즈 제한 시간이 종료되었습니다.\n`+
+       return `🧩 카카오톡 게임 매니저 | 퀴즈 종료\n⏰ 제한 시간이 종료되었습니다.\n`+
          `${'\u200b'.repeat(1200)}`+
          `\n━━━━━━━━━━━━━━━━━━━━\n`+
-         `[ QUIZ TIMEOUT ]\n\n`+
+         `⏰ 퀴즈 종료\n\n`+
          `정답 | ${answer}\n\n`+
          `━━━━━━━━━━━━━━━━━━━━\n`+
-         `QUIZ SYSTEM`;
+         `KakaoTalk Manager`;
      }
 
      if(!m[1])
@@ -299,7 +299,7 @@ async function handleGameCore(d,c,msg,isSelf){
      if(!d.quiz.answers.some(a=>
        require('./quiz').answerMatches(a,m[1])
      )){
-       return '[ X ] 오답입니다.';
+       return '❌ 카카오톡 게임 매니저 | 오답입니다.';
      }
 
      const answer=d.quiz.answers[0];
@@ -319,16 +319,16 @@ async function handleGameCore(d,c,msg,isSelf){
        ?`\u0002${uid}\u0003${cleanName}\u0004`
        :`@${cleanName}`;
 
-     return `[ ✓ ] ${mention} 님이 정답을 맞혔습니다.\n`+
+     return `🧩 카카오톡 게임 매니저 | 퀴즈 정답!\n✅ ${mention} 님이 정답을 맞혔습니다.\n`+
        `${'\u200b'.repeat(1200)}`+
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
-       `[ QUIZ RESULT ]\n\n`+
+       `🎉 정답 결과\n\n`+
        `정답        | ${answer}\n`+
        `획득 코인   | +${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
        `획득 경험치 | +${ctx.QUIZ_XP} XP\n\n`+
        `${up?`\n[ LEVEL UP ] Lv.${p.level}\n`:''}`+
        `\n━━━━━━━━━━━━━━━━━━━━\n`+
-       `QUIZ SYSTEM`;
+       `KakaoTalk Manager`;
    }
   
   if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
@@ -370,7 +370,7 @@ async function handleGameCore(d,c,msg,isSelf){
       else if(Math.random()<destroy){fail++;lines.push(`${i+1}회: 💥 파괴 판정 +${lv}`);if(p.protection>0){p.rodRestore={rod,level:lv,expires:now+60000};lines.push(`🛡️ 보호권 ${p.protection}개 보유\n60초 이내 네 / 아니요 로 복구 결정`);}else{p.rod="나무";p.rods=p.rods.filter(x=>x!==rod);if(!p.rods.includes("나무"))p.rods.push("나무");delete p.rodLevels[rod];lines.push("보호권 없음 · 나무 낚시대 +0 지급");}break;}
       else{fail++;lines.push(`${i+1}회: 실패 (+${lv} 유지)`);}
     }
-    return `🎣 ${rod} 낚시대 강화\n성공 ${success}회 · 실패 ${fail}회\n💰 사용 ${ctx.n(spent)}코인\n현재 ${p.rod} +${p.rodLevels[p.rod]||0}\n${ctx.MORE}\n${lines.join("\n")}`;
+    return `🎣 카카오톡 게임 매니저 | 낚시대 강화\n${rod}\n성공 ${success}회 · 실패 ${fail}회\n💰 사용 ${ctx.n(spent)}코인\n현재 ${p.rod} +${p.rodLevels[p.rod]||0}\n${ctx.MORE}\n${lines.join("\n")}`;
   }
   if(text==="#구매행운"){if(p.luckUntil>now)return `🍀 행운 효과 종료까지 ${Math.ceil((p.luckUntil-now)/60000)}분 남았습니다.`;if(p.points<40000&&!isSelf)return "💰 40,000코인이 필요합니다.";if(!isSelf)p.points-=40000;p.luckUntil=now+600000;return "🍀 행운 구매 완료! 10분간 낚시 행운 50% 상승"}
   if(text==="#구매자동"){if(p.autoUntil>now)return `⏳ 자동 낚시가 작동 중입니다. 남은 시간 ${Math.ceil((p.autoUntil-now)/1000)}초`;if(p.autoDay!==ctx.dayK()){p.autoDay=ctx.dayK();p.autoBought=0;}if(p.autoBought>=3)return "🤖 오늘 자동 낚시 구매 3회를 모두 사용했습니다. 내일 다시 구매하세요.";if(p.points<ctx.AUTO_COST&&!isSelf)return "💰 50,000코인이 필요합니다.";if(!isSelf)p.points-=ctx.AUTO_COST;p.autoBought++;p.autoUntil=now+ctx.AUTO_DURATION;return `🤖 자동 낚시 구매 완료!\n작동 시간: 5분\n오늘 구매 ${p.autoBought}/3회\n🎣 ${ctx.FISHING_COOLDOWN_SECONDS}초마다 자동 낚시`;}
@@ -393,14 +393,14 @@ async function handleGameCore(d,c,msg,isSelf){
     if(count===500){
       const summary=[...totals.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))
         .map(([petName,total])=>`${petName} · ${total}회${newPets.includes(petName)?' [NEW]':''}`);
-      return `🐾 펫 500회 뽑기 완료\n💰 총 사용 ${ctx.n(cost)}코인\n♻️ 중복 ${dup}마리 · 환급 ${ctx.n(dup*1000)}코인\n💳 실사용 ${ctx.n(cost-dup*1000)}코인\n🆕 신규 펫 ${newPets.length}종 · 보유 ${Object.keys(p.pets).length}/20종\n${ctx.MORE}\n━━ 펫별 획득 결과 ━━\n${summary.join('\n')}`;
+      return `🐾 카카오톡 게임 매니저 | 펫 500회 뽑기 완료\n💰 총 사용 ${ctx.n(cost)}코인\n♻️ 중복 ${dup}마리 · 환급 ${ctx.n(dup*1000)}코인\n💳 실사용 ${ctx.n(cost-dup*1000)}코인\n🆕 신규 펫 ${newPets.length}종 · 보유 ${Object.keys(p.pets).length}/20종\n${ctx.MORE}\n━━ 펫별 획득 결과 ━━\n${summary.join('\n')}`;
     }
-    return `🐾 펫 ${count}회 뽑기\n💰 사용 ${ctx.n(cost)}코인 · 중복 ${dup}마리 환급 ${ctx.n(dup*1000)}코인\n보유 ${Object.keys(p.pets).length}/20종\n${count>1?ctx.MORE:""}\n${results.join("\n")}`;
+    return `🐾 카카오톡 게임 매니저 | 펫 ${count}회 뽑기\n💰 사용 ${ctx.n(cost)}코인 · 중복 ${dup}마리 환급 ${ctx.n(dup*1000)}코인\n보유 ${Object.keys(p.pets).length}/20종\n${count>1?ctx.MORE:""}\n${results.join("\n")}`;
   }
   if(text.startsWith("#펫뽑기"))return "사용법: !펫뽑기 또는 !펫뽑기 10 / 50 / 100 / 500";
-  if(text==="#펫도감")return `📖 펫 도감 (${Object.keys(p.pets).length}/20)\n${ctx.MORE}\n`+ctx.PETS.map((x,i)=>`${i+1}. ${Object.prototype.hasOwnProperty.call(p.pets,x.name)?x.name:"???"}`).join("\n");
-  if(text==="#펫인벤")return `🐾 펫 인벤 (${Object.keys(p.pets).length}/20)\n장착: ${p.equippedPet||"없음"}\n${ctx.MORE}\n`+(Object.keys(p.pets).length?Object.entries(p.pets).map(([x,lv],i)=>`${i+1}. ${x} +${lv}${p.equippedPet===x?" [장착]":""}`).join("\n"):"보유한 펫이 없습니다.");
-  let pm=/^#펫기능\s+(.+)$/.exec(text);if(pm){const pet=ctx.PETS.find(x=>x.name===pm[1].trim());if(!pet)return "없는 펫입니다.";const level=p.pets[pet.name]||0,owned=Object.prototype.hasOwnProperty.call(p.pets,pet.name);return `🐾 ${pet.name}\n뽑기 가중치: ${pet.weight} (전체 가중치 중 비율 ${(pet.weight/ctx.PETS.reduce((v,x)=>v+x.weight,0)*100).toFixed(4)}%)\n🍀 행운 +${pet.luck+(owned?level*2:0)}%\n⭐ 경험치 +${pet.xp+(owned?level*2:0)}%\n💰 포인트 +${pet.points+(owned?level*2:0)}%\n강화: +${owned?level:0}/20`}
+  if(text==="#펫도감")return `📖 카카오톡 게임 매니저 | 펫 도감 (${Object.keys(p.pets).length}/20)\n${ctx.MORE}\n`+ctx.PETS.map((x,i)=>`${i+1}. ${Object.prototype.hasOwnProperty.call(p.pets,x.name)?x.name:"???"}`).join("\n");
+  if(text==="#펫인벤")return `🐾 카카오톡 게임 매니저 | 펫 인벤 (${Object.keys(p.pets).length}/20)\n장착: ${p.equippedPet||"없음"}\n${ctx.MORE}\n`+(Object.keys(p.pets).length?Object.entries(p.pets).map(([x,lv],i)=>`${i+1}. ${x} +${lv}${p.equippedPet===x?" [장착]":""}`).join("\n"):"보유한 펫이 없습니다.");
+  let pm=/^#펫기능\s+(.+)$/.exec(text);if(pm){const pet=ctx.PETS.find(x=>x.name===pm[1].trim());if(!pet)return "없는 펫입니다.";const level=p.pets[pet.name]||0,owned=Object.prototype.hasOwnProperty.call(p.pets,pet.name);return `🐾 카카오톡 게임 매니저 | 펫 정보\n${pet.name}\n뽑기 가중치: ${pet.weight} (전체 가중치 중 비율 ${(pet.weight/ctx.PETS.reduce((v,x)=>v+x.weight,0)*100).toFixed(4)}%)\n🍀 행운 +${pet.luck+(owned?level*2:0)}%\n⭐ 경험치 +${pet.xp+(owned?level*2:0)}%\n💰 포인트 +${pet.points+(owned?level*2:0)}%\n강화: +${owned?level:0}/20`}
   pm=/^#펫장착\s+(.+)$/.exec(text);if(pm){let pet=pm[1].trim();if(pet==="최고"){const choices=ctx.PETS.filter(x=>Object.prototype.hasOwnProperty.call(p.pets,x.name));choices.sort((a,b)=>(b.luck+b.xp+b.points+6*p.pets[b.name])-(a.luck+a.xp+a.points+6*p.pets[a.name]));pet=choices[0]?.name||""}if(!Object.prototype.hasOwnProperty.call(p.pets,pet))return "보유한 펫이 없습니다.";p.equippedPet=pet;return `🐾 ${pet} +${p.pets[pet]} 장착 완료!`}
   if(text==="#펫강화"||/^#펫강화\s+\d+$/.test(text)){
     const arg=text.split(/\s+/)[1];
@@ -426,7 +426,7 @@ async function handleGameCore(d,c,msg,isSelf){
       if(!done)return reason||"🐾 강화를 진행하지 못했습니다.";
       return `🐾 ${name} +${p.pets[name]}/20 강화 완료!\n💰 비용 ${ctx.n(spent)}코인`;
     }
-    return `🐾 ${name} 펫 연속 강화\n━━━━━━━━━━━━━━━━━━\n요청 ${count}회 · 성공 ${done}회\n강화 단계 +${startLv} → +${p.pets[name]}/20\n💰 총 사용 ${ctx.n(spent)}코인\n${ctx.MORE}\n${results.join("\n")||"진행된 강화 없음"}${reason?"\n⏹️ 중단: "+reason:""}`;
+    return `🐾 카카오톡 게임 매니저 | 펫 연속 강화\n${name}\n━━━━━━━━━━━━━━━━━━\n요청 ${count}회 · 성공 ${done}회\n강화 단계 +${startLv} → +${p.pets[name]}/20\n💰 총 사용 ${ctx.n(spent)}코인\n${ctx.MORE}\n${results.join("\n")||"진행된 강화 없음"}${reason?"\n⏹️ 중단: "+reason:""}`;
   }
   if(text==="#물고기판매"||text.startsWith("#물고기판매 ")){
     const args=text.trim().split(/\s+/).slice(1);
@@ -457,9 +457,9 @@ async function handleGameCore(d,c,msg,isSelf){
     const selected=new Set(targets);
     p.inventory=p.inventory.filter(x=>!selected.has(x));
     p.points+=total;
-    return `🐟 물고기 판매 완료!\n판매 수량: ${targets.length}마리\n💰 판매 금액: +${ctx.n(total)}코인\n💵 보유 코인: ${ctx.n(p.points)}\n${ctx.MORE}\n${details.join("\n")}`;
+    return `🎣 카카오톡 게임 매니저 | 물고기 판매 완료\n판매 수량: ${targets.length}마리\n💰 판매 금액: +${ctx.n(total)}코인\n💵 보유 코인: ${ctx.n(p.points)}\n${ctx.MORE}\n${details.join("\n")}`;
   }
-  if(text==="#낚시정보")return `🎣 낚시 정보\n쿨타임 ${ctx.FISHING_COOLDOWN_SECONDS}초 · 결과 약 3초 후 표시\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
+  if(text==="#낚시정보")return `🎣 카카오톡 게임 매니저 | 낚시 정보\n━━━━━━━━━━━━━━━━━━\n쿨타임 ${ctx.FISHING_COOLDOWN_SECONDS}초 · 결과 약 3초 후 표시\n장착 낚시대: ${p.rod}\n잡은 물고기: ${p.inventory.length}마리`;
   if(text==="#인벤"){
     if(!p.inventory.length)return "🎒 인벤토리가 비어 있습니다.";
     // Show every section under KakaoTalk's single "더보기", rather than
@@ -472,15 +472,15 @@ async function handleGameCore(d,c,msg,isSelf){
         .map((x,i)=>`#${start+i+1} ${x.name} [${x.tier}] · ${x.size}cm · ${ctx.n(x.value)}코인`);
       pages.push(`📄 ${page+1}/${totalPages}\n${entries.join("\n")}`);
     }
-    return `🎒 내 물고기 인벤토리 · 총 ${p.inventory.length}마리\n`+ctx.MORE+"\n"+pages.join("\n━━━━━━━━━━━━━━━━\n");
+    return `🎒 카카오톡 게임 매니저 | 물고기 인벤토리 · 총 ${p.inventory.length}마리\n`+ctx.MORE+"\n"+pages.join("\n━━━━━━━━━━━━━━━━\n");
   }
-  if(text==="#물고기 도감"||text==="#물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 물고기 도감\n"+ctx.MORE+"\n"+ctx.FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
+  if(text==="#물고기 도감"||text==="#물고기도감"){const caught=new Set(p.inventory.map(x=>x.name));return "📖 카카오톡 게임 매니저 | 물고기 도감\n"+ctx.MORE+"\n"+ctx.FISH_TABLE.map(x=>caught.has(x.name)?`[${x.tier}] ${x.name} · ${x.min}~${x.max}cm`:"❓ ???").join("\n")};
 
   if(text==="#포인트")return isSelf?"🤖\n💰 코인: ∞":`💰 ${name}님의 코인: ${ctx.n(p.points)}`;
-  if(text==="#퀴즈점수")return `⭐ LEVEL\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
+  if(text==="#퀴즈점수")return `⭐ 카카오톡 게임 매니저 | 레벨 정보\n👤 ${name}\n🏆 Lv.${p.level} / 200\n✨ ${p.xp} / ${ctx.levelNeed(p.level)} XP\n📊 진행률: ${p.level>=200?100:Math.min(100,Math.floor(p.xp/ctx.levelNeed(p.level)*100))}%\n🧩 정답 ${p.wins}회`;
 
-  if(text==="#게임순위"||text==="#퀴즈순위"){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>b.points-a.points).slice(0,10);return "🏆 게임 순위\n"+(a.length?a.map((x,i)=>`${i+1}등 ${x.name} · ${ctx.n(x.points)}코인`).join("\n"):"아직 기록이 없습니다.")}
-  if(text==="#상점")return "🛒 낚시대 상점\n"+ctx.RODS.map(x=>`${x.name} 낚시대 · ${ctx.n(x.price)}코인${p.rods.includes(x.name)?" [보유]":""}`).join("\n");
+  if(text==="#게임순위"||text==="#퀴즈순위"){const a=Object.values(d.players).filter(x=>x.id!==ctx.globalBotId).sort((a,b)=>b.points-a.points).slice(0,10);return "🏆 카카오톡 게임 매니저 | 게임 순위\n"+(a.length?a.map((x,i)=>`${i+1}등 ${x.name} · ${ctx.n(x.points)}코인`).join("\n"):"아직 기록이 없습니다.")}
+  if(text==="#상점")return "🛒 카카오톡 게임 매니저 | 낚싯대 상점\n"+ctx.RODS.map(x=>`${x.name} 낚시대 · ${ctx.n(x.price)}코인${p.rods.includes(x.name)?" [보유]":""}`).join("\n");
 
   const buyMatch=/^#낚시대구매\s+(.+)$/.exec(text);
   if(buyMatch){
@@ -493,7 +493,7 @@ async function handleGameCore(d,c,msg,isSelf){
     p.rods.push(r.name);
     return `✅ ${r.name} 낚시대 구매 완료\n사용 코인: ${ctx.n(r.price)}\n남은 코인: ${isSelf?"∞":ctx.n(p.points)}\n장착 명령어: !낚시장착 ${r.name}`;
   }
-  const equipMatch=/^#낚시장착\s+(.+)$/.exec(text);if(equipMatch){const x=equipMatch[1].trim();if(!p.rods.includes(x))return "보유하지 않은 낚시대입니다.";p.rod=x;return `🎣 ${x} 낚시대를 장착했습니다.`}
+  const equipMatch=/^#낚시장착\s+(.+)$/.exec(text);if(equipMatch){const x=equipMatch[1].trim();if(!p.rods.includes(x))return "보유하지 않은 낚시대입니다.";p.rod=x;return `🎣 카카오톡 게임 매니저 | ${x} 낚시대를 장착했습니다.`}
   return null
 }
 return {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,quizExpiryTick,handleGame,issueQuizOnly};

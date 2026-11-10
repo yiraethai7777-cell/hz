@@ -1,6 +1,18 @@
 'use strict';
 const { handleExtraMessage } = require('./help');
 const gameAliases=require('../game/command-aliases');
+const RETIRED_VALORANT_COMMANDS=new Set(`발로on 발로off 발로명령어 발로전적 발로저장 발로전적확인 발로삭제 발로승인 발로승인해제
+스킨 스킨비교 스킨색상 스킨가격 전적 티어 최근전적 승률 헤드샷 챔스노래
+요원 랜덤요원 맵 랜덤맵 무기 조준점 발로티어변동 발로요원통계 발로비교
+발로랭킹 발로랭킹등록 발로랭킹탈퇴 티어등록
+내전예약 내전등록 내전참여 내전참가 내전탈퇴 내전참가자 내전팀짜기 내전재편성 내전선수교체 내전밸런스 내전결과 내전순위 내전초기화
+듀오모집 듀오목록 듀오신청 듀오취소
+파티모집 파티참가 파티퇴장 파티목록 파티종료 파티정보`.trim().split(/\s+/));
+const isRetiredValorantCommand=text=>{
+ const command=String(text??'').trim().split(/\s+/,1)[0];
+ return command[0]==='!'&&RETIRED_VALORANT_COMMANDS.has(command.slice(1));
+};
+
 
 const recentMessages=new Map();
 const observedOpenRooms=new Set();
@@ -76,7 +88,7 @@ async function blindRecent({client,chat,roomId,count,send}){
    console.warn('[NEXI BULK BLIND]',message);
   }
  }
- await send('🫥 NEXI | 메시지 가리기 요청 결과\n'+
+ await send('🫥 카카오톡 관리 매니저 | 메시지 가리기 요청 결과\n'+
   '📨 서버 요청 수락: '+accepted+'개\n'+
   '❔ 처리 확인 불가: '+unverified+'개\n'+
   '❌ 요청 실패: '+failed+'개\n'+
@@ -185,6 +197,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try{isSuperAdmin=await require('./super-admin').isSuperAdmin(roomId,senderId);}
         catch(error){console.warn('[SUPER ADMIN CHECK]',String(error?.code||'DB_ERROR'));}
       }
+      // Removed Valorant commands never enter generic game/manager handlers.
+      if(isRetiredValorantCommand(text))return;
       // Isolate the ARDEN design for concurrent messages from different rooms.
       await require('./arden-style').scope({
         roomId,text,active:power.rows[0]?.arden_clan==='true'
@@ -235,8 +249,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             });
             const claimed=String(result.rows[0]?.room_id||'');
             await chat.sendText(roomId,claimed
-              ?(claimed===String(roomId)?'🤖 NEXI | 이 방이 지정된 봇방입니다.':'🤖 NEXI | 다른 채팅방이 이미 봇방으로 지정되어 있습니다.')
-              :'🤖 NEXI | 아직 지정된 봇방이 없습니다.');
+              ?(claimed===String(roomId)?'🤖 카카오톡 관리 매니저 | 이 방이 지정된 봇방입니다.':'🤖 카카오톡 관리 매니저 | 다른 채팅방이 이미 봇방으로 지정되어 있습니다.')
+              :'🤖 카카오톡 관리 매니저 | 아직 지정된 봇방이 없습니다.');
             return;
           }
           if(text==='!봇방해제'){
@@ -257,7 +271,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             await require('./super-admin').init(db,false);
             const claim=await db.query("INSERT INTO hz_bot_room_claims(singleton,room_id,owner_id) SELECT 1,$1,$2 WHERE NOT EXISTS (SELECT 1 FROM hz_rooms WHERE data->>'botRoom'='true' AND room_id<>$1) ON CONFLICT DO NOTHING RETURNING owner_id",[room,user]);
             if(claim.rowCount){
-              await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botRoom',true,'game',true,'manage',true,'valorant',true,'quizEnabled',true,'fishEnabled',true,'locked',false)) ON CONFLICT(room_id) DO UPDATE SET data=hz_rooms.data||EXCLUDED.data,updated_at=NOW()",[room]);
+              await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botRoom',true,'game',true,'manage',true,'quizEnabled',true,'fishEnabled',true,'locked',false)) ON CONFLICT(room_id) DO UPDATE SET data=hz_rooms.data||EXCLUDED.data,updated_at=NOW()",[room]);
               await db.query("INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,TRUE) ON CONFLICT(room_id) DO UPDATE SET enabled=TRUE",[room]);
               await db.query("INSERT INTO hz_super_admins(room_id,user_id,granted_by) VALUES($1,$2,$2) ON CONFLICT DO NOTHING",[room,user]);
               claimed=true;
@@ -265,106 +279,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             await db.query('COMMIT');
           }catch(error){await db.query('ROLLBACK');throw error}finally{db.release()}
           await chat.sendText(roomId,claimed
-            ?'✅ NEXI | 봇방 최초 지정 완료!\n🎮 게임·낚시·퀴즈·관리·발로란트 활성화\n🛡️ 지정한 사용자가 이 방의 최고관리자로 등록되었습니다.'
+            ?'✅ 카카오톡 관리 매니저 | 봇방 최초 지정 완료!\n🎮 게임·낚시·퀴즈·관리 활성화\n🛡️ 지정한 사용자가 이 방의 최고관리자로 등록되었습니다.'
             :'⛔ 봇방은 최초 1회만 지정할 수 있습니다. 이미 지정된 봇방이 있습니다.');
         }catch(error){
           console.error('[NEXI BOT ROOM]',String(error?.message||error));
           await chat.sendText(roomId,'❌ 봇방 설정에 실패했습니다. 데이터베이스를 확인해 주세요.');
-        }
-        return;
-      }
-      // VALORANT is OFF by default in each room; only this bot account may toggle it.
-      // This switch is independent of the game and management flags.
-      if(text==='!발로on'||text==='!발로off'){
-        try{
-          await require('./valorant-settings').handle({
-            text,roomId,isBotAccount,isSuperAdmin,send:body=>chat.sendText(roomId,body)
-          });
-        }catch(error){
-          console.error('[VALORANT SWITCH]',String(error?.message||error));
-          await chat.sendText(roomId,'❌ 발로란트 설정을 저장하지 못했습니다. 데이터베이스를 확인해 주세요.');
-        }
-        return;
-      }
-      // A numbered reply to the bot's own ambiguous !스킨 list selects that skin.
-      // Never intercept ordinary 1-5 messages or replies to unrelated messages.
-      if(/^[1-5]$/.test(text)&&require('./valorant-skin').isSkinReply(msg)){
-        let enabled=false;
-        try{enabled=await require('./valorant-settings').isEnabled(roomId);}
-        catch(error){console.error('[VALORANT SKIN REPLY GATE]',String(error?.code||'DB_ERROR'));}
-        if(enabled||isBotAccount){
-          const handled=await require('./valorant-skin').handleReply({
-            msg,text,client,roomId,userId:senderId,
-            send:body=>chat.sendText(roomId,body)
-          });
-          if(handled)return;
-        }
-      }
-      if(/^(네|예|아니요|아니오)$/.test(text)){
-        const enabled=await require('./valorant-settings').isEnabled(roomId).catch(()=>false);
-        if(enabled||isBotAccount){
-          const handled=await require('./valorant-community').handleConfirmation({
-            text,msg,client,chat,roomId,userId:senderId,userName:msg.sender?.name||'참가자',
-            senderType:msg.sender?.type,isBotAccount,isSuperAdmin,
-            send:body=>chat.sendText(roomId,body)
-          });
-          if(handled)return;
-        }
-      }
-      // Extended Valorant commands share the same per-room OFF-by-default switch.
-      const newValorantCommand=text.split(/\s+/)[0];
-      if(/^(?:!발로명령어|!요원|!랜덤요원|!맵|!랜덤맵|!무기|!조준점|!스킨비교|!스킨색상|!스킨가격|!발로티어변동|!발로요원통계|!발로비교|!발로랭킹|!발로랭킹등록|!발로랭킹탈퇴|!티어등록|!내전예약|!내전등록|!내전참여|!내전참가|!내전탈퇴|!내전참가자|!내전팀짜기|!내전재편성|!내전선수교체|!내전밸런스|!내전결과|!내전순위|!내전초기화|!듀오모집|!듀오목록|!듀오신청|!듀오취소|!파티모집|!파티참가|!파티퇴장|!파티목록|!파티종료|!파티정보)(?=\s|$)/.test(text)){
-        const valGuide=require('./valorant-guides');
-        const valStats=require('./valorant-extended-stats');
-        const valCommunity=require('./valorant-community');
-        const valParty=require('./valorant-party');
-        let enabled=false;
-        try{enabled=await require('./valorant-settings').isEnabled(roomId);}
-        catch(error){console.error('[VALORANT EXTENSION SWITCH]',String(error?.code||'DB_ERROR'));return;}
-        if(!enabled&&!isBotAccount)return;
-        const args={text,msg,client,chat,roomId,userId:senderId,userName:msg.sender?.name||'참가자',
-          senderType:msg.sender?.type,isBotAccount,isSuperAdmin,
-          send:body=>chat.sendText(roomId,body)};
-        if(valGuide.COMMANDS.has(newValorantCommand))await valGuide.handle(args);
-        else if(valStats.COMMANDS.has(newValorantCommand))await valStats.handle(args);
-        else if(valCommunity.COMMANDS.has(newValorantCommand))await valCommunity.handle(args);
-        else if(valParty.COMMANDS.has(newValorantCommand))await valParty.handle(args);
-        return;
-      }
-      // Gate EVERY Valorant-related command before contacting external APIs.
-      if(/^(?:!스킨|!발로전적|!전적|!티어|!최근전적|!승률|!헤드샷|!발로저장|!발로전적확인|!발로삭제|!챔스노래|!발로승인|!발로승인해제)(?=\s|$)/.test(text)){
-        let enabled=false;
-        try{
-          enabled=await require('./valorant-settings').isEnabled(roomId);
-        }catch(error){
-          // Fail closed if PostgreSQL is unavailable.
-          console.error('[VALORANT SWITCH CHECK]',String(error?.message||error));
-          return;
-        }
-        if(!enabled&&!isBotAccount)return; // Bot owner bypasses per-room feature toggle.
-        if(/^!(?:발로승인|발로승인해제)(?=\s|$)/.test(text)){
-          await require('./valorant-approvals').handle({
-            text,isBotAccount,isSuperAdmin,userId:senderId,send:body=>chat.sendText(roomId,body)
-          });
-        }else if(/^!스킨(?=\s|$)/.test(text)){
-          await require('./valorant-skin').handle({
-            text,client,roomId,userId:senderId,
-            send:body=>chat.sendText(roomId,body)
-          });
-        }else if(/^!챔스노래(?=\s|$)/.test(text)){
-          await require('./valorant-champions-music').handle({
-            text,send:body=>chat.sendText(roomId,body)
-          });
-        }else if(/^!(?:발로저장|발로전적확인|발로삭제)(?=\s|$)/.test(text)){
-          await require('./valorant-account').handle({
-            text,roomId,userId:senderId,
-            send:body=>chat.sendText(roomId,body)
-          });
-        }else{
-          await require('./valorant-stats').handle({
-            text,roomId,userId:senderId,
-            send:body=>chat.sendText(roomId,body)
-          });
         }
         return;
       }
@@ -501,7 +420,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Public ping. Prefix normalization already applied at the top of the router.
        if(text==='!핑'){
          const elapsed=Math.max(0,Date.now()-receivedAt);
-         await chat.sendText(roomId,'🏓 퐁! NEXI 정상 작동 중\n⏱️ 명령 처리: '+elapsed+'ms');
+         await chat.sendText(roomId,'🏓 퐁! 카카오톡 매니저 정상 작동 중\n⏱️ 명령 처리: '+elapsed+'ms');
          return;
        }
        // Centralized help routing uses actual room game + management flags.
@@ -627,4 +546,4 @@ if (text === '!이벤추첨테스트') {
     } catch (err) { console.error('[HZ NEW] 메시지 처리 실패:', err); }
   });
 }
-module.exports = { attachRouter };
+module.exports = { attachRouter,isRetiredValorantCommand };

@@ -177,7 +177,7 @@ function lines(stats,limit=RECENT_MATCH_LIMIT){
 function format(cmd,target,ranked,stats,recent=null,level=null){
  const id=target.name+'#'+target.tag;
  // First two lines remain visible; the rest is behind KakaoTalk's native 더보기.
- const header='🎯 NEXI | VALORANT\n👤 '+id+' · '+target.region.toUpperCase()+' 서버';
+ const header='🎯 카카오톡 게임 매니저 | VALORANT\n👤 '+id+' · '+target.region.toUpperCase()+' 서버';
  const divider='━━━━━━━━━━━━━━';
  const tier='⭐ 계정 레벨: '+(level==null?'확인 불가':level)+'\n🏅 현재 티어: '+(ranked?.current??'조회 실패')+
   '\n💎 RR: '+(ranked?.rr!=null?ranked.rr:'확인 불가')+

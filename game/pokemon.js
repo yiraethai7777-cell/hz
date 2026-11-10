@@ -18,7 +18,7 @@ function identity(ctx){
  return {room,user,name:String(ctx.userName||'트레이너').slice(0,36)};
 }
 function formatEncounter({pokemon,balls}){
- return '⚡ NEXI | 야생 포켓몬 발견!\n\n'+
+ return '⚡ 카카오톡 게임 매니저 | 야생 포켓몬 발견!\n\n'+
   '야생 '+pokemon.name+'가 나타났습니다!\n'+
   '📖 도감번호 · No.'+String(pokemon.id).padStart(3,'0')+'\n'+
   '✨ 타입 · '+pokemon.type+'\n'+
@@ -28,8 +28,8 @@ function formatEncounter({pokemon,balls}){
   '👉 !포획 으로 잡아보세요!';
 }
 function formatCapture({pokemon,iv,balls,success}){
- if(!success)return '💨 NEXI | 포획 실패\n'+pokemon.name+'이(가) 몬스터볼에서 빠져나갔습니다.\n🎒 남은 몬스터볼 · '+balls+'개\n🔎 !탐색으로 다시 도전하세요.';
- return '✅ NEXI | 포획 성공!\n'+pokemon.name+
+ if(!success)return '💨 카카오톡 게임 매니저 | 포획 실패\n'+pokemon.name+'이(가) 몬스터볼에서 빠져나갔습니다.\n🎒 남은 몬스터볼 · '+balls+'개\n🔎 !탐색으로 다시 도전하세요.';
+ return '✅ 카카오톡 게임 매니저 | 포획 성공!\n'+pokemon.name+
   '\n🎯 개체값 · '+iv+'%\n🎒 남은 몬스터볼 · '+balls+
   '개\n📦 !인벤에서 확인할 수 있습니다.';
 }
@@ -134,7 +134,7 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
    return (i+1)+'. '+(pokemon?.name||'No.'+x.pokemon_no)+' · 개체값 '+x.iv+'%';
   });
   const total=Number(count.rows[0]?.total||0);
-  return '🎒 NEXI | 포켓몬 인벤\n📦 보유 포켓몬 · '+number(total)+'마리\n⚪ 몬스터볼 · '+balls+'개\n'+
+  return '🎒 카카오톡 게임 매니저 | 포켓몬 인벤\n📦 보유 포켓몬 · '+number(total)+'마리\n⚪ 몬스터볼 · '+balls+'개\n'+
    (rows.length?MORE+'\n'+rows.join('\n')+
     (total>rows.length?'\n…최근 100마리까지만 표시됩니다.':''):'\n아직 잡은 포켓몬이 없습니다.\n!탐색으로 발견해 보세요.');
  }
@@ -145,7 +145,7 @@ function createPokemon({pool=getPool(),now=Date.now,random=Math.random,sleep=wai
   const caught=await pool.query('SELECT COUNT(*)::integer AS total FROM gl_pokemon_catches WHERE room_id=$1 AND user_id=$2 AND pokemon_no=$3',
    [room,user,pokemon.id]);
   const owned=Number(caught.rows[0]?.total||0);
-  return {pokemon,owned,text:'📖 NEXI | 포켓몬 정보\n'+pokemon.name+' · No.'+String(pokemon.id).padStart(3,'0')+
+  return {pokemon,owned,text:'📖 카카오톡 게임 매니저 | 포켓몬 정보\n'+pokemon.name+' · No.'+String(pokemon.id).padStart(3,'0')+
    '\n✨ 타입 · '+pokemon.type+'\n⭐ 희귀도 · '+pokemon.rarity+
    '\n🎯 포획 난이도 · '+difficulty(pokemon)+'\n🎒 내가 보유한 수 · '+owned+'마리'};
  }

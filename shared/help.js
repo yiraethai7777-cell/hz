@@ -251,7 +251,7 @@ const bodies={
   "📊 채팅 명령어",
   "",
   "!채팅순위",
-  "└─ TOP 10 이미지 전송 후 더보기로 순위·이름·횟수·막대그래프를 보여줍니다.",
+  "└─ 이미지 없이 채팅으로 TOP 10 순위·이름·횟수를 보여줍니다.",
   "",
   "!채팅순위전체",
   "└─ 채팅한 모든 사람의 순위와 횟수를 보여줍니다.",
@@ -276,7 +276,7 @@ const bodies={
   "└─ 지정한 횟수만큼 멘션합니다. 봇 계정은 쿨타임 없음. 다른 관리자는 60초 쿨타임.",
   "",
   "!차단 (멘션, 아이디, 답장) [사유]",
-  "└─ 봇 계정·최고관리자 전용. NEXI 명령어만 무시합니다. (카카오톡 실제 차단 아님)",
+  "└─ 봇 계정·최고관리자 전용. 카카오톡 매니저 명령어만 무시합니다. (카카오톡 실제 차단 아님)",
   "",
   "!차단해제 (멘션, 아이디, 답장)",
   "└─ 봇 계정·최고관리자 전용. 명령어 차단을 해제합니다.",
@@ -356,7 +356,7 @@ const bodies={
   "🔨 관리 명령어",
   "",
   "!봇켜기",
-  "└─ 봇 계정·해당 방 최고관리자만 가능합니다. 이 방에서 NEXI 봇을 다시 켭니다.",
+  "└─ 봇 계정·해당 방 최고관리자만 가능합니다. 이 방에서 카카오톡 매니저 봇을 다시 켭니다.",
   "",
   "!봇끄기",
   "└─ 봇 계정·해당 방 최고관리자만 가능합니다. 다른 방에는 영향이 없습니다.",
@@ -380,7 +380,7 @@ const bodies={
   "└─ 해당 방의 지정 관리자를 삭제합니다.",
   "",
   "👑 최고관리자 지정",
-  "└─ 최고관리자 추가·삭제는 NEXI 총관리자 웹에서만 가능합니다.",
+  "└─ 최고관리자 추가·삭제는 카카오톡 매니저 총관리자 웹에서만 가능합니다.",
   "",
   "!도배감지on",
   "└─ 5초 안에 동일한 채팅·이모티콘 4회 → 경고 1개, 10회 → 내보내기",
@@ -408,8 +408,8 @@ const bodies={
 };
 const MANAGER_CONTACT='💬 카카오톡 매니저 문의방\nhttps://open.kakao.com/o/gK32HUUi';
 const MANAGER_SIGNOFF='\n\n━━━━━━━━━━━━━━\n✦ 카카오톡 매니저 · 게임 & 관리 도우미';
-const MANAGEMENT_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 카카오톡 관리 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리).replace(/NEXI/g,'카카오톡 매니저')+MANAGER_SIGNOFF;
-const GAME_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 카카오톡 게임 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임.replace(/NEXI/g,'카카오톡 매니저')+MANAGER_SIGNOFF;
+const MANAGEMENT_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 카카오톡 관리 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리)+MANAGER_SIGNOFF;
+const GAME_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 카카오톡 게임 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임+MANAGER_SIGNOFF;
 function formatCommandHelpBase(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';

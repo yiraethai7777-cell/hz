@@ -33,7 +33,7 @@ function noticeRegistrationErrorMessage(error){
    '계속 실패하면 카카오톡 앱에서 직접 공지를 등록해 주세요.';
  }
  if(/실제 채팅방 공지 등록 연동을 사용할 수 없습니다|로그인 토큰 또는 기기 정보가 없습니다/.test(reason)){
-  return '❌ NEXI에서 실제 공지 등록 API를 사용할 수 없습니다.\n'+
+  return '❌ 카카오톡 관리 매니저에서 실제 공지 등록 API를 사용할 수 없습니다.\n'+
    '봇 로그인 상태와 공지 연동 설정을 확인해 주세요.\n'+
    '카카오톡 앱에서는 직접 공지를 등록할 수 있습니다.';
  }
@@ -113,7 +113,7 @@ async function handle(ctx){
   const on=cmd==='!봇켜기';
   await db.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('botEnabled',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{botEnabled}',to_jsonb($2::boolean),true),updated_at=NOW()",[room,on]);
   if(!on)require('../shared/event-reaction-test').cancelForRoom(room);
-  await send(on?'✅ 이 방의 NEXI 봇이 켜졌습니다.':'⏹️ 이 방의 NEXI 봇이 꺼졌습니다. !봇켜기로 다시 활성화할 수 있습니다.');
+  await send(on?'✅ 이 방의 카카오톡 관리 매니저 봇이 켜졌습니다.':'⏹️ 이 방의 카카오톡 관리 매니저 봇이 꺼졌습니다. !봇켜기로 다시 활성화할 수 있습니다.');
   return true;
  }
  if(cmd==='!멘션'){
@@ -131,7 +131,7 @@ async function handle(ctx){
   if(cmd==='!차단목록'){
    if(tail){await send('사용법: !차단목록');return true;}
    const entries=await blocks.list(room,db);
-   await pages(send,'🚫 NEXI | 명령어 차단 목록 ('+entries.length+'명)',
+   await pages(send,'🚫 카카오톡 관리 매니저 | 명령어 차단 목록 ('+entries.length+'명)',
     entries.map(x=>'• '+(x.user_name||x.user_id)+' ('+x.user_id+')'+(x.reason?' · '+x.reason:'')));
    return true;
   }
@@ -150,8 +150,8 @@ async function handle(ctx){
    const changed=await blocks.set({roomId:room,userId:target.id,userName:target.name,
     actorId:user,reason,on:cmd==='!차단',botId:ctx.botId,db});
    await send(cmd==='!차단'
-    ?'🚫 '+(target.name||target.id)+'님의 NEXI 명령어 사용을 차단했습니다.\n※ 실제 카카오톡 차단·강퇴는 아닙니다.'
-    :(changed?'✅ '+(target.name||target.id)+'님의 NEXI 명령어 차단을 해제했습니다.':'ℹ️ 차단 목록에 없는 사용자입니다.'));
+    ?'🚫 '+(target.name||target.id)+'님의 카카오톡 관리 매니저 명령어 사용을 차단했습니다.\n※ 실제 카카오톡 차단·강퇴는 아닙니다.'
+    :(changed?'✅ '+(target.name||target.id)+'님의 카카오톡 관리 매니저 명령어 차단을 해제했습니다.':'ℹ️ 차단 목록에 없는 사용자입니다.'));
   }catch(error){await send('❌ '+String(error?.message||'차단 처리 실패').slice(0,170));}
   return true;
  }
@@ -320,7 +320,8 @@ async function handle(ctx){
   await pages(send,'🏆 오늘 출석 순위 ('+r.rows.length+'명)',r.rows.map((v,i)=>(i+1)+'. '+v.user_name+' · '+time(v.attended_at)));return true;
  }
  if(cmd==='!채팅순위'){
-  await require('./chat-ranking-image/automatic').sendRankingImage(db,ctx);
+  // Chat-only TOP 10; preserve the same database-backed ranking and bot exclusion.
+  for(const message of await chatRanks(db,room,false,ctx.botId))await send(message);
   return true;
  }
  if(cmd==='!채팅순위전체'){

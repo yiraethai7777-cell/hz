@@ -14,7 +14,7 @@ async function init(pool=getPool()){
  ALTER TABLE hz_mining_players ALTER COLUMN owned_picks SET NOT NULL;`);
  console.log('[NEXI MINING SCHEMA] pick ownership ready');
 }
-function guide(p={}){const st=state(p),chances=odds(p);return '⛏ NEXI | 광산\n'+st.location.name+' · '+PICKS[st.level].name+' 곡괭이\n!채굴 · !채굴지 · !상점 곡괭이\n'+FOLD+'\n━━━━━\n20초마다 1~3개 채굴\n'+ORES.map((o,i)=>o.icon+' '+o.name+' · '+(chances[i]*100).toFixed(2)+'% · '+o.price.toLocaleString('ko-KR')+'코인/개').join('\n')+'\n!광물인벤 · !광물판매 전체';}
+function guide(p={}){const st=state(p),chances=odds(p);return '⛏ 카카오톡 게임 매니저 | 광산\n'+st.location.name+' · '+PICKS[st.level].name+' 곡괭이\n!채굴 · !채굴지 · !상점 곡괭이\n'+FOLD+'\n━━━━━━━━━━━━━━━━━━\n20초마다 1~3개 채굴\n'+ORES.map((o,i)=>o.icon+' '+o.name+' · '+(chances[i]*100).toFixed(2)+'% · '+o.price.toLocaleString('ko-KR')+'코인/개').join('\n')+'\n!광물인벤 · !광물판매 전체';}
 function createMining({pool=getPool(),random=Math.random,now=Date.now,wait=ms=>new Promise(r=>setTimeout(r,ms)),link=(room,user,name)=>require('./economy').ensureLinked(room,user,name)}={}){
  async function execute(ctx){
   const [command,...args]=normalize(ctx.text).split(/\s+/),room=String(ctx.roomId),user=String(ctx.userId);
@@ -22,12 +22,12 @@ function createMining({pool=getPool(),random=Math.random,now=Date.now,wait=ms=>n
   const read=async()=>((await pool.query('SELECT * FROM hz_mining_players WHERE room_id=$1 AND user_id=$2',[room,user])).rows[0]||{bag:{},total_mined:0,pick_level:0,location:LOCATIONS[0].name});
   if(command==='#광산'&&!args.length)return guide(await read());
   if(command==='#곡괭이강화')return '곡괭이는 상점에서 구매합니다.\n!상점 곡괭이 · !곡괭이구매 돌';
-  if(command==='#곡괭이'&&!args.length){const p=await read(),st=state(p);return '⛏ NEXI | 내 곡괭이\n장착 · '+PICKS[st.level].name+' 곡괭이\n보유 · '+owned(p).map(i=>PICKS[i].name).join(', ')+'\n!곡괭이구매 (이름) · !곡괭이장착 (이름)';}
-  if(command==='#채굴지'&&!args.length){const st=state(await read());return '📍 NEXI | 채굴 장소\n현재 · '+st.location.name+'\n━━━━━\n'+LOCATIONS.map(l=>l.name+' · '+(st.level>=l.level?'이동 가능':PICKS[l.level].name+' 곡괭이 필요')).join('\n')+'\n!채굴지 깊은동굴\n깊은 장소일수록 희귀 광물 확률이 올라갑니다.';}
+  if(command==='#곡괭이'&&!args.length){const p=await read(),st=state(p);return '⛏ 카카오톡 게임 매니저 | 내 곡괭이\n장착 · '+PICKS[st.level].name+' 곡괭이\n보유 · '+owned(p).map(i=>PICKS[i].name).join(', ')+'\n!곡괭이구매 (이름) · !곡괭이장착 (이름)';}
+  if(command==='#채굴지'&&!args.length){const st=state(await read());return '📍 카카오톡 게임 매니저 | 채굴 장소\n현재 · '+st.location.name+'\n━━━━━━━━━━━━━━━━━━\n'+LOCATIONS.map(l=>l.name+' · '+(st.level>=l.level?'이동 가능':PICKS[l.level].name+' 곡괭이 필요')).join('\n')+'\n!채굴지 깊은동굴\n깊은 장소일수록 희귀 광물 확률이 올라갑니다.';}
   if(command==='#광물인벤'&&!args.length){
    const r=await pool.query('SELECT * FROM hz_mining_players WHERE room_id=$1 AND user_id=$2',[room,user]),p=r.rows[0]||{bag:{},total_mined:0};
    let value=0n;const lines=ORES.map(o=>{const n=Number(p.bag[o.name]||0);value+=BigInt(n)*BigInt(o.price);return o.icon+' '+o.name+' · '+n.toLocaleString('ko-KR')+'개';});
-   return '⛏ NEXI | 광물 인벤\n'+PICKS[state(p).level].name+' 곡괭이 · '+state(p).location.name+'\n'+FOLD+'\n'+lines.join('\n')+'\n━━━━━\n전체 판매가 · '+value.toLocaleString('ko-KR')+'코인\n누적 채굴 · '+BigInt(p.total_mined).toLocaleString('ko-KR')+'개\n!채굴 · !광물판매 전체';
+   return '⛏ 카카오톡 게임 매니저 | 광물 인벤\n'+PICKS[state(p).level].name+' 곡괭이 · '+state(p).location.name+'\n'+FOLD+'\n'+lines.join('\n')+'\n━━━━━━━━━━━━━━━━━━\n전체 판매가 · '+value.toLocaleString('ko-KR')+'코인\n누적 채굴 · '+BigInt(p.total_mined).toLocaleString('ko-KR')+'개\n!채굴 · !광물판매 전체';
   }
   if(!['#채굴','#광물판매','#곡괭이구매','#곡괭이장착','#채굴지'].includes(command))throw Error('사용법: !광산 · !채굴 · !광물인벤 · !광물판매 전체');
   if(command==='#채굴'&&args.length)throw Error('사용법: !채굴');
@@ -50,7 +50,7 @@ function createMining({pool=getPool(),random=Math.random,now=Date.now,wait=ms=>n
     if(p.last_mined_at!==null&&time-Number(p.last_mined_at)<COOLDOWN)throw Error('⏳ 다음 채굴까지 '+Math.ceil((COOLDOWN-time+Number(p.last_mined_at))/1000)+'초 남았습니다.');
     const ore=pick(random,p),quantity=1+Math.min(2,Math.floor(random()*3));bag[ore.name]=(bag[ore.name]||0)+quantity;
     await db.query('UPDATE hz_mining_players SET bag=$3::jsonb,last_mined_at=$4,total_mined=total_mined+$5 WHERE room_id=$1 AND user_id=$2',[room,user,JSON.stringify(bag),String(time),quantity]);
-    text='⛏ NEXI | 채굴 성공\n'+ore.icon+' '+ore.name+' × '+quantity+'\n'+(ore.tier>=3?'✨ 희귀 광맥을 발견했습니다!\n':'')+'📍 '+state(p).location.name+' · '+PICKS[state(p).level].name+' 곡괭이\n다음 채굴 20초 · !광물인벤';
+    text='⛏ 카카오톡 게임 매니저 | 채굴 성공\n━━━━━━━━━━━━━━━━━━\n'+ore.icon+' '+ore.name+' × '+quantity+'\n'+(ore.tier>=3?'✨ 희귀 광맥을 발견했습니다!\n':'')+'📍 '+state(p).location.name+' · '+PICKS[state(p).level].name+' 곡괭이\n다음 채굴 20초 · !광물인벤';
    }else if(command==='#곡괭이구매'){
     const current=state(p).level,items=owned(p),item=PICKS[targetPick];if(items.includes(targetPick))throw Error('이미 보유한 곡괭이입니다. !곡괭이장착 '+item.name);
     await ensureWallet(db,room,user,ctx.userName||user);
@@ -58,7 +58,7 @@ function createMining({pool=getPool(),random=Math.random,now=Date.now,wait=ms=>n
     await db.query('INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,$3,$4,$5)',[room,user,'MINING_PICK_PURCHASE','-'+item.cost,'mining:'+String(message)]);
     items.push(targetPick);const equip=Math.max(current,targetPick);
     await db.query('UPDATE hz_mining_players SET pick_level=$3,owned_picks=$4::jsonb WHERE room_id=$1 AND user_id=$2',[room,user,equip,JSON.stringify(items.sort((a,b)=>a-b))]);
-    text='⛏ NEXI | 곡괭이 구매 완료\n'+item.name+' 곡괭이 · '+BigInt(item.cost).toLocaleString('ko-KR')+'코인\n장착 · '+PICKS[equip].name+' 곡괭이'+(equip===targetPick?' (자동 장착)':'')+'\n!채굴 · !채굴지';
+    text='⛏ 카카오톡 게임 매니저 | 곡괭이 구매 완료\n'+item.name+' 곡괭이 · '+BigInt(item.cost).toLocaleString('ko-KR')+'코인\n장착 · '+PICKS[equip].name+' 곡괭이'+(equip===targetPick?' (자동 장착)':'')+'\n!채굴 · !채굴지';
    }else if(command==='#곡괭이장착'){
     if(!owned(p).includes(targetPick))throw Error('보유하지 않은 곡괭이입니다. !상점 곡괭이');
     const location=LOCATIONS.find(l=>l.name===p.location&&l.level<=targetPick)||LOCATIONS[0];
@@ -74,11 +74,11 @@ function createMining({pool=getPool(),random=Math.random,now=Date.now,wait=ms=>n
     const credited=await db.query('UPDATE hz_wallets SET balance=balance+$3::numeric WHERE room_id=$1 AND user_id=$2 RETURNING balance',[room,user,String(coins)]);if(!credited.rowCount)throw Error('지갑 반영에 실패했습니다.');
     await db.query('INSERT INTO hz_coin_logs(room_id,user_id,type,amount,detail) VALUES($1,$2,$3,$4,$5)',[room,user,'MINERAL_SALE',String(coins),'mining:'+String(message)]);
     await db.query('UPDATE hz_mining_players SET bag=$3::jsonb WHERE room_id=$1 AND user_id=$2',[room,user,JSON.stringify(bag)]);
-    text='🪙 NEXI | 광물 판매\n'+total.toLocaleString('ko-KR')+'개 판매 · +'+coins.toLocaleString('ko-KR')+'코인\n!정보에서 잔액을 확인하세요.';
+    text='🪙 카카오톡 게임 매니저 | 광물 판매\n'+total.toLocaleString('ko-KR')+'개 판매 · +'+coins.toLocaleString('ko-KR')+'코인\n!정보에서 잔액을 확인하세요.';
    }
    await db.query('UPDATE hz_mining_actions SET result=$3 WHERE room_id=$1 AND message_id=$2',[room,String(message),text]);await db.query('COMMIT');return text;
   }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
  }
- return {execute,handle:async ctx=>{if(!/^#(?:광산|채굴|광물인벤|광물판매|곡괭이|곡괭이강화|곡괭이구매|곡괭이장착|채굴지)(?:\s|$)/.test(normalize(ctx.text)))return false;const started=Date.now();let result;try{result=await execute(ctx);}catch(e){console.warn('[NEXI MINING]',{command:ctx.text.split(/\s/)[0],code:e.code||'REJECTED',reason:e.code?undefined:e.message});result=e.code?'❌ 채굴 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.':'❌ '+e.message;}if(result.startsWith('⛏ NEXI | 채굴 성공\n'))await require('./mining-progress').send(ctx,result,wait);else await ctx.send(result);console.log('[NEXI MINING TIMING]',{elapsedMs:Date.now()-started});return true;}};
+ return {execute,handle:async ctx=>{if(!/^#(?:광산|채굴|광물인벤|광물판매|곡괭이|곡괭이강화|곡괭이구매|곡괭이장착|채굴지)(?:\s|$)/.test(normalize(ctx.text)))return false;const started=Date.now();let result;try{result=await execute(ctx);}catch(e){console.warn('[NEXI MINING]',{command:ctx.text.split(/\s/)[0],code:e.code||'REJECTED',reason:e.code?undefined:e.message});result=e.code?'❌ 채굴 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.':'❌ '+e.message;}await ctx.send(result);console.log('[NEXI MINING TIMING]',{elapsedMs:Date.now()-started});return true;}};
 }
 let service;module.exports={ORES,init,createMining,guide,handle:ctx=>(service||=createMining()).handle(ctx)};

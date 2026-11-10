@@ -34,7 +34,7 @@ test('cooldown notices bypass editable message path',async()=>{
 });
 
 test('fishing result hides rewards after KakaoTalk folding marker',()=>{
- assert.ok(caught.startsWith('🎣 NEXI | 낚시 결과\n'));
+ assert.ok(caught.startsWith('🎣 카카오톡 게임 매니저 | 낚시 결과\n'));
  assert.ok(caught.includes('💰 낚시 보상 · +100코인'));
  assert.ok(caught.includes('⭐ 획득 경험치 · +48 XP'));
  assert.ok(caught.includes('🎣 낚시대 · 나무 +2'));

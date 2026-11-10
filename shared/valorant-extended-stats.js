@@ -72,7 +72,7 @@ async function handle({text,roomId,userId,send,db=getPool(),fetcher=globalThis.f
   if(cmd==='!발로랭킹'){
    await init(db);
    const result=await db.query('SELECT riot_name,riot_tag,tier_name,rr,updated_at FROM hz_valorant_room_rankings WHERE room_id=$1 AND rank_score IS NOT NULL ORDER BY rank_score DESC,rr DESC,updated_at DESC LIMIT 10',[room]);
-   await send(fold('🏆 NEXI | 방 발로란트 랭킹',
+   await send(fold('🏆 카카오톡 게임 매니저 | 방 발로란트 랭킹',
      result.rowCount?result.rows.map((r,i)=>(i+1)+'. '+r.riot_name+'#'+r.riot_tag+' · '+r.tier_name+' '+r.rr+'RR').join('\n')+
      '\n※ 참가자가 직접 등록한 티어 스냅샷 순위이며, 실시간 전체 인원 순위는 아닙니다.':'등록된 전적이 없습니다.\n!발로저장 후 !발로랭킹등록으로 참가해 주세요.'));return true;
   }
@@ -92,17 +92,17 @@ async function handle({text,roomId,userId,send,db=getPool(),fetcher=globalThis.f
    const mmr2=responses[2].status==='fulfilled'?stats.mmr(responses[2].value):null;
    const matches2=responses[3].status==='fulfilled'?stats.aggregate(responses[3].value,second.name,second.tag,''):null;
    if(!mmr1&&!matches1&&!mmr2&&!matches2)throw Error('비교에 필요한 공개 전적을 조회하지 못했습니다.');
-   await send(fold('⚔️ NEXI | 발로란트 전적 비교',summary(first,mmr1,matches1)+'\n━━━━━━━━━━━━━━\n'+summary(second,mmr2,matches2)+'\n※ 최근 경쟁전 최대 20경기 기준'));return true;
+   await send(fold('⚔️ 카카오톡 게임 매니저 | 발로란트 전적 비교',summary(first,mmr1,matches1)+'\n━━━━━━━━━━━━━━\n'+summary(second,mmr2,matches2)+'\n※ 최근 경쟁전 최대 20경기 기준'));return true;
   }
   const target=await resolve(cmd==='!발로랭킹등록'?'':tail,user,db);
   if(cmd==='!발로티어변동'){
    const history=await obtain(target,'history',auth,fetcher);
    const rows=Array.isArray(history)?history:Array.isArray(history?.history)?history.history:[];
-   await send(fold('📈 NEXI | 티어 변동\n'+target.name+'#'+target.tag,historyText(rows)));return true;
+   await send(fold('📈 카카오톡 게임 매니저 | 티어 변동\n'+target.name+'#'+target.tag,historyText(rows)));return true;
   }
   if(cmd==='!발로요원통계'){
    const matches=await obtain(target,'matches',auth,fetcher),agg=stats.aggregate(matches,target.name,target.tag,'');
-   await send(fold('🎭 NEXI | 요원별 경쟁전 통계\n'+target.name+'#'+target.tag,textAgent(agg)));return true;
+   await send(fold('🎭 카카오톡 게임 매니저 | 요원별 경쟁전 통계\n'+target.name+'#'+target.tag,textAgent(agg)));return true;
   }
   if(cmd==='!발로랭킹등록'){
    if(tail){await send('사용법: !발로랭킹등록 (사전에 !발로저장 필요)');return true;}

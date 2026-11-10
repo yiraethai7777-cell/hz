@@ -14,7 +14,7 @@ const YEARS=Object.keys(ANTHEMS);
 function format(year){
  const song=ANTHEMS[year];
  if(!song)return null;
- return '🏆 NEXI | VALORANT CHAMPIONS '+year+'\n'+
+ return '🏆 카카오톡 게임 매니저 | VALORANT CHAMPIONS '+year+'\n'+
   '🎵 '+song.title+'\n'+
   '🎤 '+song.artist+'\n'+
   '▶️ 공식 뮤직비디오\n'+song.youtube;
@@ -24,7 +24,7 @@ async function handle({text,send}){
  if(!new RegExp('^'+COMMAND+'(?:\\s|$)').test(input))return false;
  const tail=input.slice(COMMAND.length).trim();
  if(!/^20\d{2}$/.test(tail)||!ANTHEMS[tail]){
-  await send('🏆 NEXI | 챔피언스 공식 주제곡\n'+
+  await send('🏆 카카오톡 게임 매니저 | 챔피언스 공식 주제곡\n'+
    '사용법: !챔스노래 (년도)\n'+
    '지원 연도: '+YEARS.join(' / ')+'\n'+
    '예: !챔스노래 2024');

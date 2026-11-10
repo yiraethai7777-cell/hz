@@ -2,7 +2,7 @@
 const {PICKS,state,owned}=require('./mining-rules');
 const FOLD='\u200b'.repeat(1200),fmt=n=>BigInt(n).toLocaleString('ko-KR');
 function format(category,p={}){
- const st=state(p),items=owned(p),header='🛒 NEXI | 상점\n';
+ const st=state(p),items=owned(p),header='🛒 카카오톡 게임 매니저 | 상점\n';
  if(!category)return header+'⛏ 곡괭이 · 🎣 낚싯대 · 🌱 씨앗 · 🧰 소모품\n'+FOLD+'\n━━━━━\n!상점 곡괭이\n!상점 낚싯대\n!상점 씨앗\n!상점 소모품\n━━━━━\n장착 · '+PICKS[st.level].name+' 곡괭이\n!곡괭이구매 (이름)\n!곡괭이장착 (이름)';
  if(category==='곡괭이')return header+'⛏ 곡괭이 구매\n장착 · '+PICKS[st.level].name+' 곡괭이\n'+FOLD+'\n━━━━━\n'+PICKS.map((v,i)=>v.name+' 곡괭이 · '+(i?fmt(v.cost)+'코인':'기본 지급')+(i===st.level?' [장착]':items.includes(i)?' [보유]':'')).join('\n')+'\n━━━━━\n더 좋은 곡괭이일수록 희귀 광물 확률이 올라갑니다.\n원하는 곡괭이를 바로 구매할 수 있습니다.\n더 좋은 곡괭이를 구매하면 자동 장착됩니다.\n!곡괭이구매 돌\n!곡괭이장착 (이름)\n철 곡괭이: 깊은동굴 / 다이아 곡괭이: 수정지대';
  if(['낚싯대','낚시대'].includes(category))return header+'🎣 낚싯대\n'+FOLD+'\n━━━━━\n'+require('./data').RODS.map(r=>r.name+' · '+(r.price?fmt(r.price)+'코인':'무료')).join('\n')+'\n━━━━━\n!낚시대ㄱㅁ (이름)\n!낚시장착 (이름)';

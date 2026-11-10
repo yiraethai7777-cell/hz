@@ -43,7 +43,7 @@ function createGame(client) {
           ELSE jsonb_set(jsonb_set(hz_rooms.data,'{game}','false'::jsonb,true),'{quiz}','null'::jsonb,true)
         END,updated_at=NOW()`,
       [String(roomId),on]);
-      await send(on ? ' 게임 기능이 작동되었습니다.' : ' 게임 기능이 중지되었습니다.');
+      await send(on ? '🎮 카카오톡 게임 매니저 | 게임 기능이 작동되었습니다.' : '🎮 카카오톡 게임 매니저 | 게임 기능이 중지되었습니다.');
     },
     async message(context) {
       const text = aliases.toLegacy(context.text);
@@ -122,7 +122,7 @@ function createGame(client) {
         return;
       }
       if(text==='#게임상태'){await send(`🎮 게임: ${flags.game?'작동':'중지'}\n🧩 퀴즈: ${flags.quizEnabled!==false?'작동':'중지'}\n🎣 낚시: ${flags.fishEnabled!==false?'작동':'중지'}`);return;}
-      if(text==='#게임정보'){await send('🎮 게임 정보\n!게임가입으로 시작하세요.\n코인·광물 채굴·낚시(20종)·퀴즈(500문제)·펫·레벨을 즐길 수 있습니다.\n게임과 관리는 독립적으로 작동합니다.\n!게임명령어에서 자세한 사용법을 확인하세요.');return;}
+      if(text==='#게임정보'){await send('🎮 카카오톡 게임 매니저 | 게임 정보\n━━━━━━━━━━━━━━━━━━\n!게임가입으로 시작하세요.\n코인·광물 채굴·낚시(20종)·퀴즈(500문제)·펫·레벨을 즐길 수 있습니다.\n게임과 관리는 독립적으로 작동합니다.\n!게임명령어에서 자세한 사용법을 확인하세요.');return;}
       if (flags.locked&&!isBotAccount) return;
       if(/^#(?:광산|채굴|광물인벤|광물판매|곡괭이|곡괭이강화|곡괭이구매|곡괭이장착|채굴지)(?:\s|$)/.test(text)){
         if(!flags.game){await send('게임 기능이 꺼져 있습니다. !게임on 이후 이용해 주세요.');return;}

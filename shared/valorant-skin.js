@@ -320,7 +320,7 @@ function explain(skin){
   return '  '+(i+1)+'. '+(name||('색상 '+(i+1)));
  });
  // Keep only the title and skin name in the KakaoTalk message preview.
- const header='🎨 NEXI | 발로란트 스킨 도감\n🔫 '+skin.name;
+ const header='🎨 카카오톡 게임 매니저 | 발로란트 스킨 도감\n🔫 '+skin.name;
  const lines=[
   '━━━━━━━━━━━━━━',
   skin.name!==skin.englishName?'🇺🇸 '+skin.englishName:'',
@@ -339,7 +339,7 @@ function explain(skin){
  return {text:fold(header,lines.join('\n')),...variant};
 }
 function usage(){
- return '🎨 NEXI | 스킨 검색\n사용법: !스킨 (스킨 이름)\n예: !스킨 싱귤 밴달\n예: !스킨 프라임 팬텀';
+ return '🎨 카카오톡 게임 매니저 | 스킨 검색\n사용법: !스킨 (스킨 이름)\n예: !스킨 싱귤 밴달\n예: !스킨 프라임 팬텀';
 }
 function imageFallback(info){
  const lines=[];

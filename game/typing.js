@@ -11,10 +11,10 @@ async function handle(ctx,enabled){
   // Exact pasted text retains different code points from a manually typed answer.
   const shown=phrase.replace(/ /g,String.fromCharCode(0x00a0));
   const round={phrase,start:0,timer:null};rounds.set(id,round);
-  try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초');}
+  try{await ctx.send('🎮 카카오톡 게임 매니저 | 타자 게임\n━━━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초');}
   catch(e){rounds.delete(id);throw e;}
   round.start=process.hrtime.bigint();
-  round.timer=setTimeout(()=>{if(rounds.get(id)!==round)return;rounds.delete(id);Promise.resolve(ctx.send('[ 타자 게임 종료 ]\n정답: '+phrase)).catch(console.error);},30000);
+  round.timer=setTimeout(()=>{if(rounds.get(id)!==round)return;rounds.delete(id);Promise.resolve(ctx.send('🎮 카카오톡 게임 매니저 | 타자 게임 종료\n정답: '+phrase)).catch(console.error);},30000);
   round.timer.unref?.();return true;
  }
  const round=rounds.get(id);
@@ -23,7 +23,7 @@ async function handle(ctx,enabled){
  if(sec>30)return false;
  rounds.delete(id);clearTimeout(round.timer);
  const chars=Array.from(round.phrase).length;
- await ctx.send('[ 타자 게임 결과 ]\n━━━━━━━━━━━━━━━━\n🏆 1등: '+String(ctx.userName||ctx.msg?.sender?.name||ctx.userId||'참가자')+'\n소요 시간: '+sec.toFixed(2)+'초\n분당 타수: '+Math.round(chars/sec*60)+'타\n정확도: 100%\n글자 수: '+chars+'자');
+ await ctx.send('🎮 카카오톡 게임 매니저 | 타자 게임 결과\n━━━━━━━━━━━━━━━━━━\n🏆 1등: '+String(ctx.userName||ctx.msg?.sender?.name||ctx.userId||'참가자')+'\n소요 시간: '+sec.toFixed(2)+'초\n분당 타수: '+Math.round(chars/sec*60)+'타\n정확도: 100%\n글자 수: '+chars+'자');
  return true;
 }
 function resetRoom(roomId){

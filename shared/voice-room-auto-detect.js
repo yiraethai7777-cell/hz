@@ -54,11 +54,11 @@ function last(roomId) {
 
 function notice(event) {
   if (event.eventType === 'vr_invite') {
-    return '🎙️ NEXI | 보이스룸 개설 감지\n' +
+    return '🎙️ 카카오톡 관리 매니저 | 보이스룸 개설 감지\n' +
       '이 방의 보이스룸 개설 이벤트(vr_invite)를 수신했습니다.\n' +
       '※ 실제 서버의 현재 활성 상태를 조회한 결과는 아닙니다.';
   }
-  return '🎙️ NEXI | 보이스룸 종료 감지\n' +
+  return '🎙️ 카카오톡 관리 매니저 | 보이스룸 종료 감지\n' +
     '이 방의 보이스룸 종료 이벤트(vr_bye)를 수신했습니다.' +
     (event.durationSeconds !== undefined ? '\n진행 시간: ' + event.durationSeconds + '초' : '') +
     '\n※ 실제 서버의 현재 활성 상태를 조회한 결과는 아닙니다.';
