@@ -76,7 +76,7 @@ async function blindRecent({client,chat,roomId,count,send}){
    console.warn('[NEXI BULK BLIND]',message);
   }
  }
- await send('🫥 NEXI | 메시지 가리기 요청 결과\n'+
+ await send('🫥 카카오톡 관리 매니저 | 메시지 가리기 요청 결과\n'+
   '📨 서버 요청 수락: '+accepted+'개\n'+
   '❔ 처리 확인 불가: '+unverified+'개\n'+
   '❌ 요청 실패: '+failed+'개\n'+
@@ -235,8 +235,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             });
             const claimed=String(result.rows[0]?.room_id||'');
             await chat.sendText(roomId,claimed
-              ?(claimed===String(roomId)?'🤖 NEXI | 이 방이 지정된 봇방입니다.':'🤖 NEXI | 다른 채팅방이 이미 봇방으로 지정되어 있습니다.')
-              :'🤖 NEXI | 아직 지정된 봇방이 없습니다.');
+              ?(claimed===String(roomId)?'🤖 카카오톡 관리 매니저 | 이 방이 지정된 봇방입니다.':'🤖 카카오톡 관리 매니저 | 다른 채팅방이 이미 봇방으로 지정되어 있습니다.')
+              :'🤖 카카오톡 관리 매니저 | 아직 지정된 봇방이 없습니다.');
             return;
           }
           if(text==='!봇방해제'){
@@ -265,7 +265,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
             await db.query('COMMIT');
           }catch(error){await db.query('ROLLBACK');throw error}finally{db.release()}
           await chat.sendText(roomId,claimed
-            ?'✅ NEXI | 봇방 최초 지정 완료!\n🎮 게임·낚시·퀴즈·관리·발로란트 활성화\n🛡️ 지정한 사용자가 이 방의 최고관리자로 등록되었습니다.'
+            ?'✅ 카카오톡 관리 매니저 | 봇방 최초 지정 완료!\n🎮 게임·낚시·퀴즈·관리·발로란트 활성화\n🛡️ 지정한 사용자가 이 방의 최고관리자로 등록되었습니다.'
             :'⛔ 봇방은 최초 1회만 지정할 수 있습니다. 이미 지정된 봇방이 있습니다.');
         }catch(error){
           console.error('[NEXI BOT ROOM]',String(error?.message||error));
@@ -501,7 +501,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // Public ping. Prefix normalization already applied at the top of the router.
        if(text==='!핑'){
          const elapsed=Math.max(0,Date.now()-receivedAt);
-         await chat.sendText(roomId,'🏓 퐁! NEXI 정상 작동 중\n⏱️ 명령 처리: '+elapsed+'ms');
+         await chat.sendText(roomId,'🏓 퐁! 카카오톡 매니저 정상 작동 중\n⏱️ 명령 처리: '+elapsed+'ms');
          return;
        }
        // Centralized help routing uses actual room game + management flags.
