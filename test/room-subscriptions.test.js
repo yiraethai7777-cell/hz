@@ -113,3 +113,17 @@ test('all chat and automatic operations have a paid-plan gate',()=>{
  assert.match(read('admin-web/room-portals.js'),/room-portal-extend/);
  assert.match(read('room-panel/app.js'),/subscriptionCountdown/);
 });
+
+test('newly joined and unlicensed rooms appear in the master issuance chooser',()=>{
+ const master=read('api/room-portal.js'),web=read('admin-web/room-portals.js');
+ assert.match(master,/permissions:PERMISSIONS,rooms:await joinedRooms\(\)/);
+ assert.match(web,/rooms=\(b\.rooms\|\|\[\]\)\.map/);
+ assert.doesNotMatch(web,/rooms=a\.rooms/);
+});
+test('game-only rooms reject every management command, not only a blacklist subset',()=>{
+ const router=read('shared/router.js');
+ assert.match(router,/commands-v2'\)\.ALL\.has\(managementCommand\)/);
+ assert.match(router,/managementCommand!==['"]!봇켜기['"]/);
+ assert.match(router,/managementCommand!==['"]!봇끄기['"]/);
+ assert.match(router,/split\(\/\\s\+\/,1\)/);
+});
