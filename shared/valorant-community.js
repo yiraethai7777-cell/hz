@@ -203,7 +203,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
    await db.query('DELETE FROM hz_valorant_scrim_players WHERE room_id=$1',[room]);
    await db.query(`INSERT INTO hz_valorant_scrim_reservations(room_id,starts_at,created_by) VALUES($1,$2,$3)
      ON CONFLICT(room_id) DO UPDATE SET starts_at=$2,created_by=$3,created_at=NOW(),started_at=NULL,claimed_at=NULL`,[room,start,user]);
-   await send('📅 NEXI | 내전 예약 완료\n시작: '+yMd(start)+' (한국시간)\n참가: !내전참여\n최대 10명 · 등록 정보 자동 적용');
+   await send('📅 카카오톡 게임 매니저 | 내전 예약 완료\n시작: '+yMd(start)+' (한국시간)\n참가: !내전참여\n최대 10명 · 등록 정보 자동 적용');
    return true;
   }
   if(cmd==='!내전팀짜기'){
@@ -215,7 +215,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
    const teams=choose(players);
    await db.query('INSERT INTO hz_valorant_scrim_games(room_id,team_a,team_b) VALUES($1,$2::jsonb,$3::jsonb)',
     [room,JSON.stringify(teams.a.map(p=>p.user_id)),JSON.stringify(teams.b.map(p=>p.user_id))]);
-   await send(fold('⚔️ NEXI | 내전 팀 편성 ('+teams.a.length+' VS '+teams.b.length+')',
+   await send(fold('⚔️ 카카오톡 게임 매니저 | 내전 팀 편성 ('+teams.a.length+' VS '+teams.b.length+')',
     '🔴 공격팀\n'+formatTeam(teams.a)+'\n━━━━━━━━━━━━━━\n🔵 수비팀\n'+formatTeam(teams.b)+
     '\n━━━━━━━━━━━━━━\n⚖️ 팀 티어 점수 차이: '+teams.delta+
     '\n※ 등록된 티어 기준 균형 배치 (실력 보증 아님)\n경기 종료: !내전결과 공격 또는 수비'));
@@ -269,7 +269,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
       const updated=await client.query('SELECT user_id,tier FROM hz_valorant_tier_profiles WHERE user_id=ANY($1::text[])',[ids]);
       const tiers=new Map(updated.rows.map(x=>[String(x.user_id),x.tier]));
       const format=group=>group.map((uid,i)=>(i+1)+'. '+(n.get(uid)||uid)+' ('+(tiers.get(uid)||'미등록')+')').join('\n');
-      response=fold(cmd==='!내전재편성'?'🔄 NEXI | 내전 팀 재편성':'🔁 NEXI | 내전 선수 교체',
+      response=fold(cmd==='!내전재편성'?'🔄 카카오톡 게임 매니저 | 내전 팀 재편성':'🔁 카카오톡 게임 매니저 | 내전 선수 교체',
        '🔴 공격팀\n'+format(teamA)+'\n━━━━━━━━━━━━━━\n🔵 수비팀\n'+format(teamB)+
        (delta===null?'':'\n⚖️ 티어 점수 차이: '+delta));
      }
@@ -286,7 +286,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
   if(cmd==='!내전참가자'||cmd==='!내전밸런스'){
    const list=await db.query('SELECT user_id,display_name,tier,rating FROM hz_valorant_scrim_players WHERE room_id=$1 ORDER BY joined_at,user_id',[room]);
    const rows=list.rows;
-   if(cmd==='!내전참가자'){await send(fold('🎮 NEXI | 내전 참가자 ('+rows.length+'/10)',rows.length?rows.map((p,i)=>(i+1)+'. '+p.display_name+' · '+p.tier).join('\n'):'참가자가 없습니다.\n!내전등록 후 !내전참여로 참여하세요.'));return true;}
+   if(cmd==='!내전참가자'){await send(fold('🎮 카카오톡 게임 매니저 | 내전 참가자 ('+rows.length+'/10)',rows.length?rows.map((p,i)=>(i+1)+'. '+p.display_name+' · '+p.tier).join('\n'):'참가자가 없습니다.\n!내전등록 후 !내전참여로 참여하세요.'));return true;}
    if(rows.length<2||rows.length>10){await send('❌ 팀 편성에는 참가자 2~10명이 필요합니다. 현재 '+rows.length+'명');return true;}
    const pending=await db.query('SELECT id FROM hz_valorant_scrim_games WHERE room_id=$1 AND winner IS NULL ORDER BY id DESC LIMIT 1',[room]);
    if(pending.rowCount){await send('⛔ 진행 중인 내전이 있습니다. !내전결과 A 또는 B로 먼저 종료해 주세요.');return true;}
@@ -298,7 +298,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
    })();
    await db.query('INSERT INTO hz_valorant_scrim_games(room_id,team_a,team_b) VALUES($1,$2::jsonb,$3::jsonb)',
      [room,JSON.stringify(pairing.a.map(p=>p.user_id)),JSON.stringify(pairing.b.map(p=>p.user_id))]);
-   await send(fold('⚔️ NEXI | '+pairing.a.length+'대'+pairing.b.length+' 내전 팀 편성',
+   await send(fold('⚔️ 카카오톡 게임 매니저 | '+pairing.a.length+'대'+pairing.b.length+' 내전 팀 편성',
     '🔵 A팀\n'+formatTeam(pairing.a)+'\n━━━━━━━━━━━━━━\n🔴 B팀\n'+formatTeam(pairing.b)+
     (balanced?'\n※ 참가자가 입력한 티어 점수 기준으로 균형을 맞췄습니다.':'\n※ 무작위 팀 편성입니다.')+
     '\n경기 종료 후 관리자: !내전결과 A 또는 B'));return true;
@@ -323,7 +323,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
     ) q GROUP BY user_id ORDER BY wins DESC,games DESC,user_id LIMIT 20`,[room]);
    const names=await db.query('SELECT user_id,display_name FROM hz_valorant_scrim_players WHERE room_id=$1',[room]);
    const lookup=new Map(names.rows.map(x=>[x.user_id,x.display_name]));
-   await send(fold('🏆 NEXI | 방 내전 순위',result.rows.length?result.rows.map((p,i)=>
+   await send(fold('🏆 카카오톡 게임 매니저 | 방 내전 순위',result.rows.length?result.rows.map((p,i)=>
      (i+1)+'. '+(lookup.get(p.user_id)||'사용자 '+p.user_id)+' · '+p.wins+'승 / '+p.games+'경기 · '+(100*p.wins/p.games).toFixed(1)+'%').join('\n'):'완료된 내전 기록이 없습니다.'));return true;
   }
   if(cmd==='!내전초기화'){
@@ -343,7 +343,7 @@ async function handle({text,msg,client,chat,roomId,userId,userName,senderType,is
   }
   if(cmd==='!듀오목록'){
    const r=await db.query("SELECT user_id,display_name,description FROM hz_valorant_duo_posts WHERE room_id=$1 AND created_at>NOW()-INTERVAL '24 hours' ORDER BY created_at DESC LIMIT 15",[room]);
-   await send(fold('👥 NEXI | 듀오 모집 목록',r.rowCount?r.rows.map((p,i)=>(i+1)+'. '+p.display_name+' · '+p.description+'\n   신청: !듀오신청 '+p.user_id).join('\n'):'진행 중인 듀오 모집이 없습니다.'));return true;
+   await send(fold('👥 카카오톡 게임 매니저 | 듀오 모집 목록',r.rowCount?r.rows.map((p,i)=>(i+1)+'. '+p.display_name+' · '+p.description+'\n   신청: !듀오신청 '+p.user_id).join('\n'):'진행 중인 듀오 모집이 없습니다.'));return true;
   }
   if(cmd==='!듀오신청'){
    let ownerId=tail;
