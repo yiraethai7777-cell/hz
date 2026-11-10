@@ -68,7 +68,7 @@ async function master(req,url,body){
    }):null;
    const {sub_plan,sub_status,sub_duration_days,sub_started_at,sub_expires_at,...portal}=row;
    return {...portal,subscription};
-  }),permissions:PERMISSIONS};
+  }),permissions:PERMISSIONS,rooms:await joinedRooms()};
  }
  if(req.method!=='POST')bad('지원되지 않는 요청입니다.',405);
  const rooms=await joinedRooms(),room=id(body.roomId);
