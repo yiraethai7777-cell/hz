@@ -320,7 +320,8 @@ async function handle(ctx){
   await pages(send,'🏆 오늘 출석 순위 ('+r.rows.length+'명)',r.rows.map((v,i)=>(i+1)+'. '+v.user_name+' · '+time(v.attended_at)));return true;
  }
  if(cmd==='!채팅순위'){
-  await require('./chat-ranking-image/automatic').sendRankingImage(db,ctx);
+  // Chat-only TOP 10; preserve the same database-backed ranking and bot exclusion.
+  for(const message of await chatRanks(db,room,false,ctx.botId))await send(message);
   return true;
  }
  if(cmd==='!채팅순위전체'){
