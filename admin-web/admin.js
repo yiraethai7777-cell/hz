@@ -74,8 +74,8 @@ $('#bulk-kick-run').addEventListener('click',async()=>{
  catch(error){feedback(error.message,true);}
  finally{button.disabled=false;}
 });
-async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
-function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;$('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;}
+async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,room.voice_enabled?'ON':'OFF');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
+function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;$('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;$('#flag-voice').checked=room.voice_enabled;}
 function selectPromo(){$('#promo-logs').textContent='채팅방을 선택하고 전송 기록을 조회해 주세요.';}
 async function loadRoomAdmins(){
  const room=$('#room-admin-room').value,list=$('#room-admin-list');list.replaceChildren();
@@ -123,7 +123,7 @@ $('#super-admin-form').addEventListener('submit',e=>{e.preventDefault();task(asy
  await api('/api/admin/super-admins','POST',{roomId:room,userId,action:'add'});
  $('#super-admin-id').value='';await loadSuperAdmins();feedback('최고관리자를 추가했습니다.');
 });});
-$('#room-select').addEventListener('change',selectRoom);$('#promo-room').addEventListener('change',selectPromo);
+$('#room-select').addEventListener('change',()=>{selectRoom();$('#voice-status-output').textContent='조회 버튼을 누르면 상태가 표시됩니다.';});$('#promo-room').addEventListener('change',selectPromo);
 async function loadCommandBlocks(){
  const room=$('#block-room').value,list=$('#command-block-list');list.replaceChildren();
  if(!room){list.textContent='채팅방을 먼저 선택해 주세요.';return;}
@@ -150,7 +150,23 @@ $('#command-block-form').addEventListener('submit',e=>{e.preventDefault();task(a
  await loadCommandBlocks();feedback('봇 명령어 차단을 저장했습니다.');
 });});
 $('#user-room').addEventListener('change',()=>{selected=null;$('#selected-user').textContent='사용자를 다시 검색해 주세요.';$('#user-detail').textContent='';$('#user-rows').replaceChildren();});
-$('#room-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/admin/rooms','POST',{roomId:$('#room-select').value,flags:{game:$('#flag-game').checked,manage:$('#flag-manage').checked,quizEnabled:$('#flag-quiz').checked,fishEnabled:$('#flag-fish').checked}});await loadRooms();feedback('방별 기능 설정을 저장했습니다.');});});
+$('#room-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/admin/rooms','POST',{roomId:$('#room-select').value,flags:{game:$('#flag-game').checked,manage:$('#flag-manage').checked,quizEnabled:$('#flag-quiz').checked,fishEnabled:$('#flag-fish').checked,voiceRoomEnabled:$('#flag-voice').checked}});await loadRooms();feedback('방별 기능 설정을 저장했습니다.');});});
+$('#voice-status-check').addEventListener('click',()=>task(async()=>{
+ const roomId=$('#room-select').value;
+ if(!roomId)throw Error('채팅방을 선택해 주세요.');
+ const state=await api('/api/admin/voice-status?'+new URLSearchParams({roomId}));
+ const lines=[
+  '방별 보이스룸 기능: '+(state.enabled?'ON':'OFF'),
+  'Noa 브리지 설정: '+(state.configured?'있음':'없음'),
+  'Android/Noa 상태 확인: '+(state.reachable?'응답 확인':'확인 불가'),
+ ];
+ if(state.reachable){
+  lines.push('선택한 방의 로컬 음성 세션: '+(state.localActive?'감지됨':'감지되지 않음'));
+  if(state.localBusyOtherRoom)lines.push('다른 방에서 Android 음성 세션 사용 중');
+ }
+ lines.push('※ 실제 카카오톡 서버에서 보이스룸 개설 여부가 검증된 결과는 아닙니다.');
+ $('#voice-status-output').textContent=lines.join('\n');
+}));
 async function selectUser(user){const room=$('#user-room').value;const d=await api('/api/admin/user?'+new URLSearchParams({roomId:room,userId:user.user_id}));selected={room,id:user.user_id,name:user.user_name};$('#selected-user').textContent=`${user.user_name} · ${user.user_id}`;const p=d.player||{};$('#user-detail').textContent=`지갑: ${format(d.wallet.balance)}코인\n레벨: ${p.level||1} · XP ${p.xp||0}\n퀴즈 정답: ${p.wins||0}회\n\n보유 주식\n${d.stocks.map(h=>`${h.stock_name} ${h.quantity}주 · 원금 ${format(h.total_cost)}`).join('\n')||'없음'}\n\n물고기 인벤토리\n${(p.inventory||[]).map(f=>`${f.name} [${f.tier}] ${f.size}cm · ${format(f.value)}코인`).join('\n')||'없음'}\n\n펫\n${Object.entries(p.pets||{}).map(([n,l])=>`${n} +${l}`).join('\n')||'없음'}`;}
 $('#user-search').addEventListener('submit',e=>{e.preventDefault();task(async()=>{selected=null;$('#selected-user').textContent='사용자를 선택해 주세요.';const d=await api('/api/admin/users?'+new URLSearchParams({roomId:$('#user-room').value,search:$('#user-keyword').value}));$('#user-rows').replaceChildren();for(const user of d.users){const row=document.createElement('tr');cell(row,user.user_name+' · '+user.user_id);cell(row,format(user.balance));cell(row,'').append(button('상세',()=>selectUser(user)));$('#user-rows').append(row);}feedback(`${d.users.length}명을 찾았습니다.`);});});
 $('#coin-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{if(!selected)throw Error('사용자를 먼저 선택해 주세요.');const amount=Number($('#coin-amount').value)*Number($('#coin-kind').value);if(!Number.isSafeInteger(amount)||!amount||Math.abs(amount)>1e9)throw Error('수량을 확인해 주세요.');if(!confirm(`${selected.name} (${selected.id})\n${Math.abs(amount).toLocaleString()}코인을 ${amount>0?'지급':'회수'}합니다. 계속할까요?`))return;await api('/api/admin/coins','POST',{roomId:selected.room,userId:selected.id,amount,reason:$('#coin-reason').value,operationId:crypto.randomUUID(),confirm:true});await selectUser({user_id:selected.id,user_name:selected.name});feedback('코인 조정과 감사 기록 저장을 완료했습니다.');});});
