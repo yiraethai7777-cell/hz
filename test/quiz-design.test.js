@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const design=require('../game/quiz-design');
 test('quiz chat shows question, time and rewards without disclosing answers',()=>{
  const text=design.questionText({kind:'과학',difficulty:'도전',question:'태양계에서 가장 큰 행성은?',answers:['SECRET'],expiresAt:61000},{now:1000});
- assert.match(text,/🧩 NEXI \| QUIZ/);assert.match(text,/60초/);assert.match(text,/10,000코인/);assert.match(text,/!정답/);assert.doesNotMatch(text,/SECRET/);
+ assert.match(text,/🧩 카카오톡 게임 매니저 \| 퀴즈/);assert.match(text,/60초/);assert.match(text,/10,000코인/);assert.match(text,/!정답/);assert.doesNotMatch(text,/SECRET/);
 });
 test('reopening quiz preserves question, scores and balance',()=>{
  const runtime=require('../shared/runtime').createRuntime({pool:{},economyEnabled:false}),room=runtime.blankRoom('테스트');
