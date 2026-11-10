@@ -127,3 +127,14 @@ test('game-only rooms reject every management command, not only a blacklist subs
  assert.match(router,/managementCommand!==['"]!봇끄기['"]/);
  assert.match(router,/split\(\/\\s\+\/,1\)/);
 });
+
+test('subscription schema exists before the first quiz expiry query',()=>{
+ const session=read('shared/session.js');
+ const begin=session.indexOf('async function attachHZBot(client)');
+ const end=session.indexOf('client.onMessage(',begin);
+ assert.ok(begin>=0&&end>begin);
+ const startup=session.slice(begin,end);
+ const init=startup.indexOf("await require('./room-subscriptions').init(ctx.pool)");
+ const firstQuizQuery=startup.indexOf('ctx.quizExpiryTick().catch');
+ assert.ok(init>=0&&firstQuizQuery>init,'subscription schema must be created before any quiz timer');
+});
