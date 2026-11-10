@@ -10,7 +10,8 @@ function formatCatchResult({ctx,player,catchInfo,mention}){
  const tierIcon={
   '일반':'⚪','희귀':'🔵','영웅':'🟣','전설':'🟡','신화':'🔴'
  }[f.tier]||'🐟';
- return '🎣 NEXI | 낚시 결과\n'+
+ return '🎣 카카오톡 게임 매니저 | 낚시 결과\n'+
+  '━━━━━━━━━━━━━━━━━━\n'+
   '👤 '+mention+'님\n'+
   '🐟 '+f.name+' · '+tierIcon+' '+f.tier+' · '+catchInfo.size+'cm\n'+
   FISH_RESULT_FOLD+'\n'+
@@ -26,7 +27,7 @@ function formatCatchResult({ctx,player,catchInfo,mention}){
   '━━━━━━━━━━━━━━━━━━';
 }
 const isCatchResult=text=>typeof text==='string'&&
- text.startsWith('🎣 NEXI | 낚시 결과\n')&&text.includes('\n🐟 ');
+ text.startsWith('🎣 카카오톡 게임 매니저 | 낚시 결과\n')&&text.includes('\n🐟 ');
 const editableText=text=>String(text).replace(/\u0002\d+\u0003([^\u0004]*)\u0004/g,'@$1');
 async function sendCatchResult({result,sendFallback}){
  await sendFallback(result);return 'normal';
