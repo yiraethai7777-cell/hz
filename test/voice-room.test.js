@@ -237,7 +237,7 @@ test('bot account can use help without a manager sender type',async()=>{
   args.msg.sender.id=client.userId;
   args.msg.sender.type=undefined;
   await voice.handle(args);
-  assert.match(sent[0],/NEXI \| 보이스룸 명령어/);
+  assert.match(sent[0],/카카오톡 관리 매니저 \| 보이스룸 명령어/);
   assert.match(sent[0],/봇 계정이 사용 가능/);
 });
 
