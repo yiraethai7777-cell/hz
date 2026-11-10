@@ -107,6 +107,7 @@ async function announceCompleted(chat){
    const notice=e.winner_id
     ?'🏆 코인 낚시 이벤트 종료!\n🥇 우승: '+e.winner_name+'\n🐟 '+e.winning_fish+' · '+e.size+'cm\n🎁 1,000,000코인 지급 완료!'
     :'⏰ 코인 낚시 이벤트 종료!\n참가 기록이 없어 우승자와 코인 지급이 없습니다.';
+   if(!await require('../shared/bot-power').enabled(e.room_id))continue;
    await chat.sendText(e.room_id,notice);
    await db.query('UPDATE gl_fishing_coin_events SET announced_at=NOW() WHERE id=$1 AND announced_at IS NULL',[e.id]);
   }catch(e){console.warn('[FISH EVENT ANNOUNCE]',String(e.message||e))}
