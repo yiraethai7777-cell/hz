@@ -22,6 +22,14 @@ function fastQuizResult(q,uid,name){
  });
 }
 
+async function refreshQuizRoom(roomId){
+ const rid=ctx.id(roomId);
+ const q=await ctx.pool.query('SELECT data FROM hz_rooms WHERE room_id=$1',[rid]);
+ if(q.rows[0]?.data?.game){
+  fastQuizRooms.set(rid,ctx.fixRoom(q.rows[0].data,''));
+ }else fastQuizRooms.delete(rid);
+}
+
 async function attachHZBot(client){
   ctx.globalClient=client;ctx.globalChat=client.chat||client;ctx.globalBotId=ctx.id(client.userId);await ctx.initDb();
   await require('../manage/leave-reply').init(ctx.pool);
@@ -521,5 +529,5 @@ async function attachHZBot(client){
   // so the legacy handler would overwrite the unified original-text/warning handler.
   return {botUserId:ctx.globalBotId}
 }
-return {attachHZBot,fastQuizResult};
+return {attachHZBot,fastQuizResult,refreshQuizRoom};
 };
