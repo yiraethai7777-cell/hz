@@ -186,7 +186,7 @@ async function routes(req,res,url,body){
   return {ok:true,logout:true};
  }
  if(p==='/api/room-portal/command-blocks'){
-  bad('명령어 차단은 NEXI 최고관리자 또는 봇 계정과 총관리자 웹에서만 설정할 수 있습니다.',403);
+  bad('명령어 차단은 카카오톡 관리 매니저 최고관리자 또는 봇 계정과 총관리자 웹에서만 설정할 수 있습니다.',403);
  }
  if(p==='/api/room-portal/prefixes'&&method==='POST'){
   allowed(s,'prefixes');
@@ -249,7 +249,7 @@ async function routes(req,res,url,body){
  if(p==='/api/room-portal/member-role'&&method==='POST'){
   allowed(s,'roles');
   const user=id(body.userId),role=String(body.role||''),on=body.enabled;
-  if(role==='superAdmin')bad('최고관리자 추가·삭제는 NEXI 총관리자 웹에서만 가능합니다.',403);
+  if(role==='superAdmin')bad('최고관리자 추가·삭제는 카카오톡 매니저 총관리자 웹에서만 가능합니다.',403);
   if(role!=='admin'||typeof on!=='boolean')bad('관리자 권한 설정이 올바르지 않습니다.');
   const roster=await require('../shared/live-roster').refresh(status.client,s.room_id,{force:true});
   const member=roster.members.find(m=>m.id===user);
