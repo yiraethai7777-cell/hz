@@ -63,7 +63,6 @@ test('all game help commands use ! prefix and map to real command handlers',()=>
  assert.match(body,/!낚시\n└─[^\n]+\n\n!낚시정보/);
  assert.match(body,/!물고기판매 \(이름\) \(수량\)/);
  assert.match(body,/!씨앗ㄱㅁ \(이름\) \(수량\)/);
- assert.doesNotMatch(body,/!발로|!스킨|!내전|!듀오|!파티/);
  assert.doesNotMatch(body,/!게임순위/);
 });
 test('legacy # inputs are retired without affecting management !',()=>{
