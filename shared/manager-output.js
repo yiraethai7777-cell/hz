@@ -16,6 +16,13 @@ function install(client){
   target.sendText=function(roomId,body,...args){
    return original.call(this,roomId,transform(body),...args);
   };
+  // Progress updates/edit-in-place must not reintroduce the previous brand.
+  const edit=target.editMessage;
+  if(typeof edit==='function'){
+   target.editMessage=function(roomId,logId,body,...args){
+    return edit.call(this,roomId,logId,transform(body),...args);
+   };
+  }
   installed.add(target);
  }
 }
