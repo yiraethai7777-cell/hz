@@ -42,16 +42,17 @@ async function init(db=getPool()){
  })().catch(error=>{initialized=null;throw error;});
  await initialized;
 }
-async function permitted(roomId,db=getPool()){
+async function access(roomId,db=getPool()){
  const room=validRoom(roomId);
  await init(db);
- const result=await db.query("SELECT"+
-  " EXISTS(SELECT 1 FROM gl_room_subscriptions WHERE room_id=$1) AS issued,"+
-  " EXISTS(SELECT 1 FROM gl_room_subscriptions WHERE room_id=$1 AND status='active' AND expires_at>NOW()) AS active,"+
-  " EXISTS(SELECT 1 FROM gl_room_subscription_legacy WHERE room_id=$1) AS legacy",
- [room]);
- const d=result.rows[0];
- return d.issued?d.active:d.legacy;
+ const result=await db.query("SELECT s.*,EXISTS(SELECT 1 FROM gl_room_subscription_legacy l WHERE l.room_id=$1) AS legacy"+
+  " FROM (SELECT $1::text AS rid) input LEFT JOIN gl_room_subscriptions s ON s.room_id=input.rid",[room]);
+ const row=result.rows[0]||{};
+ const subscription=row.plan?view(row):null;
+ return {subscription,allowed:subscription?subscription.active:row.legacy===true};
+}
+async function permitted(roomId,db=getPool()){
+ return (await access(roomId,db)).allowed;
 }
 function view(row,now=Date.now()){
  if(!row)return null;
@@ -190,4 +191,4 @@ async function start(client){
  timer=setInterval(()=>{void sweep(client);},15000);
  timer.unref?.();
 }
-module.exports={PLANS,init,permitted,get,view,validPlan,validDays,timeLeft,notice,grant,changePlan,extend,expire,sendNotice,sweep,start};
+module.exports={PLANS,init,access,permitted,get,view,validPlan,validDays,timeLeft,notice,grant,changePlan,extend,expire,sendNotice,sweep,start};
