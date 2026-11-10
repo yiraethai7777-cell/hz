@@ -615,31 +615,6 @@ if (text === '!이벤추첨테스트') {
         return;
       }
 
-      // Alternate room-game interface. Uses the existing game engine and data.
-      const roomGameAliases={'!출항':'!낚시','!조황':'!낚시정보','!수조':'!어망','!가방':'!인벤','!도전':'!퀴즈','!제출':'!정답','!명예의전당':'!퀴즈순위','!교환소':'!상점','!어류도감':'!물고기도감','!입문':'!게임가입','!놀이정보':'!게임정보'};
-      const roomGameStyle=body=>{
-        let out=String(body);
-        const replacements=[[/NEXI/g,'🎲 플레이존'],[/낚시 성공/g,'포획 성공'],[/낚시 실패/g,'포획 실패'],[/낚시정보/g,'조황'],[/물고기도감/g,'어류도감'],[/퀴즈순위/g,'명예의전당'],[/퀴즈/g,'도전 문제'],[/정답/g,'제출 답안'],[/어망/g,'수조'],[/인벤/g,'가방'],[/상점/g,'교환소'],[/!낚시/g,'!출항'],[/!퀴즈/g,'!도전'],[/!정답/g,'!제출'],[/!어망/g,'!수조'],[/!인벤/g,'!가방'],[/!상점/g,'!교환소']];
-        for(const [pattern,replacement] of replacements)out=out.replace(pattern,replacement);
-        return '🎲 플레이존 | '+out;
-      };
-      if(text==='!방게임시작'||text==='!방게임종료'){
-        if(!isBotAccount&&!roomBotAdmin&&!isSuperAdmin){await context.send('⛔ 방게임 설정 권한이 없습니다.');return;}
-        const on=text==='!방게임시작';
-        await game.toggle({...context,text:on?'!게임on':'!게임off',send:async()=>{}});
-        await require('./db').getPool().query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('roomGame',$2::boolean)) ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{roomGame}',to_jsonb($2::boolean),true),updated_at=NOW()",[String(roomId),on]);
-        await context.send(on?'🎲 놀이방이 열렸습니다! 게임을 시작해 보세요.':'🎲 놀이방을 종료했습니다.');return;
-      }
-      if(text==='!방게임명령어'){
-        await context.send('🎲 플레이존 | 이용 안내\n!방게임시작 / !방게임종료\n!입문 · !놀이정보\n🐟 !출항 · !조황 · !수조 · !가방 · !어류도감\n🧠 !도전 · !제출 · !명예의전당\n🛒 !교환소');return;
-      }
-      const roomGameToken=text.split(/\s+/,1)[0];
-      if(roomGameAliases[roomGameToken]){
-        const state=await require('./db').getPool().query("SELECT data->>'roomGame' AS active FROM hz_rooms WHERE room_id=$1",[String(roomId)]);
-        if(!isBotAccount&&state.rows[0]?.active!=='true')return;
-        const translated=roomGameAliases[roomGameToken]+text.slice(roomGameToken.length);
-        await game.message({...context,text:translated,chat,msg,send:body=>context.send(roomGameStyle(body))});return;
-      }
       if (text === '!게임on' || text === '!게임off') {
         await game.toggle(context);
         return;
