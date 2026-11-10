@@ -29,7 +29,7 @@ const fields = [
   '┗━━━━━━━━━━━━━━━━━━━━━━'
 ];
 
- return `${mention}님의 프로필 정보\n🔑 권한 · ${permission}\n${FOLD}\n${fields.join('\n')}`;
+ return `💛 카카오톡 매니저 | 프로필 정보\n👤 ${mention}님\n🔑 권한 · ${permission}\n${FOLD}\n${fields.join('\n')}`;
 }
 async function permissionFor(ctx,db,checks={superAdmin:require('../shared/super-admin').isSuperAdmin,roomAdmin:require('../shared/room-bot-admin').isRoomBotAdmin}) {
  const roles=[];
