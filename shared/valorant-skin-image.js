@@ -67,7 +67,7 @@ function svgBoard(skin,images){
   '<rect width="'+WIDTH+'" height="'+height+'" fill="url(#bg)"/>'+
   '<rect x="30" y="25" width="1080" height="'+(height-50)+'" rx="28" stroke="#64748b" stroke-width="2" fill="none"/>'+
   '<g font-family="Noto Sans KR">'+
-  '<text x="58" y="80" font-size="31" fill="#6de9fc" font-weight="700">NEXI  /  VALORANT SKIN</text>'+
+  '<text x="58" y="80" font-size="31" fill="#6de9fc" font-weight="700">KAKAOTALK MANAGER / VALORANT SKIN</text>'+
   '<text x="58" y="135" font-size="41" fill="#ffffff" font-weight="800">'+escapeXml(name)+'</text>'+
   cards+
   '<text x="570" y="'+(height-17)+'" font-size="17" fill="#a8b7d1" text-anchor="middle">공개 API에 별도 이미지가 등록된 외형만 표시됩니다.</text>'+
@@ -105,7 +105,7 @@ async function sendPreview({client,roomId,skin,photos,fetcher=globalThis.fetch,
   const file=path.join(folder,filename);
   await fs.writeFile(file,prepared.buffer,{flag:'wx',mode:0o600});
   const result=await client.sendPhoto(room,file,{
-   filename,mime:'image/png',text:'🎨 NEXI | '+String(skin.name||'스킨')+' 외형 비교',
+   filename,mime:'image/png',text:'🎨 카카오톡 게임 매니저 | '+String(skin.name||'스킨')+' 외형 비교',
    width:prepared.width,height:prepared.height
   });
   if(!result?.complete||(typeof result.complete.status==='number'&&result.complete.status!==0))
