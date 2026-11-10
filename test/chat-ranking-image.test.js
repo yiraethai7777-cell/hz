@@ -44,7 +44,7 @@ test('ranking text has heading before Kakao more, proportional bars and exact co
   {name:'헤이즈',rank:'2',count:'950'},
   {name:'민서',rank:'3',count:'700'}
  ]});
- assert.ok(lines.startsWith('💬 우리 방 채팅 순위 TOP 10'+'\u200b'.repeat(1200)));
+ assert.ok(lines.startsWith('💬 카카오톡 관리 매니저 | 채팅 순위 TOP 10'+'\u200b'.repeat(1200)));
  assert.match(lines,/1\. 바닐라 · 1,250회\n┃ █{16}/);
  assert.match(lines,/2\. 헤이즈 · 950회\n┃ █{12}░{4}/);
  assert.match(lines,/3\. 민서 · 700회\n┃ █{9}░{7}/);
