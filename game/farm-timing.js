@@ -52,6 +52,6 @@ async function sendFarmCompletion({ctx,text}){
  await ctx.send(text);return 'sent';
 }
 function harvestNotice({name,settled}){
- return '🌾 NEXI | 수확 완료\n'+String(name)+'님, 작물 '+settled.count+'개 수확 완료!\n💰 +'+fmt(settled.coins)+'코인 지급';
+ return '🌾 카카오톡 게임 매니저 | 수확 완료\n'+String(name)+'님, 작물 '+settled.count+'개 수확 완료!\n💰 +'+fmt(settled.coins)+'코인 지급';
 }
 module.exports={PLANT_MS,HARVEST_MS,settleHarvest,sendFarmCompletion,harvestNotice};
