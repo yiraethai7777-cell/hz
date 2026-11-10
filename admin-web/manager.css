@@ -1,0 +1,24 @@
+
+.admin-body{background:radial-gradient(ellipse 600px 330px at 95% -8%,#18324e,transparent),#0b1624;color:#e9f3ff}
+.admin-body .brand{font-size:18px;font-weight:800;letter-spacing:-.035em;color:#e7f4ff}.admin-body .brand-dot{background:#7cc0f5}
+.admin-body .login-card{background:#111f33;border:1px solid #314763;border-radius:24px;box-shadow:0 30px 130px #01070f66;padding:40px;max-width:470px}
+.admin-body .login-card h1{font-size:32px;line-height:1.3;letter-spacing:-.05em}.admin-body .login-card p{color:#9ab0c8;line-height:1.8}.admin-body .login-card label{color:#b5cce3}
+.admin-body .login-card input{background:#0a1624;border-color:#39536d;color:#e9f3ff}
+.admin-body .login-card .lime,.admin-body .button.lime{background:#aad8fd;color:#102137;border:0;font-weight:800}
+.admin-body .admin-shell{max-width:none;grid-template-columns:240px 1fr}.admin-body .sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;padding:27px 17px;background:#101f31;border-right:1px solid #2d435c;display:flex;flex-direction:column;gap:8px}
+.admin-body .sidebar .brand{padding:12px 14px 23px;border-bottom:1px solid #28405a;margin-bottom:15px}
+.admin-body .sidebar button{color:#99b1cb;background:transparent;text-align:left;padding:14px 15px;border:1px solid transparent;border-radius:11px;font-size:12px;letter-spacing:.01em}
+.admin-body .sidebar button:hover{background:#1a3452;color:#e9f3ff}.admin-body .sidebar button.selected{background:#213d59;border:1px solid #345b7b;color:#bde3ff}
+.admin-body .sidebar a[href="/admin/room-portals"]{background:#b4dcff;color:#13233a!important;border-radius:11px;font-weight:800;font-size:12px;text-decoration:none;padding:15px!important;margin-top:7px}
+.admin-body .admin-main{max-width:1500px;margin:auto;padding:36px 45px 75px;width:100%}
+.admin-body .admin-heading{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2b435b;margin-bottom:30px;padding:0 0 23px}
+.admin-body .admin-heading h1{font-size:31px;letter-spacing:-.05em}.admin-body .admin-panel{background:#15263a;border:1px solid #304761;border-radius:16px;box-shadow:0 16px 45px #0913251c}
+.admin-body .admin-panel h2{color:#e7f3ff}.admin-body .admin-panel .subtle,.admin-body .admin-panel p{color:#a6bad2}
+.admin-body .metrics>*,.admin-body .admin-table,.admin-body .table-wrap{border-color:#334c68}
+.admin-body button.secondary{background:#253e58;color:#dcecff;border-color:#385575}.admin-body .secondary.danger{background:#4c2a38;color:#ffd5d5}
+.admin-body input:not([type=checkbox]),.admin-body textarea,.admin-body select{background:#0b1a2b;color:#edf6ff;border-color:#3b526d}
+.admin-body #feedback:not(:empty){background:#1e3b4e;border:1px solid #34637f;border-radius:11px;padding:12px 16px;color:#d6eeff}
+.admin-body .master-link{display:inline-flex;background:#b5dafa;color:#14223a;padding:12px 18px;border-radius:9px;font-size:13px;font-weight:800;margin-top:8px}
+.admin-body .master-link:hover{background:#d0ebff}
+@media(max-width:1000px){.admin-body .admin-shell{grid-template-columns:190px 1fr}.admin-body .admin-main{padding:26px}.admin-body .sidebar{padding:20px 8px}.admin-body .sidebar button{font-size:11px}}
+@media(max-width:680px){.admin-body .admin-shell{display:block}.admin-body .sidebar{position:static;height:auto;max-height:none;padding:16px;display:flex;flex-direction:row;flex-wrap:wrap}.admin-body .sidebar .brand{flex-basis:100%;padding:4px 0 12px;margin:0}.admin-body .sidebar button,.admin-body .sidebar a[href="/admin/room-portals"]{flex:1 1 44%;font-size:11px;padding:10px!important}.admin-body .admin-main{padding:22px 15px}.admin-body .admin-heading h1{font-size:24px}}
