@@ -22,7 +22,7 @@ async function overview(){
 }
 async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
- if(p==='/api/public/config'&&method==='GET')return {name:'',openchatUrl:publicUrl(),online:status.ready&&status.connected};
+ if(p==='/api/public/config'&&method==='GET')return {name:'카카오톡 매니저',openchatUrl:publicUrl(),online:status.ready&&status.connected};
  if(!status.ready)fail('봇과 데이터베이스를 준비 중입니다.',503);
  if(p.startsWith('/api/room-portal/')||(p==='/api/admin/room-portals'||p==='/api/admin/room-portal-password-reset'))return require('./room-portal').routes(req,res,url,body);
  if(p.startsWith('/api/promo/'))return require('../promotion/portal').routes(req,res,url,body,status);
