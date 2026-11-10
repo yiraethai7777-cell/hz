@@ -220,7 +220,7 @@ async function join({roomId,userId,userName,send}){
   const room = key(roomId);
   const user = key(userId);
 
-  if (!await enabled(room) && !(await getPool().query("SELECT data->>'roomManage' AS active FROM hz_rooms WHERE room_id=$1",[room])).rows.some(r=>r.active==='true')) return;
+  if (!await enabled(room)) return;
 
   const db = getPool();
 
@@ -269,7 +269,7 @@ async function leave({roomId,userId,userName,send}){
   const room = key(roomId);
   const user = key(userId);
 
-  if (!await enabled(room) && !(await getPool().query("SELECT data->>'roomManage' AS active FROM hz_rooms WHERE room_id=$1",[room])).rows.some(r=>r.active==='true')) return;
+  if (!await enabled(room)) return;
 
   const db = getPool();
 
