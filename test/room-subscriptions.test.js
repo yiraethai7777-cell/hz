@@ -104,7 +104,7 @@ test('all chat and automatic operations have a paid-plan gate',()=>{
   assert.doesNotThrow(()=>new Function(read(file)),file);
  }
  assert.match(read('shared/router.js'),/!남은시간/);
- assert.match(read('shared/router.js'),/permitted\(roomId\)/);
+ assert.match(read('shared/router.js'),/room-subscriptions'\)\.access\(roomId\)/);
  assert.match(read('shared/session.js'),/bot-power/);
  assert.match(read('shared/bot-power.js'),/gl_room_subscription_legacy/);
  assert.match(read('shared/room-subscriptions.js'),/gl_room_subscription_setup/);
