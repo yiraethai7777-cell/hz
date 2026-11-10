@@ -105,6 +105,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // power commands. An expired plan cannot be revived from KakaoTalk.
       const license=await require('./room-subscriptions').get(roomId);
       if(license&&!license.active)return;
+      if(!license&&!await require('./room-subscriptions').permitted(roomId))return;
       if((text==='!요금제'||text==='!남은시간')&&license){
         const sub=require('./room-subscriptions');
         await chat.sendText(roomId,
