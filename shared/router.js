@@ -119,7 +119,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       if(license?.plan==='manage'&&(/^!게임(?:on|off|명령어|상태)?$/.test(text)||gameAliases.isGameCommand(text)))return;
-      if(license?.plan==='game'&&(/^!(?:관리on|관리off|관리자추가|관리자삭제|입장변경|퇴장변경|경고|kick|k|봇방지정)(?:\s|$)/.test(text)))return;
+      // Game-only rooms cannot enable management through an unlisted command.
+      // Keep the bot-account power switch available while the subscription is active.
+      const managementCommand=String(text).split(/\\s+/,1)[0];
+      if(license?.plan==='game'&&managementCommand!=='!봇켜기'&&managementCommand!=='!봇끄기'&&
+        require('../manage/commands-v2').ALL.has(managementCommand))return;
       // Global 30-second maintenance pause: no commands or passive handling.
       const maintenance={active:()=>Date.now()<(global.__nexiPauseUntil||0),start:ms=>{global.__nexiPauseUntil=Date.now()+ms;}};
       if(text==='!봇재부팅'){
