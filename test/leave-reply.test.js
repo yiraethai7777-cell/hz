@@ -5,18 +5,20 @@ const feature=require('../manage/leave-reply');
 const target='9007199254740993123',log='9007199254740993456';
 const msg=(author='9999',id=log)=>({message:{type:26},attachmentsRaw:[`{"src_userId":${author},"src_logId":${id}}`]});
 
-test('manager join notice shows summary above fold and detailed activity below',()=>{
+test('manager join notice shows only the name and entrance above 전체보기',()=>{
  const out=feature.joinNotice({
   name:'테스트',userId:target,joins:3,leaves:2,warnings:2,bans:1,
   time:'2026.11.10 09:00',profileLink:'https://open.kakao.com/o/example'
  });
- const [summary,details]=out.split('\u200b'.repeat(1200));
- assert.match(summary,/^💛 카카오톡 관리 매니저 \| 입장 안내/);
- assert.match(summary,/님, 환영합니다!/);
- assert.match(summary,/📊 입장 \/ 퇴장 : 3회 \/ 2회/);
- assert.match(summary,/⚠️ 누적 경고 : 2회/);
- assert.match(summary,new RegExp(target));
- assert.match(summary,/📋 상세 활동 기록/);
+ const fold='\u200b'.repeat(1200);
+ assert.equal(out.split(fold).length,2,'only one native KakaoTalk fold');
+ const [preview,details]=out.split(fold);
+ assert.equal(preview,'👋 \u0002'+target+'\u0003테스트\u0004님이 입장했습니다.\n');
+ assert.doesNotMatch(preview,/사용자 ID|경고|입장 횟수|상세|카카오톡 관리 매니저/);
+ assert.match(details,/💛 카카오톡 관리 매니저 \| 입장 상세/);
+ assert.match(details,/📊 입장 \/ 퇴장 : 3회 \/ 2회/);
+ assert.match(details,/⚠️ 누적 경고 : 2회/);
+ assert.match(details,new RegExp(target));
  assert.match(details,/2026.11.10 09:00/);
  assert.match(details,/https:\/\/open.kakao.com\/o\/example/);
  assert.match(details,/🛡️ 강퇴 기록 : 1회/);
@@ -24,17 +26,19 @@ test('manager join notice shows summary above fold and detailed activity below',
  assert.match(feature.joinNotice({name:'A'}),/확인 불가/);
 });
 
-test('manager leave notice shows exit details, real warnings and reply-to-ban help',()=>{
+test('manager leave notice shows only the name and departure above 전체보기',()=>{
  const out=feature.leaveNotice({
   name:'테스트',userId:target,joins:3,leaves:3,warnings:2,bans:1,
   joinedAt:'2026.11.10 09:00',time:'2026.11.10 10:30',stay:'1시간 30분'
  });
- const [summary,details]=out.split('\u200b'.repeat(1200));
- assert.match(summary,/^💛 카카오톡 관리 매니저 \| 퇴장 안내/);
- assert.match(summary,/님이 퇴장하셨습니다/);
- assert.match(summary,/📊 입장 \/ 퇴장 : 3회 \/ 3회/);
- assert.match(summary,/⚠️ 누적 경고 : 2회/);
- assert.match(summary,new RegExp(target));
+ const fold='\u200b'.repeat(1200);
+ assert.equal(out.split(fold).length,2);
+ const [preview,details]=out.split(fold);
+ assert.equal(preview,'👋 \u0002'+target+'\u0003테스트\u0004님이 퇴장했습니다.\n');
+ assert.doesNotMatch(preview,/사용자 ID|경고|입장 시각|체류 시간|카카오톡 관리 매니저/);
+ assert.match(details,/📊 입장 \/ 퇴장 : 3회 \/ 3회/);
+ assert.match(details,/⚠️ 누적 경고 : 2회/);
+ assert.match(details,new RegExp(target));
  assert.match(details,/📅 입장 시각\n2026.11.10 09:00/);
  assert.match(details,/📅 퇴장 시각\n2026.11.10 10:30/);
  assert.match(details,/⏱️ 체류 시간\n1시간 30분/);
@@ -50,6 +54,19 @@ test('manager leave notice shows exit details, real warnings and reply-to-ban he
  }
  assert.equal(feature.replyReference({message:{type:1},text:'a'},'9999'),null);
 });
+
+test('custom join and leave templates keep custom details behind the fold',()=>{
+ const template='👋 (이름)\n🆔 (아이디)\n📊 (입장횟수)회\n⚠️ (경고횟수)회';
+ const detail=feature.renderMemberTemplate(template,{name:'커스텀',userId:target,joins:4,warnings:1});
+ for(const kind of ['join','leave']){
+  const out=feature.foldMemberNotice(kind,{name:'커스텀',userId:target},detail);
+  const [preview,expanded]=out.split('\u200b'.repeat(1200));
+  assert.equal(preview,'👋 \u0002'+target+'\u0003커스텀\u0004님이 '+(kind==='join'?'입장했습니다.':'퇴장했습니다.')+'\n');
+  assert.equal(expanded,'\n'+detail);
+  assert.doesNotMatch(preview,/🆔|📊|⚠️/);
+ }
+});
+
 
 async function setupLeaveFixture(){
  const storage=new PGlite(),db={query:async(sql,params)=>storage.query(sql,params)};

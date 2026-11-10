@@ -228,7 +228,8 @@ async function join({roomId,userId,userName,send}){
     const summary=template.includes('(경고사유)')
       ?await require('./warning-summary').read(db,room,user,{includeReasons:true})
       :{warnings,warningReasons:[]};
-    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,...summary,time:formatKST(joinedAt),profileLink:saved.open_profile_link||''}));
+    const detail=require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,...summary,time:formatKST(joinedAt),profileLink:saved.open_profile_link||''});
+    await send(require('./leave-reply').foldMemberNotice('join',{name:userName,userId:user},detail));
     return;
   }
   await send(require('./leave-reply').joinNotice({
@@ -287,7 +288,8 @@ async function leave({roomId,userId,userName,send}){
     const summary=template.includes('(경고사유)')
       ?await require('./warning-summary').read(db,room,user,{includeReasons:true})
       :{warnings,warningReasons:[]};
-    await send(require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,...summary,time:formatKST(leftAt),profileLink:saved.open_profile_link||''}));
+    const detail=require('./leave-reply').renderMemberTemplate(template,{name:userName,userId:user,joins,leaves,...summary,time:formatKST(leftAt),profileLink:saved.open_profile_link||''});
+    await send(require('./leave-reply').foldMemberNotice('leave',{name:userName,userId:user},detail));
     return;
   }
   await send(require('./leave-reply').leaveNotice({

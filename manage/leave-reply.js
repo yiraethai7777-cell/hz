@@ -42,24 +42,30 @@ const MEMBER_NOTICE_FOLD='\u200b'.repeat(1200);
 const MEMBER_NOTICE_BRAND='💛 카카오톡 관리 매니저';
 const MEMBER_NOTICE_SIGNOFF='KakaoTalk Manager';
 const count=value=>Math.max(0,Number(value)||0);
+
+// KakaoTalk truncates the zero-width spacer behind its native "전체보기" action.
+// Only the person's entrance/departure line appears before the spacer.
+// Keep the detailed body in the same message, so replying to a departure notice
+// continues to work with the original message log ID.
+function foldMemberNotice(kind,{name,userId},details){
+ const {mention}=displayMember(name,userId);
+ if(kind!=='join'&&kind!=='leave')throw Error('알 수 없는 입퇴장 유형입니다.');
+ const line='👋 '+mention+'님이 '+(kind==='join'?'입장했습니다.':'퇴장했습니다.');
+ return line+'\n'+MEMBER_NOTICE_FOLD+'\n'+String(details||'');
+}
 function joinNotice({
  name,userId,roomName,joins=0,leaves=0,time,
  profileLink='',profileType=null,profileImage='',bans=0,warnings=0,detail=''
 }){
- const {id,clean,mention}=displayMember(name,userId);
- return [
-  MEMBER_NOTICE_BRAND+' | 입장 안내',
+ const {id,clean}=displayMember(name,userId);
+ const details=[
+  MEMBER_NOTICE_BRAND+' | 입장 상세',
   '━━━━━━━━━━━━━━━━━━',
-  '👋 '+mention+'님, 환영합니다!',
-  '',
   '👤 닉네임 : '+clean,
   '🆔 사용자 ID : '+(id||'확인 불가'),
   '📊 입장 / 퇴장 : '+count(joins)+'회 / '+count(leaves)+'회',
   '⚠️ 누적 경고 : '+count(warnings)+'회',
   '',
-  '━━━━━━━━━━━━━━━━━━',
-  '📋 상세 활동 기록',
-  MEMBER_NOTICE_FOLD,
   '📅 입장 시각',
   time||'확인 불가',
   '',
@@ -72,26 +78,22 @@ function joinNotice({
   '💛 즐거운 채팅 부탁드립니다!',
   MEMBER_NOTICE_SIGNOFF
  ].join('\n')+(detail?'\n\n💬 '+detail:'');
+ return foldMemberNotice('join',{name,userId},details);
 }
 function leaveNotice({
  name,userId,joins=0,leaves=0,time,detail='',
  profileLink='',profileType='확인 불가',profileImage='',
  joinedAt=null,stay='확인 불가',bans=0,warnings=0
 }){
- const {id,clean,mention}=displayMember(name,userId);
- return [
-  MEMBER_NOTICE_BRAND+' | 퇴장 안내',
+ const {id,clean}=displayMember(name,userId);
+ const details=[
+  MEMBER_NOTICE_BRAND+' | 퇴장 상세',
   '━━━━━━━━━━━━━━━━━━',
-  '👋 '+mention+'님이 퇴장하셨습니다.',
-  '',
   '👤 닉네임 : '+clean,
   '🆔 사용자 ID : '+(id||'확인 불가'),
   '📊 입장 / 퇴장 : '+count(joins)+'회 / '+count(leaves)+'회',
   '⚠️ 누적 경고 : '+count(warnings)+'회',
   '',
-  '━━━━━━━━━━━━━━━━━━',
-  '📋 상세 활동 기록',
-  MEMBER_NOTICE_FOLD,
   '📅 입장 시각',
   joinedAt||'확인 불가',
   '',
@@ -110,7 +112,9 @@ function leaveNotice({
   '',
   MEMBER_NOTICE_SIGNOFF
  ].join('\n')+(detail?'\n\n💬 '+detail:'');
+ return foldMemberNotice('leave',{name,userId},details);
 }
+
 function profileNotice(change,time){
   return `👤 ${change.newName}님이 프로필을 변경했습니다.\n${'\u200b'.repeat(1200)}\n${change.oldName||'확인 불가'} → ${change.newName||'확인 불가'}\n예전 옾링: ${change.oldOpenLink||'확인된 링크 없음'}\n현재 옾링: ${change.newOpenLink||'확인된 링크 없음'}\n시간: ${time}`;
 }
@@ -239,4 +243,4 @@ async function handle(context,db){
  }
  return true;
 }
-module.exports={init,leaveNotice,joinNotice,renderMemberTemplate,profileNotice,record,replyReference,handle};
+module.exports={init,leaveNotice,joinNotice,foldMemberNotice,renderMemberTemplate,profileNotice,record,replyReference,handle};
