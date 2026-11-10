@@ -15,7 +15,7 @@ const schema="CREATE TABLE IF NOT EXISTS gl_room_subscriptions ("+
 let initialized;
 let timer;
 let busy=false;
-function validRoom(room){const s=String(room??'');if(!/^[1-9]\d{3,29}$/.test(s))throw Error('채팅방 ID가 올바르지 않습니다.');return s;}
+function validRoom(room){const s=String(room??'');if(!/^[1-9]\d{0,29}$/.test(s))throw Error('채팅방 ID가 올바르지 않습니다.');return s;}
 function validPlan(plan){if(!Object.hasOwn(PLANS,String(plan)))throw Error('관리·게임·종합 중 요금제를 선택해 주세요.');return String(plan);}
 function validDays(days){const n=Number(days);if(!Number.isInteger(n)||n<1||n>3650)throw Error('이용 일수는 1~3650일 사이의 정수로 입력해 주세요.');return n;}
 async function init(db=getPool()){
@@ -52,7 +52,7 @@ function notice(info,kind='start'){
   '━━━━━━━━━━━━',
   kind==='extend'?'✅ 봇 이용 기간이 연장되었습니다.':'✅ 봇 작동을 시작합니다.',
   '📦 요금제 : '+info.planLabel+' ('+features+')',
-  '📅 이용 기간 : '+info.durationDays+'일',
+  '📅 이용 기간 : '+(info.durationDays===7?'일주일 (7일)':info.durationDays+'일'),
   '⏳ 자동 종료까지 : '+timeLeft(info.remainingSeconds),
   '🗓️ 자동 종료 예정 : '+dateKST(info.expiresAt)+' (한국 시간)',
   '━━━━━━━━━━━━',
