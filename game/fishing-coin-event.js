@@ -35,6 +35,7 @@ async function status(room){
 }
 async function startEvent(room,roomName,chat,actor){
  await init();
+ if(!await require('../shared/bot-power').enabled(room))throw Error('이 방의 봇 이용기간이 종료되었거나 봇 기능이 꺼져 있습니다.');
  const db=await getPool().connect();
  let event;
  try{
