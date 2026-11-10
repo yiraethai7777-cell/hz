@@ -408,8 +408,8 @@ const bodies={
 };
 const MANAGER_CONTACT='💬 카카오톡 매니저 문의방\nhttps://open.kakao.com/o/gK32HUUi';
 const MANAGER_SIGNOFF='\n\n━━━━━━━━━━━━━━\n✦ 카카오톡 매니저 · 게임 & 관리 도우미';
-const MANAGEMENT_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 카카오톡 관리 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리).replace(/카카오톡 매니저/g,'카카오톡 매니저')+MANAGER_SIGNOFF;
-const GAME_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 카카오톡 게임 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임.replace(/카카오톡 매니저/g,'카카오톡 매니저')+MANAGER_SIGNOFF;
+const MANAGEMENT_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 카카오톡 관리 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리)+MANAGER_SIGNOFF;
+const GAME_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 카카오톡 게임 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임+MANAGER_SIGNOFF;
 function formatCommandHelpBase(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
