@@ -53,11 +53,11 @@ test('agent and weapon guides retrieve public catalog, without Riot account',asy
  assert.match(sent[1],/2,900/);
  assert.equal(requests.length,2);
 });
-test('existing valorant OFF gate still protects new commands',()=>{
+test('removed Valorant extensions are unreachable from the manager router',()=>{
  const source=fs.readFileSync(path.join(__dirname,'../shared/router.js'),'utf8');
- assert.match(source,/valGuide\.COMMANDS\.has\(newValorantCommand\)/);
- assert.match(source,/if\(!enabled\)return/);
- assert.match(source,/!발로명령어/);
+ assert.doesNotMatch(source,/valGuide\.COMMANDS\.has|valCommunity\.COMMANDS\.has|valParty\.COMMANDS\.has/);
+ assert.doesNotMatch(source,/require\(['"]\.\/valorant-/);
+ assert.match(source,/if\(isRetiredValorantCommand\(text\)\)return/);
 });
 
 test('tier registration and exactly ten Kakao mentions create balanced attack and defense teams',async()=>{
