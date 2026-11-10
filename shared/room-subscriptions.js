@@ -19,7 +19,9 @@ function validRoom(room){const s=String(room??'');if(!/^[1-9]\d{0,29}$/.test(s))
 function validPlan(plan){if(!Object.hasOwn(PLANS,String(plan)))throw Error('관리·게임·종합 중 요금제를 선택해 주세요.');return String(plan);}
 function validDays(days){const n=Number(days);if(!Number.isInteger(n)||n<1||n>3650)throw Error('이용 일수는 1~3650일 사이의 정수로 입력해 주세요.');return n;}
 async function init(db=getPool()){
- if(db!==getPool()){
+ let isShared=false;
+ try{isShared=db===getPool();}catch{} // Allows isolated test databases without production credentials.
+ if(!isShared){
   await db.query(schema);
   await db.query("CREATE TABLE IF NOT EXISTS gl_room_subscription_legacy (room_id TEXT PRIMARY KEY)");
   return;
