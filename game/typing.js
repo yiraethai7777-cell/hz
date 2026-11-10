@@ -11,7 +11,7 @@ async function handle(ctx,enabled){
   // Exact pasted text retains different code points from a manually typed answer.
   const shown=phrase.replace(/ /g,String.fromCharCode(0x00a0));
   const round={phrase,start:0,timer:null};rounds.set(id,round);
-  try{await ctx.send('[ 타자 게임 ]\n━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초');}
+  try{await ctx.send('🎮 카카오톡 게임 매니저 | 타자 게임\n━━━━━━━━━━━━━━━━━━\n'+shown+'\n\n제한 시간: 30초');}
   catch(e){rounds.delete(id);throw e;}
   round.start=process.hrtime.bigint();
   round.timer=setTimeout(()=>{if(rounds.get(id)!==round)return;rounds.delete(id);Promise.resolve(ctx.send('🎮 카카오톡 게임 매니저 | 타자 게임 종료\n정답: '+phrase)).catch(console.error);},30000);
