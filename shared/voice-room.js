@@ -133,7 +133,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         '\n※ 카카오톡 서버의 참가자 명단 및 진행자 권한을 확인한 결과는 아닙니다.');
     }catch{
       await safeReply(client,send,'⚠️ Android 브리지 참가 상태 조회 실패\n'+
-        'Noa 연결 및 카카오톡 매니저 계정 일치 여부를 확인해 주세요.');
+        'Noa 실행 계정과 대상 채팅방 상태를 확인해 주세요.');
     }
     return true;
   }
@@ -195,7 +195,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       }
     }catch{
       await safeReply(client,send,'❌ 보이스룸 '+operation+' 요청 실패\n'+
-        'Noa VOX 상태·동일한 카카오톡 매니저 계정 연결 여부를 확인해 주세요.');
+        'Noa VOX 상태와 실행 계정의 대상 채팅방 연결을 확인해 주세요.');
     }finally{
       running.delete(room);
     }
