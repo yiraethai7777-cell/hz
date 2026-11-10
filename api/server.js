@@ -3,6 +3,8 @@ const http=require('node:http'),fs=require('node:fs/promises'),path=require('nod
 const {routes,status}=require('./routes');
 const assets=new Map([['/',['public-web/index.html','text/html']],['/style.css',['public-web/style.css','text/css']],['/app.js',['public-web/app.js','text/javascript']],['/admin',['admin-web/index.html','text/html']],['/admin/',['admin-web/index.html','text/html']],['/admin/admin.js',['admin-web/admin.js','text/javascript']],['/admin/room-portals',['admin-web/room-portals.html','text/html']],['/admin/room-portals.js',['admin-web/room-portals.js','text/javascript']],['/admin-web/room-portals.css',['admin-web/room-portals.css','text/css']],['/room-panel/style.css',['room-panel/style.css','text/css']],['/room-panel',['room-panel/index.html','text/html']],['/room-panel/app.js',['room-panel/app.js','text/javascript']]]);
 
+assets.set('/admin/manager.css',['admin-web/manager.css','text/css']);
+assets.set('/manager-home.css',['public-web/manager-home.css','text/css']);
 const rate=new Map();
 for(const [route,file,type] of [['/promo','index.html','text/html'],['/promo/','index.html','text/html'],['/promo/style.css','style.css','text/css'],['/promo/app.js','app.js','text/javascript']])assets.set(route,['promo-web/'+file,type]);
 async function body(req){let bytes=0,chunks=[];for await(const chunk of req){bytes+=chunk.length;if(bytes>16384){const e=Error('요청 크기를 초과했습니다.');e.status=413;throw e;}chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{const e=Error('올바른 JSON을 입력해 주세요.');e.status=400;throw e;}}
