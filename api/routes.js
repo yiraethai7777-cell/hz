@@ -100,15 +100,33 @@ async function routes(req,res,url,body){
     .map(room=>String(room.id||''))
     .filter(roomId=>/^\d{1,24}$/.test(roomId)))];
   if(!activeRoomIds.length)return {rooms:[]};
-  const r=await getPool().query("SELECT r.room_id,r.data->>'name' AS name,COALESCE((r.data->>'game')::boolean,FALSE) AS game,COALESCE(g.enabled,(r.data->>'manage')::boolean,FALSE) AS manage,COALESCE((r.data->>'quizEnabled')::boolean,TRUE) AS quiz_enabled,COALESCE((r.data->>'fishEnabled')::boolean,TRUE) AS fish_enabled,r.data->'promo' AS promotion FROM hz_rooms r LEFT JOIN gl_manage_rooms g USING(room_id) WHERE r.room_id = ANY($1::text[]) ORDER BY r.updated_at DESC LIMIT 200",[activeRoomIds]);return {rooms:r.rows};
+  const r=await getPool().query("SELECT r.room_id,r.data->>'name' AS name,COALESCE((r.data->>'game')::boolean,FALSE) AS game,COALESCE(g.enabled,(r.data->>'manage')::boolean,FALSE) AS manage,COALESCE((r.data->>'quizEnabled')::boolean,TRUE) AS quiz_enabled,COALESCE((r.data->>'fishEnabled')::boolean,TRUE) AS fish_enabled,(r.data->>'voiceRoomEnabled'='true') AS voice_enabled,r.data->'promo' AS promotion FROM hz_rooms r LEFT JOIN gl_manage_rooms g USING(room_id) WHERE r.room_id = ANY($1::text[]) ORDER BY r.updated_at DESC LIMIT 200",[activeRoomIds]);return {rooms:r.rows};
  }
  if(p==='/api/admin/rooms'&&method==='POST'){
   const room=id(body.roomId),flags=body.flags||{};
-  const allowed=['game','manage','quizEnabled','fishEnabled'];if(!Object.keys(flags).length||Object.keys(flags).some(key=>!allowed.includes(key)||typeof flags[key]!=='boolean'))fail('변경할 기능 설정을 확인해 주세요.');
+  const allowed=['game','manage','quizEnabled','fishEnabled','voiceRoomEnabled'];if(!Object.keys(flags).length||Object.keys(flags).some(key=>!allowed.includes(key)||typeof flags[key]!=='boolean'))fail('변경할 기능 설정을 확인해 주세요.');
   const license=await require('../shared/room-subscriptions').get(room);
   if(license&&!license.active)fail('봇 이용 기간이 만료되었습니다. 요금제를 연장해 주세요.',403);
   if(license?.plan==='manage'&&[flags.game,flags.quizEnabled,flags.fishEnabled].includes(true)||license?.plan==='game'&&flags.manage===true)fail('현재 요금제에서 제공하지 않는 기능입니다.',403);
   await roomTransaction(room,async(d,db)=>{Object.assign(d,flags);if(typeof flags.manage==='boolean')await db.query('INSERT INTO gl_manage_rooms(room_id,enabled) VALUES($1,$2) ON CONFLICT(room_id) DO UPDATE SET enabled=$2',[room,flags.manage]);await audit(db,s.user,'ROOM_FLAGS',room,null,flags);});return {ok:true};
+ }
+ if(p==='/api/admin/voice-status'&&method==='GET'){
+  const room=id(url.searchParams.get('roomId'));
+  const existing=await getPool().query("SELECT data->>'voiceRoomEnabled' AS voice_enabled FROM hz_rooms WHERE room_id=$1",[room]);
+  if(!existing.rowCount)fail('등록된 채팅방을 선택해 주세요.',404);
+  const enabled=existing.rows[0]?.voice_enabled==='true';
+  const adapter=status.client?.voiceRoomAdapter;
+  if(!adapter||typeof adapter.status!=='function')
+    return {enabled,configured:false,reachable:false,statusKnown:false,verified:false};
+  try{
+   const state=await adapter.status({roomId:room,botUserId:String(status.client?.userId??'')});
+   return {enabled,configured:true,reachable:state?.statusKnown===true,
+    statusKnown:state?.statusKnown===true,localActive:state?.localActive===true,
+    localBusyOtherRoom:state?.localBusyOtherRoom===true,verified:state?.verified===true};
+  }catch{
+   // Do not expose bridge credentials or internal HTTP responses to the browser.
+   return {enabled,configured:true,reachable:false,statusKnown:false,verified:false};
+  }
  }
  if(p==='/api/admin/room-admins'&&method==='GET'){
   const room=id(url.searchParams.get('roomId'));
