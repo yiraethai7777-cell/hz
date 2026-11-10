@@ -4,7 +4,7 @@ function format(rows,all=false){
  const lines=rows.length?rows.map((v,i)=>`${i+1}. ${v.user_name??v.name}: ${v.count??v.chat_count}회`):['아직 채팅 기록이 없습니다.'];
  for(const line of lines){if(size+line.length>2500&&page.length){chunks.push(page.join('\n'));page=[];size=0;}page.push(line);size+=line.length+1;}
  if(page.length)chunks.push(page.join('\n'));
- return chunks.map((body,i)=>`💬 ${all?'전체 채팅 순위 ('+rows.length+'명)':'채팅 순위 TOP 10'}${chunks.length>1?' · '+(i+1)+'/'+chunks.length:''}\n${'\u200b'.repeat(1200)}\n${body}`);
+ return chunks.map((body,i)=>`💬 카카오톡 관리 매니저 | ${all?'전체 채팅 순위 ('+rows.length+'명)':'채팅 순위 TOP 10'}${chunks.length>1?' · '+(i+1)+'/'+chunks.length:''}\n${'\u200b'.repeat(1200)}\n${body}`);
 }
 async function messages(db,room,all=false,botId=''){
  const ranks=await require('./chat-ranking-data').getRanking(db,room,botId);
@@ -21,7 +21,7 @@ function cleanName(value){
 // long-message fold. A bar length of 16 means 100% of the leading count.
 function formatTopBars(snapshot){
  const rows=Array.isArray(snapshot?.top)?snapshot.top.slice(0,10):[];
- const title='💬 우리 방 채팅 순위 TOP 10';
+ const title='💬 카카오톡 관리 매니저 | 채팅 순위 TOP 10';
  if(!rows.length)return title+FOLD+'\n━━━━━━━━━━━━━━━━━━\n아직 채팅 기록이 없습니다.\n━━━━━━━━━━━━━━━━━━';
  const counts=rows.map(row=>{
   const value=String(row.count??'0');
