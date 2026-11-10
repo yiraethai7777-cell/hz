@@ -51,19 +51,29 @@ test('invalid sale amounts and missing message IDs never mutate inventory',()=>f
  assert.equal((await pool.query('SELECT * FROM hz_mining_actions')).rows.length,0);
 }));
 
-test('progress edits one exact sent message after inventory commit',()=>fixture(async pool=>{
- const edits=[],waits=[],sent=[];const ctx=c('#채굴');ctx.send=async text=>{sent.push(text);return {body:{status:0,logId:'90071992547409931234'}};};ctx.chat={editMessage:async(room,log,text)=>{assert.equal((await pool.query('SELECT bag FROM hz_mining_players')).rows[0].bag['석탄'],1);edits.push({room,log,text});return {body:{status:0}};}};
+test('mining result is sent once immediately after inventory commit; no progress or edits',()=>fixture(async pool=>{
+ const edits=[],waits=[],sent=[];const ctx=c('#채굴');
+ ctx.send=async text=>{
+  assert.equal((await pool.query('SELECT bag FROM hz_mining_players')).rows[0].bag['석탄'],1);
+  sent.push(text);return {body:{status:0,logId:'90071992547409931234'}};
+ };
+ ctx.chat={editMessage:async(...args)=>{edits.push(args);throw Error('editing disabled');}};
  await createMining({pool,random:()=>0,wait:async ms=>waits.push(ms)}).handle(ctx);
- assert.deepEqual(sent,['⛏ 카카오톡 게임 매니저 | 광질중.']);assert.equal(edits.length,5);assert.equal(edits[0].text,'⛏ 카카오톡 게임 매니저 | 광질중..');assert.equal(edits[1].text,'⛏ 카카오톡 게임 매니저 | 광질중...');assert.match(edits[4].text,/채굴 성공/);assert.ok(edits.every(e=>e.log==='90071992547409931234'));assert.deepEqual(waits,[1000,1000,1000,1000,1000]);
+ assert.equal(sent.length,1);
+ assert.match(sent[0],/^⛏ 카카오톡 게임 매니저 \| 채굴 성공/);
+ assert.deepEqual(waits,[],'no animation delays');
+ assert.deepEqual(edits,[],'no message editing');
 }));
-test('rejected progress edit falls back to result without rolling back loot',()=>fixture(async pool=>{
- const sent=[],ctx=c('#채굴');ctx.send=async text=>{sent.push(text);return {body:{status:0,logId:'12345'}};};ctx.chat={editMessage:async()=>({status:-1})};
- const s=createMining({pool,random:()=>0,wait:async()=>{}});await s.handle(ctx);assert.equal(sent.length,2);assert.match(sent[1],/채굴 성공/);assert.match(await s.execute(c('#광물인벤')),/석탄 · 1개/);
+
+test('mining result is sent once without edit API or outgoing progress log ID',()=>fixture(async pool=>{
+ const sent=[],ctx=c('#채굴');
+ ctx.send=async text=>{sent.push(text);return {status:0};};
+ ctx.chat={editMessage:()=>assert.fail('mining must never edit messages')};
+ await createMining({pool,random:()=>0,wait:()=>assert.fail('no animation')}).handle(ctx);
+ assert.equal(sent.length,1);
+ assert.match(sent[0],/채굴 성공/);
+ assert.match(await createMining({pool}).execute(c('#광물인벤')),/석탄 · 1개/);
 }));
-test('missing progress logId never edits the input message',async()=>{
- const sent=[],ctx={roomId:'1000',messageId:'original',send:async t=>{sent.push(t);return {status:0};},chat:{editMessage:()=>assert.fail('No confirmed outgoing logId')}};
- await require('../game/mining-progress').send(ctx,'result',async()=>{});assert.deepEqual(sent,['⛏ 카카오톡 게임 매니저 | 광질중.','result']);
-});
 
 test('pick purchases debit once, unlock locations and retain cooldown and ownership',()=>fixture(async pool=>{
  const s=createMining({pool,random:()=>0,now:()=>100000,link:async()=>{}});await s.execute(c('#채굴'));
