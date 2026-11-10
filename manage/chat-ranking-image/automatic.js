@@ -26,7 +26,7 @@ async function sendRankingImage(db,ctx){
    const arden=require('../../shared/arden-style').activeFor(ctx.roomId);
    const buffer=await renderRanking({...snapshot,arden});
    await sendPng(ctx.client,ctx.roomId,buffer,{
-    caption:(arden?'📊 𝑨𝑹𝑫𝑬𝑵 | ACTIVITY · ':'💬 우리 방 채팅 순위 TOP 10 · ')+snapshot.today,
+    caption:(arden?'📊 𝑨𝑹𝑫𝑬𝑵 | ACTIVITY · ':'💛 카카오톡 관리 매니저 | 채팅순위 TOP 10 · ')+snapshot.today,
     width:1200,height:1370,filename:'chat-ranking.png'
    });
    imageSent=true;
