@@ -43,10 +43,10 @@ test('block target validation and command detection',async()=>{
  assert.equal(blocks.commandLike('#정답 답'),true);
  assert.equal(blocks.commandLike('오늘은 날씨가 좋아요'),false);
 });
-test('router stops all blocked users before game, VALORANT or admin commands',()=>{
+test('router stops blocked users before game and management commands',()=>{
  const source=fs.readFileSync(path.join(__dirname,'../shared/router.js'),'utf8');
  const gate=source.indexOf('if(await blocks.blocked(roomId,senderId))');
- const valorant=source.indexOf('const newValorantCommand=');
- assert.ok(gate>=0&&valorant>gate);
- assert.match(source,/await management\.message\(\{client,roomId,userId:senderId,userName/);
+ const management=source.indexOf('await management.message({client,roomId,userId:senderId,userName');
+ assert.ok(gate>=0&&management>gate);
+ assert.doesNotMatch(source,/newValorantCommand|RETIRED_VALORANT_COMMANDS/);
 });
