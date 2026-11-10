@@ -13,8 +13,8 @@ function queueQuizSave(rid,job){
  return next;
 }
 function fastQuizResult(q,uid,name){
- const clean=String(name).replace(/[\\u0000-\\u001f]/g,'');
- const mention=/^\\d+$/.test(uid)?String.fromCharCode(2)+uid+String.fromCharCode(3)+clean+String.fromCharCode(4):'@'+clean;
+ const clean=String(name).replace(/[\u0000-\u001f]/g,'');
+ const mention=/^\d+$/.test(uid)?String.fromCharCode(2)+uid+String.fromCharCode(3)+clean+String.fromCharCode(4):'@'+clean;
  // Fast answers are announced before the database transaction. Do not invent
  // total wins or level-up results, which are only known after the reward commits.
  return require('../game/quiz-design').correctAnswerText({
