@@ -1,0 +1,29 @@
+:root{--bg:#101215;--panel:#1a1f22;--line:#343c42;--text:#f4f5ee;--muted:#a8b3b2;--lime:#ffde8b;--cyan:#d2e6d7;color-scheme:dark}
+body{background:radial-gradient(ellipse 950px 520px at 78% 4%,#182e2a,transparent 85%),var(--bg)}
+.topbar .brand,footer .brand{font-size:18px;letter-spacing:-.06em;font-weight:800;color:#f5f6ee}
+.topbar .brand-dot,footer .brand-dot{background:#ffde8b}
+.hero h1{letter-spacing:-.065em}.hero h1 span{color:#ffde8b}
+.hero-lead{color:#bdc8c1}
+.hero-actions .button.lime{background:#f1d686;color:#1b2225;border-radius:10px;font-weight:800}
+.hero-actions .button.lime:hover{background:#ffe9a6}
+.topbar .nav-admin{border-color:#536151;color:#f5db9c}
+.console{background:#202622;border-color:#405148}
+.console-top .mini-brand{font-weight:800;font-size:12px;letter-spacing:.06em}
+.command-stage{background:radial-gradient(ellipse at 70% 40%,#314839,transparent 65%)}
+.feature-strip{border-top:1px solid #3b4640;border-bottom:1px solid #3b4640}
+.game-card{background:#1a201d;border:1px solid #394841;border-radius:18px}
+.game-card.card-featured{background:#283528;border-color:#51634b}
+.game-card code{color:#f0de9b}
+.management-section{padding-top:95px;padding-bottom:85px;border-bottom:1px solid #353e39}
+.management-section .section-heading h2{font-size:clamp(30px,3.5vw,47px);line-height:1.3}
+.management-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:34px}
+.management-grid article{display:flex;flex-direction:column;align-items:flex-start;min-height:282px;padding:28px;border-radius:18px;background:#1a231e;border:1px solid #334439;position:relative;overflow:hidden}
+.management-grid article:before{content:'';position:absolute;right:-40px;top:-60px;width:180px;height:180px;border:1px solid #455d48;border-radius:50%;opacity:.45}
+.m-card-index{font-size:10px;letter-spacing:.15em;font-weight:800;color:#bfd1b7}
+.m-card-icon{font-size:33px;font-weight:800;color:#e6d793;margin:25px 0 6px}
+.management-grid h3{font-size:21px;letter-spacing:-.045em;margin:0 0 7px}
+.management-grid p{font-size:12px;line-height:1.8;color:#aebdb1;margin-bottom:19px}
+.management-grid a,.management-grid code{font-family:inherit;font-weight:800;font-size:12px;color:#f0db9a;margin-top:auto}
+.privacy-note code,.steps code{color:#f7db89}
+@media(max-width:900px){.management-grid{grid-template-columns:1fr}.management-grid article{min-height:210px}.management-section{padding-top:65px;padding-bottom:45px}}
+@media(max-width:680px){.topbar .brand{font-size:15px}.topbar nav{gap:9px}.topbar .nav-admin{font-size:10px}.management-section .section-heading h2{font-size:34px}}
