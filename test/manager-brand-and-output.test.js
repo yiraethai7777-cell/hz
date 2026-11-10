@@ -58,12 +58,3 @@ test('mining output is immediately sent exactly once; no progress sender is link
  assert.match(cmd,/require\('\.\/mining'\)\.handle/);
 });
 
-test('legacy Valorant commands are not in new help or active game aliases',()=>{
- const help=read('shared/help.js'),aliases=read('game/command-aliases.js');
- for(const token of ['!발로전적','!스킨','!내전예약','!듀오모집','!파티모집']){
-  assert.equal(help.includes(token),false,token);
- }
- assert.equal(require('../game/command-aliases').isGameCommand('!발로전적'),false);
- assert.equal(require('../game/command-aliases').isGameCommand('!낚시'),true);
- assert.match(aliases,/const RETIRED=new Set/);
-});

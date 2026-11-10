@@ -19,7 +19,7 @@ async function emit(type,template,{warningDb,roomId='777777',userId='12345678901
    return {rows:[],rowCount:1};
   }},
   promoTick:async()=>{},autoFishTick:async()=>{},quizExpiryTick:async()=>{},
-  roomFlags:async()=>({manage:true,locked:false,name:'발로란트 학교',
+  roomFlags:async()=>({manage:true,locked:false,name:'테스트 채팅방',
    joinTemplate:type==='join'?template:null,
    leaveTemplate:type==='leave'?template:null}),
   validOpenProfileLink:()=>'',saveOpenProfileLink:async()=>{},
@@ -38,7 +38,7 @@ async function emit(type,template,{warningDb,roomId='777777',userId='12345678901
  };
  await session(ctx).attachHZBot(client);
  try{
-  await handlers[type]({room:{id:roomId,name:'발로란트 학교'},
+  await handlers[type]({room:{id:roomId,name:'테스트 채팅방'},
     member:{ids:[userId],names:['ㅇㅡㅇ']}});
  }finally{
   clearInterval(ctx.promoTimer);
