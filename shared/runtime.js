@@ -40,7 +40,7 @@ const OWNER_IDS = new Set(String(process.env.HZ_OWNER_IDS || process.env.HZ_OWNE
 const {n,norm,nowK,dayK,sleep,id,blankRoom,fixRoom,initDb,withRoom,roomFlags,send}=require('./state')(ctx);
 const {levelNeed,addXp,player,shuffle,nextQuiz,fishPick,fishValue,gameHelp,petBonus,rodLuck,awardFish,drawPet,enhancementCost,enhancementNeed,autoFishTick,quizExpiryTick,handleGame,issueQuizOnly}=require('../game/features')(ctx);
 const {formatMemberTemplate,isManagerType,isOwnerType,isSubManagerType,safeUserId,parseExactAttachment,exactId,attachmentRoots,rawMentions,targetFrom,resolveTarget,commandTarget,senderExactId,processMentionAlerts,deepFindUserId,replyTargetFrom,idCommandTarget,lastJoinAt,activeWarningCount,validOpenProfileLink,findOpenProfileLink,profileDiagnostic,saveOpenProfileLink,extractProfile,pickDeleteRoom,pickDeleteActor,pickDeletedText,originalMessageId,deletedMessageId,saveDeleteCache,lookupDeleteCache,manageHelp,profileObserve,addChatCount,chatInfo,chatRanking,messageFingerprint,kickMember,autoSpamCheck,handleManageStats,handleManage,promoSlot,promoTick}=require('../manage/features')(ctx);
-const {attachHZBot}=require('./session')(ctx);
+const {attachHZBot,refreshQuizRoom}=require('./session')(ctx);
 
 Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
 "economyEnabled":{get:()=>economyEnabled},
@@ -148,7 +148,7 @@ Object.defineProperties(ctx,{"Pool":{get:()=>Pool},
 "globalChat":{get:()=>globalChat,set:value=>{globalChat=value;}},
 "globalBotId":{get:()=>globalBotId,set:value=>{globalBotId=value;}},
 "OWNER_IDS":{get:()=>OWNER_IDS},
-"attachHZBot":{get:()=>attachHZBot}});
+"attachHZBot":{get:()=>attachHZBot},"refreshQuizRoom":{get:()=>refreshQuizRoom}});
 return ctx;
 }
 let runtime;
@@ -207,4 +207,5 @@ async function respondRodRestore(context){
 }
 let profileWatcher;
 function startProfileWatch(client){if(!runtime)return;profileWatcher ||= require('../manage/profile-watch').createWatcher(runtime,client);profileWatcher.start();}
-module.exports={attachModules,createRuntime,startProfileWatch,buyRod,transferFish,respondRodRestore};
+async function syncQuizRoom(room){if(runtime)await runtime.refreshQuizRoom(room);}
+module.exports={attachModules,createRuntime,startProfileWatch,buyRod,transferFish,respondRodRestore,syncQuizRoom};
