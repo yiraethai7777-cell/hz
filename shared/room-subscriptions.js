@@ -19,9 +19,37 @@ function validRoom(room){const s=String(room??'');if(!/^[1-9]\d{0,29}$/.test(s))
 function validPlan(plan){if(!Object.hasOwn(PLANS,String(plan)))throw Error('관리·게임·종합 중 요금제를 선택해 주세요.');return String(plan);}
 function validDays(days){const n=Number(days);if(!Number.isInteger(n)||n<1||n>3650)throw Error('이용 일수는 1~3650일 사이의 정수로 입력해 주세요.');return n;}
 async function init(db=getPool()){
- if(db!==getPool()){await db.query(schema);return;}
- if(!initialized)initialized=db.query(schema).catch(error=>{initialized=null;throw error;});
+ if(db!==getPool()){
+  await db.query(schema);
+  await db.query("CREATE TABLE IF NOT EXISTS gl_room_subscription_legacy (room_id TEXT PRIMARY KEY)");
+  return;
+ }
+ if(!initialized)initialized=(async()=>{
+  await db.query(schema);
+  await db.query("CREATE TABLE IF NOT EXISTS gl_room_subscription_legacy (room_id TEXT PRIMARY KEY)");
+  await db.query("CREATE TABLE IF NOT EXISTS gl_room_subscription_setup (singleton SMALLINT PRIMARY KEY CHECK(singleton=1),configured_at TIMESTAMPTZ DEFAULT NOW())");
+  // One-time grandfathering: rooms already configured before billing is
+  // deployed keep working. Newly joined, unlicensed rooms do not.
+  const c=await db.connect();
+  try{
+   await c.query('BEGIN');
+   const first=await c.query('INSERT INTO gl_room_subscription_setup(singleton) VALUES(1) ON CONFLICT DO NOTHING RETURNING singleton');
+   if(first.rowCount)await c.query('INSERT INTO gl_room_subscription_legacy(room_id) SELECT room_id FROM hz_rooms ON CONFLICT DO NOTHING');
+   await c.query('COMMIT');
+  }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
+ })().catch(error=>{initialized=null;throw error;});
  await initialized;
+}
+async function permitted(roomId,db=getPool()){
+ const room=validRoom(roomId);
+ await init(db);
+ const result=await db.query("SELECT"+
+  " EXISTS(SELECT 1 FROM gl_room_subscriptions WHERE room_id=$1) AS issued,"+
+  " EXISTS(SELECT 1 FROM gl_room_subscriptions WHERE room_id=$1 AND status='active' AND expires_at>NOW()) AS active,"+
+  " EXISTS(SELECT 1 FROM gl_room_subscription_legacy WHERE room_id=$1) AS legacy",
+ [room]);
+ const d=result.rows[0];
+ return d.issued?d.active:d.legacy;
 }
 function view(row,now=Date.now()){
  if(!row)return null;
@@ -160,4 +188,4 @@ async function start(client){
  timer=setInterval(()=>{void sweep(client);},15000);
  timer.unref?.();
 }
-module.exports={PLANS,init,get,view,validPlan,validDays,timeLeft,notice,grant,changePlan,extend,expire,sendNotice,sweep,start};
+module.exports={PLANS,init,permitted,get,view,validPlan,validDays,timeLeft,notice,grant,changePlan,extend,expire,sendNotice,sweep,start};
