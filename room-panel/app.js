@@ -1,6 +1,6 @@
 'use strict';
 const $=s=>document.querySelector(s);const slug=new URLSearchParams(location.search).get('site')||'';let csrf='';
-const names={manage:'관리 기능',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지'};
+const names={manage:'관리 기능',game:'게임 기능',quiz:'퀴즈 기능',fishing:'낚시 기능',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지'};
 function note(s,error=false){$('#notice').textContent=s;$('#notice').className=error?'error':'';}
 async function api(path,method='GET',body){
  const scopedPath=path.startsWith('/api/room-portal/')?path+(path.includes('?')?'&':'?')+'site='+encodeURIComponent(slug):path;
@@ -105,14 +105,14 @@ $('#accountForm').addEventListener('submit',e=>{e.preventDefault();task(async()=
  await api('/api/room-portal/account','POST',{username:$('#newUsername').value,currentPassword:$('#currentPassword').value,newPassword:$('#newPassword').value});
  csrf='';$('#app').hidden=true;$('#login').hidden=false;$('#accountForm').reset();note('계정 정보가 변경되었습니다. 새 아이디와 비밀번호로 다시 로그인해 주세요.');
 });});
-let currentMembers=[],canEditMemberRoles=false,canWarnMembers=false,rankings=[];
+let currentMembers=[],canEditMemberRoles=false,canWarnMembers=false,canManageNotes=false,canKick=false,selectedMember=null,rankings=[];
 function switchTab(tab){
  $('#settingsView').hidden=tab!=='settings';
  $('#membersView').hidden=tab!=='members';
  $('#ranksView').hidden=tab!=='ranks';
- $('#tabSettings').className=tab==='settings'?'':'secondary';
- $('#tabMembers').className=tab==='members'?'':'secondary';
- $('#tabRanks').className=tab==='ranks'?'':'secondary';
+ $('#tabSettings').className=tab==='settings'?'active':'';
+ $('#tabMembers').className=tab==='members'?'active':'';
+ $('#tabRanks').className=tab==='ranks'?'active':'';
  history.replaceState(null,'',location.pathname+location.search+(tab==='ranks'?'#ranks':tab==='members'?'#members':''));
 }
 function drawMembers(){
@@ -128,7 +128,7 @@ function drawMembers(){
   const wrap=document.createElement('div');wrap.className='memberCard';
   if(m.imageUrl&&/^https:\/\//.test(m.imageUrl)){
    const pic=document.createElement('img');pic.className='memberAvatar';pic.alt=m.name+' 프로필 사진';pic.src=m.imageUrl;pic.loading='lazy';pic.referrerPolicy='no-referrer';wrap.append(pic);
-  }
+  }else{const fallback=document.createElement('div');fallback.className='memberAvatarFallback';fallback.textContent=String(m.name||'?').slice(0,1).toUpperCase();wrap.append(fallback);}
   const info=document.createElement('div');info.className='memberInfo';
   const name=document.createElement('strong');name.textContent=m.name;info.append(name);
   const id=document.createElement('div');id.className='muted';id.textContent='ID: '+m.id;info.append(id);
@@ -170,6 +170,12 @@ function drawMembers(){
    }));
    warnRow.append(warnBtn);info.append(warnRow);
   }
+  if(canManageNotes||canKick&&!(m.roomRole||m.superAdmin)){
+   const row=document.createElement('div');row.className='memberActions';
+   const details=document.createElement('button');details.type='button';details.className='secondary';details.textContent='관리 메모 · 상세';
+   details.addEventListener('click',()=>task(()=>showMemberModal(m)));
+   row.append(details);info.append(row);
+  }
   wrap.append(info);
   (m.roomRole||m.superAdmin||m.admin?staffList:regularList).append(wrap);
  }
@@ -179,12 +185,45 @@ function drawMembers(){
  if(!staffCount)staffList.textContent='표시할 관리자가 없습니다.';
  if(!regularCount)regularList.textContent='표시할 일반 인원이 없습니다.';
 }
+async function showMemberModal(member){
+ selectedMember=member;
+ $('#dialogMemberName').textContent=member.name;
+ $('#dialogMemberId').textContent='사용자 ID · '+member.id;
+ $('#memberNoteSection').hidden=!canManageNotes;
+ $('#memberKickSection').hidden=!canKick||!!member.roomRole||!!member.superAdmin;
+ $('#memberMemo').value='';
+ if(canManageNotes){
+  const data=await api('/api/room-portal/note?'+new URLSearchParams({userId:member.id}));
+  $('#memberMemo').value=data.note||'';
+ }
+ $('#memberDialog').showModal();
+}
+$('#saveMemberMemo').addEventListener('click',()=>task(async()=>{
+ if(!selectedMember||!canManageNotes)throw Error('메모 관리 권한이 없습니다.');
+ const btn=$('#saveMemberMemo');btn.disabled=true;
+ try{
+  await api('/api/room-portal/note','POST',{userId:selectedMember.id,note:$('#memberMemo').value});
+  note(selectedMember.name+'님의 관리 메모를 저장했습니다.');
+ }finally{btn.disabled=false;}
+}));
+$('#kickMember').addEventListener('click',()=>task(async()=>{
+ const member=selectedMember;
+ if(!member||!canKick||member.roomRole||member.superAdmin)throw Error('강퇴 권한이 없는 대상입니다.');
+ if(!confirm(member.name+'님을 이 채팅방에서 강퇴하시겠습니까? (1/2)'))return;
+ if(!confirm('최종 확인: '+member.name+'('+member.id+')님을 내보냅니다. 실행하시겠습니까? (2/2)'))return;
+ const btn=$('#kickMember');btn.disabled=true;
+ try{
+  await api('/api/room-portal/kick','POST',{userId:member.id,confirm:'KICK_CONFIRMED'});
+  $('#memberDialog').close();await loadMembers();note(member.name+'님의 강퇴 명령을 실행했습니다.');
+ }finally{btn.disabled=false;}
+}));
+$('#memberDialog').addEventListener('close',()=>{selectedMember=null;});
 async function loadMembers(){
  const d=await api('/api/room-portal/members');
  currentMembers=(d.members||[]).sort((a,b)=>{
   const role=m=>m.roomRole==='방장'?0:m.roomRole==='부방장'?1:m.superAdmin?2:m.admin?3:4;
   return role(a)-role(b)||a.name.localeCompare(b.name,'ko')||a.id.localeCompare(b.id);
- });canEditMemberRoles=!!d.canEditRoles;
+ });canEditMemberRoles=!!d.canEditRoles;canManageNotes=!!d.canManageNotes;canKick=!!d.canKick;
  $('#memberCount').textContent=d.count+'명';
  $('#memberChecked').textContent='마지막 조회: '+new Date(d.checkedAt).toLocaleString('ko-KR');
  drawMembers();
