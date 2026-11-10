@@ -5,7 +5,9 @@ const assert=require('node:assert/strict');
 // Voice routing is tested without a real PostgreSQL instance. This only
 // mocks DB reads/command-block schema setup; integration tests use real DB.
 const dbModule=require('../shared/db');
-dbModule.getPool=()=>({query:async()=>({rows:[],rowCount:0})});
+dbModule.getPool=()=>({query:async sql=>/voiceRoomEnabled/.test(sql)
+  ? {rows:[{voice_enabled:'true'}],rowCount:1}
+  : {rows:[],rowCount:0}});
 // Mock a grandfathered, active room so voice routing tests stay focused on the
 // voice handler; subscription-expiry behavior is exercised by room-subscriptions.test.js.
 require('../shared/room-subscriptions').access=async()=>({allowed:true,subscription:null});
@@ -314,7 +316,7 @@ test('automatic room detection does not claim active voice server from a receive
 });
 
 
-test('voice join, join status and leave route without global initialization or a feature toggle', async () => {
+test('voice join, join status and leave route with room voice enabled, without global initialization', async () => {
   const {emit,sent}=fixture();
   for(const cmd of ['#보룸참가','#보룸참가상태','#보룸퇴장']){
     await emit(cmd);
