@@ -32,6 +32,9 @@ async function refreshQuizRoom(roomId){
 
 async function attachHZBot(client){
   ctx.globalClient=client;ctx.globalChat=client.chat||client;ctx.globalBotId=ctx.id(client.userId);await ctx.initDb();
+  // Subscription-aware quiz and automatic-fishing timers query this table at startup.
+  // Ensure the schema exists before those timers or callbacks can fire.
+  await require('./room-subscriptions').init(ctx.pool);
   await require('../manage/leave-reply').init(ctx.pool);
   // Warm all active quiz rooms once at startup. Per-message issue/answer has no DB read.
   const initialQuizRooms=await ctx.pool.query("SELECT room_id,data FROM hz_rooms WHERE (data->>'game')='true'");
