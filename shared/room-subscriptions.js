@@ -11,6 +11,7 @@ const schema="CREATE TABLE IF NOT EXISTS gl_room_subscriptions ("+
  "started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),expires_at TIMESTAMPTZ NOT NULL,"+
  "status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','expired')),"+
  "revision INTEGER NOT NULL DEFAULT 1,announced_revision INTEGER NOT NULL DEFAULT 0,"+
+ "notice_kind TEXT NOT NULL DEFAULT 'start' CHECK(notice_kind IN ('start','extend','change')),"+
  "actor_id TEXT NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())";
 let initialized;
 let timer;
@@ -79,9 +80,9 @@ function dateKST(value){return new Date(value).toLocaleString('ko-KR',{timeZone:
 function notice(info,kind='start'){
  const pkg=PLANS[info.plan],features=info.plan==='all'?'관리 + 게임':pkg.label;
  return [
-  '🤖 카카오톡 매니저 | '+(kind==='extend'?'요금제 연장':'봇 서비스 시작'),
+  '🤖 카카오톡 매니저 | '+(kind==='extend'?'요금제 연장':kind==='change'?'요금제 변경':'봇 서비스 시작'),
   '━━━━━━━━━━━━',
-  kind==='extend'?'✅ 봇 이용 기간이 연장되었습니다.':'✅ 봇 작동을 시작합니다.',
+  kind==='extend'?'✅ 봇 이용 기간이 연장되었습니다.':kind==='change'?'✅ 요금제 유형이 변경되었습니다.':'✅ 봇 작동을 시작합니다.',
   '📦 요금제 : '+info.planLabel+' ('+features+')',
   '📅 이용 기간 : '+(info.durationDays===7?'일주일 (7일)':info.durationDays+'일'),
   '⏳ 자동 종료까지 : '+timeLeft(info.remainingSeconds),
@@ -115,7 +116,7 @@ async function grant(db,{roomId,plan,days,actor}){
 async function changePlan(db,{roomId,plan,actor}){
  const room=validRoom(roomId),pkg=validPlan(plan);
  const r=await db.query("UPDATE gl_room_subscriptions SET plan=$2,actor_id=$3,"+
-  "revision=revision+1,updated_at=NOW() WHERE room_id=$1 RETURNING *",[room,pkg,String(actor)]);
+  "revision=revision+1,notice_kind='change',updated_at=NOW() WHERE room_id=$1 RETURNING *",[room,pkg,String(actor)]);
  if(!r.rowCount)throw Error('먼저 해당 방에 요금제를 발급해 주세요.');
  const data=view(r.rows[0]);
  if(data.active)await applyPlan(db,room,pkg);
@@ -126,7 +127,7 @@ async function extend(db,{roomId,days,actor}){
  const r=await db.query("UPDATE gl_room_subscriptions SET "+
   "expires_at=GREATEST(expires_at,NOW())+$2::int*INTERVAL '1 day',"+
   "duration_days=duration_days+$2,status='active',actor_id=$3,"+
-  "revision=revision+1,updated_at=NOW() WHERE room_id=$1 RETURNING *",
+  "revision=revision+1,notice_kind='extend',updated_at=NOW() WHERE room_id=$1 RETURNING *",
  [room,period,String(actor)]);
  if(!r.rowCount)throw Error('먼저 해당 방에 요금제를 발급해 주세요.');
  await applyPlan(db,room,r.rows[0].plan);
@@ -159,7 +160,8 @@ async function sendNotice(client,roomId,db=getPool()){
  const known=client.getKnownChatRooms?.();
  if(Array.isArray(known)&&!known.some(x=>String(x.id)===room))return false;
  const data=view(row);
- await (client.chat||client).sendText(room,notice(data,row.revision>1?'extend':'start'));
+ const result=await (client.chat||client).sendText(room,notice(data,row.notice_kind||'start'));
+ if(result===false||result?.ok===false||result?.success===false)throw Error('카카오톡 시작 안내 전송 결과가 실패로 반환됐습니다.');
  await db.query('UPDATE gl_room_subscriptions SET announced_revision=$2 WHERE room_id=$1 AND revision=$2',[room,row.revision]);
  return true;
 }
