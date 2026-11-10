@@ -31,6 +31,25 @@ test('both chat ranking commands use text; TOP 10 is branded',()=>{
  assert.match(formatted,/1\. 민수: 12회/);
 });
 
+test('chat ranking includes proportional text bars without using the image transport',async()=>{
+ const db={query:async(sql,args)=>{
+  assert.match(sql,/FROM gl_manage_chat_counts/);
+  assert.deepEqual(args,['100','9999']);
+  return {rows:[
+   {user_id:'1001',user_name:'민수',count:'120'},
+   {user_id:'1002',user_name:'영희',count:'60'}
+  ]};
+ }};
+ const messages=await ranking.messages(db,'100',false,'9999');
+ assert.equal(messages.length,1);
+ assert.match(messages[0],/^💬 카카오톡 관리 매니저 \| 채팅 순위 TOP 10/);
+ assert.match(messages[0],/1\. 민수 · 120회\n┃ █{16}/);
+ assert.match(messages[0],/2\. 영희 · 60회\n┃ █{8}░{8}/);
+ const full=await ranking.messages(db,'100',true,'9999');
+ assert.equal(full.length,1);
+ assert.match(full[0],/전체 채팅 순위/);
+});
+
 test('mining output is immediately sent exactly once; no progress sender is linked',()=>{
  const mining=read('game/mining.js');
  assert.match(mining,/await ctx\.send\(result\);console\.log/);
