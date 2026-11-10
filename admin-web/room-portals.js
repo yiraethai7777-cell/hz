@@ -38,7 +38,7 @@ function fill(p){
  scrollTo({top:0,behavior:'smooth'});notice('선택한 고객의 설정을 편집 중입니다. 비밀번호를 비워두면 유지됩니다.');
 }
 async function load(){
- const [a,b]=await Promise.all([api('/api/admin/rooms'),api('/api/admin/room-portals')]);rooms=a.rooms;portals=b.portals;
+ const b=await api('/api/admin/room-portals');rooms=(b.rooms||[]).map(r=>({room_id:r.id,name:r.name}));portals=b.portals;
  const selected=$('#room').value;$('#room').replaceChildren();
  for(const r of rooms){const option=document.createElement('option');option.value=r.room_id;option.textContent=(r.name||'채팅방')+' · '+r.room_id;$('#room').append(option);}
  if(rooms.some(r=>r.room_id===selected))$('#room').value=selected;
