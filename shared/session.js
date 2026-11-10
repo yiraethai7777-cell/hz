@@ -15,12 +15,11 @@ function queueQuizSave(rid,job){
 function fastQuizResult(q,uid,name){
  const clean=String(name).replace(/[\u0000-\u001f]/g,'');
  const mention=/^\d+$/.test(uid)?String.fromCharCode(2)+uid+String.fromCharCode(3)+clean+String.fromCharCode(4):'@'+clean;
- return '[ ✓ ] '+mention+' 님이 정답을 맞혔습니다.\n'
-  +'\u200b'.repeat(1200)+'\n━━━━━━━━━━━━━━━━━━━━\n[ QUIZ RESULT ]\n\n'
-  +'정답        | '+q.answers[0]+'\n'
-  +'획득 코인   | +'+ctx.n(ctx.QUIZ_REWARD)+'코인\n'
-  +'획득 경험치 | +'+ctx.QUIZ_XP+' XP\n\n'
-  +'━━━━━━━━━━━━━━━━━━━━\nQUIZ SYSTEM';
+ // Fast answers are announced before the database transaction. Do not invent
+ // total wins or level-up results, which are only known after the reward commits.
+ return require('../game/quiz-design').correctAnswerText({
+  mention,answer:q.answers[0],reward:ctx.QUIZ_REWARD,xp:ctx.QUIZ_XP
+ });
 }
 
 async function attachHZBot(client){
@@ -522,5 +521,5 @@ async function attachHZBot(client){
   // so the legacy handler would overwrite the unified original-text/warning handler.
   return {botUserId:ctx.globalBotId}
 }
-return {attachHZBot};
+return {attachHZBot,fastQuizResult};
 };

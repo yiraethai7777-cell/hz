@@ -36,3 +36,21 @@ test('correct answer without level up omits promotion line',()=>{
  const text=design.correctAnswerText({mention:'@참가자',answer:'4',reward:10000,xp:30,wins:1,level:1,levelUps:0});
  assert.doesNotMatch(text,/레벨업/);
 });
+
+test('fast-path quiz answer uses the same manager design (regression: QUIZ SYSTEM)',()=>{
+ const fast=require('../shared/session')({QUIZ_REWARD:10000,QUIZ_XP:30}).fastQuizResult;
+ const output=fast({answers:['목성']},'not-numeric','테스터');
+ assert.match(output,/^🧩 카카오톡 게임 매니저 \| 퀴즈 정답/);
+ assert.match(output,/🎉 @테스터님, 정답입니다!/);
+ assert.match(output,/✅ 정답 : 목성/);
+ assert.match(output,/🪙 획득 코인 : \+10,000코인/);
+ assert.match(output,/✨ 획득 경험치 : \+30 XP/);
+ assert.deepEqual(output.match(/^━+$/gm),['━━━━━━━━━━━━','━━━━━━━━━━━━']);
+ assert.doesNotMatch(output,/QUIZ SYSTEM|QUIZ RESULT|NEXI|\u200b/);
+ assert.doesNotMatch(output,/누적 정답|레벨업/,'fast path must not claim uncommitted totals');
+});
+test('fast-path KakaoTalk mention token remains native and intact',()=>{
+ const fast=require('../shared/session')({QUIZ_REWARD:10000,QUIZ_XP:30}).fastQuizResult;
+ const output=fast({answers:['4']},'123456','테스터');
+ assert.ok(output.includes('\u0002123456\u0003테스터\u0004'));
+});
