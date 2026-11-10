@@ -101,6 +101,12 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
+      // Subscription enforcement precedes every chat command, including bot-owner
+      // power commands. An expired plan cannot be revived from KakaoTalk.
+      const license=await require('./room-subscriptions').get(roomId);
+      if(license&&!license.active)return;
+      if(license?.plan==='manage'&&(/^!게임(?:on|off|명령어|상태)?$/.test(text)||gameAliases.isGameCommand(text)))return;
+      if(license?.plan==='game'&&(/^!(?:관리on|관리off|관리자추가|관리자삭제|입장변경|퇴장변경|경고|kick|k|봇방지정)(?:\s|$)/.test(text)))return;
       // Global 30-second maintenance pause: no commands or passive handling.
       const maintenance={active:()=>Date.now()<(global.__nexiPauseUntil||0),start:ms=>{global.__nexiPauseUntil=Date.now()+ms;}};
       if(text==='!봇재부팅'){
