@@ -15,3 +15,24 @@ test('quiz question sends exactly one chat message and never invokes photo trans
  const text=design.questionText({kind:'과학',question:'문제',expiresAt:Date.now()+60000});
  await send({sendText:async(room,body)=>calls.push({room,body})},'1',text);assert.deepEqual(calls,[{room:'1',body:text}]);
 });
+
+test('quiz question keeps shorter 12-character separators above and below the fold',()=>{
+ const text=design.questionText({kind:'상식',question:'문제',expiresAt:61000},{now:1000});
+ assert.deepEqual(text.match(/^━+$/gm),['━━━━━━━━━━━━','━━━━━━━━━━━━']);
+});
+test('correct answer uses unified manager presentation and retains earned rewards',()=>{
+ const text=design.correctAnswerText({mention:'@참가자',answer:'목성',reward:10000,xp:30,wins:4,level:3,levelUps:1});
+ assert.match(text,/^🧩 카카오톡 게임 매니저 \| 퀴즈 정답/);
+ assert.match(text,/🎉 @참가자님, 정답입니다!/);
+ assert.match(text,/✅ 정답 : 목성/);
+ assert.match(text,/🪙 획득 코인 : \+10,000코인/);
+ assert.match(text,/✨ 획득 경험치 : \+30 XP/);
+ assert.match(text,/🏆 누적 정답 : 4회/);
+ assert.match(text,/🌟 레벨업! Lv\.3/);
+ assert.deepEqual(text.match(/^━+$/gm),['━━━━━━━━━━━━','━━━━━━━━━━━━']);
+ assert.doesNotMatch(text,/NEXI|KakaoTalk Manager|LEVEL UP|\u200b/);
+});
+test('correct answer without level up omits promotion line',()=>{
+ const text=design.correctAnswerText({mention:'@참가자',answer:'4',reward:10000,xp:30,wins:1,level:1,levelUps:0});
+ assert.doesNotMatch(text,/레벨업/);
+});

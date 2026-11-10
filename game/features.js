@@ -266,7 +266,7 @@ async function handleGameCore(d,c,msg,isSelf){
        expiresAt:now+ctx.QUIZ_SECONDS*1000
      };
 
-     return `🧩 카카오톡 게임 매니저 | 퀴즈\n━━━━━━━━━━━━━━━━━━\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
+     return `🧩 카카오톡 게임 매니저 | 퀴즈\n━━━━━━━━━━━━\nQ. ${q[1]}\n⏱ ${ctx.QUIZ_SECONDS}초\n정답을 채팅에 입력하세요.`;
    }
 
    const m=/^#정답(?:\s+([\s\S]+))?$/.exec(text);
@@ -319,16 +319,10 @@ async function handleGameCore(d,c,msg,isSelf){
        ?`\u0002${uid}\u0003${cleanName}\u0004`
        :`@${cleanName}`;
 
-     return `🧩 카카오톡 게임 매니저 | 퀴즈 정답!\n✅ ${mention} 님이 정답을 맞혔습니다.\n`+
-       `${'\u200b'.repeat(1200)}`+
-       `\n━━━━━━━━━━━━━━━━━━━━\n`+
-       `🎉 정답 결과\n\n`+
-       `정답        | ${answer}\n`+
-       `획득 코인   | +${ctx.n(ctx.QUIZ_REWARD)}코인\n`+
-       `획득 경험치 | +${ctx.QUIZ_XP} XP\n\n`+
-       `${up?`\n[ LEVEL UP ] Lv.${p.level}\n`:''}`+
-       `\n━━━━━━━━━━━━━━━━━━━━\n`+
-       `KakaoTalk Manager`;
+     return require('./quiz-design').correctAnswerText({
+       mention,answer,reward:ctx.QUIZ_REWARD,xp:ctx.QUIZ_XP,
+       wins:p.wins,level:p.level,levelUps:up
+     });
    }
   
   if(text==='#어망')return require('./net').catchNet(ctx,p,msg);
