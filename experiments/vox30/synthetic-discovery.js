@@ -4,7 +4,8 @@
 // The endpoint is a candidate Kakao TLS host, NOT verified as a VOX server.
 // This is never loaded by the Railway bot and never reads auth.json/env secrets.
 // A command-line --execute-once flag is required for any network I/O.
-const {createCodec,voxConnect,getDiscoveryBody,METHODS}=require('../../shared/vox30-protocol');
+const {createCodec,voxConnect,getDiscoveryBody,parseServerAddress,METHODS}=require('../../shared/vox30-protocol');
+const {tlsPreflight}=require('../../scripts/vox30-tls-probe');
 const {seedCbcBytes}=require('./seed');
 
 const SYNTHETIC_ID='9223372036854775806';
@@ -21,6 +22,19 @@ const CFG=Object.freeze({
   buildId:'NO_REAL_DEVICE',
 });
 const MAX_PROBE_TIMEOUT_MS=5000;
+
+const isPublicIpv4=host=>{
+  const octets=host.split('.').map(Number);
+  if(octets.length!==4||octets.some(n=>!Number.isInteger(n)||n<0||n>255))return false;
+  const [a,b,c]=octets;
+  return !(a===0||a===10||a===127||a>=224||
+    (a===100&&b>=64&&b<=127)||(a===169&&b===254)||
+    (a===172&&b>=16&&b<=31)||(a===192&&b===168)||
+    (a===192&&b===0)||(a===198&&(b===18||b===19))||
+    (a===192&&b===0&&c===2)||(a===198&&b===51&&c===100)||
+    (a===203&&b===0&&c===113));
+};
+
 
 function outcome(error) {
   const message=String(error?.message||'');
@@ -49,11 +63,12 @@ function report(status,detail={}) {
 }
 
 async function probeSyntheticDiscovery({
-  execute=false,connect=voxConnect,codec,
+  execute=false,connect=voxConnect,codec,verifyCallServerTls=tlsPreflight,
   timeoutMs=3500,
 }={}) {
   if(execute!==true)return report('blocked_requires_explicit_execute');
-  if(typeof connect!=='function'||!Number.isInteger(timeoutMs)||
+  if(typeof connect!=='function'||typeof verifyCallServerTls!=='function'||
+     !Number.isInteger(timeoutMs)||
      timeoutMs<100||timeoutMs>MAX_PROBE_TIMEOUT_MS)
     throw Error('잘못된 실험 연결 설정입니다.');
   const encryptedCodec=codec||createCodec({seed:seedCbcBytes()});
@@ -70,6 +85,28 @@ async function probeSyntheticDiscovery({
       const number=Number(reply?.callable?.toString());
       callable=number===1?'permitted':number===0?'denied':'unexpected';
     }catch {}
+    // Follow only a syntactically valid public IPv4 result from the
+    // TLS-verified discovery response. The follow-up sends TLS ClientHello
+    // ONLY and does not send VOX payloads, IDs, SDP or credentials.
+    let callServerTlsStatus='not_checked';
+    let validCallServerAddress=false;
+    if(callable==='permitted'){
+      try{
+        const target=parseServerAddress(reply);
+        validCallServerAddress=isPublicIpv4(target.host);
+        if(validCallServerAddress){
+          const tlsResult=await verifyCallServerTls({
+            host:target.host,port:target.port,servername:'kakao.com',timeoutMs,
+          });
+          callServerTlsStatus=tlsResult?.certificateVerified===true?
+            'tls_verified':String(tlsResult?.status||'unknown').slice(0,60);
+        }else{
+          callServerTlsStatus='blocked_nonpublic_ipv4';
+        }
+      }catch{
+        callServerTlsStatus='invalid_or_unverified_call_server';
+      }
+    }
     return report('matching_bson_frame_received',{
       hasCallableField:reply?.callable!==undefined,
       callable,
@@ -79,6 +116,7 @@ async function probeSyntheticDiscovery({
       hasOuterPortField:reply?.csSslPort!==undefined,
       hasNestedPortField:reply?.csSslAddr?.port!==undefined,
       hasServerIpv4Field:reply?.csSslAddr?.ip!==undefined,
+      validCallServerAddress,callServerTlsStatus,
     });
   } catch(error) {
     return report(outcome(error));
@@ -98,4 +136,4 @@ if(require.main===module) {
   });
 }
 
-module.exports={probeSyntheticDiscovery,SYNTHETIC_ID,CANDIDATE,CFG,outcome};
+module.exports={probeSyntheticDiscovery,SYNTHETIC_ID,CANDIDATE,CFG,outcome,isPublicIpv4};
