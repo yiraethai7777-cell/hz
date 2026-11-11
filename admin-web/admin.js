@@ -176,7 +176,7 @@ $('#super-admin-form').addEventListener('submit',e=>{e.preventDefault();task(asy
  await api('/api/admin/super-admins','POST',{roomId:room,userId,action:'add'});
  $('#super-admin-id').value='';await loadSuperAdmins();feedback('최고관리자를 추가했습니다.');
 });});
-$('#room-select').addEventListener('change',()=>{selectRoom();$('#voice-status-output').textContent='조회 버튼을 누르면 상태가 표시됩니다.';});$('#promo-room').addEventListener('change',selectPromo);
+$('#room-select').addEventListener('change',()=>{bulkKickPollToken++;selectRoom();$('#bulk-kick-output').textContent='선택한 방의 이전 실행 결과는 조회 버튼을 눌러 확인할 수 있습니다.';$('#voice-status-output').textContent='조회 버튼을 누르면 상태가 표시됩니다.';});$('#promo-room').addEventListener('change',selectPromo);
 async function loadCommandBlocks(){
  const room=$('#block-room').value,list=$('#command-block-list');list.replaceChildren();
  if(!room){list.textContent='채팅방을 먼저 선택해 주세요.';return;}
