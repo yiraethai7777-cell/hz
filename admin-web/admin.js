@@ -212,6 +212,10 @@ $('#voice-status-check').addEventListener('click',()=>task(async()=>{
   '방별 보이스룸 기능: '+(state.enabled?'ON':'OFF'),
   '직접 VOX 인증 연동: '+(state.configured?'설정됨':'미구현 / 미연결'),
   'Railway 직접 VOX 상태 확인: '+(state.reachable?'응답 확인':'실서버 응답 미확인'),
+  '기존 카카오톡 OAuth 정보: '+(state.kakaoCredentialsAvailable?'메모리 확인':'확인 불가'),
+  '대상 방 오픈채팅 캐시: '+(state.kakaoOpenChatCached?'확인':'확인 불가'),
+  '실행 계정 멤버 캐시: '+(state.kakaoMembershipCached?'확인':'확인 불가'),
+  'VOX 서버 인증: '+(state.voxServerAuthenticated?'확인됨':'미검증'),
  ];
  if(state.reachable){
   lines.push('선택한 방의 로컬 VOX 세션: '+(state.localActive?'감지됨':'감지되지 않음'));
