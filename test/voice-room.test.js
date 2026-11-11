@@ -596,3 +596,36 @@ test('TLS diagnostic is visible in voice help',async()=>{
   await voice.handle(args);
   assert.match(sent[0],/#보룸TLS진단/);
 });
+
+
+test('bot-only VOX auth preflight reports readiness without claiming server authentication',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸인증점검'});
+  args.msg.sender.id=client.userId;
+  client.voiceRoomAuthPreflight=()=>({
+    sessionConnected:true,kakaoCredentialsPresent:true,openChatCached:true,
+    botMemberCached:true,botModeratorCached:true,
+    appVersionPresent:true,carrierPresent:true,deviceProfileVerified:false,
+    authenticatedVoxSession:false,creationEnabled:false,
+  });
+  assert.equal(await voice.handle(args),true);
+  assert.match(sent[0],/기존 OAuth·기기 정보: 확인/);
+  assert.match(sent[0],/검증된 VOX 기기 프로필: 미확인/);
+  assert.match(sent[0],/VOX 서버 OAuth 인증: 미검증/);
+  assert.match(sent[0],/실제 생성: 비활성화/);
+  assert.doesNotMatch(sent[0],/생성 확인/);
+});
+
+test('unauthorized managers cannot inspect VOX auth readiness',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸인증점검'});
+  let calls=0;
+  client.voiceRoomAuthPreflight=()=>{calls++;return {};};
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/봇 계정만 사용할 수 있습니다/);
+});
+
+test('VOX auth preflight is in help and never sends credentials',async()=>{
+  const {args,sent}=fixture({text:'#보룸명령어'});
+  await voice.handle(args);
+  assert.match(sent[0],/#보룸인증점검/);
+});
