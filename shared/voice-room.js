@@ -80,7 +80,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸TLS진단|보이스룸TLS진단|보룸참가상태|보룸참가|보룸퇴장|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
+  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참가상태|보룸참가|보룸퇴장|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
@@ -99,6 +99,37 @@ async function handle({client,roomId,msg,text,send,adapter}){
   }
 
   const room=roomKey(roomId);
+  if(match[1]==='보룸인증점검'||match[1]==='보이스룸인증점검'){
+    if(!isBotAccount){
+      await safeReply(client,send,'❌ VOX 인증 사전점검은 봇 계정만 사용할 수 있습니다.');
+      return true;
+    }
+    if(typeof client?.voiceRoomAuthPreflight!=='function'){
+      await safeReply(client,send,'⚠️ VOX 인증 사전점검 모듈이 연결되지 않았습니다.');
+      return true;
+    }
+    try{
+      const state=client.voiceRoomAuthPreflight({chatId:room});
+      // Only explicit flags, never the OAuth token, UUID, ID or metadata values.
+      const line=ok=>ok?'확인':'미확인';
+      await safeReply(client,send,
+        '🎙️ Railway | VOX 인증 사전점검\n━━━━━━━━━━━━━━\n'+
+        '카카오톡 세션: '+line(state.sessionConnected)+'\n'+
+        '기존 OAuth·기기 정보: '+line(state.kakaoCredentialsPresent)+'\n'+
+        '오픈채팅방 정보: '+line(state.openChatCached)+'\n'+
+        '봇 멤버 정보: '+line(state.botMemberCached)+'\n'+
+        '봇 관리자 권한 캐시: '+line(state.botModeratorCached)+'\n'+
+        '앱 버전·통신사 정보: '+line(state.appVersionPresent&&state.carrierPresent)+'\n'+
+        '검증된 VOX 기기 프로필: '+line(state.deviceProfileVerified)+'\n'+
+        'VOX 서버 OAuth 인증: 미검증\n'+
+        '보이스룸 생성 메서드·WebRTC: 미검증\n'+
+        '실제 생성: 비활성화\n'+
+        '※ OAuth 토큰은 전송하거나 출력하지 않았습니다.');
+    }catch{
+      await safeReply(client,send,'⚠️ VOX 인증 준비 정보를 확인하지 못했습니다. 실제 생성 요청은 보내지 않았습니다.');
+    }
+    return true;
+  }
   if(match[1]==='보룸TLS진단'||match[1]==='보이스룸TLS진단'){
     if(!isBotAccount){
       await safeReply(client,send,'❌ TLS 연결 진단은 봇 계정만 실행할 수 있습니다.');
@@ -284,6 +315,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸시작 (제목) / #보룸켜기 (제목) · Railway 직접 VOX 생성 (인증 연동 후)\n' +
       '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
       '#보룸TLS진단 · Railway에서 인증정보 없이 TLS 후보 연결 확인 (봇 계정만)\n' +
+      '#보룸인증점검 · 기존 세션·기기 정보 확인, VOX 서버 인증 미실행 (봇 계정만)\n' +
       '#보룸참가 · 기존 보룸에 참가 요청 (직접 VOX 인증 필요)\n' +
       '#보룸참가상태 · Railway VOX 참가 세션 확인\n' +
       '#보룸퇴장 · Railway VOX 음성 세션에서 나가기 (보룸 종료 아님)\n' +
