@@ -8,11 +8,13 @@ function readMember(m){
  const id=numeric(m?.userId??m?.id??m?.memberId??m?.user_id);
  if(!id)return null;
  const name=String(m.nickName??m.nickname??m.name??m.profileName??'').trim().slice(0,80);
- const type=Number(m.mt??m.ut??m.memberType??m.linkMemberType??m.userType??0);
+ const rawType=m.mt??m.ut??m.memberType??m.linkMemberType??m.userType;
+ const roleKnown=rawType!==null&&rawType!==undefined&&String(rawType).trim()!==''&&Number.isInteger(Number(rawType));
+ const type=roleKnown?Number(rawType):0;
  const profileType=Number(m.ptp??m.profileType??0);
  const profileLinkId=numeric(m.pli??m.profileLinkId);
  const photo=imageUrl(m.opi??m.fpi??m.pi??m.profileImageUrl??m.fullProfileImageUrl);
- return {id,name:name||'이름 확인 불가',type:Number.isFinite(type)?type:0,profileType:Number.isFinite(profileType)?profileType:0,profileLinkId,imageUrl:photo};
+ return {id,name:name||'이름 확인 불가',type,roleKnown,profileType:Number.isFinite(profileType)?profileType:0,profileLinkId,imageUrl:photo};
 }
 async function refresh(client,roomId,{force=false}={}){
  const room=numeric(roomId);if(!room)throw Error('유효하지 않은 방 ID');
