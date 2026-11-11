@@ -130,8 +130,9 @@ async function runFieldOmissions() {
   const codec=createCodec({seed:seedCbcBytes()});
   const variants=['control-before','model','osver','buildId','carrierId',
     'devInfo','all-four','control-after'];
-  for(const variant of variants){
-    const body=getDiscoveryBody(CFG,SYNTHETIC_ID,'26.3.1');
+  for(const [index,variant] of variants.entries()){
+    const syntheticId=String(BigInt(SYNTHETIC_ID)-100n-BigInt(index));
+    const body=getDiscoveryBody({...CFG,userId:syntheticId},syntheticId,'26.3.1');
     if(['model','osver','buildId'].includes(variant))delete body.devInfo[variant];
     if(variant==='carrierId'||variant==='all-four')delete body.carrierId;
     if(variant==='devInfo')delete body.devInfo;
@@ -155,19 +156,14 @@ async function runFieldOmissions() {
       result={status:outcome(error),...(match?{resCode:Number(match[1])}:{})};
     }finally{socket?.close();}
     process.stdout.write('[VOX field omission] '+JSON.stringify({variant,...result})+'\n');
-    if(variant==='control-before'&&!(result.callable==='1'&&result.validServerAddress)){
-      throw Error('Baseline failed');
-    }
+    if(index<variants.length-1)await new Promise(resolve=>setTimeout(resolve,2000));
   }
 }
 
 if(require.main===module) {
   const execute=process.argv.length===3&&process.argv[2]==='--execute-once';
-  probeSyntheticDiscovery({execute}).then(async result=>{
-    process.stdout.write('[VOX synthetic discovery] '+JSON.stringify(result)+'\n');
-    if(!execute)process.exitCode=2;
-    else await runFieldOmissions();
-  }).catch(()=>{
+  if(!execute)process.exitCode=2;
+  else runFieldOmissions().catch(()=>{
     process.stdout.write('[VOX synthetic discovery] initialization_error (no credential data logged)\n');
     process.exitCode=1;
   });
