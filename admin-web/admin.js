@@ -210,14 +210,14 @@ $('#voice-status-check').addEventListener('click',()=>task(async()=>{
  const state=await api('/api/admin/voice-status?'+new URLSearchParams({roomId}));
  const lines=[
   '방별 보이스룸 기능: '+(state.enabled?'ON':'OFF'),
-  'Noa 브리지 설정: '+(state.configured?'있음':'없음'),
-  'Android/Noa 상태 확인: '+(state.reachable?'응답 확인':'확인 불가'),
+  '직접 VOX 인증 연동: '+(state.configured?'설정됨':'미구현 / 미연결'),
+  'Railway 직접 VOX 상태 확인: '+(state.reachable?'응답 확인':'실서버 응답 미확인'),
  ];
  if(state.reachable){
-  lines.push('선택한 방의 로컬 음성 세션: '+(state.localActive?'감지됨':'감지되지 않음'));
-  if(state.localBusyOtherRoom)lines.push('다른 방에서 Android 음성 세션 사용 중');
+  lines.push('선택한 방의 로컬 VOX 세션: '+(state.localActive?'감지됨':'감지되지 않음'));
+  if(state.localBusyOtherRoom)lines.push('다른 방에서 직접 VOX 음성 세션 사용 중');
  }
- lines.push('※ 실제 카카오톡 서버에서 보이스룸 개설 여부가 검증된 결과는 아닙니다.');
+ lines.push('※ VOX 실서버 인증 및 생성은 아직 검증되지 않았습니다.');
  $('#voice-status-output').textContent=lines.join('\n');
 }));
 async function selectUser(user){const room=$('#user-room').value;const d=await api('/api/admin/user?'+new URLSearchParams({roomId:room,userId:user.user_id}));selected={room,id:user.user_id,name:user.user_name};$('#selected-user').textContent=`${user.user_name} · ${user.user_id}`;const p=d.player||{};$('#user-detail').textContent=`지갑: ${format(d.wallet.balance)}코인\n레벨: ${p.level||1} · XP ${p.xp||0}\n퀴즈 정답: ${p.wins||0}회\n\n보유 주식\n${d.stocks.map(h=>`${h.stock_name} ${h.quantity}주 · 원금 ${format(h.total_cost)}`).join('\n')||'없음'}\n\n물고기 인벤토리\n${(p.inventory||[]).map(f=>`${f.name} [${f.tier}] ${f.size}cm · ${format(f.value)}코인`).join('\n')||'없음'}\n\n펫\n${Object.entries(p.pets||{}).map(([n,l])=>`${n} +${l}`).join('\n')||'없음'}`;}
