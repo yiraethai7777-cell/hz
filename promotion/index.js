@@ -32,29 +32,79 @@ function patch(p,action,input={}){
 }
 async function configure(room,actor,action,input){return roomTransaction(room,async(d,db)=>{const shared=await commonMessage(db);if(action==='start'&&shared!==null)d.promo={...d.promo,message:shared};d.promo=patch(d.promo,action,input);if(['content','start','schedule','delete'].includes(action))delete d.promo.portalUserId;await audit(db,actor,'PROMOTION_'+action,room,null,{enabled:!!d.promo.enabled,minutes:d.promo.minutes,allowed:d.promo.allowed});return d.promo;});}
 async function stats(room){const r=await getPool().query("SELECT status,count(*)::int count FROM gl_promotion_logs WHERE room_id=$1 GROUP BY status",[String(room)]);return r.rows;}
-async function deliver(room,chat,immediate=false,requester=null){
- if(!await require('../shared/bot-power').enabled(room))return false;
- let content=null,slot=null;
+async function deliver(room,chat,immediate=false,requester=null,options={}){
+ // Explicit master-admin sends are one-off promotions, not licensed room bot
+ // features. They work when scheduled promotion is OFF. Scheduled sends still
+ // obey the room's bot-power and subscription switches.
+ const masterManual=immediate===true&&options.master===true&&!requester;
+ const result=(sent,reason)=>options.detailed===true?{sent,reason}:sent;
+ if(!chat||typeof chat.sendText!=='function')return result(false,'봇의 메시지 전송 기능을 사용할 수 없습니다.');
+ if(!masterManual&&!await require('../shared/bot-power').enabled(room))
+  return result(false,'봇이 꺼져 있거나 방 이용 기간이 만료되었습니다.');
+ let content=null,slot=null,reason='전송 조건을 충족하지 못했습니다.';
  await roomTransaction(room,async(d,db)=>{
   const p=d.promo||{},now=Date.now();
-  const shared=p.portalUserId?null:await commonMessage(db);const message=shared??p.message;
-  if(requester){await require('./portal').access(db,requester,String(room));if(p.allowed!==true){const e=Error('운영자의 홍보 허용이 필요합니다.');e.status=403;throw e;}}
-  if(p.portalUserId){const owner=await db.query('SELECT id FROM gl_promo_users WHERE id=$1 AND enabled FOR UPDATE',[p.portalUserId]);const access=await db.query('SELECT 1 FROM gl_promo_room_access WHERE user_id=$1 AND room_id=$2',[p.portalUserId,String(room)]);if(!owner.rowCount||!access.rowCount){p.enabled=false;p.nextRunAt=null;p.stopReason='홍보 권한 해제';return;}}
-  if(d.locked||(p.allowed!==true&&!p.enabled)||p.allowed===false||!message||(!immediate&&!p.enabled))return;
-  if(now-Number(p.lastAttempt||0)<MIN_MINUTES*60000)return;
-  const minutes=Number(p.minutes||MIN_MINUTES);if(minutes<MIN_MINUTES||minutes>MAX_MINUTES)return;
+  const shared=masterManual||!p.portalUserId?await commonMessage(db):null;
+  const message=shared??p.message;
+  if(requester){
+   await require('./portal').access(db,requester,String(room));
+   if(p.allowed!==true){const e=Error('운영자의 홍보 허용이 필요합니다.');e.status=403;throw e;}
+  }
+  if(!masterManual&&p.portalUserId){
+   const owner=await db.query('SELECT id FROM gl_promo_users WHERE id=$1 AND enabled FOR UPDATE',[p.portalUserId]);
+   const access=await db.query('SELECT 1 FROM gl_promo_room_access WHERE user_id=$1 AND room_id=$2',[p.portalUserId,String(room)]);
+   if(!owner.rowCount||!access.rowCount){
+    p.enabled=false;p.nextRunAt=null;p.stopReason='홍보 권한 해제';
+    reason='홍보 회원의 권한이 해제되었습니다.';return;
+   }
+  }
+  if(!masterManual&&d.locked){reason='채팅방 홍보가 잠겨 있습니다.';return;}
+  if(!masterManual&&(p.allowed!==true&&!p.enabled||p.allowed===false)){
+   reason='이 방의 자동 홍보 허용이 꺼져 있습니다.';return;
+  }
+  if(!message){reason='공통 홍보 문구가 비어 있습니다. 먼저 저장해 주세요.';return;}
+  if(!immediate&&!p.enabled){reason='자동 홍보가 OFF 상태입니다.';return;}
+  const cooldown=masterManual?30*1000:MIN_MINUTES*60000;
+  const since=now-Number(p.lastAttempt||0);
+  if(since<cooldown){reason='중복 전송 방지 중입니다. '+Math.ceil((cooldown-since)/1000)+'초 후 다시 시도해 주세요.';return;}
+  const minutes=Number(p.minutes||MIN_MINUTES);
+  if(!masterManual&&(minutes<MIN_MINUTES||minutes>MAX_MINUTES)){
+   reason='홍보 간격 설정이 올바르지 않습니다.';return;
+  }
   const current=Math.floor(now/(minutes*60000));
-  // Only send during the scheduled minute. Reconnects never send missed promotions in a burst.
-  if(!immediate&&(p.clockAligned||[20,30].includes(minutes))&&!boundaryDue(minutes,now))return;
-  if(!immediate&&p.lastSlot!=null&&Number(p.lastSlot)===current)return;
-  slot=immediate?'manual:'+Math.floor(now/(MIN_MINUTES*60000)):'auto:'+minutes+':'+current;
-  const claimed=await db.query("INSERT INTO gl_promotion_logs(room_id,slot,status,portal_user_id) VALUES($1,$2,'PENDING',$3) ON CONFLICT DO NOTHING RETURNING id",[String(room),slot,requester||p.portalUserId||null]);
-  if(!claimed.rowCount)return;
+  if(!immediate&&(p.clockAligned||[20,30].includes(minutes))&&!boundaryDue(minutes,now)){
+   reason='설정된 홍보 시간이 아닙니다.';return;
+  }
+  if(!immediate&&p.lastSlot!=null&&Number(p.lastSlot)===current){
+   reason='현재 예약 시간대에는 이미 홍보했습니다.';return;
+  }
+  slot=masterManual?'master:'+Math.floor(now/(30*1000))
+   :immediate?'manual:'+Math.floor(now/(MIN_MINUTES*60000))
+   :'auto:'+minutes+':'+current;
+  const claimed=await db.query("INSERT INTO gl_promotion_logs(room_id,slot,status,portal_user_id) VALUES($1,$2,'PENDING',$3) ON CONFLICT DO NOTHING RETURNING id",
+   [String(room),slot,requester||p.portalUserId||null]);
+  if(!claimed.rowCount){reason='동일한 전송 요청이 이미 처리되었습니다.';return;}
   p.lastAttempt=now;p.lastSlot=current;p.nextRunAt=null;d.promo=p;content=message;
  });
- if(!content)return false;
- try{await chat.sendText(room,content);await getPool().query("UPDATE gl_promotion_logs SET status='SENT' WHERE room_id=$1 AND slot=$2",[String(room),slot]);return true;}
- catch(e){await getPool().query("UPDATE gl_promotion_logs SET status='FAILED',detail=$3 WHERE room_id=$1 AND slot=$2",[String(room),slot,String(e.message||'전송 실패').slice(0,200)]);return false;}
+ if(!content){
+  if(masterManual)console.warn('[WEB PROMO SKIPPED]',String(room),reason);
+  return result(false,reason);
+ }
+ try{
+  const reply=await chat.sendText(room,content);
+  const failures=[reply?.body?.status,reply?.result?.body?.status,reply?.complete?.body?.status,reply?.status];
+  if(reply===false||reply?.ok===false||reply?.success===false||
+    failures.some(value=>value!=null&&Number.isFinite(Number(value))&&Number(value)!==0))
+   throw Error('카카오톡 메시지 전송이 거부되었습니다.');
+  await getPool().query("UPDATE gl_promotion_logs SET status='SENT' WHERE room_id=$1 AND slot=$2",[String(room),slot]);
+  if(masterManual)console.info('[WEB PROMO SENT]',String(room),content.length);
+  return result(true,'카카오톡 봇으로 홍보문을 전송했습니다.');
+ }catch(error){
+  console.error('[WEB PROMO SEND ERROR]',String(room),String(error?.code||error?.message||error).slice(0,220));
+  await getPool().query("UPDATE gl_promotion_logs SET status='FAILED',detail=$3 WHERE room_id=$1 AND slot=$2",
+   [String(room),slot,String(error?.message||'전송 실패').slice(0,200)]);
+  return result(false,'카카오톡에서 메시지 전송을 거부했거나 오류가 발생했습니다. 전송 기록을 확인해 주세요.');
+ }
 }
 let ticking=false;
 async function tick(chat){if(!chat||ticking)return;ticking=true;try{const r=await getPool().query("SELECT room_id FROM hz_rooms WHERE data->'promo'->>'enabled'='true' ORDER BY room_id LIMIT 500");for(const row of r.rows)await deliver(row.room_id,chat);}finally{ticking=false;}}
