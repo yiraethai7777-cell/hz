@@ -1,0 +1,32 @@
+name: VOX30 synthetic discovery research
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/vox30/synthetic-discovery.js'
+      - 'test/vox30-synthetic-discovery.test.js'
+      - '.github/workflows/vox30-synthetic-discovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install production dependencies without running lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Install isolated VOX lab SEED implementation
+        run: npm install --prefix experiments/vox30 --ignore-scripts --no-audit --no-fund
+      - name: Assert no real account data, no VOX create, only a single synthetic method 30000
+        run: node --test test/vox30-synthetic-discovery.test.js
+      - name: Send one synthetic 30000 framing probe to TLS-verified Kakao candidate
+        run: node experiments/vox30/synthetic-discovery.js --execute-once
