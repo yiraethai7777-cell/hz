@@ -116,7 +116,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
     }
     lastTlsDiagnostic.set(room,now);
     const show=item=>item?.certificateVerified===true
-      ? 'TLS '+String(item.tlsVersion||'인증됨')+' · 인증서 확인'
+      ? String(item.tlsVersion||'TLS 인증됨')+' · 인증서 확인'
       : '검증 실패 ('+String(item?.status||'unknown').slice(0,48)+')';
     try{
       const report=await client.voiceRoomTlsProbe();
