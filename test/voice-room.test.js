@@ -571,7 +571,7 @@ test('bot account may probe Railway TLS only, without reporting VOX login succes
   };
   assert.equal(await voice.handle(args),true);
   assert.equal(probes,1);
-  assert.match(sent[0],/후보 TCP 9282: TLS TLSv1\.3/);
+  assert.match(sent[0],/후보 TCP 9282: TLSv1\.3/);
   assert.match(sent[0],/후보 TCP 995: 검증 실패/);
   assert.match(sent[0],/VOX 서버 인증: 미검증/);
   assert.match(sent[0],/인증 토큰·VOX 패킷은 보내지 않았습니다/);
