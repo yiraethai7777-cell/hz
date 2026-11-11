@@ -54,6 +54,10 @@ function start() {
   } catch {
     console.warn('[VOICE VOX30] credential candidate unavailable; VOX create remains disabled');
   }
+  // Local-only VOX authentication readiness. Does not transmit credentials.
+  // The actual VOX authentication/create adapter remains explicitly disabled.
+  client.voiceRoomAuthPreflight=({chatId})=>
+    require('./shared/vox30-auth-preflight').assessVoxAuthPreflight(client,{chatId});
   const game = createGame(client);
 
   let resolveReady, rejectReady;
