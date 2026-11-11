@@ -42,12 +42,22 @@ function classifyTlsError(error) {
   }
 }
 
+function certificateDnsNames(error) {
+  const names=error?.cert?.subjectaltname;
+  if(typeof names!=='string')return [];
+  return [...new Set(names.split(',').map(part=>part.trim())
+    .filter(part=>part.startsWith('DNS:'))
+    .map(part=>part.slice(4))
+    .filter(name=>name.length<=128 && /^[a-zA-Z0-9*.-]+$/.test(name))
+  )].slice(0,8);
+}
+
 function tlsPreflight(options={},tlsConnect=tls.connect){
   const {host,port,servername,timeoutMs}=validateTarget(options);
   if(typeof tlsConnect!=='function')throw Error('TLS 연결 구현이 필요합니다.');
   return new Promise(resolve=>{
     let socket,timer,done=false;
-    const finish=(status,tlsVersion=null)=>{
+    const finish=(status,tlsVersion=null,certificateNames=[])=>{
       if(done)return;
       done=true;
       clearTimeout(timer);
@@ -55,7 +65,7 @@ function tlsPreflight(options={},tlsConnect=tls.connect){
       // Do not include certificates, application data, tokens, or network
       // addresses in log records. A valid TLS handshake ≠ VOX login.
       resolve({status,tlsVersion,certificateVerified:status==='tls_verified',
-        voxServerAuthenticated:false,voiceRoomCreated:false});
+        certificateNames,voxServerAuthenticated:false,voiceRoomCreated:false});
     };
     try{
       socket=tlsConnect({
@@ -71,7 +81,7 @@ function tlsPreflight(options={},tlsConnect=tls.connect){
         finish('tls_verified',typeof socket.getProtocol==='function'?
           socket.getProtocol():null);
       });
-      socket.once('error',error=>finish(classifyTlsError(error)));
+      socket.once('error',error=>finish(classifyTlsError(error),null,certificateDnsNames(error)));
       socket.once('close',()=>finish('connection_closed'));
       timer=setTimeout(()=>finish('timeout'),timeoutMs);
       // Keep the timeout referenced so a timed-out probe always reports a result.
@@ -88,4 +98,4 @@ if(require.main===module){
     })
     .catch(()=>{process.stdout.write('[VOX TLS candidate probe] invalid probe configuration\n');process.exitCode=1;});
 }
-module.exports={validateTarget,classifyTlsError,tlsPreflight};
+module.exports={validateTarget,classifyTlsError,certificateDnsNames,tlsPreflight};
