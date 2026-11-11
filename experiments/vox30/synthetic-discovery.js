@@ -65,10 +65,20 @@ async function probeSyntheticDiscovery({
     });
     const requestBody=getDiscoveryBody(CFG,SYNTHETIC_ID,'26.3.1');
     const reply=await socket.request(METHODS.DISCOVER,requestBody);
+    let callable='unknown';
+    try {
+      const number=Number(reply?.callable?.toString());
+      callable=number===1?'permitted':number===0?'denied':'unexpected';
+    }catch {}
     return report('matching_bson_frame_received',{
       hasCallableField:reply?.callable!==undefined,
+      callable,
       hasServerAddressField:reply?.csSslAddr!==undefined,
-      hasServerPortField:reply?.csSslPort!==undefined,
+      serverAddressObject:reply?.csSslAddr!==null &&
+        typeof reply?.csSslAddr==='object',
+      hasOuterPortField:reply?.csSslPort!==undefined,
+      hasNestedPortField:reply?.csSslAddr?.port!==undefined,
+      hasServerIpv4Field:reply?.csSslAddr?.ip!==undefined,
     });
   } catch(error) {
     return report(outcome(error));
