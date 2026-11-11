@@ -124,6 +124,39 @@ test('the discovery and create sequence follows 30000 then 11028 and event 11003
   result.conn.close();
 });
 
+for(const ackFirst of [true,false]) {
+  test('reads session IDs from 11028 with '+(ackFirst?'ACK':'event')+' first',async()=>{
+    const waiters=new Map();
+    const remoteSdp={sdp:'answer',sdpType:2};
+    const client={
+      close(){},
+      request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),
+      wait(...methods){
+        return {promise:new Promise(resolve=>{
+          for(const method of methods)waiters.set(method,resolve);
+        }),cancel(){}};
+      },
+      async send(method){
+        assert.equal(method,METHODS.CREATE);
+        const reply={method:METHODS.CREATE,body:{resCode:0,callId:'c1',csId:'s1'}};
+        const event={method:METHODS.CREATED,body:{sdp:remoteSdp}};
+        const packets=ackFirst?[reply,event]:[event,reply];
+        for(const packet of packets){
+          waiters.get(packet.method)(packet);
+          await new Promise(resolve=>setImmediate(resolve));
+        }
+      },
+    };
+    const result=await createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
+      oauthToken:'token',deviceUuid:'uuid',sdp,entryHost:'entry.example',
+      appVer:'26.3.1',connect:async()=>client,codec});
+    assert.equal(result.callId,'c1');
+    assert.equal(result.csId,'s1');
+    assert.deepEqual(result.remoteSdp,remoteSdp);
+    assert.equal(result.verified,false);
+  });
+}
+
 test('VOX refusal closes the connection, never marks verified',async()=>{
   let closed=0;
   const client={
