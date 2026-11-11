@@ -250,8 +250,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
     await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보이스룸 명령어\n' +
       '#보룸시작 (제목) / #보룸켜기 (제목) · Railway 직접 VOX 생성 (인증 연동 후)\n' +
       '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
-      '#보룸참가 · 기존 보룸에 참가 요청 (Android VOX 브리지 필요)\n' +
-      '#보룸참가상태 · Android 참가 세션 확인\n' +
+      '#보룸참가 · 기존 보룸에 참가 요청 (직접 VOX 인증 필요)\n' +
+      '#보룸참가상태 · Railway VOX 참가 세션 확인\n' +
       '#보룸퇴장 · Railway VOX 음성 세션에서 나가기 (보룸 종료 아님)\n' +
       '※ 관리 ON인 방은 보이스룸 개설·종료 이벤트를 자동 감지해 알립니다.\n' +
       '#보룸감지시작 · 3분간 수신 이벤트 관찰\n' +
