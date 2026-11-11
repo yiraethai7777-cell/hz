@@ -90,13 +90,13 @@ async function routes(req,res,url,body){
   const exists=await getPool().query('SELECT 1 FROM hz_rooms WHERE room_id=$1',[room]);
   if(!exists.rowCount)fail('등록되지 않은 채팅방입니다.',404);
   if(typeof status.client.openChatKick!=='function')fail('강퇴 API를 사용할 수 없습니다.',503);
+  await audit(getPool(),s.user,'BULK_KICK_REQUEST',room,null,{});
   const job=require('../manage/bulk-kick').start({
    client:status.client,roomId:room,msg:{room:{isOpenChat:true}},
    userId:'master:'+s.user,
    kick:target=>status.client.openChatKick(room,String(target)),
    db:getPool(),owner:true
   });
-  await audit(getPool(),s.user,'BULK_KICK_REQUEST',room,null,{});
   return {ok:true,started:true,job};
  }
  if(p==='/api/admin/rooms'&&method==='GET'){
