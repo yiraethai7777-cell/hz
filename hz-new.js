@@ -30,6 +30,18 @@ function start() {
   // credentials, membership checks and media negotiation are available.
   // In particular, legacy NEXI_VOICE_NOA_* variables are intentionally ignored.
   console.log('[VOICE VOX30] direct-only mode; Android/Noa transport disabled');
+  // Opt-in, bot-account-only diagnostic: strict TLS handshake to user-provided
+  // Kakao IP candidate. Never sends OAuth, user IDs, VOX/BSON or audio packets.
+  client.voiceRoomTlsProbe=async()=>{
+    const {tlsPreflight}=require('./scripts/vox30-tls-probe');
+    const settings={host:'211.242.12.121',servername:'kakao.com',timeoutMs:6000};
+    const [entry,observed]=await Promise.all([
+      tlsPreflight({...settings,port:9282}),
+      tlsPreflight({...settings,port:995}),
+    ]);
+    return {entry,observed};
+  };
+
   // Reuse the already-loaded KakaoForge credentials as a *candidate* only.
   // This provider never contacts a VOX server, mutates auth.json, or installs
   // an unverified VOX create adapter. Keep its diagnostics secret-free.

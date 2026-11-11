@@ -1,0 +1,30 @@
+name: VOX30 TLS-only candidate preflight
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/vox30-tls-probe.js'
+      - 'test/vox30-tls-probe.test.js'
+      - '.github/workflows/vox30-tls-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tls-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify strict certificate checks and that no credentials are transmitted
+        run: node --test test/vox30-tls-probe.test.js
+      - name: Probe sample candidate with TLS ClientHello only (no OAuth or BSON)
+        run: node scripts/vox30-tls-probe.js
+      - name: Retry TLS using certificate's advertised kakao.com identity (still NO OAuth)
+        run: node -e "require('./scripts/vox30-tls-probe').tlsPreflight({host:'211.242.12.121',port:9282,servername:'kakao.com',timeoutMs:6000}).then(r=>console.log('[VOX TLS SNI candidate] '+JSON.stringify(r)))"
+      - name: Compare user-observed TCP 995 candidate with TLS only
+        run: node -e "require('./scripts/vox30-tls-probe').tlsPreflight({host:'211.242.12.121',port:995,servername:'kakao.com',timeoutMs:6000}).then(r=>console.log('[VOX TCP995 TLS candidate] '+JSON.stringify(r)))"
