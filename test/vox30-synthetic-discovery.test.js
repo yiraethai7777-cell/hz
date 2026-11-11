@@ -62,6 +62,7 @@ test('one read-only 30000 request uses synthetic IDs and no OAuth',async()=>{
     hasServerAddressField:true,serverAddressObject:false,
     hasOuterPortField:false,hasNestedPortField:false,
     hasServerIpv4Field:false,
+    validCallServerAddress:false,callServerTlsStatus:'not_checked',
     realAccountUsed:false,oauthSent:false,createRequestSent:false,
     voxServerAuthenticated:false,voiceRoomCreated:false,
   });
@@ -109,4 +110,64 @@ test('config is marked as synthetic, and timeout is bounded',async()=>{
   assert.equal(outcome(Error('VOX 서버 응답 시간 초과')),'no_matching_method_response');
   await assert.rejects(()=>probeSyntheticDiscovery({execute:true,
     codec:dummyCodec,timeoutMs:60000}),/설정/);
+});
+
+
+test('discovered public call server is checked with TLS only, never VOX payload',async()=>{
+  let requests=0,handshakes=0,closed=0;
+  const result=await probeSyntheticDiscovery({
+    execute:true,codec:dummyCodec,
+    connect:async()=>({
+      request:async method=>{
+        assert.equal(method,30000);requests++;
+        return {callable:1,csSslAddr:{ip:0x01020304,port:995}};
+      },
+      close(){closed++;},
+    }),
+    verifyCallServerTls:async target=>{
+      handshakes++;
+      assert.deepEqual(target,{
+        host:'1.2.3.4',port:995,servername:'kakao.com',timeoutMs:3500,
+      });
+      return {status:'tls_verified',certificateVerified:true,tlsVersion:'TLSv1.3'};
+    },
+  });
+  assert.equal(requests,1);
+  assert.equal(handshakes,1);
+  assert.equal(closed,1);
+  assert.equal(result.callable,'permitted');
+  assert.equal(result.validCallServerAddress,true);
+  assert.equal(result.callServerTlsStatus,'tls_verified');
+  assert.equal(result.voxServerAuthenticated,false);
+  assert.equal(result.voiceRoomCreated,false);
+  assert.equal(JSON.stringify(result).includes('1.2.3.4'),false);
+});
+
+test('private address in 30000 result is never contacted',async()=>{
+  let handshakes=0;
+  const result=await probeSyntheticDiscovery({
+    execute:true,codec:dummyCodec,
+    connect:async()=>({
+      request:async()=>({callable:1,csSslAddr:{ip:0x7f000001,port:995}}),
+      close(){},
+    }),
+    verifyCallServerTls:async()=>{handshakes++;throw Error('no private network');},
+  });
+  assert.equal(handshakes,0);
+  assert.equal(result.callServerTlsStatus,'blocked_nonpublic_ipv4');
+});
+
+test('certificate failure at discovered endpoint never authenticates VOX',async()=>{
+  const result=await probeSyntheticDiscovery({
+    execute:true,codec:dummyCodec,
+    connect:async()=>({
+      request:async()=>({callable:1,csSslAddr:{ip:0x01020304,port:995}}),
+      close(){},
+    }),
+    verifyCallServerTls:async()=>({
+      status:'certificate_name_mismatch',certificateVerified:false,
+    }),
+  });
+  assert.equal(result.callServerTlsStatus,'certificate_name_mismatch');
+  assert.equal(result.voxServerAuthenticated,false);
 });
