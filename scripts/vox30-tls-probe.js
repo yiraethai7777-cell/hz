@@ -8,14 +8,14 @@ const net=require('node:net');
 
 function validateTarget({host,port,servername,timeoutMs=6000}) {
   if(typeof host!=='string'||host.length<3||host.length>253||
-      !(net.isIP(host) || /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\\.[a-z]{2,63}$/i.test(host)) ||
+      !(net.isIP(host) || /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,63}$/i.test(host)) ||
       host.includes('..'))
     throw Error('VOX 시험 대상은 정확한 IP 또는 DNS 이름이어야 합니다.');
   if(!Number.isInteger(port)||port<1||port>65535)
     throw Error('VOX 시험 포트 범위 오류');
   if(servername!==undefined &&
      (typeof servername!=='string'||net.isIP(servername)||
-       !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\\.[a-z]{2,63}$/i.test(servername)||
+       !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,63}$/i.test(servername)||
        servername.includes('..')))
     throw Error('TLS 서버 이름은 유효한 DNS 이름이어야 합니다.');
   if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>15000)
@@ -84,8 +84,8 @@ if(require.main===module){
   // VOX destination. No credentials or package secrets are ever loaded.
   tlsPreflight({host:'211.242.12.121',port:9282,timeoutMs:6000})
     .then(result=>{
-      process.stdout.write('[VOX TLS candidate probe] '+JSON.stringify(result)+'\\n');
+      process.stdout.write('[VOX TLS candidate probe] '+JSON.stringify(result)+'\n');
     })
-    .catch(()=>{process.stdout.write('[VOX TLS candidate probe] invalid probe configuration\\n');process.exitCode=1;});
+    .catch(()=>{process.stdout.write('[VOX TLS candidate probe] invalid probe configuration\n');process.exitCode=1;});
 }
 module.exports={validateTarget,classifyTlsError,tlsPreflight};
