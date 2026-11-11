@@ -360,7 +360,7 @@ test('experimental Noa accepted request is only an unverified dispatch, never cr
     status: async () => { throw Error('must not be queried after acknowledged dispatch'); },
   };
   await voice.handle(args);
-  assert.match(sent[0], /Railway 직접 VOX 생성 요청이 전송/);
+  assert.match(sent[0], /보이스룸 생성 요청이 Railway 직접 VOX 클라이언트에 전달/);
   assert.match(sent[0], /실제 카카오톡 서버 개설은 아직 확인되지 않았습니다/);
   assert.doesNotMatch(sent[0], /보이스룸 생성 확인!/);
 });
@@ -420,7 +420,7 @@ test('voice join calls the adapter for this bot account and never claims server 
     {method:'status',data:{roomId:ROOM,botUserId:client.userId}},
     {method:'join',data:{roomId:ROOM,botUserId:client.userId}},
   ]);
-  assert.match(sent[0],/직접 VOX 클라이언트에 보이스룸 참가 요청을 전달/);
+  assert.match(sent[0],/보이스룸 참가 요청을 Railway 직접 VOX 클라이언트에 전달/);
   assert.match(sent[0],/실제 참가 여부/);
   assert.doesNotMatch(sent[0],/참가 확인!|서버에서 개설 상태 확인/);
 });
@@ -503,7 +503,7 @@ test('bot account can request voice join even with nonmanager sender role', asyn
     join:async()=>({requestAccepted:true,verified:false}),
   };
   await voice.handle(args);
-  assert.match(sent[0],/직접 VOX 클라이언트에 보이스룸 참가 요청을 전달/);
+  assert.match(sent[0],/보이스룸 참가 요청을 Railway 직접 VOX 클라이언트에 전달/);
 });
 
 test('voice join or leave fail closed when Android session status cannot be checked',async()=>{
