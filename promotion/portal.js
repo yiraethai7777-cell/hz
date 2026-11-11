@@ -2,7 +2,7 @@
 const {getPool}=require('../shared/db'),{id,transaction,roomTransaction,audit}=require('../shared/store');
 const accounts=require('./accounts'),promotion=require('./index'),{fail}=accounts;
 async function access(db,user,room){const r=await db.query('SELECT u.id FROM gl_promo_users u JOIN gl_promo_room_access a ON a.user_id=u.id WHERE u.id=$1 AND u.enabled AND a.room_id=$2',[user,room]);if(!r.rowCount)fail('이 채팅방의 홍보 권한이 없습니다.',403);}
-function view(p={}){return {message:p.message||'',minutes:[20,30].includes(Number(p.minutes))?Number(p.minutes):20,enabled:!!p.enabled,allowed:p.allowed===true,stopReason:p.stopReason||'',nextAt:promotion.nextBoundary(p.minutes||20)};}
+function view(p={}){return {message:p.message||'',minutes:[20,30,60].includes(Number(p.minutes))?Number(p.minutes):20,enabled:!!p.enabled,allowed:p.allowed===true,stopReason:p.stopReason||'',nextAt:promotion.nextBoundary(p.minutes||20)};}
 async function routes(req,res,url,b,status){const p=url.pathname,m=req.method,service=require('./kakao').service();
  const s=await accounts.session(req);
  if(p==='/api/promo/qr/start'&&m==='POST')return service.startQr(req,res,b,s);
