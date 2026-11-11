@@ -1,57 +1,45 @@
-# VOX 3.0 직접 보이스룸 생성 실험 (2026-11-11)
+# VOX 3.0 보이스룸 생성 실험 — SEED-CBC / WebRTC 구현
 
-이 코드는 사용자가 전달받은 출처 미확인 VOX 구현 예시를 바탕으로 **비운영 실험용**으로 작성되었습니다. 실제 카카오톡 서버 호환성은 확인되지 않았습니다.
+사용자가 제공한 비공식 VOX 코드에 근거한 **비운영 실험**입니다. 카카오톡 실서버 동작은 검증되지 않았습니다. 기존 Noa 자동 개설과 Railway 로그인은 건드리지 않습니다.
 
-## 구현한 것
+## 구현 완료 및 검증
 
-- `shared/vox30-protocol.js`
-  - 12바이트 헤더(랜덤 4B, 상태 2B, method 2B, 암호문 길이 4B)
-  - BSON 직렬화/역직렬화(`bson` 패키지의 Int32/Long)
-  - `MD5(header[0..8])`에서 128비트 SEED-CBC 키 도출; 16B IV
-  - 엄격한 PKCS7 패딩 검사, 프레임 크기 제한, TCP 분할 수신 버퍼
-  - 인증서 검증을 켠 TLS 연결 및 요청/이벤트 응답 대기 타임아웃
-  - `30000` 진입 서버 조회, `11028` 생성 요청, `11003` 생성 이벤트 또는 `11007` 거부 이벤트 처리
-  - 호출 서버 접속정보 반환, 원격 WebRTC SDP 전달
-- `shared/vox30-adapter.js`
-  - 명령어 컨트롤러에서 사용할 수 있는 `create`/`status` 메서드 구현
-  - 별도로 인증된 계정의 방 참여 검증, 계정 자격정보 공급, **실제** WebRTC peer의 Offer/Answer를 필수 요구
-  - 단일 음성 세션 잠금, 로컬 세션 해제; **서버 보이스룸 전체 종료 기능 아님**
-- `test/vox30-protocol.test.js`: 실제 서버 요청 없이 인코딩·TLS·요청 순서/거부 테스트
+| 파일 | 역할 |
+|---|---|
+| `shared/vox30-protocol.js` | 12B 헤더, BSON, PKCS7, SEED-CBC, TLS 검증, VOX 메서드 디스패치 |
+| `shared/vox30-adapter.js` | 명령어 컨트롤러 어댑터 계약, 인증/멤버십/WebRTC 주입, 중복 세션 방지 |
+| `experiments/vox30/seed.js` | `kisa-seed@1.1.0`을 이용한 바이너리 SEED-CBC 구현 및 PKCS7 계약 조정 |
+| `experiments/vox30/webrtc.js` | `werift@0.26.0` WebRTC audio Offer/Answer, ICE 후보 수집, 연결 객체 유지 |
+| `experiments/vox30/lab.js` | 암호화 + WebRTC + VOX 통신부 조립, 자동 실행하지 않음 |
+| `test/vox30-protocol.test.js` | TLS 수신 분할·VOX 진입/생성/거부 테스트 |
+| `test/vox30-lab.test.js` | RFC 4269 SEED 벡터·BSON 바이너리·WebRTC 실제 오디오 SDP 테스트 |
 
-## 실제 개설을 위해 미해결인 항목
+### 중요한 프로토콜 수정
 
-1. VOX 패킷 규격 및 서버 주소의 실서버 호환성. `30000/11028/11003/11007`은 **제공받은 예시에서 온 값**이며 검증된 카카오 공식 API가 아닙니다.
-2. `oauthToken`, `duuid`, 정확한 카카오톡 버전·모델·OS 정보 및 정상 인증 세션을 얻는 **지원되는 방식**. 기존 Railway `auth.json`의 세션을 이 프로토콜 자격정보로 간주하지 않습니다.
-3. 실제 ICE/DTLS 연결이 되는 WebRTC peer 제공. `sdp` 문자열만 전달해도 VOX를 유지할 수 있다는 보장은 없습니다.
-4. SEED-CBC의 검증된 구현. 기본 Node 24 OpenSSL 3에서는 SEED가 Legacy Provider로 분리돼 일반 실행 시 `crypto.getCiphers()`에 없을 수 있습니다. 프로세스 전역 보안 설정을 변경하지 않습니다. 실험용 별도 실행 환경에서 검증된 SEED 구현체를 `createCodec({seed})`로 주입할 수 있습니다.
-5. 서버에서 실제 방 개설·종료 상태를 읽는 API. 로컬 `11003` 이벤트를 수신하더라도 `verified:true`로 **과장하지 않습니다**.
-6. 보이스룸 `#보룸종료` 서버 종료 프로토콜은 제공받지 못했습니다. 여러 방 동시 진행자 유지도 미검증입니다.
+전달받은 설명에 따르면 **11028은 보이스룸 생성 명령**이고, **11003/11007은 생성/거절 이벤트**입니다. 별도의 11028 응답이 오지 않아도 중단되지 않게 `11028`을 전송한 뒤 `11003/11007`만 기다리도록 수정했습니다. 메서드 값과 패킷 규격의 실서버 호환성은 여전히 미확인입니다.
 
-## 연결 예시 (직접 전송 준비 이전 개발용 구조)
+### 실행 방법 (로컬 시험 전용)
 
-```js
-const { createCodec } = require('./shared/vox30-protocol');
-const { createVox30Adapter } = require('./shared/vox30-adapter');
-
-// 검증된 SEED-CBC 객체: { encrypt(Buffer,key,iv), decrypt(Buffer,key,iv) }
-// 검증된 WebRTC 구현: createOffer(), applyAnswer(remoteSdp), close()
-// 인증된 계정과 채팅방 멤버십 조회를 제공하는 함수 필요
-const codec = createCodec({ seed: checkedSeedImplementation });
-const adapter = createVox30Adapter({
-  actorUserId: accountUserId,
-  cfg: { userId: accountUserId, carrierId, model, sdkVersion, buildId },
-  entryHost, entryPort,
-  codec,
-  credentialsForRoom: async ({chatId}) => authenticatedCredentialsFor(chatId),
-  verifyMembership: async ({chatId}) => authenticatedMemberCheck(chatId),
-  rtcFactory: async ({chatId}) => createPeerForRoom(chatId),
-});
-// 필요한 의존성이 실서버 환경에서 검증된 이후에만 설정:
-// client.voiceRoomAdapter = adapter;
+```sh
+npm ci --ignore-scripts
+npm install --prefix experiments/vox30 --ignore-scripts --no-audit --no-fund
+node --test test/voice-room-direct-protocol.test.js test/vox30-protocol.test.js test/vox30-lab.test.js
 ```
 
-계정 인증이 필요한 `oauthToken`/기기 UUID/SDP는 절대 GitHub나 로그에 올리지 마세요. 추측한 토큰 또는 SSL 검증 우회로 실서버를 시험하지 마세요.
+실험용 의존성은 저장소 루트의 `package.json`에 추가하지 않습니다. SEED-CBC 구현에도 `--openssl-legacy-provider`나 TLS 인증서 검증 끄기가 필요하지 않습니다.
 
-## 운영 영향
+## 남아 있는 구현·검증 사항
 
-기존 Noa 생성 경로, Railway 환경변수 및 `auth.json`을 **전혀 변경하지 않았으며**, 이 실험 모듈은 실행 시 자동 로드되지 않습니다. 실제 운영용 명령어는 기존 Noa 경로를 계속 사용합니다.
+1. **지원되는 인증 방법:** `oauthToken`, `duuid`를 해당 VOX 프로토콜에서 정당하게 발급받는 방법은 구현되지 않았습니다. Railway `auth.json`을 재사용한다고 추정하지 않습니다.
+2. **채팅방 참여 확인:** 독립된 실행 계정이 OM 채팅방 구성원인지 검증할 수 있는 클라이언트 공급자는 아직 없습니다.
+3. **실제 WebRTC 음성 전송:** 오디오 SDP Offer/Answer와 ICE 수집은 구현했지만 현재는 **수신 전용 오디오 트랜시버**입니다. 실제 음성 송신이나 진행자 세션 유지, ICE/DTLS 연결 성공은 검증되지 않았습니다.
+4. **11015 PING:** 사용자가 받은 코드 주석에만 있으며, 요청 본문 구조·전송 주기 등은 확인되지 않았습니다. 임의의 서버 PING을 전송하지 않습니다.
+5. **VOX 실서버 검증:** `30000/11028/11003/11007` 메서드, 서버 주소, IV, BSON 스키마는 사용자 제공 예시이며 실제 성공 여부는 미확인입니다.
+6. **실제 서버 개설 확인과 종료:** 서버에서 보이스룸 활성 여부를 독립적으로 확인할 방법 및 `#보룸종료` 서버 측 종료 프로토콜은 없습니다. 어댑터의 `dispose()`는 **로컬 연결만 해제**합니다.
+7. **동시 다중 채팅방:** 단일 인증 계정의 다중 진행자 세션 지원 여부를 검증하지 않았습니다.
+
+### 연동 시 고려
+
+`experiments/vox30/lab.js`의 `createLabAdapter`는 `credentialsForRoom`과 `verifyMembership` 함수를 **외부에서 명시적으로 제공**해야 합니다. 해당 함수가 없으면 VOX 요청을 시작하지 않습니다. 현재 Railway 운영 서비스는 실험 모듈을 전혀 로드하지 않으므로 계속 Noa 경로로 동작합니다.
+
+**보안:** 세션 토큰·기기 식별자·실제 SDP(주소/ICE 인증 포함)를 코드, GitHub, 로그, 채팅에 기록하지 마세요. 개발 중 SSL 인증을 비활성화하지 마세요.
