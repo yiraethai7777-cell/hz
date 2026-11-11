@@ -1,0 +1,11 @@
+{
+  "name": "nexi-vox30-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated WebRTC and SEED-CBC dependencies for non-production VOX research",
+  "type": "commonjs",
+  "dependencies": {
+    "kisa-seed": "1.1.0",
+    "werift": "0.26.0"
+  }
+}
