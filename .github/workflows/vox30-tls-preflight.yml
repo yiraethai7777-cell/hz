@@ -24,3 +24,5 @@ jobs:
         run: node --test test/vox30-tls-probe.test.js
       - name: Probe sample candidate with TLS ClientHello only (no OAuth or BSON)
         run: node scripts/vox30-tls-probe.js
+      - name: Retry TLS using certificate's advertised kakao.com identity (still NO OAuth)
+        run: node -e "require('./scripts/vox30-tls-probe').tlsPreflight({host:'211.242.12.121',port:9282,servername:'kakao.com',timeoutMs:6000}).then(r=>console.log('[VOX TLS SNI candidate] '+JSON.stringify(r)))"
