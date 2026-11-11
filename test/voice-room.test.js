@@ -92,7 +92,7 @@ test('status query can report unconfigured transport',async()=>{
   const {args,sent}=fixture({text:'#보룸상태'});
   await voice.handle(args);
   assert.match(sent[0],/보이스룸 상태/);
-  assert.match(sent[0],/미연동/);
+  assert.match(sent[0],/직접 VOX 인증 미연결/);
 });
 
 test('status reply recognizes active verified server state',async()=>{
