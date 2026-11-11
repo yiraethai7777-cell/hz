@@ -296,24 +296,38 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
     cfg,chatId,entryHost,entryPort,codec,appVer,connect,transport,
   });
   const c=await connect({host:server.host,port:server.port,codec,...transport});
-  // The supplied protocol says 11028 is a command and 11003/11007 is the
-  // outcome. A separate 11028 reply may NEVER arrive. Do not await it.
-  // Register the listener before writing so immediate events cannot be lost.
-  const outcome=c.wait(METHODS.CREATED,METHODS.REJECTED);
+  let outcome,ack;
   try {
+    // The original client reads session IDs from 11028 and SDP from 11003.
+    // Register both before sending so either packet can arrive first.
+    outcome=c.wait(METHODS.CREATED,METHODS.REJECTED);
+    ack=c.wait(METHODS.CREATE);
+    const accepted=ack.promise.then(packet=>{
+      const status=integer(packet.body.resCode ?? packet.status ?? 0);
+      if(status!==0)throw Error('VOX 보이스룸 생성 응답 거절: resCode='+status);
+      return packet;
+    });
+    const first=Promise.race([outcome.promise,accepted]);
+    first.catch(()=>{});
     await c.send(METHODS.CREATE,createBody);
-    const event=await outcome.promise;
+    const packet=await first;
+    const event=packet.method===METHODS.CREATE?await outcome.promise:packet;
     if(event.method===METHODS.REJECTED)
       throw Error('VOX 보이스룸 생성 거절: reason='+integer(event.body.reason??0));
     const remoteSdp=event.body.sdp;
     // A 11003 event does NOT prove KakaoTalk server activation or ICE/DTLS.
     if(!remoteSdp || typeof remoteSdp!=='object')
       throw Error('VOX 원격 SDP 응답이 없습니다.');
+    let reply=packet.method===METHODS.CREATE?packet.body:{};
+    if(packet.method!==METHODS.CREATE && (event.body.callId==null || event.body.csId==null))
+      reply=(await accepted).body;
     return {
-      conn:c,callId:event.body.callId??null,csId:event.body.csId??null,remoteSdp,
+      conn:c,callId:reply.callId??event.body.callId??null,
+      csId:reply.csId??event.body.csId??null,remoteSdp,
       requestAccepted:true,verified:false,
     };
-  }catch(e){outcome.cancel();c.close();throw e;}
+  }catch(e){c.close();throw e;}
+  finally{outcome?.cancel();ack?.cancel();}
 }
 
 module.exports={

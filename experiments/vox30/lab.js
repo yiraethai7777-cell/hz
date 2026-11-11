@@ -1,7 +1,6 @@
 'use strict';
 
-// Optional experiment entrypoint; NOT wired into the live Railway bot.
-// Do not import user secrets from Railway's auth.json or the Noa login.
+// Shared assembly for the standalone lab and the Railway VOX adapter.
 const {createCodec}=require('../../shared/vox30-protocol');
 const {createVox30Adapter}=require('../../shared/vox30-adapter');
 const {seedCbcBytes}=require('./seed');
@@ -10,12 +9,12 @@ const {createWebRtcPeer}=require('./webrtc');
 function createLabAdapter({
   actorUserId,cfg,entryHost,entryPort,appVer,
   credentialsForRoom,verifyMembership,
-  rtcConfig,iceTimeoutMs,connect,
+  rtcConfig,iceTimeoutMs,connect,userTypeForRoom,
 }={}) {
   return createVox30Adapter({
     actorUserId,cfg,entryHost,entryPort,appVer,
     codec:createCodec({seed:seedCbcBytes()}),
-    credentialsForRoom,verifyMembership,
+    credentialsForRoom,verifyMembership,userTypeForRoom,
     rtcFactory:()=>createWebRtcPeer({rtcConfig,iceTimeoutMs}),
     ...(connect?{connect}:{}),
   });
