@@ -74,7 +74,7 @@ function tlsPreflight(options={},tlsConnect=tls.connect){
       socket.once('error',error=>finish(classifyTlsError(error)));
       socket.once('close',()=>finish('connection_closed'));
       timer=setTimeout(()=>finish('timeout'),timeoutMs);
-      timer.unref?.();
+      // Keep the timeout referenced so a timed-out probe always reports a result.
     }catch(error){finish(classifyTlsError(error));}
   });
 }
