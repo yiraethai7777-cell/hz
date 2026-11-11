@@ -276,6 +276,7 @@ async function getCallServer({cfg,chatId,entryHost,entryPort=9282,codec,
     appVer,connect=voxConnect,transport={}}) {
   validateCfg(cfg);
   checkedId(chatId);
+  checkedAppVersion(appVer);
   const c=await connect({host:entryHost,port:entryPort,codec,...transport});
   try {
     const reply=await c.request(METHODS.DISCOVER,getDiscoveryBody(cfg,chatId,appVer));
