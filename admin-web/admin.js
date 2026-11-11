@@ -186,7 +186,17 @@ $('#promo-auto-default').addEventListener('click',()=>task(async()=>{
 }));
 $('#promo-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/admin/promotion-message','POST',{message:$('#promo-message').value});feedback('모든 방의 공통 홍보 문구를 저장했습니다. 다음 전송부터 적용됩니다.');});});
 $('#promo-delete').addEventListener('click',()=>task(async()=>{if(!confirm('공통 문구를 삭제하고 운영자 봇의 모든 방 홍보를 OFF로 바꿀까요?'))return;await api('/api/admin/promotion-message','POST',{action:'delete',confirm:true});await loadCommonPromo();await loadRooms();feedback('공통 문구를 삭제하고 전체 방 홍보를 껐습니다.');}));
-$('#promo-immediate').addEventListener('click',()=>task(async()=>{const room=rooms.find(r=>r.room_id===$('#promo-room').value);if(!confirm((room?.name||'선택한 채팅방')+' ('+$('#promo-room').value+')에 홍보 문구를 지금 전송할까요?'))return;const result=await api('/api/admin/promotion','POST',{roomId:$('#promo-room').value,action:'immediate',confirm:true});feedback(result.sent?'홍보 문구를 전송했습니다.':'최근 5분 내 전송했거나 전송할 수 없는 방입니다.');}));
+$('#promo-immediate').addEventListener('click',()=>task(async()=>{
+ const roomId=$('#promo-room').value,room=rooms.find(r=>r.room_id===roomId);
+ if(!roomId)throw Error('전송할 채팅방을 선택해 주세요.');
+ if(!confirm((room?.name||'선택한 채팅방')+' ('+roomId+')에 홍보 문구를 지금 전송할까요?'))return;
+ const button=$('#promo-immediate');button.disabled=true;
+ try{
+  const result=await api('/api/admin/promotion','POST',{roomId,action:'immediate',confirm:true});
+  feedback(result.reason||(result.sent?'홍보 문구 전송 요청을 완료했습니다.':'홍보문을 전송하지 못했습니다.'),!result.sent);
+  if(result.sent)await loadPromoLogs();
+ }finally{button.disabled=false;}
+}));
 async function loadPromoLogs(){const d=await api('/api/admin/promotion/logs?roomId='+encodeURIComponent($('#promo-room').value));$('#promo-logs').textContent=(d.stats||[]).map(r=>r.status+': '+r.count+'회').join(' · ')+'\n\n'+(d.logs.map(r=>`${new Date(r.created_at).toLocaleString('ko-KR')} · ${r.status} ${r.detail}`).join('\n')||'전송 기록 없음');}
 $('#promo-log-button').addEventListener('click',()=>task(loadPromoLogs));
 function resetNotice(){$('#notice-form').reset();$('#notice-id').value='';}$('#notice-new').addEventListener('click',resetNotice);
