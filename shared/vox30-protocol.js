@@ -287,18 +287,21 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
     cfg,chatId,entryHost,entryPort,codec,appVer,connect,transport,
   });
   const c=await connect({host:server.host,port:server.port,codec,...transport});
+  // The supplied protocol says 11028 is a command and 11003/11007 is the
+  // outcome. A separate 11028 reply may NEVER arrive. Do not await it.
+  // Register the listener before writing so immediate events cannot be lost.
   const outcome=c.wait(METHODS.CREATED,METHODS.REJECTED);
   try {
-    const ack=await c.request(METHODS.CREATE,createBody);
+    await c.send(METHODS.CREATE,createBody);
     const event=await outcome.promise;
     if(event.method===METHODS.REJECTED)
       throw Error('VOX 보이스룸 생성 거절: reason='+integer(event.body.reason??0));
     const remoteSdp=event.body.sdp;
-    // An event received at the socket is not proof that WebRTC negotiated.
+    // A 11003 event does NOT prove KakaoTalk server activation or ICE/DTLS.
     if(!remoteSdp || typeof remoteSdp!=='object')
       throw Error('VOX 원격 SDP 응답이 없습니다.');
     return {
-      conn:c,callId:ack.callId??null,csId:ack.csId??null,remoteSdp,
+      conn:c,callId:event.body.callId??null,csId:event.body.csId??null,remoteSdp,
       requestAccepted:true,verified:false,
     };
   }catch(e){outcome.cancel();c.close();throw e;}
