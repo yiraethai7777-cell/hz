@@ -183,8 +183,14 @@ async function routes(req,res,url,body){
  if(p==='/api/admin/promotion'&&method==='POST'){
   if(body.action==='start'&&![20,30].includes(Number(body.minutes)))fail('20분 또는 30분을 선택해 주세요.');
   const room=id(body.roomId);if(body.action==='immediate'){
-   if(body.confirm!==true)fail('즉시 전송을 재확인해 주세요.');if(!status.chat)fail('카카오톡 연결이 필요합니다.',503);
-   await audit(getPool(),s.user,'PROMOTION_IMMEDIATE',room,null,{});return {sent:await promotion.deliver(room,status.chat,true)};
+   if(body.confirm!==true)fail('즉시 전송을 재확인해 주세요.');
+   if(!status.connected||!status.client?.connected||!status.chat)fail('카카오톡 봇이 연결되어 있지 않습니다.',503);
+   await require('../promotion/rooms').refresh(status.client,{force:true});
+   const known=status.client.getKnownChatRooms?.().find(r=>String(r.id)===room);
+   if(!known)fail('봇이 현재 참여 중인 채팅방만 선택할 수 있습니다.',404);
+   const delivery=await promotion.deliver(room,status.chat,true,null,{master:true,detailed:true});
+   await audit(getPool(),s.user,'PROMOTION_IMMEDIATE',room,null,{sent:delivery.sent,reason:delivery.sent?undefined:delivery.reason});
+   return delivery;
   }
   return {promotion:await promotion.configure(room,s.user,body.action,{message:body.message,minutes:body.minutes,allowed:body.allowed,botWeb:true})};
  }
