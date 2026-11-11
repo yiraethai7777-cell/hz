@@ -25,8 +25,8 @@ test('unsupported voice room command never fabricates a LOCO request',async()=>{
   const {args,sent}=fixture();
   const result=await voice.handle(args);
   assert.equal(result,true);
-  assert.match(sent[0],/생성 API가 아직 연결되지 않았습니다/);
-  assert.match(sent[0],/CREATE_VOICEROOM/);
+  assert.match(sent[0],/직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다/);
+  assert.match(sent[0],/기존 Android\/Noa 생성 방식은 제거했습니다/);
   assert.doesNotMatch(sent[0],/생성 확인/);
 });
 
@@ -92,7 +92,7 @@ test('status query can report unconfigured transport',async()=>{
   const {args,sent}=fixture({text:'#보룸상태'});
   await voice.handle(args);
   assert.match(sent[0],/보이스룸 상태/);
-  assert.match(sent[0],/미연동/);
+  assert.match(sent[0],/직접 VOX 인증 미연결/);
 });
 
 test('status reply recognizes active verified server state',async()=>{
@@ -323,7 +323,7 @@ test('aliases for start, stop and voice-room commands are all recognized',async(
   for(const command of ['#보룸시작','!보룸시작','보룸시작','#보이스룸시작']){
     const {args,sent}=fixture({text:command});
     assert.equal(await voice.handle(args),true);
-    assert.match(sent[0],/생성 API가 아직 연결되지 않았습니다/);
+    assert.match(sent[0],/직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다/);
   }
   for(const command of ['#보룸종료','!보룸종료','보룸종료','#보이스룸종료.']){
     const {args,sent}=fixture({text:command});
@@ -360,7 +360,7 @@ test('experimental Noa accepted request is only an unverified dispatch, never cr
     status: async () => { throw Error('must not be queried after acknowledged dispatch'); },
   };
   await voice.handle(args);
-  assert.match(sent[0], /생성 요청이 Android 브리지에 전달/);
+  assert.match(sent[0], /보이스룸 생성 요청이 Railway 직접 VOX 클라이언트에 전달/);
   assert.match(sent[0], /실제 카카오톡 서버 개설은 아직 확인되지 않았습니다/);
   assert.doesNotMatch(sent[0], /보이스룸 생성 확인!/);
 });
@@ -372,7 +372,7 @@ test('experimental Noa current local session is not displayed as server verified
     status: async () => ({ roomId: ROOM, localSession: true, localActive: true, verified: false }),
   };
   await voice.handle(args);
-  assert.match(sent[0], /Android 브리지에서 이 방의 보룸 세션 표시/);
+  assert.match(sent[0], /Railway 직접 VOX에서 이 방의 보룸 세션 표시/);
   assert.match(sent[0], /서버 상태 미검증/);
   assert.doesNotMatch(sent[0], /서버에서 개설 상태 확인/);
 });
@@ -392,7 +392,7 @@ test('voice join command is registered without a VOX transport and tells the mis
   const {args,sent}=fixture({text:'#보룸참가'});
   assert.equal(await voice.handle(args),true);
   assert.match(sent[0],/보이스룸 참가 실행 불가/);
-  assert.match(sent[0],/외부 Noa Android 브리지/);
+  assert.match(sent[0],/Railway 직접 VOX 인증/);
 });
 
 test('voice join status command is registered without any enable switch', async () => {
@@ -420,7 +420,7 @@ test('voice join calls the adapter for this bot account and never claims server 
     {method:'status',data:{roomId:ROOM,botUserId:client.userId}},
     {method:'join',data:{roomId:ROOM,botUserId:client.userId}},
   ]);
-  assert.match(sent[0],/참가 요청을 Android 브리지에 전달/);
+  assert.match(sent[0],/보이스룸 참가 요청을 Railway 직접 VOX 클라이언트에 전달/);
   assert.match(sent[0],/실제 참가 여부/);
   assert.doesNotMatch(sent[0],/참가 확인!|서버에서 개설 상태 확인/);
 });
@@ -503,7 +503,7 @@ test('bot account can request voice join even with nonmanager sender role', asyn
     join:async()=>({requestAccepted:true,verified:false}),
   };
   await voice.handle(args);
-  assert.match(sent[0],/참가 요청을 Android 브리지에 전달/);
+  assert.match(sent[0],/보이스룸 참가 요청을 Railway 직접 VOX 클라이언트에 전달/);
 });
 
 test('voice join or leave fail closed when Android session status cannot be checked',async()=>{
@@ -527,4 +527,9 @@ test('voice help shows join, join status and leave command names',async()=>{
   assert.match(sent[0],/#보룸참가/);
   assert.match(sent[0],/#보룸참가상태/);
   assert.match(sent[0],/#보룸퇴장/);
+});
+
+test('legacy Noa adapter is explicitly rejected in direct-only voice mode',()=>{
+  const legacy={kind:'noa-android-experimental',create:async()=>({requestAccepted:true})};
+  assert.equal(voice.adapterOf({voiceRoomAdapter:legacy}),null);
 });

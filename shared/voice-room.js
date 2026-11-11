@@ -1,9 +1,8 @@
 'use strict';
 
 // KakaoTalk VoiceRoom command controller.
-// IMPORTANT: There is no confirmed KakaoForge create-voice-room packet.
-// Do not send guessed LOCO methods (such as CREATE_VOICEROOM).
-// An explicitly installed, verified client.voiceRoomAdapter is required.
+// Railway direct VOX only. Never send guessed LOCO packets or use Android/Noa adapters.
+// An explicitly installed authenticated direct VOX adapter is required.
 const running=new Set();
 const MANAGERS=new Set([1,4]);
 const MAX_TITLE=40;
@@ -30,6 +29,7 @@ function botMemberType(client,roomId) {
 }
 function adapterOf(client) {
   const adapter=client?.voiceRoomAdapter;
+  if(adapter?.kind==='noa-android-experimental')return null;
   return adapter && (typeof adapter.create==='function' || typeof adapter.status==='function' || typeof adapter.stop==='function' || typeof adapter.join==='function' || typeof adapter.leave==='function')?adapter:null;
 }
 function parseTitle(value) {
@@ -116,24 +116,24 @@ async function handle({client,roomId,msg,text,send,adapter}){
       await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+
         signalText+'\n'+
         'Railway 전용 VOX 인증·음성 세션 미구현 → 실제 참가 불가\n'+
-        'Noa Android 브리지도 연결되어 있지 않습니다.\n'+
+        'Railway 직접 VOX 세션이 연결되지 않았습니다.\n'+
         '※ 접속정보 수신은 참가나 진행자 권한의 증거가 아닙니다.');
       return true;
     }
     try{
       const state=await transport.status({roomId:room,botUserId:botId});
       const line=state?.localActive===true && state?.statusKnown===true
-        ? 'Android 브리지에서 이 방의 보이스룸 참가 세션 감지'
+        ? 'Railway 직접 VOX에서 이 방의 음성 세션 감지'
         : state?.localBusyOtherRoom===true
-          ? 'Android 브리지는 다른 방의 보이스룸 세션을 사용 중'
+          ? 'Railway VOX 클라이언트가 다른 방의 음성 세션을 사용 중'
           : state?.statusKnown===true
-            ? '이 방의 Android 보이스룸 참가 세션 확인 안 됨'
-            : 'Android 보이스룸 참가 상태 확인 불가';
+            ? '이 방의 VOX 참가 세션 확인 안 됨'
+            : 'VOX 참가 상태 확인 불가';
       await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+line+
         '\n※ 카카오톡 서버의 참가자 명단 및 진행자 권한을 확인한 결과는 아닙니다.');
     }catch{
-      await safeReply(client,send,'⚠️ Android 브리지 참가 상태 조회 실패\n'+
-        'Noa 실행 계정과 대상 채팅방 상태를 확인해 주세요.');
+      await safeReply(client,send,'⚠️ Railway 직접 VOX 참가 상태 조회 실패\n'+
+        'VOX 인증 계정과 대상 채팅방 상태를 확인해 주세요.');
     }
     return true;
   }
@@ -147,7 +147,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         : '유효한 보룸 접속정보 및 인증된 VOX 클라이언트가 없습니다.';
       await safeReply(client,send,'⚠️ 보이스룸 '+operation+' 실행 불가\n'+
         detail+'\n'+
-        '외부 Noa Android 브리지도 연결되어 있지 않습니다.\n'+
+        'Railway 직접 VOX 인증 및 음성 세션이 아직 연결되지 않았습니다.\n'+
         '기존 Railway 카카오톡 로그인은 변경하지 않았습니다.');
       return true;
     }
@@ -160,23 +160,23 @@ async function handle({client,roomId,msg,text,send,adapter}){
     try{
       const state=await transport.status({roomId:room,botUserId:botId});
       if(state?.statusKnown!==true){
-        await safeReply(client,send,'⚠️ Android 보이스룸 상태를 확인할 수 없어 '+operation+' 요청을 보내지 않았습니다.');
+        await safeReply(client,send,'⚠️ Railway VOX 상태를 확인할 수 없어 '+operation+' 요청을 보내지 않았습니다.');
         return true;
       }
       if(isJoin){
         if(state.localActive===true){
-          await safeReply(client,send,'🎙️ 이 방의 Android 보이스룸 참가 세션이 이미 감지됩니다.\n'+
+          await safeReply(client,send,'🎙️ 이 방의 VOX 보이스룸 참가 세션이 이미 감지됩니다.\n'+
             '※ 실제 참가자 명단·진행자 권한은 별도로 확인해야 합니다.');
           return true;
         }
         if(state.localBusyOtherRoom===true){
-          await safeReply(client,send,'⚠️ Android 브리지가 다른 방에서 보이스룸 세션을 사용하고 있습니다.\n'+
+          await safeReply(client,send,'⚠️ Railway VOX 클라이언트가 다른 방에서 보이스룸 세션을 사용하고 있습니다.\n'+
             '기존 세션을 보호하기 위해 자동 전환하지 않습니다.');
           return true;
         }
         const joined=await transport.join({roomId:room,botUserId:botId});
         if(joined?.requestAccepted===true){
-          await safeReply(client,send,'📨 보이스룸 참가 요청을 Android 브리지에 전달했습니다.\n'+
+          await safeReply(client,send,'📨 보이스룸 참가 요청을 Railway 직접 VOX 클라이언트에 전달했습니다.\n'+
             '※ 실제 참가 여부는 카카오톡의 참가자 목록에서 확인해야 합니다.\n'+
             '※ 진행자 권한 승격은 자동으로 수행되지 않습니다.');
         }else{
@@ -184,18 +184,18 @@ async function handle({client,roomId,msg,text,send,adapter}){
         }
       }else{
         if(state.localActive!==true){
-          await safeReply(client,send,'⚠️ 이 방에 참가 중인 Android 보이스룸 세션이 확인되지 않아 퇴장 요청을 보내지 않았습니다.');
+          await safeReply(client,send,'⚠️ 이 방에 참가 중인 Railway VOX 음성 세션이 확인되지 않아 퇴장 요청을 보내지 않았습니다.');
           return true;
         }
         const left=await transport.leave({roomId:room,botUserId:botId});
         await safeReply(client,send,left?.requestAccepted===true
-          ? '📨 Android 보이스룸 세션 퇴장 요청을 전달했습니다.\n'+
+          ? '📨 Railway VOX 음성 세션 퇴장 요청을 전달했습니다.\n'+
             '※ 실제 퇴장 여부는 앱에서 확인해 주세요. 보룸 전체 종료 명령은 아닙니다.'
           : '⚠️ 보이스룸 퇴장 요청이 접수됐는지 확인하지 못했습니다.');
       }
     }catch{
       await safeReply(client,send,'❌ 보이스룸 '+operation+' 요청 실패\n'+
-        'Noa VOX 상태와 실행 계정의 대상 채팅방 연결을 확인해 주세요.');
+        'Railway VOX 인증과 대상 채팅방 연결을 확인해 주세요.');
     }finally{
       running.delete(room);
     }
@@ -248,11 +248,11 @@ async function handle({client,roomId,msg,text,send,adapter}){
   }
   if(isHelp){
     await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보이스룸 명령어\n' +
-      '#보룸시작 (제목) / #보룸켜기 (제목) · 실제 보이스룸 생성 요청\n' +
+      '#보룸시작 (제목) / #보룸켜기 (제목) · Railway 직접 VOX 생성 (인증 연동 후)\n' +
       '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
-      '#보룸참가 · 기존 보룸에 참가 요청 (Android VOX 브리지 필요)\n' +
-      '#보룸참가상태 · Android 참가 세션 확인\n' +
-      '#보룸퇴장 · Android 음성 세션에서 나가기 (보룸 종료 아님)\n' +
+      '#보룸참가 · 기존 보룸에 참가 요청 (직접 VOX 인증 필요)\n' +
+      '#보룸참가상태 · Railway VOX 참가 세션 확인\n' +
+      '#보룸퇴장 · Railway VOX 음성 세션에서 나가기 (보룸 종료 아님)\n' +
       '※ 관리 ON인 방은 보이스룸 개설·종료 이벤트를 자동 감지해 알립니다.\n' +
       '#보룸감지시작 · 3분간 수신 이벤트 관찰\n' +
       '#보룸감지 · 관찰된 신호 후보 확인\n' +
@@ -266,7 +266,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
   if(isStatus){
     const roleText=role==null || role===0?'확인 불가':managerRole(role)?'방장/부방장':'일반 멤버';
     let capability=transport?'연동 모듈 설치됨 (실제 서버 개설 여부 미확인)':
-      '미연동 (보이스룸 생성 요청 미지원)';
+      'Railway 직접 VOX 인증 미연결 (생성 불가)';
     if(transport && typeof transport.status==='function'){
       try{
         const state=await transport.status({roomId:room});
@@ -276,8 +276,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
           capability='✅ 서버에서 비활성 상태 확인';
         else if(state?.localSession===true)
           capability=state.localActive?
-            'Android 브리지에서 이 방의 보룸 세션 표시 (서버 상태 미검증)':
-            'Android 브리지에서 이 방의 보룸 세션 확인 안 됨 (서버 상태 미검증)';
+            'Railway 직접 VOX에서 이 방의 보룸 세션 표시 (서버 상태 미검증)':
+            'Railway 직접 VOX에서 이 방의 보룸 세션 확인 안 됨 (서버 상태 미검증)';
         else
           capability='모듈 연결됨 · 현재 보이스룸 개설 여부 미확인';
       }catch(e){
@@ -335,9 +335,9 @@ async function handle({client,roomId,msg,text,send,adapter}){
     return true;
   }
   if(!transport || typeof transport.create!=='function'){
-    await safeReply(client,send,'⚠️ 보이스룸 생성 API가 아직 연결되지 않았습니다.\n'+
-      'CREATE_VOICEROOM은 검증된 LOCO 명령어가 아니므로 전송하지 않습니다.\n'+
-      '카카오톡 앱의 + 메뉴에서 보이스룸을 직접 개설할 수 있습니다.');
+    await safeReply(client,send,'⚠️ Railway 직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다.\n'+
+      '기존 Android/Noa 생성 방식은 제거했습니다.\n'+
+      'VOX 인증 및 채팅방 참여 확인 전에는 생성 요청을 보내지 않습니다.');
     return true;
   }
   if(!isBotAccount && !managerRole(role)){
@@ -375,7 +375,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       await safeReply(client,send,'🎙️ 보이스룸 생성 확인!\n이름: '+title+
         (id?'\n보이스룸 ID: '+String(id):''));
     }else if(response?.requestAccepted===true){
-      await safeReply(client,send,'📨 보이스룸 생성 요청이 Android 브리지에 전달됐습니다.\n'+
+      await safeReply(client,send,'📨 보이스룸 생성 요청이 Railway 직접 VOX 클라이언트에 전달됐습니다.\n'+
         '이름: '+title+'\n'+
         '※ 실제 카카오톡 서버 개설은 아직 확인되지 않았습니다.\n'+
         '개설 이벤트(vr_invite) 또는 카카오톡 화면에서 확인해 주세요.');

@@ -42,14 +42,14 @@ test('voice-room status is handled without waiting for global ready',async()=>{
   await emit('#보룸상태');
   assert.equal(sent.length,1);
   assert.match(sent[0].body,/🎙️ 보이스룸 상태/);
-  assert.match(sent[0].body,/미연동/);
+  assert.match(sent[0].body,/직접 VOX 인증 미연결/);
 });
 
 test('legacy !보룸켜기 example is recognized before ready',async()=>{
   const {emit,sent}=fixture();
   await emit('!보룸켜기');
   assert.equal(sent.length,1);
-  assert.match(sent[0].body,/생성 API가 아직 연결되지 않았습니다/);
+  assert.match(sent[0].body,/직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다/);
 });
 
 test('status returns manager-only message for regular member even before ready',async()=>{
@@ -91,7 +91,7 @@ test('bare 보룸켜기 without a prefix responds with unsupported protocol expl
   const {emit,sent}=fixture();
   await emit('보룸켜기');
   assert.equal(sent.length,1);
-  assert.match(sent[0].body,/생성 API가 아직 연결되지 않았습니다/);
+  assert.match(sent[0].body,/직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다/);
 });
 
 
@@ -148,14 +148,14 @@ test('screenshotted #보룸시작 receives an unsupported API response',async()=
   const {emit,sent}=fixture();
   await emit('#보룸시작 .');
   assert.equal(sent.length,1);
-  assert.match(sent[0].body,/보이스룸 생성 API가 아직 연결되지 않았습니다/);
+  assert.match(sent[0].body,/직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다/);
 });
 
 test('bot account with ordinary sender role can issue #보룸시작',async()=>{
   const {emit,sent,client}=fixture();
   await emit('#보룸시작',2,client.userId);
   assert.equal(sent.length,1);
-  assert.match(sent[0].body,/보이스룸 생성 API가 아직 연결되지 않았습니다/);
+  assert.match(sent[0].body,/직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다/);
   assert.doesNotMatch(sent[0].body,/방장·부방장 또는 봇 계정만/);
 });
 
@@ -219,7 +219,7 @@ test('status commands still never report unverified observer hits as live VoiceR
     observer.start(roomId);
     observer.observeMessage({ room: { id: roomId, isOpenChat: true }, message: { type: 52 } });
     await emit('#보룸상태');
-    assert.match(sent.at(-1).body, /미연동/);
+    assert.match(sent.at(-1).body, /직접 VOX 인증 미연결/);
     assert.doesNotMatch(sent.at(-1).body, /서버에서 개설 상태 확인/);
   } finally { observer.stop(roomId); }
 });
@@ -274,7 +274,7 @@ test('room probe outputs recognized lifecycle events but not voice server creden
     assert.match(reply, /실제 개설\/활성 여부 미확정/);
     assert.doesNotMatch(reply, /192\.0\.2|2001:db8|private-call|private-chat-content/);
     await emit('#보룸상태');
-    assert.match(sent.at(-1).body, /미연동/);
+    assert.match(sent.at(-1).body, /직접 VOX 인증 미연결/);
   } finally {
     observer.stop(roomId);
   }
@@ -300,7 +300,7 @@ test('management-enabled automatic detection appears in #보룸상태 and #보�
   const {emit,sent}=fixture();
   await emit('#보룸상태');
   assert.match(sent.at(-1).body,/마지막 자동 감지: 개설 이벤트 수신/);
-  assert.match(sent.at(-1).body,/미연동/);
+  assert.match(sent.at(-1).body,/직접 VOX 인증 미연결/);
   await emit('#보룸감지');
   assert.match(sent.at(-1).body,/마지막 자동 감지 기록/);
   assert.match(sent.at(-1).body,/개설 이벤트 수신/);
@@ -312,7 +312,7 @@ test('automatic room detection does not claim active voice server from a receive
   const {emit,sent}=fixture();
   await emit('#보룸상태');
   assert.match(sent.at(-1).body,/실시간 서버 검증 아님/);
-  assert.match(sent.at(-1).body,/미연동/);
+  assert.match(sent.at(-1).body,/직접 VOX 인증 미연결/);
 });
 
 
