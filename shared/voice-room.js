@@ -6,6 +6,8 @@
 const running=new Set();
 const MANAGERS=new Set([1,4]);
 const MAX_TITLE=40;
+const lastTlsDiagnostic=new Map();
+const TLS_DIAGNOSTIC_COOLDOWN_MS=10*60*1000;
 
 function managerRole(value) {
   return MANAGERS.has(Number(value));
@@ -78,7 +80,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸참가상태|보룸참가|보룸퇴장|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
+  const match=/^[#!]?(보룸TLS진단|보이스룸TLS진단|보룸참가상태|보룸참가|보룸퇴장|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
@@ -97,6 +99,37 @@ async function handle({client,roomId,msg,text,send,adapter}){
   }
 
   const room=roomKey(roomId);
+  if(match[1]==='보룸TLS진단'||match[1]==='보이스룸TLS진단'){
+    if(!isBotAccount){
+      await safeReply(client,send,'❌ TLS 연결 진단은 봇 계정만 실행할 수 있습니다.');
+      return true;
+    }
+    const previous=lastTlsDiagnostic.get(room)||0;
+    const now=Date.now();
+    if(previous && now-previous<TLS_DIAGNOSTIC_COOLDOWN_MS){
+      await safeReply(client,send,'⏳ TLS 연결 진단은 방마다 10분에 한 번만 실행할 수 있습니다.');
+      return true;
+    }
+    if(typeof client?.voiceRoomTlsProbe!=='function'){
+      await safeReply(client,send,'⚠️ Railway TLS 진단 모듈이 설치되지 않았습니다.');
+      return true;
+    }
+    lastTlsDiagnostic.set(room,now);
+    const show=item=>item?.certificateVerified===true
+      ? 'TLS '+String(item.tlsVersion||'인증됨')+' · 인증서 확인'
+      : '검증 실패 ('+String(item?.status||'unknown').slice(0,48)+')';
+    try{
+      const report=await client.voiceRoomTlsProbe();
+      await safeReply(client,send,'🎙️ Railway | VOX 접속 후보 TLS 진단\n━━━━━━━━━━━━━━\n'+
+        '후보 TCP 9282: '+show(report?.entry)+'\n'+
+        '후보 TCP 995: '+show(report?.observed)+'\n'+
+        'VOX 서버 인증: 미검증\n보이스룸 생성: 미실행\n'+
+        '※ 인증 토큰·VOX 패킷은 보내지 않았습니다. TLS 성공은 실제 VOX 연결 성공이 아닙니다.');
+    }catch{
+      await safeReply(client,send,'⚠️ Railway TLS 연결 진단에 실패했습니다. 서버 인증은 미검증 상태입니다.');
+    }
+    return true;
+  }
   const transport=adapter===undefined?adapterOf(client):adapter;
   const role=botMemberType(client,room);
   const isStatus=match[1].endsWith('상태');
@@ -250,6 +283,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
     await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보이스룸 명령어\n' +
       '#보룸시작 (제목) / #보룸켜기 (제목) · Railway 직접 VOX 생성 (인증 연동 후)\n' +
       '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
+      '#보룸TLS진단 · Railway에서 인증정보 없이 TLS 후보 연결 확인 (봇 계정만)\n' +
       '#보룸참가 · 기존 보룸에 참가 요청 (직접 VOX 인증 필요)\n' +
       '#보룸참가상태 · Railway VOX 참가 세션 확인\n' +
       '#보룸퇴장 · Railway VOX 음성 세션에서 나가기 (보룸 종료 아님)\n' +
