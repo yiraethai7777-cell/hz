@@ -98,14 +98,14 @@ test('the discovery and create sequence follows 30000 then 11028 and event 11003
     close(){recorded.push('close')},
     request:async(method,body)=>{
       recorded.push(method);
-      return method===METHODS.DISCOVER ?
-        {callable:1,csSslAddr:{ip:0x01020304},csSslPort:995} :
-        {callId:'c1',csId:'s1',resCode:0};
+      if(method!==METHODS.DISCOVER)throw Error('11028 ACK is not required');
+      return {callable:1,csSslAddr:{ip:0x01020304},csSslPort:995};
     },
+    send:async(method,body)=>{recorded.push(method);},
     wait:(...methods)=>{
       recorded.push(methods.join(','));
       return {promise:Promise.resolve({method:METHODS.CREATED,
-        body:{sdp:{sdp:'answer',sdpType:2}}}),cancel(){}};
+        body:{callId:'c1',csId:'s1',sdp:{sdp:'answer',sdpType:2}}}),cancel(){}};
     },
   };
   const connect=async()=>client;
@@ -130,7 +130,8 @@ test('VOX refusal closes the connection, never marks verified',async()=>{
     close(){closed++},
     request:async method=>method===METHODS.DISCOVER?
       {callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}:
-      {callId:'no'},
+      Promise.reject(Error('Unexpected request')), 
+    send:async()=>{},
     wait:()=>({promise:Promise.resolve({method:METHODS.REJECTED,body:{reason:7}}),
       cancel(){}}),
   };
