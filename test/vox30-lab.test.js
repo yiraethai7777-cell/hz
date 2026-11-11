@@ -97,3 +97,17 @@ test('composed adapter rejects missing authenticated membership before VOX I/O',
   await assert.rejects(()=>adapter.create({roomId:ROOM,title:'실험'}),/참여/);
   await adapter.dispose();
 });
+
+test('werift generates real audio SDP without contacting KakaoTalk',async()=>{
+  const peer=createWebRtcPeer({iceTimeoutMs:8000});
+  try{
+    const offer=await peer.createOffer();
+    assert.match(offer,/^v=0/m);
+    assert.match(offer,/^m=audio /m);
+    assert.match(offer,/a=ice-ufrag:/);
+    assert.match(offer,/a=fingerprint:/);
+    assert.equal(peer.getState().closed,false);
+  }finally{
+    await peer.close();
+  }
+});
