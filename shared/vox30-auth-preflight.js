@@ -26,8 +26,8 @@ function assessVoxAuthPreflight(client,{chatId}={}) {
   if(roomId && typeof provider?.diagnostics==='function'){
     try{evidence=provider.diagnostics({chatId:roomId})||{};}catch{}
   }
-  const localRoom=roomId && client?._chatRooms instanceof Map?
-    client._chatRooms.get(roomId):null;
+  const localRoom=(roomId && client && client._chatRooms instanceof Map)
+    ?client._chatRooms.get(roomId):null;
   let cachedRole=null;
   if(roomId&&exactActorId&&typeof client?._getCachedMemberType==='function'){
     try{cachedRole=client._getCachedMemberType(roomId,client.userId);}catch{}
