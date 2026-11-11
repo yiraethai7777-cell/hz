@@ -207,6 +207,15 @@ async function warnings(room){
  FROM gl_manage_warnings WHERE room_id=$1 AND NOT removed GROUP BY user_id ORDER BY count(*) DESC,user_name LIMIT 300`,[room]);
  return {warnings:r.rows};
 }
+// Reset-all deliberately does not require a user ID. Individual resets do.
+function parseChatRankReset(body={}){
+ const action=String(body.action||'');
+ if(action!=='user'&&action!=='all')bad('삭제 범위가 올바르지 않습니다.');
+ const user=action==='user'?id(body.userId):null;
+ if(action==='user'&&!/^[1-9]\\d{3,24}$/.test(user))bad('올바른 사용자 ID가 필요합니다.');
+ if(body.confirmation!=='DELETE_CONFIRMED_TWICE')bad('2단계 삭제 확인이 필요합니다.',400);
+ return {action,user};
+}
 async function routes(req,res,url,body){
  const p=url.pathname,method=req.method;
  if(p==='/api/admin/room-portal-password-reset'&&method==='POST')return masterResetPassword(req,body);
@@ -276,11 +285,7 @@ async function routes(req,res,url,body){
  }
  if(p==='/api/room-portal/chat-stats'&&method==='DELETE'){
   allowed(s,'chatStats');
-  const action=String(body.action||'');
-  if(action!=='user'&&action!=='all')bad('삭제 범위가 올바르지 않습니다.');
-  const user=id(body.userId);
-  if(action==='user'&&!/^[1-9]\d{3,24}$/.test(user))bad('올바른 사용자 ID가 필요합니다.');
-  if(body.confirmation!=='DELETE_CONFIRMED_TWICE')bad('2단계 삭제 확인이 필요합니다.',400);
+  const {action,user}=parseChatRankReset(body);
   const db=getPool();
   const result=action==='all'
    ?await db.query('DELETE FROM gl_manage_chat_counts WHERE room_id=$1',[s.room_id])
@@ -423,4 +428,4 @@ async function routes(req,res,url,body){
  }
  bad('존재하지 않는 기능입니다.',404);
 }
-module.exports={routes,init,PERMISSIONS};
+module.exports={routes,init,PERMISSIONS,parseChatRankReset};
