@@ -33,7 +33,7 @@ test('probe sends ClientHello only, requires certificate validation and >=TLS1.2
   assert.equal(socket.writes,0);
   assert.equal(socket.destroyed,true);
   assert.deepEqual(result,{status:'tls_verified',tlsVersion:'TLSv1.3',
-    certificateVerified:true,voxServerAuthenticated:false,voiceRoomCreated:false});
+    certificateVerified:true,certificateNames:[],voxServerAuthenticated:false,voiceRoomCreated:false});
 });
 
 test('certificate mismatch cannot be counted as successful VOX server verification',async()=>{
@@ -42,12 +42,14 @@ test('certificate mismatch cannot be counted as successful VOX server verificati
     queueMicrotask(()=>{
       const err=Error('certificate subject mismatch; should not appear in output');
       err.code='ERR_TLS_CERT_ALTNAME_INVALID';
+      err.cert={subjectaltname:'DNS:vox.kakao.com, DNS:*.kakao.com, IP Address:211.242.12.121'};
       socket.emit('error',err);
     });
     return socket;
   });
   assert.equal(result.status,'certificate_name_mismatch');
   assert.equal(result.certificateVerified,false);
+  assert.deepEqual(result.certificateNames,['vox.kakao.com','*.kakao.com']);
   assert.equal(result.voxServerAuthenticated,false);
   assert.doesNotMatch(JSON.stringify(result),/should not appear/);
   assert.equal(socket.writes,0);
