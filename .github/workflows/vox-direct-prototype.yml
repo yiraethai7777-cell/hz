@@ -5,9 +5,11 @@ on:
       - 'shared/voice-room-direct-protocol.js'
       - 'shared/vox30-protocol.js'
       - 'shared/vox30-adapter.js'
+      - 'shared/vox30-existing-auth.js'
       - 'test/voice-room-direct-protocol.test.js'
       - 'test/vox30-protocol.test.js'
       - 'test/vox30-lab.test.js'
+      - 'test/vox30-existing-auth.test.js'
       - 'experiments/vox30/**'
       - '.github/workflows/vox-direct-prototype.yml'
   workflow_dispatch:
@@ -27,4 +29,4 @@ jobs:
       - name: Install pinned lab dependencies separately from production
         run: npm install --prefix experiments/vox30 --ignore-scripts --no-audit --no-fund
       - name: Test direct VOX framing, SEED-CBC, WebRTC and transport
-        run: node --test test/voice-room-direct-protocol.test.js test/vox30-protocol.test.js test/vox30-lab.test.js
+        run: node --test test/voice-room-direct-protocol.test.js test/vox30-protocol.test.js test/vox30-lab.test.js test/vox30-existing-auth.test.js
