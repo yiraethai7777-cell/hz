@@ -71,6 +71,7 @@ async function routes(req,res,url,body){
   return require('../game/fishing-coin-event').startEvent(room,q.rows[0]?.name||room,status.client.chat||status.client,'master:'+s.user);
  }
  if(p==='/api/admin/attendance-image-test'&&method==='POST')return require('../manage/attendance-image/preview').sendTest(status.client,body);
+ if(p==='/api/admin/promotion-default'&&method==='GET')return {message:require('../promotion/default-message').message};
  if(p==='/api/admin/promotion-message'&&method==='GET')return {message:await promotion.commonMessage()||''};
  if(p==='/api/admin/promotion-message'&&method==='POST')return promotion.setCommonMessage(s.user,body);
  if(p==='/api/admin/bulk-kick'&&method==='POST'){
