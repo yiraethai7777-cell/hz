@@ -64,14 +64,67 @@ const titles={overview:'대시보드',rooms:'채팅방 관리',blocks:'명령어
 async function show(panel){document.querySelectorAll('[data-section]').forEach(el=>el.hidden=el.dataset.section!==panel);document.querySelectorAll('[data-panel]').forEach(el=>el.classList.toggle('selected',el.dataset.panel===panel));$('#panel-title').textContent=titles[panel];feedback('');if(panel==='promo-members'){await loadRooms();await loadPromoMembers();}if(panel==='overview')await overview();if(panel==='rooms'||panel==='promotion'||panel==='blocks')await loadRooms();if(panel==='blocks')await loadCommandBlocks();if(panel==='promotion')await loadCommonPromo();if(panel==='notices')await loadNotices();if(panel==='audit'){const d=await api('/api/admin/audit');$('#audit-records').textContent=d.records.map(r=>`${new Date(r.created_at).toLocaleString('ko-KR')} · ${r.actor} · ${r.action}\n${r.room_id||''} ${r.target_id||''}\n${JSON.stringify(r.detail)}`).join('\n\n')||'작업 기록 없음';}}
 document.querySelectorAll('[data-panel]').forEach(b=>b.addEventListener('click',()=>task(()=>show(b.dataset.panel))));
 async function overview(){const d=await api('/api/admin/overview');$('#metrics').replaceChildren();for(const [label,value]of [['게임 사용자',d.users],['활성 게임방',d.active_rooms],['지갑 코인 합계',d.coins],['자동 홍보방',d.promotion_rooms]]){const box=document.createElement('div');box.className='metric';const p=document.createElement('p');p.textContent=label;const strong=document.createElement('strong');strong.textContent=format(value);box.append(p,strong);$('#metrics').append(box);}$('#daily-events').textContent=d.events.map(e=>`${e.kind}: ${e.n}회`).join(' · ')||'오늘 기록된 게임 활동 없음';$('#bot-info').textContent=`카카오톡 연결: ${d.bot.connected?'연결됨':'연결 끊김'}\n게임·DB 준비: ${d.bot.ready?'완료':'준비 중'}\n서버 가동: ${format(d.uptimeSeconds)}초\n${d.railwayStatus}\n최근 오류: ${d.errors.length?d.errors.join('\n'):'수집된 오류 없음'}`;}
+let bulkKickPollToken=0;
+function bulkKickDescription(job){
+ if(!job||job.status==='unknown')return '이 서버에 기록된 일괄강퇴 작업이 없습니다.';
+ const phase={running:'진행 중',completed:'작업 종료',failed:'실행 실패'}[job.status]||job.status;
+ const skipped=job.skipped||{};
+ const parts=[
+  '상태: '+phase,
+  '강퇴 대상: '+Number(job.attempted||0)+'명',
+  '서버 성공 응답: '+Number(job.success||0)+'명',
+  '결과 미확인: '+Number(job.unverified||0)+'명',
+  '실패: '+Number(job.failed||0)+'명',
+  '보호된 인원(관리자·봇 등): '+Number(skipped.protected||0)+'명',
+  '역할 확인 불가 등으로 제외: '+(Number(skipped.unknownRole||0)+Number(skipped.invalid||0))+'명'
+ ];
+ if(job.error)parts.push('오류: '+job.error);
+ if(job.errors?.length)parts.push('실패 사유: '+job.errors.join(', '));
+ if(job.status==='completed'&&Number(job.attempted||0)===0)
+  parts.push('강퇴할 일반 참여자가 확인되지 않았습니다. 강퇴 권한과 참가자 역할 정보를 확인해 주세요.');
+ return parts.join('\n');
+}
+async function loadBulkKickStatus(roomId){
+ const job=await api('/api/admin/bulk-kick/status?'+new URLSearchParams({roomId}));
+ if($('#room-select').value===roomId)$('#bulk-kick-output').textContent=bulkKickDescription(job);
+ return job;
+}
+async function pollBulkKick(roomId){
+ const token=++bulkKickPollToken;
+ for(let attempt=0;attempt<90;attempt++){
+  if(token!==bulkKickPollToken)return;
+  const job=await loadBulkKickStatus(roomId);
+  if(job.status!=='running'){
+   if($('#room-select').value===roomId){
+    const ok=job.status==='completed'&&Number(job.success||0)>0;
+    feedback(job.status==='failed'?'일괄강퇴 실패: '+job.error:
+     ok?'일괄강퇴 실행 결과를 확인했습니다. 세부 결과를 아래에서 확인해 주세요.':
+     '일괄강퇴가 종료됐으나 성공으로 확인된 강퇴가 없습니다. 아래 결과를 확인해 주세요.',!ok);
+   }
+   return;
+  }
+  await new Promise(resolve=>setTimeout(resolve,2000));
+ }
+}
+$('#bulk-kick-check').addEventListener('click',()=>task(async()=>{
+ const roomId=$('#room-select').value;
+ if(!roomId)throw Error('채팅방을 선택해 주세요.');
+ await loadBulkKickStatus(roomId);
+}));
 $('#bulk-kick-run').addEventListener('click',async()=>{
  const roomId=$('#room-select').value;
  const room=rooms.find(r=>r.room_id===roomId);
  if(!roomId){feedback('채팅방을 선택해 주세요.',true);return;}
- if(!confirm('['+(room.name||roomId)+'] 일반 참여자를 일괄강퇴합니다. 취소할 수 없습니다. 계속하시겠습니까?'))return;
+ if(!confirm('['+(room?.name||roomId)+'] 일반 참여자를 일괄강퇴합니다. 취소할 수 없습니다. 계속하시겠습니까?'))return;
  const button=$('#bulk-kick-run');button.disabled=true;
- try{await api('/api/admin/bulk-kick','POST',{roomId,confirm:true});feedback('일괄강퇴 요청을 접수했습니다. 채팅방에는 알림을 보내지 않습니다.');}
- catch(error){feedback(error.message,true);}
+ try{
+  const res=await api('/api/admin/bulk-kick','POST',{roomId,confirm:true});
+  $('#bulk-kick-output').textContent=bulkKickDescription(res.job);
+  feedback('일괄강퇴가 시작됐습니다. 실제 성공·실패 수는 아래에서 조회합니다.');
+  void pollBulkKick(roomId).catch(error=>{
+   if($('#room-select').value===roomId)feedback('진행 상태 조회 실패: '+error.message,true);
+  });
+ }catch(error){feedback(error.message,true);$('#bulk-kick-output').textContent='실행 요청 실패: '+error.message;}
  finally{button.disabled=false;}
 });
 async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,room.voice_enabled?'ON':'OFF');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
@@ -123,7 +176,7 @@ $('#super-admin-form').addEventListener('submit',e=>{e.preventDefault();task(asy
  await api('/api/admin/super-admins','POST',{roomId:room,userId,action:'add'});
  $('#super-admin-id').value='';await loadSuperAdmins();feedback('최고관리자를 추가했습니다.');
 });});
-$('#room-select').addEventListener('change',()=>{selectRoom();$('#voice-status-output').textContent='조회 버튼을 누르면 상태가 표시됩니다.';});$('#promo-room').addEventListener('change',selectPromo);
+$('#room-select').addEventListener('change',()=>{bulkKickPollToken++;selectRoom();$('#bulk-kick-output').textContent='선택한 방의 이전 실행 결과는 조회 버튼을 눌러 확인할 수 있습니다.';$('#voice-status-output').textContent='조회 버튼을 누르면 상태가 표시됩니다.';});$('#promo-room').addEventListener('change',selectPromo);
 async function loadCommandBlocks(){
  const room=$('#block-room').value,list=$('#command-block-list');list.replaceChildren();
  if(!room){list.textContent='채팅방을 먼저 선택해 주세요.';return;}
