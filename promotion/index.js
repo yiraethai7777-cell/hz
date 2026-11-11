@@ -82,7 +82,7 @@ async function deliver(room,chat,immediate=false,requester=null,options={}){
    :immediate?'manual:'+Math.floor(now/(MIN_MINUTES*60000))
    :'auto:'+minutes+':'+current;
   const claimed=await db.query("INSERT INTO gl_promotion_logs(room_id,slot,status,portal_user_id) VALUES($1,$2,'PENDING',$3) ON CONFLICT DO NOTHING RETURNING id",
-   [String(room),slot,requester||p.portalUserId||null]);
+   [String(room),slot,masterManual?null:(requester||p.portalUserId||null)]);
   if(!claimed.rowCount){reason='동일한 전송 요청이 이미 처리되었습니다.';return;}
   p.lastAttempt=now;p.lastSlot=current;p.nextRunAt=null;d.promo=p;content=message;
  });
