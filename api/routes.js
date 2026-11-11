@@ -181,7 +181,7 @@ async function routes(req,res,url,body){
   return require('../game/admin-coins').adjust({room:id(body.roomId),user:id(body.userId),actor:s.user,amount:Number(body.amount),operationId:body.operationId,reason:String(body.reason||'웹 관리자 조정').slice(0,200)});
  }
  if(p==='/api/admin/promotion'&&method==='POST'){
-  if(body.action==='start'&&![20,30].includes(Number(body.minutes)))fail('20분 또는 30분을 선택해 주세요.');
+  if(body.action==='start'&&![20,30,60].includes(Number(body.minutes)))fail('20분, 30분 또는 1시간을 선택해 주세요.');
   const room=id(body.roomId);if(body.action==='immediate'){
    if(body.confirm!==true)fail('즉시 전송을 재확인해 주세요.');
    if(!status.connected||!status.client?.connected||!status.chat)fail('카카오톡 봇이 연결되어 있지 않습니다.',503);

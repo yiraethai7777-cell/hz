@@ -13,17 +13,17 @@ async function commonMessage(db=getPool()){
 }
 async function setCommonMessage(actor,input){const deleting=input.action==='delete';if(deleting&&input.confirm!==true)throw Error('전체 방 중지를 확인해 주세요.');const message=deleting?'':String(input.message||'').trim();if(!deleting&&(!message||message.length>4000))throw Error('홍보 문구는 1~4,000자로 입력해 주세요.');return transaction(async db=>{await db.query('INSERT INTO gl_bot_promotion_settings(id,message) VALUES(1,$1) ON CONFLICT(id) DO UPDATE SET message=$1,updated_at=NOW()',[message]);if(deleting)await db.query("UPDATE hz_rooms SET data=jsonb_set(data,'{promo,enabled}','false'::jsonb),updated_at=NOW() WHERE data->'promo' IS NOT NULL AND data->'promo'->>'portalUserId' IS NULL");await audit(db,actor,deleting?'BOT_PROMOTION_DELETE':'BOT_PROMOTION_CONTENT',null,null,{});return {message};});}
 const MIN_MINUTES=5,MAX_MINUTES=120;
-function nextBoundary(minutes,now=Date.now()){const step=([20,30].includes(Number(minutes))?Number(minutes):20)*60000;return (Math.floor(now/step)+1)*step;}
+function nextBoundary(minutes,now=Date.now()){const step=([20,30,60].includes(Number(minutes))?Number(minutes):20)*60000;return (Math.floor(now/step)+1)*step;}
 function boundaryDue(minutes,now=Date.now()){return now%(Number(minutes)*60000)<60000;}
 function patch(p,action,input={}){
  p=p&&typeof p==='object'?p:{};
  if(action==='content'){const text=String(input.message||'').trim();if(!text||text.length>1000)throw Error('홍보 문구는 1~1,000자로 입력해 주세요.');p.message=text;}
- else if(action==='interval'){const minutes=Number(input.minutes);if(![20,30].includes(minutes))throw Error('20분 또는 30분을 선택해 주세요.');p.minutes=minutes;p.clockAligned=true;p.nextRunAt=null;p.lastSlot=Math.floor(Date.now()/(minutes*60000));}
+ else if(action==='interval'){const minutes=Number(input.minutes);if(![20,30,60].includes(minutes))throw Error('20분, 30분 또는 1시간을 선택해 주세요.');p.minutes=minutes;p.clockAligned=true;p.nextRunAt=null;p.lastSlot=Math.floor(Date.now()/(minutes*60000));}
  else if(action==='start'){
   const minutes=Number(input.minutes);if(!Number.isInteger(minutes)||minutes<MIN_MINUTES||minutes>MAX_MINUTES)throw Error('전송 간격은 5~120분입니다.');
   if(!p.message)throw Error('홍보 문구를 먼저 설정해 주세요.');
   if(p.allowed===false&&input.botWeb!==true)throw Error('허용되지 않은 홍보방입니다. 관리자 화면에서 허용해 주세요.');
-  p.allowed=true;p.minutes=minutes;p.enabled=true;p.clockAligned=[20,30].includes(minutes);p.nextRunAt=null;p.lastSlot=Math.floor(Date.now()/(minutes*60000));p.stopReason='';
+  p.allowed=true;p.minutes=minutes;p.enabled=true;p.clockAligned=[20,30,60].includes(minutes);p.nextRunAt=null;p.lastSlot=Math.floor(Date.now()/(minutes*60000));p.stopReason='';
  }else if(action==='stop'){p.enabled=false;p.nextRunAt=null;p.stopReason='관리자가 중지';}
  else if(action==='delete'){p.enabled=false;p.message='';p.stopReason='문구 삭제';}
  else if(action==='allow'){p.allowed=input.allowed===true;if(!p.allowed)p.enabled=false;}
@@ -72,7 +72,7 @@ async function deliver(room,chat,immediate=false,requester=null,options={}){
    reason='홍보 간격 설정이 올바르지 않습니다.';return;
   }
   const current=Math.floor(now/(minutes*60000));
-  if(!immediate&&(p.clockAligned||[20,30].includes(minutes))&&!boundaryDue(minutes,now)){
+  if(!immediate&&(p.clockAligned||[20,30,60].includes(minutes))&&!boundaryDue(minutes,now)){
    reason='설정된 홍보 시간이 아닙니다.';return;
   }
   if(!immediate&&p.lastSlot!=null&&Number(p.lastSlot)===current){
