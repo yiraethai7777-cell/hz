@@ -3,7 +3,10 @@ on:
   pull_request:
     paths:
       - 'shared/voice-room-direct-protocol.js'
+      - 'shared/vox30-protocol.js'
+      - 'shared/vox30-adapter.js'
       - 'test/voice-room-direct-protocol.test.js'
+      - 'test/vox30-protocol.test.js'
       - '.github/workflows/vox-direct-prototype.yml'
   workflow_dispatch:
 
@@ -17,5 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Test isolated direct VOX adapter
-        run: node --test test/voice-room-direct-protocol.test.js
+      - name: Install existing lockfile dependencies
+        run: npm ci --ignore-scripts
+      - name: Test isolated VOX 3.0 prototype and direct adapter
+        run: node --test test/voice-room-direct-protocol.test.js test/vox30-protocol.test.js
