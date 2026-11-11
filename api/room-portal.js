@@ -212,7 +212,7 @@ function parseChatRankReset(body={}){
  const action=String(body.action||'');
  if(action!=='user'&&action!=='all')bad('삭제 범위가 올바르지 않습니다.');
  const user=action==='user'?id(body.userId):null;
- if(action==='user'&&!/^[1-9]\\d{3,24}$/.test(user))bad('올바른 사용자 ID가 필요합니다.');
+ if(action==='user'&&!/^[1-9]\d{3,24}$/.test(user))bad('올바른 사용자 ID가 필요합니다.');
  if(body.confirmation!=='DELETE_CONFIRMED_TWICE')bad('2단계 삭제 확인이 필요합니다.',400);
  return {action,user};
 }
