@@ -285,13 +285,19 @@ async function handle({client,roomId,msg,text,send,adapter}){
         capability='모듈 연결됨 · 상태 조회 실패';
       }
     }
+    const auth=client?.voiceRoomAuthCandidate?.diagnostics?.({chatId:room});
+    const authLine=auth
+      ? '\n기존 카카오톡 인증 정보: '+(auth.hasKakaoCredentials?'메모리에서 확인':'확인 불가')+
+        '\n대상 오픈채팅방 캐시: '+(auth.kakaoRoomCached?'확인':'확인 불가')+
+        '\nVOX 서버 인증: 미검증'
+      : '\nVOX 서버 인증: 미연결';
     const observed=require('./voice-room-auto-detect').last(room);
     const observedText=observed
       ? observed.phase+(observed.durationSeconds!==undefined&&observed.eventType==='vr_bye'
         ? ' · '+observed.durationSeconds+'초' : '')+' (실시간 서버 검증 아님)'
       : '기록 없음 (재시작 시 초기화)';
     await safeReply(client,send,'🎙️ 보이스룸 상태\n━━━━━━━━━━━━━━\n봇 권한: '+roleText+
-      '\n개설 연동: '+capability+
+      '\n개설 연동: '+capability+authLine+
       '\n마지막 자동 감지: '+observedText+
       '\n※ 수신 이벤트 기록은 실제 보이스룸 활성 상태 조회가 아닙니다.');
     return true;
@@ -337,7 +343,10 @@ async function handle({client,roomId,msg,text,send,adapter}){
   if(!transport || typeof transport.create!=='function'){
     await safeReply(client,send,'⚠️ Railway 직접 VOX 보이스룸 생성 기능은 인증 연동 전입니다.\n'+
       '기존 Android/Noa 생성 방식은 제거했습니다.\n'+
-      'VOX 인증 및 채팅방 참여 확인 전에는 생성 요청을 보내지 않습니다.');
+      'VOX 인증 및 채팅방 참여 확인 전에는 생성 요청을 보내지 않습니다.'+
+      (client?.voiceRoomAuthCandidate?.diagnostics?.({chatId:room})?.hasKakaoCredentials
+        ? '\n기존 카카오톡 OAuth 후보는 감지됐지만 VOX 서버 승인은 아직 확인되지 않았습니다.'
+        : '\n기존 카카오톡 인증 후보도 확인되지 않았습니다.'));
     return true;
   }
   if(!isBotAccount && !managerRole(role)){

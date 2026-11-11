@@ -533,3 +533,26 @@ test('legacy Noa adapter is explicitly rejected in direct-only voice mode',()=>{
   const legacy={kind:'noa-android-experimental',create:async()=>({requestAccepted:true})};
   assert.equal(voice.adapterOf({voiceRoomAdapter:legacy}),null);
 });
+
+test('direct VOX status displays existing Kakao auth without asserting VOX server login',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸상태'});
+  client.voiceRoomAuthCandidate={diagnostics:()=>({
+    hasKakaoCredentials:true,kakaoRoomCached:true,
+    kakaoMemberTypeCached:true,voxServerAuthenticated:false,voxCreationReady:false,
+  })};
+  await voice.handle(args);
+  assert.match(sent[0],/기존 카카오톡 인증 정보: 메모리에서 확인/);
+  assert.match(sent[0],/대상 오픈채팅방 캐시: 확인/);
+  assert.match(sent[0],/VOX 서버 인증: 미검증/);
+  assert.doesNotMatch(sent[0],/VOX 서버 인증: 성공/);
+});
+
+test('direct VOX create with OAuth candidate still refuses to send an unverified request',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸시작 테스트'});
+  client.voiceRoomAuthCandidate={diagnostics:()=>({
+    hasKakaoCredentials:true,voxServerAuthenticated:false,voxCreationReady:false,
+  })};
+  await voice.handle(args);
+  assert.match(sent[0],/기존 카카오톡 OAuth 후보는 감지됐지만 VOX 서버 승인은 아직 확인되지 않았습니다/);
+  assert.doesNotMatch(sent[0],/보이스룸 생성 확인/);
+});

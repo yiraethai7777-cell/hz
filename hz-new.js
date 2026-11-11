@@ -30,6 +30,18 @@ function start() {
   // credentials, membership checks and media negotiation are available.
   // In particular, legacy NEXI_VOICE_NOA_* variables are intentionally ignored.
   console.log('[VOICE VOX30] direct-only mode; Android/Noa transport disabled');
+  // Reuse the already-loaded KakaoForge credentials as a *candidate* only.
+  // This provider never contacts a VOX server, mutates auth.json, or installs
+  // an unverified VOX create adapter. Keep its diagnostics secret-free.
+  try {
+    const {createVoxCandidateProvider}=require('./shared/vox30-existing-auth');
+    client.voiceRoomAuthCandidate=createVoxCandidateProvider(client,{
+      expectedActorUserId:client.userId,
+    });
+    console.log('[VOICE VOX30] existing KakaoForge session candidate registered (VOX server authentication unverified)');
+  } catch {
+    console.warn('[VOICE VOX30] credential candidate unavailable; VOX create remains disabled');
+  }
   const game = createGame(client);
 
   let resolveReady, rejectReady;
