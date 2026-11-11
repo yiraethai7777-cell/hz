@@ -604,11 +604,16 @@ test('bot-only VOX auth preflight reports readiness without claiming server auth
   client.voiceRoomAuthPreflight=()=>({
     sessionConnected:true,kakaoCredentialsPresent:true,openChatCached:true,
     botMemberCached:true,botModeratorCached:true,
-    appVersionPresent:true,carrierPresent:true,deviceProfileVerified:false,
+    appVersionPresent:true,carrierPresent:true,appVersionMayBeDefault:true,
+    carrierMayBeDefault:true,deviceProfileVerified:false,
+    voxModelFromSession:false,voxSdkVersionFromSession:false,voxBuildIdFromSession:false,
     authenticatedVoxSession:false,creationEnabled:false,
   });
   assert.equal(await voice.handle(args),true);
   assert.match(sent[0],/기존 OAuth·기기 정보: 확인/);
+  assert.match(sent[0],/카카오톡 앱 버전: 확인 \(KakaoForge 기본값 가능\)/);
+  assert.match(sent[0],/통신사 코드: 확인 \(KakaoForge 기본값 가능\)/);
+  assert.match(sent[0],/VOX 모델·SDK·빌드 출처: 실제 세션에서 미제공/);
   assert.match(sent[0],/검증된 VOX 기기 프로필: 미확인/);
   assert.match(sent[0],/VOX 서버 OAuth 인증: 미검증/);
   assert.match(sent[0],/실제 생성: 비활성화/);
