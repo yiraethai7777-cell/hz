@@ -85,7 +85,7 @@ async function routes(req,res,url,body){
   const room=id(body.roomId);
   await require('../promotion/rooms').refresh(status.client,{force:true});
   const known=status.client.getKnownChatRooms?.().find(r=>String(r.id)===room);
-  if(!known||known.isOpenChat!==true)
+  if(!known||known.isOpenChat===false)
    fail('봇이 현재 참여 중인 오픈채팅방만 선택할 수 있습니다.',400);
   const exists=await getPool().query('SELECT 1 FROM hz_rooms WHERE room_id=$1',[room]);
   if(!exists.rowCount)fail('등록되지 않은 채팅방입니다.',404);
