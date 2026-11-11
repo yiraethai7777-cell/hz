@@ -58,9 +58,10 @@ test('one read-only 30000 request uses synthetic IDs and no OAuth',async()=>{
   assert.equal(observedTarget.timeoutMs,3500);
   assert.deepEqual(result,{
     status:'matching_bson_frame_received',
-    hasCallableField:true,
-    hasServerAddressField:true,
-    hasServerPortField:false,
+    hasCallableField:true,callable:'denied',
+    hasServerAddressField:true,serverAddressObject:false,
+    hasOuterPortField:false,hasNestedPortField:false,
+    hasServerIpv4Field:false,
     realAccountUsed:false,oauthSent:false,createRequestSent:false,
     voxServerAuthenticated:false,voiceRoomCreated:false,
   });
