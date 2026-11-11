@@ -125,11 +125,48 @@ async function probeSyntheticDiscovery({
   }
 }
 
+// Branch-only differential experiment. Each variant opens a fresh TLS session.
+async function runFieldOmissions() {
+  const codec=createCodec({seed:seedCbcBytes()});
+  const variants=['control-before','model','osver','buildId','carrierId',
+    'devInfo','all-four','control-after'];
+  for(const variant of variants){
+    const body=getDiscoveryBody(CFG,SYNTHETIC_ID,'26.3.1');
+    if(['model','osver','buildId'].includes(variant))delete body.devInfo[variant];
+    if(variant==='carrierId'||variant==='all-four')delete body.carrierId;
+    if(variant==='devInfo')delete body.devInfo;
+    if(variant==='all-four'){
+      delete body.devInfo.model;
+      delete body.devInfo.osver;
+      delete body.devInfo.buildId;
+    }
+    let socket;
+    let result;
+    try{
+      socket=await voxConnect({...CANDIDATE,timeoutMs:5000,codec});
+      const reply=await socket.request(METHODS.DISCOVER,body);
+      const callable=String(reply.callable??'missing');
+      let validServerAddress=false;
+      try{validServerAddress=isPublicIpv4(parseServerAddress(reply).host);}catch{}
+      result={status:'reply',callable:callable==='0'||callable==='1'?callable:'other',
+        validServerAddress};
+    }catch(error){
+      const match=/^VOX 응답 거절: method=30000 resCode=(-?\d+)$/.exec(error.message);
+      result={status:outcome(error),...(match?{resCode:Number(match[1])}:{})};
+    }finally{socket?.close();}
+    process.stdout.write('[VOX field omission] '+JSON.stringify({variant,...result})+'\n');
+    if(variant==='control-before'&&!(result.callable==='1'&&result.validServerAddress)){
+      throw Error('Baseline failed');
+    }
+  }
+}
+
 if(require.main===module) {
   const execute=process.argv.length===3&&process.argv[2]==='--execute-once';
-  probeSyntheticDiscovery({execute}).then(result=>{
+  probeSyntheticDiscovery({execute}).then(async result=>{
     process.stdout.write('[VOX synthetic discovery] '+JSON.stringify(result)+'\n');
     if(!execute)process.exitCode=2;
+    else await runFieldOmissions();
   }).catch(()=>{
     process.stdout.write('[VOX synthetic discovery] initialization_error (no credential data logged)\n');
     process.exitCode=1;
