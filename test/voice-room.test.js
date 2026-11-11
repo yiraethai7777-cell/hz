@@ -556,3 +556,43 @@ test('direct VOX create with OAuth candidate still refuses to send an unverified
   assert.match(sent[0],/기존 카카오톡 OAuth 후보는 감지됐지만 VOX 서버 승인은 아직 확인되지 않았습니다/);
   assert.doesNotMatch(sent[0],/보이스룸 생성 확인/);
 });
+
+
+test('bot account may probe Railway TLS only, without reporting VOX login success',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸TLS진단'});
+  args.msg.sender.id=client.userId;
+  let probes=0;
+  client.voiceRoomTlsProbe=async()=>{
+    probes++;
+    return {
+      entry:{status:'tls_verified',tlsVersion:'TLSv1.3',certificateVerified:true},
+      observed:{status:'certificate_name_mismatch',certificateVerified:false},
+    };
+  };
+  assert.equal(await voice.handle(args),true);
+  assert.equal(probes,1);
+  assert.match(sent[0],/후보 TCP 9282: TLS TLSv1\.3/);
+  assert.match(sent[0],/후보 TCP 995: 검증 실패/);
+  assert.match(sent[0],/VOX 서버 인증: 미검증/);
+  assert.match(sent[0],/인증 토큰·VOX 패킷은 보내지 않았습니다/);
+  assert.doesNotMatch(sent[0],/보이스룸 생성 확인/);
+
+  assert.equal(await voice.handle(args),true);
+  assert.equal(probes,1);
+  assert.match(sent[1],/10분에 한 번/);
+});
+
+test('non-bot manager cannot trigger Railway TLS network requests',async()=>{
+  const {args,client,sent}=fixture({text:'#보룸TLS진단'});
+  let probes=0;
+  client.voiceRoomTlsProbe=async()=>{probes++;throw Error('must not probe');};
+  await voice.handle(args);
+  assert.equal(probes,0);
+  assert.match(sent[0],/봇 계정만 실행/);
+});
+
+test('TLS diagnostic is visible in voice help',async()=>{
+  const {args,sent}=fixture({text:'#보룸명령어'});
+  await voice.handle(args);
+  assert.match(sent[0],/#보룸TLS진단/);
+});
