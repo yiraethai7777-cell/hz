@@ -20,6 +20,7 @@ function collect(members,{botId,actorId,protectedIds=new Set()}){
   if(id===String(botId)||id===String(actorId)||protectedIds.has(id)){skipped.protected++;continue;}
   // Explicit member type 0 or 2 is required. Never assume a missing role is ordinary.
   const t=role(m);
+  if(t===1||t===4){skipped.protected++;continue;}
   if(t!==0&&t!==2){skipped.unknownRole++;continue;}
   eligible.push({id,name:String(m?.name??m?.nickname??id)});
  }
@@ -47,7 +48,9 @@ function publicJob(job){
 }
 function getStatus(roomId){return publicJob(jobs.get(String(roomId)));}
 function progress(callback,details){if(typeof callback==='function')callback(details);}
-async function handle({client,roomId,msg,userId,kick,db,owner,onProgress}){
+async function handle({client,roomId,msg,userId,kick,db,owner,onProgress,
+ loadRoster=require('../shared/live-roster').refresh,
+ listSuperAdmins=require('../shared/super-admin').list}){
  const room=String(roomId);
  if(msg?.room?.isOpenChat!==true)throw Error('오픈채팅방에서만 사용할 수 있습니다.');
  if(!owner)throw Error('일괄강퇴 권한이 없습니다.');
@@ -58,11 +61,11 @@ async function handle({client,roomId,msg,userId,kick,db,owner,onProgress}){
  try{
   const saved=await db.query('SELECT user_id FROM gl_manage_admins WHERE room_id=$1',[room]);
   const protectedIds=new Set(saved.rows.map(r=>String(r.user_id)));
-  const superAdmins=await require('../shared/super-admin').list(room,db);
+  const superAdmins=await listSuperAdmins(room,db);
   for(const user of superAdmins)protectedIds.add(String(user.user_id));
   // getCachedMemberProfiles is only an event-roster cache and can be empty
   // or incomplete. A fresh CHATONROOM snapshot is required for mass removal.
-  const snapshot=await require('../shared/live-roster').refresh(client,room,{force:true});
+  const snapshot=await loadRoster(client,room,{force:true});
   const members=snapshot.members;
   if(!members.length)throw Error('실시간 참가자 목록이 비어 있어 실행을 중단했습니다.');
   const {eligible,skipped}=collect(members,{botId:client.userId,actorId:userId,protectedIds});
