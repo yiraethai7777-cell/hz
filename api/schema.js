@@ -23,5 +23,9 @@ async function init(){await getPool().query(`
  SELECT u.id,CASE WHEN count(DISTINCT NULLIF(trim(r.promotion->>'message'),''))=1 THEN max(NULLIF(trim(r.promotion->>'message'),'')) ELSE '' END
  FROM gl_promo_users u LEFT JOIN gl_promo_account_rooms r ON r.user_id=u.id GROUP BY u.id
  ON CONFLICT(user_id) DO NOTHING;
- `);}
+ `);
+ // Install the requested shared advertising message once on deployment.
+ // The per-room promotion switches remain unchanged.
+ await require('../promotion/manager-ad').install(getPool());
+}
 module.exports={init};
