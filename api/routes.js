@@ -123,19 +123,29 @@ async function routes(req,res,url,body){
   const existing=await getPool().query("SELECT data->>'voiceRoomEnabled' AS voice_enabled FROM hz_rooms WHERE room_id=$1",[room]);
   if(!existing.rowCount)fail('등록된 채팅방을 선택해 주세요.',404);
   const enabled=existing.rows[0]?.voice_enabled==='true';
+  // Only safe booleans may leave the server; no OAuth token, device UUID,
+  // authentication file, SDP, or VOX server address is exposed.
+  const credentials=status.client?.voiceRoomAuthCandidate?.diagnostics?.({chatId:room})||{};
+  const credentialState={
+   kakaoCredentialsAvailable:credentials.hasKakaoCredentials===true,
+   kakaoOpenChatCached:credentials.kakaoRoomCached===true,
+   kakaoMembershipCached:credentials.kakaoMemberTypeCached===true,
+   voxServerAuthenticated:false,
+  };
   const candidate=status.client?.voiceRoomAdapter;
-   // Legacy Android/Noa adapters are never used in direct-only mode.
-   const adapter=candidate?.kind==='noa-android-experimental'?null:candidate;
+  // Legacy Android/Noa adapters are never used in direct-only mode.
+  const adapter=candidate?.kind==='noa-android-experimental'?null:candidate;
   if(!adapter||typeof adapter.status!=='function')
-    return {enabled,mode:'vox30-direct',configured:false,reachable:false,statusKnown:false,verified:false};
+    return {enabled,mode:'vox30-direct',configured:false,reachable:false,statusKnown:false,verified:false,
+      ...credentialState};
   try{
    const state=await adapter.status({roomId:room,botUserId:String(status.client?.userId??'')});
-   return {enabled,mode:'vox30-direct',configured:true,reachable:state?.statusKnown===true,
+   return {enabled,mode:'vox30-direct',...credentialState,configured:true,reachable:state?.statusKnown===true,
     statusKnown:state?.statusKnown===true,localActive:state?.localActive===true,
     localBusyOtherRoom:state?.localBusyOtherRoom===true,verified:state?.verified===true};
   }catch{
    // Do not expose bridge credentials or internal HTTP responses to the browser.
-   return {enabled,mode:'vox30-direct',configured:true,reachable:false,statusKnown:false,verified:false};
+   return {enabled,mode:'vox30-direct',...credentialState,configured:true,reachable:false,statusKnown:false,verified:false};
   }
  }
  if(p==='/api/admin/room-admins'&&method==='GET'){
