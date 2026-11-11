@@ -8,12 +8,12 @@ const {seedCbcBytes}=require('./seed');
 const {createWebRtcPeer}=require('./webrtc');
 
 function createLabAdapter({
-  actorUserId,cfg,entryHost,entryPort,
+  actorUserId,cfg,entryHost,entryPort,appVer,
   credentialsForRoom,verifyMembership,
   rtcConfig,iceTimeoutMs,connect,
 }={}) {
   return createVox30Adapter({
-    actorUserId,cfg,entryHost,entryPort,
+    actorUserId,cfg,entryHost,entryPort,appVer,
     codec:createCodec({seed:seedCbcBytes()}),
     credentialsForRoom,verifyMembership,
     rtcFactory:()=>createWebRtcPeer({rtcConfig,iceTimeoutMs}),

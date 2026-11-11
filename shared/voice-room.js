@@ -119,7 +119,12 @@ async function handle({client,roomId,msg,text,send,adapter}){
         '오픈채팅방 정보: '+line(state.openChatCached)+'\n'+
         '봇 멤버 정보: '+line(state.botMemberCached)+'\n'+
         '봇 관리자 권한 캐시: '+line(state.botModeratorCached)+'\n'+
-        '앱 버전·통신사 정보: '+line(state.appVersionPresent&&state.carrierPresent)+'\n'+
+        '카카오톡 앱 버전: '+line(state.appVersionPresent)+
+          (state.appVersionMayBeDefault?' (KakaoForge 기본값 가능)':' (VOX 미검증)')+'\n'+
+        '통신사 코드: '+line(state.carrierPresent)+
+          (state.carrierMayBeDefault?' (KakaoForge 기본값 가능)':' (VOX 미검증)')+'\n'+
+        'VOX 모델·SDK·빌드 출처: '+(state.voxModelFromSession&&
+          state.voxSdkVersionFromSession&&state.voxBuildIdFromSession?'확인':'실제 세션에서 미제공')+'\n'+
         '검증된 VOX 기기 프로필: '+line(state.deviceProfileVerified)+'\n'+
         'VOX 서버 OAuth 인증: 미검증\n'+
         '보이스룸 생성 메서드·WebRTC: 미검증\n'+

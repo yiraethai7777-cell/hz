@@ -9,7 +9,7 @@ const {
 // validated provider. An arbitrary SDP string is not a functioning media peer.
 function createVox30Adapter({
   actorUserId,cfg,entryHost,entryPort=9282,codec,
-  credentialsForRoom,rtcFactory,verifyMembership,connect,transport,
+  credentialsForRoom,rtcFactory,verifyMembership,connect,transport,appVer,
 }={}) {
   const userId=checkedId(actorUserId);
   if(String(cfg?.userId??'')!==userId)
@@ -52,7 +52,7 @@ function createVox30Adapter({
         session=await createVoiceRoom({
           cfg,chatId,title:name,
           oauthToken:credentials.oauthToken,deviceUuid:credentials.deviceUuid,
-          sdp,entryHost,entryPort,codec,...(connect?{connect}:{}),
+          sdp,entryHost,entryPort,codec,appVer,...(connect?{connect}:{}),
           ...(transport?{transport}:{}),
         });
         await peer.applyAnswer(session.remoteSdp);

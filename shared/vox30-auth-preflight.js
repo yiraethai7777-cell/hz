@@ -6,6 +6,9 @@
 const {positiveId}=require('./vox30-existing-auth');
 
 const DEV_FIELDS=['model','sdkVersion','buildId'];
+// KakaoForge constructor defaults: presence is NOT authenticated device provenance.
+const DEFAULT_LOCO_APP_VERSION='26.1.2';
+const DEFAULT_LOCO_CARRIER='45005';
 function nonempty(value,max=128) {
   return typeof value==='string' && value.trim().length>0 &&
     value.length<=max && !/[\u0000-\u001f\u007f]/.test(value);
@@ -45,6 +48,14 @@ function assessVoxAuthPreflight(client,{chatId}={}) {
       /^\d+\.\d+\.\d+(?:[.-][a-zA-Z0-9.]+)?$/.test(client.appVer),
     carrierPresent:typeof client?.mccmnc==='string' &&
       /^\d{5,6}$/.test(client.mccmnc),
+    // The existing bot is created with KakaoForge's default device settings.
+    // Values may coincidentally match a real device but must not be upgraded
+    // to VOX-verified metadata merely because they are non-empty.
+    appVersionMayBeDefault:client?.appVer===DEFAULT_LOCO_APP_VERSION,
+    carrierMayBeDefault:client?.mccmnc===DEFAULT_LOCO_CARRIER,
+    voxModelFromSession:false,
+    voxSdkVersionFromSession:false,
+    voxBuildIdFromSession:false,
     deviceProfileVerified:validProfile(client?.voiceRoomDeviceProfile),
     // The hardcoded lab version (26.3.1) must not replace the live client's.
     labVersionMatchesSession:client?.appVer==='26.3.1',
@@ -69,4 +80,4 @@ function assessVoxAuthPreflight(client,{chatId}={}) {
   return Object.freeze({...state,missing});
 }
 
-module.exports={assessVoxAuthPreflight,validProfile};
+module.exports={assessVoxAuthPreflight,validProfile,DEFAULT_LOCO_APP_VERSION,DEFAULT_LOCO_CARRIER};

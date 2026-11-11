@@ -30,6 +30,11 @@ test('live KakaoForge session is local evidence, not VOX server login',()=>{
   assert.equal(report.botModeratorCached,true);
   assert.equal(report.appVersionPresent,true);
   assert.equal(report.carrierPresent,true);
+  assert.equal(report.appVersionMayBeDefault,true);
+  assert.equal(report.carrierMayBeDefault,true);
+  assert.equal(report.voxModelFromSession,false);
+  assert.equal(report.voxSdkVersionFromSession,false);
+  assert.equal(report.voxBuildIdFromSession,false);
   assert.equal(report.deviceProfileVerified,false);
   assert.equal(report.labVersionMatchesSession,false);
   assert.equal(report.authenticatedVoxSession,false);
@@ -82,4 +87,18 @@ test('no credentials/metadata/identifiers ever appear in serialized output',()=>
   const result=JSON.stringify(assessVoxAuthPreflight(client,{chatId:ROOM}));
   for(const secret of [OAUTH,DUUID,USER,'special private build id','sensitive-data'])
     assert.equal(result.includes(secret),false);
+});
+
+test('nondefault LOCO metadata is still not certified for VOX',()=>{
+  const client=session();
+  client.appVer='26.2.3';
+  client.mccmnc='45008';
+  const report=assessVoxAuthPreflight(client,{chatId:ROOM});
+  assert.equal(report.appVersionMayBeDefault,false);
+  assert.equal(report.carrierMayBeDefault,false);
+  assert.equal(report.voxModelFromSession,false);
+  assert.equal(report.voxSdkVersionFromSession,false);
+  assert.equal(report.voxBuildIdFromSession,false);
+  assert.equal(report.authenticatedVoxSession,false);
+  assert.equal(report.creationEnabled,false);
 });

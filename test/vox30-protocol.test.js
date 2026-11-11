@@ -6,7 +6,7 @@ const EventEmitter=require('node:events');
 const {
   METHODS,I32,I64,integer,pkcs7Pad,pkcs7Unpad,createCodec,
   parseServerAddress,voxConnect,getDiscoveryBody,getCreateBody,
-  getCallServer,createVoiceRoom,
+  getCallServer,createVoiceRoom,checkedAppVersion,
 }=require('../shared/vox30-protocol');
 const {createVox30Adapter}=require('../shared/vox30-adapter');
 
@@ -110,11 +110,11 @@ test('the discovery and create sequence follows 30000 then 11028 and event 11003
   };
   const connect=async()=>client;
   const address=await getCallServer({cfg,chatId:ROOM,entryHost:'entry.example',
-    connect,codec});
+    connect,codec,appVer:'26.3.1'});
   assert.deepEqual(address,{host:'1.2.3.4',port:995});
   const result=await createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
     oauthToken:'test-token',deviceUuid:'device-uuid',sdp,
-    entryHost:'entry.example',connect,codec});
+    entryHost:'entry.example',connect,codec,appVer:'26.3.1'});
   assert.equal(result.requestAccepted,true);
   assert.equal(result.verified,false);
   assert.equal(result.callId,'c1');
@@ -136,7 +136,7 @@ test('VOX refusal closes the connection, never marks verified',async()=>{
       cancel(){}}),
   };
   await assert.rejects(()=>createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
-    oauthToken:'token',deviceUuid:'uuid',sdp,entryHost:'entry.example',
+    oauthToken:'token',deviceUuid:'uuid',sdp,entryHost:'entry.example',appVer:'26.3.1',
     connect:async()=>client,codec}),/거절/);
   assert.equal(closed,2);
 });
@@ -150,4 +150,19 @@ test('VOX adapter fails closed when it lacks real WebRTC or credentials',async()
   await assert.rejects(()=>adapter.create({roomId:ROOM,title:'테스트'}),/WebRTC/);
   assert.equal((await adapter.status({roomId:ROOM})).localActive,false);
   await adapter.dispose();
+});
+
+test('create and discovery fail before any network when app version is implicit',async()=>{
+  let attempts=0;
+  const neverConnect=async()=>{attempts++;throw Error('must not connect');};
+  assert.throws(()=>getDiscoveryBody(cfg,ROOM),/앱 버전/);
+  assert.throws(()=>getCreateBody({cfg,chatId:ROOM,title:'x',oauthToken:'token',
+    deviceUuid:'uuid',sdp}),/앱 버전/);
+  await assert.rejects(()=>getCallServer({cfg,chatId:ROOM,entryHost:'entry.example',
+    connect:neverConnect,codec}),/앱 버전/);
+  await assert.rejects(()=>createVoiceRoom({cfg,chatId:ROOM,title:'x',
+    oauthToken:'token',deviceUuid:'uuid',sdp,entryHost:'entry.example',
+    connect:neverConnect,codec}),/앱 버전/);
+  assert.equal(attempts,0);
+  assert.throws(()=>checkedAppVersion('26.1.2\nOAuth'),/앱 버전/);
 });

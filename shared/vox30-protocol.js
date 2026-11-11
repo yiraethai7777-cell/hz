@@ -232,11 +232,18 @@ function validateCfg(cfg) {
   }
   return cfg;
 }
+function checkedAppVersion(appVer) {
+  if(typeof appVer!=='string'||appVer.length>40||
+      !/^\d+\.\d+\.\d+(?:[.-][a-zA-Z0-9.]+)?$/.test(appVer))
+    throw Error('VOX 앱 버전은 검증된 세션에서 명시적으로 전달해야 합니다.');
+  return appVer;
+}
 function commonDevice(cfg,subType=false) {
   return {model:cfg.model,os:'android',osver:cfg.sdkVersion,buildId:cfg.buildId,
     ...(subType?{devSubType:new I32(7)}:{})};
 }
 function getDiscoveryBody(cfg,chatId,appVer) {
+  checkedAppVersion(appVer);
   return {
     userId:new I64(checkedId(cfg.userId)),devType:new I32(4),
     chatId:new I64(checkedId(chatId)),appVer,lang:'ko',country:'KR',
@@ -245,6 +252,7 @@ function getDiscoveryBody(cfg,chatId,appVer) {
   };
 }
 function getCreateBody({cfg,chatId,title,oauthToken,deviceUuid,sdp,userType=1,appVer}) {
+  checkedAppVersion(appVer);
   if(typeof oauthToken!=='string'||!oauthToken.trim()||
      typeof deviceUuid!=='string'||!deviceUuid.trim()||
      typeof sdp!=='string'||!sdp.includes('v=0')||sdp.length>65536)
@@ -265,9 +273,10 @@ function getCreateBody({cfg,chatId,title,oauthToken,deviceUuid,sdp,userType=1,ap
 }
 
 async function getCallServer({cfg,chatId,entryHost,entryPort=9282,codec,
-    appVer='26.3.1',connect=voxConnect,transport={}}) {
+    appVer,connect=voxConnect,transport={}}) {
   validateCfg(cfg);
   checkedId(chatId);
+  checkedAppVersion(appVer);
   const c=await connect({host:entryHost,port:entryPort,codec,...transport});
   try {
     const reply=await c.request(METHODS.DISCOVER,getDiscoveryBody(cfg,chatId,appVer));
@@ -276,7 +285,7 @@ async function getCallServer({cfg,chatId,entryHost,entryPort=9282,codec,
 }
 
 async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
-    userType=1,entryHost,entryPort=9282,codec,appVer='26.3.1',
+    userType=1,entryHost,entryPort=9282,codec,appVer,
     connect=voxConnect,transport={}}={}) {
   validateCfg(cfg);checkedId(chatId);validateTitle(title);
   // Fail before network I/O for missing sensitive input and invalid SDP.
@@ -309,6 +318,6 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
 
 module.exports={
   VOX_IV,METHODS,I32,I64,integer,checkedId,validateTitle,pkcs7Pad,pkcs7Unpad,
-  nativeSeedCbc,createCodec,parseServerAddress,voxConnect,
+  nativeSeedCbc,createCodec,parseServerAddress,voxConnect,checkedAppVersion,
   getDiscoveryBody,getCreateBody,getCallServer,createVoiceRoom,
 };
