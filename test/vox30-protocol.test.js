@@ -450,6 +450,53 @@ test('VOX group diagnostics never equate userType=2 with confirmed moderator',()
   assert.equal(summary.memberGroups.listeners.own,'present');
 });
 
+test('VOX 11015 header-only response is not mistaken for explicit keepalive acceptance',()=>{
+  const {heartbeatReplySummary}=require('../shared/vox30-protocol');
+  const headerOnly=heartbeatReplySummary({method:11015,status:0,body:{
+    userId:'123456789012345678',oauthToken:'private-token',
+  }});
+  assert.deepEqual(headerOnly,{
+    replyReceived:true,headerStatus:0,responseFields:[],
+    resCodePresent:false,acceptance:'unverified',
+  });
+  const explicit=heartbeatReplySummary({method:11015,status:0,body:{
+    resCode:new I32(0),interval:new I32(30),deviceUuid:'private-uuid',
+  }});
+  assert.equal(explicit.resCode,0);
+  assert.equal(explicit.acceptance,'body-resCode-zero');
+  assert.deepEqual(explicit.responseFields,['resCode','interval']);
+  const refused=heartbeatReplySummary({method:11015,status:0,body:{
+    resCode:new I32(1002),
+  }});
+  assert.equal(refused.acceptance,'body-resCode-nonzero');
+  assert.equal(refused.resCode,1002);
+  const leaked=JSON.stringify([headerOnly,explicit,refused]);
+  for(const secret of ['123456789012345678','private-token','private-uuid'])
+    assert.ok(!leaked.includes(secret));
+});
+
+test('VOX moderator own mic camera and filter states are bounded and private',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const actor='123456789012345678';
+  const summary=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(1),full:{moderators:[{
+      userId:actor,userType:new I32(2),mic:new I32(1),
+      cam:new I32(0),voiceFilter:new I32(0),nickname:'private-name',
+    }]}},
+  }},{actorUserId:actor});
+  assert.deepEqual(summary.memberGroups.moderators.ownStates,{
+    userType:2,mic:1,cam:0,voiceFilter:0,
+  });
+  assert.equal(JSON.stringify(summary).includes(actor),false);
+  assert.equal(JSON.stringify(summary).includes('private-name'),false);
+  const outlier=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(1),full:{moderators:[{
+      userId:actor,mic:new I32(99999),cam:'private',voiceFilter:new I32(2),
+    }]}},
+  }},{actorUserId:actor});
+  assert.deepEqual(outlier.memberGroups.moderators.ownStates,{voiceFilter:2});
+});
+
 test('server timing and voice role flags remain bounded and omit sensitive data',()=>{
   const {packetSummary}=require('../shared/vox30-protocol');
   const result=packetSummary({

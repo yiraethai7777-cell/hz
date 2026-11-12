@@ -2,6 +2,7 @@
 
 const {
   createCodec,createVoiceRoom,checkedId,validateTitle,integer,I32,I64,METHODS,
+  heartbeatReplySummary,
 } = require('./vox30-protocol');
 
 const PING_INTERVAL_MS=5000;
@@ -75,8 +76,12 @@ function createVox30Adapter({
       }
       try{
         const packet=await pong.promise;
-        const code=integer(packet.body.resCode??packet.status??0);
-        console.info('[VOICE VOX30] 11015 reply status='+code);
+        const evidence=heartbeatReplySummary(packet);
+        if(active===current)current.lastHeartbeatEvidence=evidence;
+        // An absent BSON resCode is not a verified server acknowledgement,
+        // even if the 11015 response's packet header status is 0.
+        console.info('[VOICE VOX30] 11015 reply evidence '+
+          JSON.stringify(evidence));
         if(active===current && typeof current.peer.getRtpStats==='function'){
           try{
             const stats=await current.peer.getRtpStats();
@@ -93,7 +98,9 @@ function createVox30Adapter({
     };
     // Send the initial heartbeat as soon as the WebRTC answer is applied;
     // waiting a whole interval can miss a short server session deadline.
-    console.info('[VOICE VOX30] PING interval='+PING_INTERVAL_MS+'ms');
+    console.info('[VOICE VOX30] PING interval='+PING_INTERVAL_MS+
+      'ms; declared audioState=0 videoState=0; '+
+      'media state may differ from VOX moderator mic state');
     current.timer=setInterval(()=>{void tick();},PING_INTERVAL_MS);
     current.timer.unref();
     conn.whenClosed?.then(()=>release(current));
@@ -141,7 +148,9 @@ function createVox30Adapter({
               if(packet?.method===11009 && active?.chatId===chatId) {
                 const current=active;
                 console.info('[VOICE VOX30] server terminal; latest RTP stats '+
-                  JSON.stringify(current.lastRtpStats??{available:false}));
+                  JSON.stringify(current.lastRtpStats??{available:false})+
+                  '; last heartbeat='+JSON.stringify(
+                    current.lastHeartbeatEvidence??{replyReceived:false}));
                 // The server already ended the call. Never keep a phantom
                 // local session alive or automatically recreate voice rooms.
                 void release(current);
