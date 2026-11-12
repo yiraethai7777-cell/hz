@@ -379,6 +379,77 @@ test('VOX 12011 type/full envelope reveals bounded format without guessing roles
   }
 });
 
+test('VOX moderator/speaker/listener groups expose only own placement',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const actor='123456789012345678',other='923456789012345678';
+  const event={
+    event:new I32(1),
+    members:{type:new I32(1),full:{
+      currRevision:new I64('32'),
+      moderators:[{userId:actor,userType:new I32(2),isModerator:true,
+        nickname:'private-admin'}],
+      speakers:[{userId:other,userType:new I32(1)}],
+      listeners:[new I64(other)],
+    }},
+  };
+  const wire=codec.parse(codec.frame(12011,event)).body;
+  const actual=packetSummary({method:12011,status:0,body:wire},
+    {actorUserId:actor});
+  assert.equal(actual.memberGroups.moderators.own,'present');
+  assert.deepEqual(actual.memberGroups.moderators.ownStates,
+    {userType:2,isModerator:true});
+  assert.equal(actual.memberGroups.speakers.own,'not_observed');
+  assert.equal(actual.memberGroups.listeners.own,'not_observed');
+  assert.equal(actual.memberGroups.listeners.shape.kind,'array');
+  const log=JSON.stringify(actual);
+  for(const privateValue of [actor,other,'private-admin'])
+    assert.ok(!log.includes(privateValue));
+});
+test('VOX role detection handles ID-keyed maps, bare Long IDs and incomplete rosters',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const actor='123456789012345678',other='923456789012345678';
+  const packet={method:12011,status:0,body:{members:{
+    type:new I32(1),
+    full:{
+      moderators:{[other]:{userType:new I32(3)}},
+      speakers:[new I64(actor)],
+      listeners:{members:{[actor]:{userType:new I32(1),role:new I32(9)}}},
+    },
+  }}};
+  const actual=packetSummary(packet,{actorUserId:actor});
+  assert.equal(actual.memberGroups.moderators.own,'not_observed');
+  assert.equal(actual.memberGroups.speakers.own,'present');
+  assert.equal(actual.memberGroups.listeners.own,'present');
+  assert.deepEqual(actual.memberGroups.listeners.ownStates,{userType:1,role:9});
+  assert.ok(!JSON.stringify(actual).includes(actor));
+  assert.ok(!JSON.stringify(actual).includes(other));
+  const noGroups=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(1),full:true},
+  }},{actorUserId:actor});
+  assert.equal(noGroups.memberGroups,undefined);
+  const missingActor=packetSummary(packet);
+  assert.equal(missingActor.memberGroups.speakers.own,'not_checked');
+  const untrustworthy=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(1),full:{
+      moderators:{startedAt:new I64(actor),count:new I64(actor)},
+    }},
+  }},{actorUserId:actor});
+  assert.equal(untrustworthy.memberGroups.moderators.own,'not_observed');
+});
+test('VOX group diagnostics never equate userType=2 with confirmed moderator',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const actor='123456789012345678';
+  const summary=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(1),full:{
+      moderators:[],
+      listeners:[{userId:actor,userType:new I32(2)}],
+    }},
+  }},{actorUserId:actor});
+  assert.equal(summary.ownMember.states.userType,2);
+  assert.equal(summary.memberGroups.moderators.own,'not_observed');
+  assert.equal(summary.memberGroups.listeners.own,'present');
+});
+
 test('server timing and voice role flags remain bounded and omit sensitive data',()=>{
   const {packetSummary}=require('../shared/vox30-protocol');
   const result=packetSummary({
