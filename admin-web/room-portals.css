@@ -6,3 +6,5 @@
 .card .period{padding:12px 13px;border:1px solid #365475;border-radius:9px;background:#1c3954;color:#d5edff;font-weight:800;margin:12px 0}
 .renew-box{display:flex;align-items:center;gap:8px;padding-top:15px;margin-top:14px;border-top:1px solid #35506c;color:#9fb8d1;font-size:11px;flex-wrap:wrap}
 .renew-box input{max-width:100px;margin:0!important;font-weight:800}.renew-box button{flex:1}
+
+.card button.danger{color:#ffb5b5;border-color:#96434d;background:#42212c}.card button.danger:hover{background:#632835;border-color:#e07b88}
