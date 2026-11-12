@@ -311,7 +311,7 @@ test('creation and role events log bounded structures and own member role only',
   };
   const created=packetSummary({method:11028,status:0,body:sensitive},
     {actorUserId:personalUserId});
-  assert.deepEqual(created.structures.members.elementKeys,['role','userType','isModerator']);
+  assert.deepEqual(created.structures.members.elementKeys,['role','isModerator']);
   assert.equal(created.structures.members.count,2);
   assert.equal(created.structures.vrInfo.kind,'object');
   assert.deepEqual(created.structures.vrInfo.fieldKeys,
