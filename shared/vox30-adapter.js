@@ -49,7 +49,7 @@ function createVox30Adapter({
       },
     };
     let waiting=false;
-    current.timer=setInterval(async()=>{
+    const tick=async()=>{
       if(active!==current || waiting)return;
       const media=current.peer.getState?.().connectionState??'unknown';
       if(media==='failed'||media==='closed'){
@@ -77,9 +77,13 @@ function createVox30Adapter({
       }catch{
         if(active===current)console.info('[VOICE VOX30] 11015 reply not observed');
       }finally{waiting=false;}
-    },PING_INTERVAL_MS);
+    };
+    // Send the initial heartbeat as soon as the WebRTC answer is applied;
+    // waiting a whole interval can miss a short server session deadline.
+    current.timer=setInterval(()=>{void tick();},PING_INTERVAL_MS);
     current.timer.unref();
     conn.whenClosed?.then(()=>release(current));
+    void tick();
   }
   return {
     kind:'vox30-direct-experimental',
@@ -113,7 +117,17 @@ function createVox30Adapter({
           cfg,chatId,title:name,
           oauthToken:credentials.oauthToken,deviceUuid:credentials.deviceUuid,
           sdp,userType:userTypeForRoom({chatId}),entryHost,entryPort,codec,appVer,...(connect?{connect}:{}),
-          ...(transport?{transport}:{}),
+          // Handle the server's terminal event immediately, without waiting
+          // for the TCP socket to close or continuing to ping a dead call.
+          transport:{
+            ...transport,
+            onPacket(packet) {
+              transport?.onPacket?.(packet);
+              if(packet?.method===11009 && active?.chatId===chatId) {
+                void release(active);
+              }
+            },
+          },
         });
         await peer.applyAnswer(session.remoteSdp);
         active={chatId,session,peer,timer:null};

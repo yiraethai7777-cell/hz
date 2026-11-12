@@ -222,6 +222,7 @@ test('VOX session sends keepalive and releases on signalling disconnect',async t
   t.mock.timers.enable({apis:['setInterval']});
   const messages=[];
   let socketClosed;
+  let terminalCallback;
   let mediaCloses=0;
   const whenClosed=new Promise(resolve=>{socketClosed=resolve;});
   const signalling={
@@ -242,9 +243,9 @@ test('VOX session sends keepalive and releases on signalling disconnect',async t
     rtcFactory:async()=>({
       createOffer:async()=>sdp,applyAnswer:async()=>{},close:async()=>{mediaCloses++;},
     }),
-    connect:async({host})=>host==='entry.example'?{
+    connect:async({host,onPacket})=>host==='entry.example'?{
       request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),close(){},
-    }:signalling,
+    }:(terminalCallback=onPacket,signalling),
   });
   await adapter.create({roomId:ROOM,title:'테스트'});
   assert.equal((await adapter.status({roomId:ROOM})).localActive,true);
@@ -271,13 +272,17 @@ test('VOX session sends keepalive and releases on signalling disconnect',async t
     assert.equal(wire.recInfo.recordDuration._bsontype,'Long');
     assert.deepEqual(wire.recInfo.recordIds,[]);
   }
-  assert.equal(messages.length,4);
-  socketClosed();
+  // The initial keepalive is sent immediately, followed by two scheduled pings.
+  assert.equal(messages.length,5);
+  assert.equal(typeof terminalCallback,'function');
+  terminalCallback({method:11009,status:0,codes:{reason:1002}});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(mediaCloses,1);
   assert.equal((await adapter.status({roomId:ROOM})).localActive,false);
+  socketClosed(); // Late TCP close must not release the media session twice.
+  await new Promise(resolve=>setImmediate(resolve));
   t.mock.timers.tick(30000);
-  assert.equal(messages.length,4);
+  assert.equal(messages.length,5);
 });
 
 test('a VOX response can echo the received nonce without changing the encrypted payload',()=>{

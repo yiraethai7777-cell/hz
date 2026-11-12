@@ -47,6 +47,8 @@ function installDirectVoice(client,{env=process.env,
         const conn=await voxConnect({
           ...options,servername:'kakao.com',
           onPacket(packet) {
+            // Forward server events to the owning voice-session adapter.
+            options.onPacket?.(packet);
             const {method,status}=packet;
             const key=method+':'+status;
             if(entry||observedMethods.has(key)||observedMethods.size>=16)return;
