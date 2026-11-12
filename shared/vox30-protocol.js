@@ -308,6 +308,20 @@ function memberGroupEvidence(members,actorUserId){
   return included?groups:null;
 }
 
+// Server interval fields are not documented here as milliseconds or seconds.
+// Preserve only bounded numeric values; never infer an expiry from their names.
+function serverTimingSummary(body){
+  if(!body||typeof body!=='object'||Array.isArray(body))return null;
+  const result={};
+  for(const key of ['interval','connTimeout','respTimeout']){
+    if(!Object.hasOwn(body,key))continue;
+    try{
+      const value=integer(body[key]);
+      if(Number.isSafeInteger(value)&&value>=0&&value<=3600000)result[key]=value;
+    }catch{}
+  }
+  return Object.keys(result).length?result:null;
+}
 // 11015 can be answered with a successful packet header but without an
 // explicit resCode. Distinguish reply arrival from confirmed server acceptance.
 function heartbeatReplySummary(packet){
@@ -331,6 +345,8 @@ function heartbeatReplySummary(packet){
       }
     }catch{}
   }
+  const timing=serverTimingSummary(body);
+  if(timing)summary.serverTiming=timing;
   return summary;
 }
 
@@ -631,6 +647,7 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
     return {
       conn:c,callId:reply.callId??event.body.callId??null,
       csId:reply.csId??event.body.csId??null,remoteSdp,
+      serverTiming:serverTimingSummary(reply),
       requestAccepted:true,verified:false,
       signaling:{replyVerified:true,
         createReplyMs:replyMs,createdEventMs:eventMs,createdAckSentMs:createdAckMs,
