@@ -307,3 +307,23 @@ test('terminal packet summaries expose safe reason codes without IDs or SDP',asy
     codes:{reason:4},otherFields:1}]);
   conn.close();
 });
+
+test('VOX role event reports bounded enum codes and field names, never private content',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const data={event:new I32(7),role:new I32(3),
+    title:'sensitive title',oauthToken:'super-private-token',
+    callId:'123456789',isSpeaker:true,moderatorState:new I32(2),
+    userId:'987654',sdp:'private-sdp'};
+  const actual=packetSummary({method:12011,status:0,body:data});
+  assert.equal(actual.codes.event,7);
+  assert.equal(actual.codes.role,3);
+  assert.equal(actual.eventValueType,'object');
+  assert.deepEqual(actual.safeOtherKeys,['role','isSpeaker','moderatorState']);
+  const json=JSON.stringify(actual);
+  assert.ok(!json.includes('super-private-token'));
+  assert.ok(!json.includes('sensitive title'));
+  assert.ok(!json.includes('987654'));
+  assert.ok(!json.includes('private-sdp'));
+  assert.equal(packetSummary({method:11015,status:0,body:{secret:'bad'}}).fields,undefined);
+  assert.equal(packetSummary({method:11009,status:0,body:{reason:new I32(1002)}}).codes.reason,1002);
+});

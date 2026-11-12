@@ -77,6 +77,16 @@ function createVox30Adapter({
         const packet=await pong.promise;
         const code=integer(packet.body.resCode??packet.status??0);
         console.info('[VOICE VOX30] 11015 reply status='+code);
+        if(active===current && typeof current.peer.getRtpStats==='function'){
+          try{
+            const stats=await current.peer.getRtpStats();
+            if(active===current){
+              current.lastRtpStats=stats;
+              console.info('[VOICE VOX30] RTP transport stats '+
+                JSON.stringify(stats));
+            }
+          }catch{}
+        }
       }catch{
         if(active===current)console.info('[VOICE VOX30] 11015 reply not observed');
       }finally{waiting=false;}
@@ -127,7 +137,12 @@ function createVox30Adapter({
             onPacket(packet) {
               transport?.onPacket?.(packet);
               if(packet?.method===11009 && active?.chatId===chatId) {
-                void release(active);
+                const current=active;
+                console.info('[VOICE VOX30] server terminal; latest RTP stats '+
+                  JSON.stringify(current.lastRtpStats??{available:false}));
+                // The server already ended the call. Never keep a phantom
+                // local session alive or automatically recreate voice rooms.
+                void release(current);
               }
             },
           },

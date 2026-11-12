@@ -75,7 +75,11 @@ function installDirectVoice(client,{env=process.env,
       },
       userTypeForRoom({chatId}) {
         const role=botMemberType(client,chatId);
-        return role===1?3:role===4?2:1;
+        const userType=role===1?3:role===4?2:1;
+        // Report role mapping only (no user or chat identifiers).
+        log.info('[VOICE VOX30] local room memberType='+String(role??'unknown')+
+          ' -> VOX userType='+userType);
+        return userType;
       },
     });
     client.voiceRoomAdapter={

@@ -137,19 +137,39 @@ const DIAGNOSTIC_FIELDS=['reason','reasonCode','byeReason','disconnectReason','r
   'resultCode','callId','csId','userId','chatId','sdp','sdpType','candidate',
   'candidates','mediaType','mediaState','state','type','action','event','data','users'];
 
+// Return only packet shape and small enum codes; never log raw VOX bodies, ids,
+// titles, SDP, network addresses, OAuth tokens, or arbitrary string values.
 function packetSummary(packet) {
   const {method,status,body}=packet;
-  if(method!==12011 && method!==11009)return {method,status};
+  if(![11028,11003,12011,11009].includes(method))
+    return {method,status};
   const fields=DIAGNOSTIC_FIELDS.filter(key=>Object.hasOwn(body,key));
   const codes={};
-  for(const key of DIAGNOSTIC_FIELDS.slice(0,6)){
+  const enumKeys=['reason','reasonCode','byeReason','disconnectReason',
+    'resCode','resultCode','event','userType','role','audioState','videoState'];
+  for(const key of enumKeys){
     if(!Object.hasOwn(body,key))continue;
     try{
       const value=integer(body[key]);
-      if(Number.isSafeInteger(value)&&Math.abs(value)<100000)codes[key]=value;
+      if(Number.isSafeInteger(value) && Math.abs(value)<100000)
+        codes[key]=value;
     }catch{}
   }
-  return {method,status,fields,codes,otherFields:Object.keys(body).length-fields.length};
+  const summary={method,status,fields,codes,
+    otherFields:Object.keys(body).length-fields.length};
+  if(method===12011){
+    // Unknown fields often identify the role transition that precedes 11009.
+    // Expose only sanitized key names, never values or arbitrary strings.
+    summary.safeOtherKeys=Object.keys(body).filter(k=>
+      !DIAGNOSTIC_FIELDS.includes(k) &&
+      /^[A-Za-z][A-Za-z0-9_]{0,30}$/.test(k) &&
+      !/(?:token|auth|secret|pass|key|cookie|uuid|name|title|text|url|link|sdp|candidate|address|ip|port|device|session|user|chat|uid|mid|id)/i.test(k)
+    ).slice(0,10);
+    if(Object.hasOwn(body,'event'))
+      summary.eventValueType=
+        body.event===null?'null':Array.isArray(body.event)?'array':typeof body.event;
+  }
+  return summary;
 }
 
 async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
@@ -365,5 +385,5 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
 module.exports={
   VOX_IV,METHODS,I32,I64,integer,checkedId,validateTitle,pkcs7Pad,pkcs7Unpad,
   nativeSeedCbc,createCodec,parseServerAddress,voxConnect,checkedAppVersion,
-  getDiscoveryBody,getCreateBody,getCallServer,createVoiceRoom,
+  getDiscoveryBody,getCreateBody,getCallServer,createVoiceRoom,packetSummary,
 };
