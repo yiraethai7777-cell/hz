@@ -249,9 +249,9 @@ test('VOX session sends keepalive and releases on signalling disconnect',async t
   });
   await adapter.create({roomId:ROOM,title:'테스트'});
   assert.equal((await adapter.status({roomId:ROOM})).localActive,true);
-  t.mock.timers.tick(15000);
+  t.mock.timers.tick(5000);
   await new Promise(resolve=>setImmediate(resolve));
-  t.mock.timers.tick(15000);
+  t.mock.timers.tick(5000);
   await new Promise(resolve=>setImmediate(resolve));
   for(const {method,body} of messages.slice(2)){
     assert.equal(method,METHODS.PING);
