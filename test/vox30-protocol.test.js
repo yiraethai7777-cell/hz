@@ -450,6 +450,51 @@ test('VOX group diagnostics never equate userType=2 with confirmed moderator',()
   assert.equal(summary.memberGroups.listeners.own,'present');
 });
 
+test('VOX server termination correlation reports only bounded media and own moderator state',()=>{
+  const {sessionTerminationEvidence}=require('../shared/vox30-adapter');
+  const summary=sessionTerminationEvidence({
+    elapsedMs:30001,lastPongAgeMs:4512,pingReplies:6,
+    heartbeat:{replyReceived:true,headerStatus:0,resCodePresent:false,
+      acceptance:'unverified',oauthToken:'private-token'},
+    moderator:{own:'present',ownStates:{userType:2,mic:new I32(1),
+      nickname:'private-name',chatId:'123456789012345678'}},
+    media:{connectionState:'connected',audioTxMode:'opus-silence',
+      audioTxFailed:false,remoteAddress:'10.0.0.1'},
+    rtp:{available:true,outboundPackets:1250,outboundBytes:3750,inboundPackets:0,
+      otherSecret:'private-rtp'},
+  });
+  // The BSON Int32 is normalized as an untrusted object: don't guess its mic value.
+  assert.deepEqual(summary.moderator,{own:'present',mic:null});
+  assert.deepEqual(summary.heartbeat,{replyReceived:true,headerStatus:0,
+    resCodePresent:false,acceptance:'unverified'});
+  assert.equal(summary.elapsedMs,30001);
+  assert.equal(summary.lastPongAgeMs,4512);
+  assert.equal(summary.declared.heartbeatAudioState,0);
+  assert.equal(summary.declared.createDefaultMicOnOff,1);
+  assert.equal(summary.media.connectionState,'connected');
+  assert.equal(summary.rtp.outboundPackets,1250);
+  const json=JSON.stringify(summary);
+  for(const secret of ['private-token','private-name',
+      '123456789012345678','10.0.0.1','private-rtp'])
+    assert.equal(json.includes(secret),false);
+  const unknown=sessionTerminationEvidence({
+    elapsedMs:-999,pingReplies:9999999999,
+    moderator:{own:'listener',ownStates:{mic:100000,other:'private'}},
+    heartbeat:{acceptance:'secret',headerStatus:9999999},
+    media:{connectionState:'secret',audioTxMode:'secret'},
+  });
+  assert.equal(unknown.elapsedMs,null);
+  assert.equal(unknown.pingReplies,null);
+  assert.deepEqual(unknown.moderator,{own:'unknown',mic:null});
+  assert.equal(unknown.media.connectionState,'unknown');
+  assert.equal(unknown.heartbeat.acceptance,'unverified');
+});
+test('VOX server termination correlation accepts bounded integer moderator mic',()=>{
+  const {sessionTerminationEvidence}=require('../shared/vox30-adapter');
+  const state=sessionTerminationEvidence({moderator:{own:'present',ownStates:{mic:1}}});
+  assert.deepEqual(state.moderator,{own:'present',mic:1});
+});
+
 test('VOX 11015 header-only response is not mistaken for explicit keepalive acceptance',()=>{
   const {heartbeatReplySummary}=require('../shared/vox30-protocol');
   const headerOnly=heartbeatReplySummary({method:11015,status:0,body:{
