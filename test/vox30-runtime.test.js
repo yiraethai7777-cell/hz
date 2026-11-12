@@ -44,6 +44,14 @@ test('runtime uses the current bot credentials and checks the target room',async
   assert.equal(config.verifyMembership({actorUserId:'10',chatId:'20'}),false);
 });
 
+test('VOX version uses current authenticated client and explicit env overrides',()=>{
+  const {profileFromEnv}=require('../shared/vox30-runtime');
+  assert.equal(profileFromEnv({},'26.9.2').appVer,'26.9.2');
+  assert.equal(profileFromEnv({NEXI_VOX_APP_VERSION:'26.9.1'},'26.9.2').appVer,'26.9.1');
+  assert.equal(profileFromEnv({}).appVer,'26.3.1');
+  assert.throws(()=>profileFromEnv({},'not-a-version'),/앱 버전/);
+});
+
 test('silent audio is opt-in and does not change production default',()=>{
   let value;
   const client={voiceRoomAuthCandidate:{actorUserId:'10',getCredentials:()=>({oauthToken:'x',deviceUuid:'x'}),
