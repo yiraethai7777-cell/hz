@@ -147,9 +147,12 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
   const pending=new Set();
   let buffer=Buffer.alloc(0);
   let closed=false;
+  let resolveClosed;
+  const whenClosed=new Promise(resolve=>{resolveClosed=resolve;});
   function fail() {
     if(closed)return;
     closed=true;
+    resolveClosed();
     for(const entry of pending){clearTimeout(entry.timer);entry.reject(Error('VOX 연결 종료'));}
     pending.clear();
     socket.destroy();
@@ -221,7 +224,7 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
       return packet.body;
     }catch(e){w.cancel();throw e;}
   }
-  return {wait,send,request,close:fail};
+  return {wait,send,request,close:fail,whenClosed};
 }
 
 function validateCfg(cfg) {

@@ -212,3 +212,46 @@ test('profile-free discovery and create omit device and carrier fields on the wi
   assert.equal(Object.hasOwn(create,'simOperator'),false);
   assert.deepEqual(Object.keys(create.devInfo).sort(),['devSubType','os']);
 });
+
+test('VOX session sends keepalive and releases on signalling disconnect',async t=>{
+  t.mock.timers.enable({apis:['setInterval']});
+  const messages=[];
+  let socketClosed;
+  let mediaCloses=0;
+  const whenClosed=new Promise(resolve=>{socketClosed=resolve;});
+  const signalling={
+    whenClosed,
+    close:socketClosed,
+    wait(...methods){
+      const method=methods[0];
+      const body=method===METHODS.CREATED?
+        {callId:'1',csId:'2',sdp:{sdp:'answer'}}:{resCode:0};
+      return {promise:Promise.resolve({method,body}),cancel(){}};
+    },
+    async send(method,body){messages.push({method,body});},
+  };
+  const adapter=createVox30Adapter({
+    actorUserId:USER,cfg,codec,entryHost:'entry.example',appVer:'26.3.1',
+    credentialsForRoom:async()=>({oauthToken:'token',deviceUuid:'uuid'}),
+    verifyMembership:async()=>true,
+    rtcFactory:async()=>({
+      createOffer:async()=>sdp,applyAnswer:async()=>{},close:async()=>{mediaCloses++;},
+    }),
+    connect:async({host})=>host==='entry.example'?{
+      request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),close(){},
+    }:signalling,
+  });
+  await adapter.create({roomId:ROOM,title:'테스트'});
+  assert.equal((await adapter.status({roomId:ROOM})).localActive,true);
+  t.mock.timers.tick(15000);
+  await new Promise(resolve=>setImmediate(resolve));
+  t.mock.timers.tick(15000);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(messages.slice(1),[{method:METHODS.PING,body:{}},{method:METHODS.PING,body:{}}]);
+  socketClosed();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(mediaCloses,1);
+  assert.equal((await adapter.status({roomId:ROOM})).localActive,false);
+  t.mock.timers.tick(30000);
+  assert.equal(messages.length,3);
+});

@@ -1,12 +1,12 @@
 'use strict';
 
 const {
-  createCodec,createVoiceRoom,checkedId,validateTitle,
+  createCodec,createVoiceRoom,checkedId,validateTitle,integer,METHODS,
 } = require('./vox30-protocol');
 
-// Adapter for the existing #보룸시작 command. It is NOT installed by default.
-// Supply authenticated credentials and real WebRTC peers from a separately
-// validated provider. An arbitrary SDP string is not a functioning media peer.
+const PING_INTERVAL_MS=15000;
+
+// Adapter for the existing #보룸시작 command.
 function createVox30Adapter({
   actorUserId,cfg,entryHost,entryPort=9282,codec,
   credentialsForRoom,rtcFactory,verifyMembership,connect,transport,appVer,userTypeForRoom=()=>1,
@@ -21,6 +21,45 @@ function createVox30Adapter({
     throw Error('VOX 암호화/BSON codec이 필요합니다.');
   let active=null;
   let running=false;
+  async function release(current) {
+    if(active!==current)return;
+    active=null;
+    clearInterval(current.timer);
+    current.session.conn.close();
+    try{await current.peer.close();}catch{}
+    console.info('[VOICE VOX30] local voice session released');
+  }
+  function startKeepalive(current) {
+    const {conn}=current.session;
+    let waiting=false;
+    current.timer=setInterval(async()=>{
+      if(active!==current || waiting)return;
+      waiting=true;
+      let pong;
+      try{
+        pong=conn.wait(METHODS.PING);
+        // The method is documented. Empty BSON is a live compatibility trial.
+        await conn.send(METHODS.PING,{});
+        console.info('[VOICE VOX30] 11015 sent; media='+
+          (current.peer.getState?.().connectionState??'unknown'));
+      }catch{
+        pong?.cancel();
+        await release(current);
+        return;
+      }finally{
+        if(!pong)waiting=false;
+      }
+      try{
+        const packet=await pong.promise;
+        const code=integer(packet.body.resCode??packet.status??0);
+        console.info('[VOICE VOX30] 11015 reply status='+code);
+      }catch{
+        if(active===current)console.info('[VOICE VOX30] 11015 reply not observed');
+      }finally{waiting=false;}
+    },PING_INTERVAL_MS);
+    current.timer.unref();
+    conn.whenClosed?.then(()=>release(current));
+  }
   return {
     kind:'vox30-direct-experimental',
     async status({roomId}={}) {
@@ -56,7 +95,8 @@ function createVox30Adapter({
           ...(transport?{transport}:{}),
         });
         await peer.applyAnswer(session.remoteSdp);
-        active={chatId,session,peer};
+        active={chatId,session,peer,timer:null};
+        startKeepalive(active);
         return {requestAccepted:true,verified:false};
       }catch(e){
         session?.conn.close();
@@ -66,10 +106,7 @@ function createVox30Adapter({
     },
     // Local release only. It is NOT the KakaoTalk server's room termination.
     async dispose() {
-      const old=active;active=null;
-      if(!old)return;
-      old.session.conn.close();
-      await Promise.resolve(old.peer.close()).catch(()=>{});
+      if(active)await release(active);
     },
   };
 }
