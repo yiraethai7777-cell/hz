@@ -228,6 +228,75 @@ function ownMemberEvidence(members,actorUserId){
   return visit(members,0);
 }
 
+// Group names come from the VOX server's own full roster structure.
+// "userType" alone does not establish host/speaker/moderator privilege.
+const VOICE_MEMBER_GROUPS=['moderators','speakers','listeners'];
+function candidateMemberId(value) {
+  if(typeof value==='string'){
+    return /^[1-9][0-9]{0,18}$/.test(value)&&
+      BigInt(value)<=9223372036854775807n?value:null;
+  }
+  if(typeof value==='number')
+    return Number.isSafeInteger(value)&&value>0?String(value):null;
+  if(typeof value==='bigint')
+    return value>0n&&value<=9223372036854775807n?String(value):null;
+  if(value&&typeof value==='object'&&value._bsontype==='Long'){
+    const str=value.toString();
+    return /^[1-9][0-9]{0,18}$/.test(str)&&
+      BigInt(str)<=9223372036854775807n?str:null;
+  }
+  return null;
+}
+// For a group that is a list of bare IDs, a value (not a property name)
+// may represent membership. Keep traversal bounded and ignore arbitrary
+// scalar fields in objects, since those may be timestamps or counters.
+function listedMemberPresent(root,actor){
+  const visited=new Set();
+  let budget=2048;
+  function scan(node,depth,inArray=false){
+    if(--budget<0||depth>6||node==null)return false;
+    if(inArray && candidateMemberId(node)===actor)return true;
+    if(!node||typeof node!=='object'||ArrayBuffer.isView(node)||
+        visited.has(node))return false;
+    visited.add(node);
+    if(Array.isArray(node))
+      return node.slice(0,1024).some(item=>scan(item,depth+1,true));
+    return Object.values(node).slice(0,1024)
+      .some(item=>item&&typeof item==='object'&&scan(item,depth+1));
+  }
+  return scan(root,0);
+}
+function memberGroupEvidence(members,actorUserId){
+  if(!members||typeof members!=='object'||Array.isArray(members)||
+      !Object.hasOwn(members,'full')||!members.full||
+      typeof members.full!=='object'||Array.isArray(members.full))return null;
+  const full=members.full;
+  const validActor=candidateMemberId(actorUserId);
+  const groups={};
+  let included=false;
+  for(const groupName of VOICE_MEMBER_GROUPS){
+    if(!Object.hasOwn(full,groupName))continue;
+    included=true;
+    const group=full[groupName];
+    const evidence={shape:structuralField(group)};
+    if(validActor){
+      // Require a precise actor ID. "not_observed" is not proof of
+      // absence: a server delta or truncated roster may omit a member.
+      const own=ownMemberEvidence(group,validActor);
+      if(own){
+        evidence.own='present';
+        if(Object.keys(own.states).length)evidence.ownStates=own.states;
+      }else if(listedMemberPresent(group,validActor)){
+        evidence.own='present';
+      }else{
+        evidence.own='not_observed';
+      }
+    }else evidence.own='not_checked';
+    groups[groupName]=evidence;
+  }
+  return included?groups:null;
+}
+
 // Only shapes and role codes of the caller are exposed. No participant identifiers,
 // names, raw payloads, credentials, SDP or server addresses are logged.
 // Return only packet shape and small enum codes; never log raw VOX bodies, ids,
@@ -263,6 +332,8 @@ function packetSummary(packet,{actorUserId}={}) {
     if(envelope)summary.memberEnvelope=envelope;
     const own=ownMemberEvidence(body.members,actorUserId);
     if(own)summary.ownMember=own;
+    const memberGroups=memberGroupEvidence(body.members,actorUserId);
+    if(memberGroups)summary.memberGroups=memberGroups;
   }
   if(method===11028){
     // Server-provided lifetime/heartbeat configuration only. Bound values
