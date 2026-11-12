@@ -167,3 +167,23 @@ test('sendrecv audio is negotiated only with experimental silent TX opted in',as
   await pc.close();
   assert.equal(sourceStopped,true);
 });
+
+test('WebRTC RTP statistics distinguish track writes from actual outbound transmission',async()=>{
+  class StatsRtc extends FakeRtc {
+    async getStats(){
+      return new Map([
+        ['audioout',{type:'outbound-rtp',kind:'audio',packetsSent:125,bytesSent:9400,ssrc:12345}],
+        ['audioin',{type:'inbound-rtp',kind:'audio',packetsReceived:54}],
+        ['transport',{type:'transport',bytesSent:22000,localCandidateId:'private-ip'}],
+      ]);
+    }
+  }
+  const peer=createWebRtcPeer({PeerConnection:StatsRtc,iceTimeoutMs:500});
+  const stats=await peer.getRtpStats();
+  assert.deepEqual(stats,{available:true,outboundStreams:1,outboundPackets:125,
+    outboundBytes:9400,inboundStreams:1,inboundPackets:54});
+  assert.ok(!JSON.stringify(stats).includes('private'));
+  await peer.close();
+  const fallback=await createWebRtcPeer({PeerConnection:FakeRtc}).getRtpStats();
+  assert.deepEqual(fallback,{available:false});
+});
