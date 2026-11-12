@@ -120,7 +120,7 @@ test('the discovery and create sequence follows 30000 then 11028 and event 11003
   assert.equal(result.callId,'c1');
   assert.deepEqual(result.remoteSdp,{sdp:'answer',sdpType:2});
   assert.deepEqual(recorded.filter(x=>typeof x==='number'),[
-    METHODS.DISCOVER,METHODS.DISCOVER,METHODS.CREATE]);
+    METHODS.DISCOVER,METHODS.DISCOVER,METHODS.CREATE,METHODS.CREATED]);
   result.conn.close();
 });
 
@@ -136,10 +136,15 @@ for(const ackFirst of [true,false]) {
           for(const method of methods)waiters.set(method,resolve);
         }),cancel(){}};
       },
-      async send(method){
+      async send(method,body,requestNonce){
+        if(method===METHODS.CREATED){
+          assert.equal(integer(body.resCode),0);
+          assert.deepEqual(requestNonce,Buffer.from([1,2,3,4]));
+          return;
+        }
         assert.equal(method,METHODS.CREATE);
         const reply={method:METHODS.CREATE,body:{resCode:0,callId:'c1',csId:'s1'}};
-        const event={method:METHODS.CREATED,body:{sdp:remoteSdp}};
+        const event={method:METHODS.CREATED,requestNonce:Buffer.from([1,2,3,4]),body:{sdp:remoteSdp}};
         const packets=ackFirst?[reply,event]:[event,reply];
         for(const packet of packets){
           waiters.get(packet.method)(packet);
@@ -247,11 +252,20 @@ test('VOX session sends keepalive and releases on signalling disconnect',async t
   await new Promise(resolve=>setImmediate(resolve));
   t.mock.timers.tick(15000);
   await new Promise(resolve=>setImmediate(resolve));
-  assert.deepEqual(messages.slice(1),[{method:METHODS.PING,body:{}},{method:METHODS.PING,body:{}}]);
+  assert.deepEqual(messages.slice(2),[{method:METHODS.PING,body:{}},{method:METHODS.PING,body:{}}]);
   socketClosed();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(mediaCloses,1);
   assert.equal((await adapter.status({roomId:ROOM})).localActive,false);
   t.mock.timers.tick(30000);
-  assert.equal(messages.length,3);
+  assert.equal(messages.length,4);
+});
+
+test('a VOX response can echo the received nonce without changing the encrypted payload',()=>{
+  const requestNonce=Buffer.from([7,8,9,10]);
+  const bytes=codec.frame(METHODS.CREATED,{resCode:new I32(0)},requestNonce);
+  const packet=codec.parse(bytes);
+  assert.deepEqual(bytes.subarray(0,4),requestNonce);
+  assert.deepEqual(packet.requestNonce,requestNonce);
+  assert.equal(integer(packet.body.resCode),0);
 });

@@ -88,11 +88,11 @@ function createCodec({seed,serialize=bson.serialize,deserialize=bson.deserialize
   const cipher=seed || nativeSeedCbc();
   if (typeof cipher.encrypt!=='function' || typeof cipher.decrypt!=='function')
     throw Error('VOX SEED-CBC 구현이 필요합니다.');
-  function frame(method,data) {
+  function frame(method,data,requestNonce) {
     if (!Number.isInteger(method) || method<0 || method>65535)
       throw Error('VOX method 범위 오류');
     const head=Buffer.alloc(12);
-    const random=nonce(4);
+    const random=requestNonce??nonce(4);
     if (!Buffer.isBuffer(random) || random.length!==4) throw Error('VOX nonce 오류');
     random.copy(head,0);
     head.writeUInt16LE(method,6);
@@ -118,7 +118,7 @@ function createCodec({seed,serialize=bson.serialize,deserialize=bson.deserialize
     const body=deserialize(pkcs7Unpad(plain),{promoteLongs:false,promoteValues:false});
     if (!body || typeof body!=='object' || Array.isArray(body))
       throw Error('VOX BSON 응답 오류');
-    return {method:raw.readUInt16LE(6),status:raw.readUInt16LE(4),body};
+    return {method:raw.readUInt16LE(6),status:raw.readUInt16LE(4),requestNonce:Buffer.from(raw.subarray(0,4)),body};
   }
   return Object.freeze({frame,parse});
 }
@@ -207,9 +207,9 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
       if(pending.delete(entry)){clearTimeout(entry.timer);entry.reject(Error('VOX 대기 취소'));}
     }};
   }
-  async function send(method,data) {
+  async function send(method,data,requestNonce) {
     if(closed)throw Error('VOX 연결이 종료됐습니다.');
-    const bytes=codec.frame(method,data);
+    const bytes=codec.frame(method,data,requestNonce);
     await new Promise((resolve,reject)=>{
       socket.write(bytes,err=>err?reject(Error('VOX 전송 실패')):resolve());
     });
@@ -331,6 +331,8 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
     let reply=packet.method===METHODS.CREATE?packet.body:{};
     if(packet.method!==METHODS.CREATE && (event.body.callId==null || event.body.csId==null))
       reply=(await accepted).body;
+    // Acknowledge the server's creation event using its packet nonce.
+    await c.send(METHODS.CREATED,{resCode:new I32(0)},event.requestNonce);
     return {
       conn:c,callId:reply.callId??event.body.callId??null,
       csId:reply.csId??event.body.csId??null,remoteSdp,

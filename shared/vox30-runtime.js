@@ -47,9 +47,10 @@ function installDirectVoice(client,{env=process.env,
         log.info('[VOICE VOX30] '+(entry?'discovery':'call server')+' TLS connected');
         return {
           ...conn,
-          async send(method,body) {
-            await conn.send(method,body);
+          async send(method,body,requestNonce) {
+            await conn.send(method,body,requestNonce);
             if(method===11028)log.info('[VOICE VOX30] 11028 sent');
+            if(method===11003)log.info('[VOICE VOX30] 11003 acknowledgement sent');
           },
         };
       },
