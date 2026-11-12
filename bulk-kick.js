@@ -55,22 +55,11 @@ async function kickAll() {
     const botId = String(client.userId);
     const me = members.find(m => m.id === botId);
     if (!me || !isManager(me.role)) throw new Error('PC 로그인 계정의 방장/부방장 권한을 검증하지 못했습니다.');
-    const protectedUsers = members.filter(m => m.id === botId || isManager(m.role));
     const targets = members.filter(m => m.id !== botId && isMember(m.role));
-    console.log('\n대상 방:', roomId, '| 전체:', members.length, '| 제외:', protectedUsers.length, '| 강퇴 후보:', targets.length);
-    console.log('보호 대상:', protectedUsers.map(m => m.name + '(' + m.id + ')').join(', '));
-    targets.forEach((m, i) => console.log(String(i + 1).padStart(3), m.name, m.id));
     if (!targets.length) return console.log('강퇴할 일반 참여자가 없습니다.');
-    const answer = await prompt('\n정말 실행하시겠습니까? 정확히 YES 입력: ');
-    if (answer !== 'YES') return console.log('취소했습니다.');
-
-    // Re-read the current room, fail closed on changes or unverified roles.
-    const latest = await roster();
-    const now = new Map(latest.map(m => [m.id, m]));
-    if (latest.length !== members.length ||
-        targets.some(m => !now.has(m.id) || !isMember(now.get(m.id).role)) ||
-        !isManager(now.get(botId)?.role))
-      throw new Error('참여자 또는 권한이 변경되었습니다. 실행을 취소합니다.');
+    // The typed terminal command is the execution authorization. No additional
+    // confirmation, preview or KakaoTalk announcement is sent.
+    console.log('일괄강퇴 시작:', roomId, '| 대상', targets.length, '명');
     let success = 0, failed = 0;
     for (const member of targets) {
       if (!client.connected) throw new Error('연결이 끊어져 중단했습니다.');
