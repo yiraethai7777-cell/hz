@@ -113,6 +113,42 @@ function createWebRtcPeer({
         audioTxPackets:silence?.getState().sentPackets??0,
         audioTxFailed:silence?.getState().failed??false};
     },
+    async getRtpStats() {
+      // A local writeRtp() call does not mean that RTP was actually sent.
+      // Werift's outbound-rtp statistics provide a stronger, still local,
+      // transport-level signal. No peer addresses, SDP or SSRC are logged.
+      if(typeof pc.getStats!=='function')
+        return {available:false};
+      try {
+        const report=await pc.getStats();
+        const values=report instanceof Map?report.values():
+          Array.isArray(report)?report:Object.values(report||{});
+        let outboundPackets=0,outboundBytes=0,inboundPackets=0;
+        let outboundStreams=0,inboundStreams=0;
+        for(const stat of values){
+          if(!stat || typeof stat!=='object')continue;
+          const type=stat.type;
+          if(type!=='outbound-rtp' && type!=='inbound-rtp')continue;
+          const kind=stat.kind??stat.mediaType;
+          if(kind!==undefined && kind!=='audio')continue;
+          if(type==='outbound-rtp'){
+            outboundStreams++;
+            if(Number.isSafeInteger(stat.packetsSent)&&stat.packetsSent>=0)
+              outboundPackets+=stat.packetsSent;
+            if(Number.isSafeInteger(stat.bytesSent)&&stat.bytesSent>=0)
+              outboundBytes+=stat.bytesSent;
+          }else{
+            inboundStreams++;
+            if(Number.isSafeInteger(stat.packetsReceived)&&stat.packetsReceived>=0)
+              inboundPackets+=stat.packetsReceived;
+          }
+        }
+        return {available:true,outboundStreams,outboundPackets,
+          outboundBytes,inboundStreams,inboundPackets};
+      }catch {
+        return {available:false,failed:true};
+      }
+    },
     async close() {
       if(closed)return;
       closed=true;
