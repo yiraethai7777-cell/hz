@@ -32,6 +32,7 @@ test('runtime uses the current bot credentials and checks the target room',async
     },
   })}),true);
   assert.equal(config.appVer,'26.3.1');
+  assert.equal(config.enableSilentAudio,false);
   assert.deepEqual(config.cfg,{userId:'10'});
   assert.equal(config.userTypeForRoom({chatId:'20'}),2);
   assert.equal(config.verifyMembership({actorUserId:'10',chatId:'20'}),true);
@@ -41,4 +42,13 @@ test('runtime uses the current bot credentials and checks the target room',async
   assert.equal((await client.voiceRoomAdapter.create({roomId:'20'})).verified,false);
   client.connected=false;
   assert.equal(config.verifyMembership({actorUserId:'10',chatId:'20'}),false);
+});
+
+test('silent audio is opt-in and does not change production default',()=>{
+  let value;
+  const client={voiceRoomAuthCandidate:{actorUserId:'10',getCredentials:()=>({oauthToken:'x',deviceUuid:'x'}),
+    localRoomEvidence:()=>({isOpenChatInLocalRoster:true,memberTypeCached:true})}};
+  assert.equal(installDirectVoice(client,{env:{NEXI_VOX_TX_SILENCE:'1'},log,
+    loadLab:()=>({createLabAdapter(config){value=config.enableSilentAudio;return {create(){}};}})}),true);
+  assert.equal(value,true);
 });
