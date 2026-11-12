@@ -166,30 +166,66 @@ function structuralField(value) {
   }
   return {kind:value===null?'null':typeof value};
 }
+// VOX 12011 carries a "members" envelope with "type" and "full" keys.
+// Neither is itself a participant. "full" could be a list, map, boolean or
+// another nested structure; do not assume its semantics without evidence.
+function memberEnvelope(members) {
+  if(!members||typeof members!=='object'||Array.isArray(members)||
+      !Object.hasOwn(members,'type')||!Object.hasOwn(members,'full'))
+    return null;
+  const result={kind:'type-full',full:structuralField(members.full)};
+  try {
+    const type=integer(members.type);
+    if(Number.isSafeInteger(type)&&type>=0&&type<=128)result.typeCode=type;
+  }catch{}
+  if(typeof members.full==='boolean')result.fullFlag=members.full;
+  return result;
+}
 function ownMemberEvidence(members,actorUserId){
   if(actorUserId==null)return null;
   const actor=String(actorUserId);
   if(!/^[1-9][0-9]{0,18}$/.test(actor))return null;
-  const rows=Array.isArray(members)?members:
-    members&&typeof members==='object'?Object.values(members):[];
-  for(const row of rows.slice(0,2000)){
-    if(!row||typeof row!=='object'||Array.isArray(row))continue;
-    const id=row.userId??row.memberId??row.uid??row.mid??row.id;
-    if(id==null||String(id)!==actor)continue;
+  // Search bounded, plain BSON-decoded containers only, never raw buffers,
+  // arbitrary text or global user metadata. A match must be exact.
+  const visited=new Set();
+  let traversed=0;
+  const statesFor=row=>{
     const states={};
+    if(!row||typeof row!=='object'||Array.isArray(row))return states;
     for(const key of ['userType','memberType','role','speakerType','voiceRole']){
       if(!Object.hasOwn(row,key))continue;
       try{
         const val=integer(row[key]);
-        if(Math.abs(val)<100000)states[key]=val;
+        if(Number.isSafeInteger(val)&&Math.abs(val)<100000)states[key]=val;
       }catch{}
     }
     for(const key of ['isHost','isCreator','isModerator','isSpeaker','isOwner']){
       if(typeof row[key]==='boolean')states[key]=row[key];
     }
-    return {present:true,states};
+    return states;
+  };
+  function visit(node,depth){
+    if(node==null||typeof node!=='object'||ArrayBuffer.isView(node)||
+        depth>6||visited.has(node)||traversed>=2048)return null;
+    visited.add(node);
+    traversed++;
+    if(!Array.isArray(node)){
+      const id=node.userId??node.memberId??node.uid??node.mid??node.id;
+      if(id!=null&&String(id)===actor)
+        return {present:true,states:statesFor(node)};
+      // Some VOX versions may use a map keyed by the 64-bit member ID.
+      // Never print map keys or other participants' values.
+      if(Object.hasOwn(node,actor))
+        return {present:true,states:statesFor(node[actor])};
+    }
+    const children=Array.isArray(node)?node:Object.values(node);
+    for(let i=0;i<Math.min(children.length,2048);i++){
+      const found=visit(children[i],depth+1);
+      if(found)return found;
+    }
+    return null;
   }
-  return null;
+  return visit(members,0);
 }
 
 // Only shapes and role codes of the caller are exposed. No participant identifiers,
@@ -223,6 +259,8 @@ function packetSummary(packet,{actorUserId}={}) {
       if(Object.hasOwn(body,key))structures[key]=structuralField(body[key]);
     }
     if(Object.keys(structures).length)summary.structures=structures;
+    const envelope=memberEnvelope(body.members);
+    if(envelope)summary.memberEnvelope=envelope;
     const own=ownMemberEvidence(body.members,actorUserId);
     if(own)summary.ownMember=own;
   }

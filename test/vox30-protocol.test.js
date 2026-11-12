@@ -331,6 +331,54 @@ test('creation and role events log bounded structures and own member role only',
     body:{members:[],vrInfo:{}}}).ownMember,undefined);
 });
 
+test('VOX 12011 type/full envelope reveals bounded format without guessing roles',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const actor='123456789012345678';
+  const outsider='923456789012345678';
+  const list={type:new I32(2),full:[
+    {userId:outsider,role:new I32(1),name:'some private name'},
+    {userId:actor,role:new I32(3),isHost:true,oauthToken:'private-token'},
+  ]};
+  const decoded=codec.parse(codec.frame(12011,{
+    event:new I32(1),members:list,
+  })).body;
+  const summary=packetSummary({method:12011,status:0,body:decoded},
+    {actorUserId:actor});
+  assert.deepEqual(summary.memberEnvelope,{
+    kind:'type-full',full:{kind:'array',count:2,
+      elementKeys:['role','isHost']},typeCode:2,
+  });
+  assert.deepEqual(summary.ownMember,{
+    present:true,states:{role:3,isHost:true},
+  });
+  // A type/full event can be just a flag; never mislabel it as a roster.
+  const flag=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(1),full:true},
+  }},{actorUserId:actor});
+  assert.deepEqual(flag.memberEnvelope,{
+    kind:'type-full',full:{kind:'boolean'},typeCode:1,fullFlag:true,
+  });
+  assert.equal(flag.ownMember,undefined);
+  const nested=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(4),full:{speakers:{[actor]:{
+      userType:new I32(3),isModerator:true,name:'private',
+    }}}},
+  }},{actorUserId:actor});
+  assert.deepEqual(nested.ownMember,{
+    present:true,states:{userType:3,isModerator:true},
+  });
+  const absent=packetSummary({method:12011,status:0,body:{
+    members:{type:new I32(4),full:{speakers:{[outsider]:{
+      role:new I32(1)}}}},
+  }},{actorUserId:actor});
+  assert.equal(absent.ownMember,undefined);
+  for(const obj of [summary,flag,nested,absent]){
+    const serialized=JSON.stringify(obj);
+    for(const sensitive of [actor,outsider,'private-token','some private name',
+      'private'])assert.ok(!serialized.includes(sensitive),'sensitive VOX data leaked');
+  }
+});
+
 test('server timing and voice role flags remain bounded and omit sensitive data',()=>{
   const {packetSummary}=require('../shared/vox30-protocol');
   const result=packetSummary({
