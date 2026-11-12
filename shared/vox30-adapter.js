@@ -4,7 +4,7 @@ const {
   createCodec,createVoiceRoom,checkedId,validateTitle,integer,I32,I64,METHODS,
 } = require('./vox30-protocol');
 
-const PING_INTERVAL_MS=15000;
+const PING_INTERVAL_MS=5000;
 
 // Adapter for the existing #보룸시작 command.
 function createVox30Adapter({
@@ -93,6 +93,7 @@ function createVox30Adapter({
     };
     // Send the initial heartbeat as soon as the WebRTC answer is applied;
     // waiting a whole interval can miss a short server session deadline.
+    console.info('[VOICE VOX30] PING interval='+PING_INTERVAL_MS+'ms');
     current.timer=setInterval(()=>{void tick();},PING_INTERVAL_MS);
     current.timer.unref();
     conn.whenClosed?.then(()=>release(current));
