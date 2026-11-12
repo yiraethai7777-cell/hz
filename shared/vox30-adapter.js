@@ -15,7 +15,7 @@ function boundedCounter(value,max=100000000){
 // Own-account and transport-only correlation for server 11009. Never emit
 // raw 12011, credentials, participant IDs, SDP or transport addresses.
 function sessionTerminationEvidence({elapsedMs,lastPongAgeMs,pingReplies,
-  heartbeat,moderator,media,rtp}={}){
+  heartbeat,moderator,media,rtp,createTiming}={}){
   const own=moderator?.ownStates||{};
   const mic=(typeof own.mic==='boolean'||
     (Number.isInteger(own.mic)&&own.mic>=-1&&own.mic<=16))?own.mic:null;
@@ -45,7 +45,23 @@ function sessionTerminationEvidence({elapsedMs,lastPongAgeMs,pingReplies,
     rtp:{available:rtp?.available===true,
       outboundPackets:boundedCounter(rtp?.outboundPackets),
       outboundBytes:boundedCounter(rtp?.outboundBytes),
-      inboundPackets:boundedCounter(rtp?.inboundPackets)},
+      inboundPackets:boundedCounter(rtp?.inboundPackets),
+      remoteInboundReports:boundedCounter(rtp?.remoteInboundReports,256),
+      networkObserved:rtp?.network?.selectedPairObserved===true,
+      selectedPairState:['succeeded','in-progress','waiting','frozen','failed','cancelled']
+        .includes(rtp?.network?.selectedPairState)?rtp.network.selectedPairState:'unknown',
+      transportBytesReceived:boundedCounter(rtp?.network?.transportBytesReceived,1000000000000),
+      selectedPairResponsesReceived:boundedCounter(rtp?.network?.selectedPairResponsesReceived,1000000000000)},
+    serverTimers:{
+      createInterval:boundedCounter(createTiming?.interval,3600000),
+      createConnTimeout:boundedCounter(createTiming?.connTimeout,3600000),
+      createRespTimeout:boundedCounter(createTiming?.respTimeout,3600000),
+      pingInterval:boundedCounter(heartbeat?.serverTiming?.interval,3600000),
+      pingConnTimeout:boundedCounter(heartbeat?.serverTiming?.connTimeout,3600000),
+      pingRespTimeout:boundedCounter(heartbeat?.serverTiming?.respTimeout,3600000),
+      configuredPingIntervalMs:PING_INTERVAL_MS,
+      serverTimerUnitsVerified:false,
+    },
   };
 }
 
@@ -222,6 +238,7 @@ function createVox30Adapter({
                     heartbeat:current.lastHeartbeatEvidence,
                     moderator:current.lastModerator,
                     media,rtp:current.lastRtpStats,
+                    createTiming:current.session.serverTiming,
                   })));
                 // The server already ended the call. Never keep a phantom
                 // local session alive or automatically recreate voice rooms.
@@ -235,6 +252,9 @@ function createVox30Adapter({
         // These counters are not proof of server-side media activation.
         console.info('[VOICE VOX30] 11003/11028 signaling validation '+
           JSON.stringify(session.signaling??{replyVerified:false}));
+        console.info('[VOICE VOX30] 11028 server timer fields '+
+          JSON.stringify(session.serverTiming??{notProvided:true})+
+          '; unit interpretation unverified');
         active={chatId,session,peer,timer:null,
           createdAt:Date.now(),pingReplies:0,lastModerator:observedModerator};
         startKeepalive(active);
