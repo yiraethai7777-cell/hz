@@ -46,11 +46,12 @@ function installDirectVoice(client,{env=process.env,
         const observedMethods=new Set();
         const conn=await voxConnect({
           ...options,servername:'kakao.com',
-          onPacket({method,status}) {
+          onPacket(packet) {
+            const {method,status}=packet;
             const key=method+':'+status;
             if(entry||observedMethods.has(key)||observedMethods.size>=16)return;
             observedMethods.add(key);
-            log.info('[VOICE VOX30] call server packet method='+method+' status='+status);
+            log.info('[VOICE VOX30] call server packet '+JSON.stringify(packet));
           },
         });
         log.info('[VOICE VOX30] '+(entry?'discovery':'call server')+' TLS connected');
