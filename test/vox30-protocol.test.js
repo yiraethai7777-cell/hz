@@ -331,6 +331,31 @@ test('creation and role events log bounded structures and own member role only',
     body:{members:[],vrInfo:{}}}).ownMember,undefined);
 });
 
+test('server timing and voice role flags remain bounded and omit sensitive data',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const result=packetSummary({
+    method:11028,status:0,body:{
+      interval:new I32(30000),connTimeout:new I32(30),
+      respTimeout:new I32(12000),oauthToken:'dont-log-this',
+      callId:'123456789012345678',csIP:'203.0.113.123'
+    }
+  });
+  assert.deepEqual(result.serverTiming,{
+    interval:30000,connTimeout:30,respTimeout:12000
+  });
+  assert.ok(!JSON.stringify(result).includes('dont-log-this'));
+  assert.ok(!JSON.stringify(result).includes('123456789012345678'));
+  assert.ok(!JSON.stringify(result).includes('203.0.113.123'));
+  const event=packetSummary({method:11003,status:0,body:{
+    vrInfo:{enableReqSpkPermit:new I32(1),shareMode:false,
+      hostId:'some-private-id',shareTimeStamp:'private'},
+  }});
+  assert.deepEqual(event.voiceFlags,{enableReqSpkPermit:1,shareMode:false});
+  assert.ok(!JSON.stringify(event).includes('some-private-id'));
+  assert.equal(packetSummary({method:11028,status:0,
+    body:{connTimeout:new I32(5000000),interval:'not-int'}}).serverTiming,undefined);
+});
+
 test('terminal packet summaries expose safe reason codes without IDs or SDP',async()=>{
   const sock=new FakeTls();
   const seen=[];

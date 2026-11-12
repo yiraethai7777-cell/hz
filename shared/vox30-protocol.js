@@ -226,6 +226,36 @@ function packetSummary(packet,{actorUserId}={}) {
     const own=ownMemberEvidence(body.members,actorUserId);
     if(own)summary.ownMember=own;
   }
+  if(method===11028){
+    // Server-provided lifetime/heartbeat configuration only. Bound values
+    // and do not expose IDs, arbitrary strings, or connection endpoints.
+    const timing={};
+    for(const key of ['interval','connTimeout','respTimeout']){
+      if(!Object.hasOwn(body,key))continue;
+      try{
+        const value=integer(body[key]);
+        if(Number.isSafeInteger(value)&&value>=0&&value<=3600000)
+          timing[key]=value;
+      }catch{}
+    }
+    if(Object.keys(timing).length)summary.serverTiming=timing;
+  }
+  if((method===11003||method===12011) && body.vrInfo &&
+      typeof body.vrInfo==='object' && !Array.isArray(body.vrInfo)){
+    const flags={};
+    for(const key of ['enableReqSpkPermit','shareMode']){
+      if(!Object.hasOwn(body.vrInfo,key))continue;
+      const raw=body.vrInfo[key];
+      if(typeof raw==='boolean')flags[key]=raw;
+      else {
+        try{
+          const val=integer(raw);
+          if(Number.isSafeInteger(val)&&val>=0&&val<=16)flags[key]=val;
+        }catch{}
+      }
+    }
+    if(Object.keys(flags).length)summary.voiceFlags=flags;
+  }
   if(method===12011 && Object.hasOwn(body,'event'))
     summary.eventValueType=
       body.event===null?'null':Array.isArray(body.event)?'array':typeof body.event;
