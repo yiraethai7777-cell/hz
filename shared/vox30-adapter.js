@@ -34,6 +34,11 @@ function createVox30Adapter({
     let waiting=false;
     current.timer=setInterval(async()=>{
       if(active!==current || waiting)return;
+      const media=current.peer.getState?.().connectionState??'unknown';
+      if(media==='failed'||media==='closed'){
+        await release(current);
+        return;
+      }
       waiting=true;
       let pong;
       try{
@@ -41,7 +46,7 @@ function createVox30Adapter({
         // The method is documented. Empty BSON is a live compatibility trial.
         await conn.send(METHODS.PING,{});
         console.info('[VOICE VOX30] 11015 sent; media='+
-          (current.peer.getState?.().connectionState??'unknown'));
+          media);
       }catch{
         pong?.cancel();
         await release(current);
