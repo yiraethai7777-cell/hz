@@ -137,9 +137,64 @@ const DIAGNOSTIC_FIELDS=['reason','reasonCode','byeReason','disconnectReason','r
   'resultCode','callId','csId','userId','chatId','sdp','sdpType','candidate',
   'candidates','mediaType','mediaState','state','type','action','event','data','users'];
 
+
+const SAFE_FIELD_NAME=/^[A-Za-z][A-Za-z0-9_]{0,30}$/;
+const SENSITIVE_FIELD_NAME=/(?:token|auth|secret|pass|key|cookie|uuid|name|title|text|url|link|sdp|candidate|address|ip|port|device|session|user|chat|uid|mid|id)/i;
+function safeFieldKeys(record,max=16) {
+  if(!record||typeof record!=='object'||Array.isArray(record))return [];
+  return Object.keys(record).filter(key=>
+    SAFE_FIELD_NAME.test(key)&&!SENSITIVE_FIELD_NAME.test(key)
+  ).slice(0,max);
+}
+function structuralField(value) {
+  if(Array.isArray(value)){
+    const first=value.find(item=>item&&typeof item==='object'&&!Array.isArray(item));
+    return {kind:'array',count:Math.min(value.length,2000),
+      ...(value.length>2000?{capped:true}:{}),
+      ...(first?{elementKeys:safeFieldKeys(first)}:{})};
+  }
+  if(value&&typeof value==='object'){
+    const keys=Object.keys(value);
+    const first=keys.length?value[keys[0]]:undefined;
+    // Members may be a map keyed by private user IDs: report only key count,
+    // and the first member's non-identifying field names.
+    return {kind:'object',fieldKeys:safeFieldKeys(value),
+      ...(first&&typeof first==='object'&&!Array.isArray(first)
+        ?{entryCount:Math.min(keys.length,2000),entryKeys:safeFieldKeys(first)}:{})};
+  }
+  return {kind:value===null?'null':typeof value};
+}
+function ownMemberEvidence(members,actorUserId){
+  if(actorUserId==null)return null;
+  const actor=String(actorUserId);
+  if(!/^[1-9][0-9]{0,18}$/.test(actor))return null;
+  const rows=Array.isArray(members)?members:
+    members&&typeof members==='object'?Object.values(members):[];
+  for(const row of rows.slice(0,2000)){
+    if(!row||typeof row!=='object'||Array.isArray(row))continue;
+    const id=row.userId??row.memberId??row.uid??row.mid??row.id;
+    if(id==null||String(id)!==actor)continue;
+    const states={};
+    for(const key of ['userType','memberType','role','speakerType','voiceRole']){
+      if(!Object.hasOwn(row,key))continue;
+      try{
+        const val=integer(row[key]);
+        if(Math.abs(val)<100000)states[key]=val;
+      }catch{}
+    }
+    for(const key of ['isHost','isCreator','isModerator','isSpeaker','isOwner']){
+      if(typeof row[key]==='boolean')states[key]=row[key];
+    }
+    return {present:true,states};
+  }
+  return null;
+}
+
+// Only shapes and role codes of the caller are exposed. No participant identifiers,
+// names, raw payloads, credentials, SDP or server addresses are logged.
 // Return only packet shape and small enum codes; never log raw VOX bodies, ids,
 // titles, SDP, network addresses, OAuth tokens, or arbitrary string values.
-function packetSummary(packet) {
+function packetSummary(packet,{actorUserId}={}) {
   const {method,status,body}=packet;
   if(![11028,11003,12011,11009].includes(method))
     return {method,status};
@@ -157,23 +212,26 @@ function packetSummary(packet) {
   }
   const summary={method,status,fields,codes,
     otherFields:Object.keys(body).length-fields.length};
-  if(method===12011){
-    // Unknown fields often identify the role transition that precedes 11009.
-    // Expose only sanitized key names, never values or arbitrary strings.
-    summary.safeOtherKeys=Object.keys(body).filter(k=>
-      !DIAGNOSTIC_FIELDS.includes(k) &&
-      /^[A-Za-z][A-Za-z0-9_]{0,30}$/.test(k) &&
-      !/(?:token|auth|secret|pass|key|cookie|uuid|name|title|text|url|link|sdp|candidate|address|ip|port|device|session|user|chat|uid|mid|id)/i.test(k)
-    ).slice(0,10);
-    if(Object.hasOwn(body,'event'))
-      summary.eventValueType=
-        body.event===null?'null':Array.isArray(body.event)?'array':typeof body.event;
+  if(method===12011||method===11028||method===11003){
+    // Metadata only; creation often carries unrecognized state fields.
+    summary.safeOtherKeys=safeFieldKeys(body).filter(k=>
+      !DIAGNOSTIC_FIELDS.includes(k)).slice(0,16);
+    const structures={};
+    for(const key of ['members','vrInfo','speakerRequestor']){
+      if(Object.hasOwn(body,key))structures[key]=structuralField(body[key]);
+    }
+    if(Object.keys(structures).length)summary.structures=structures;
+    const own=ownMemberEvidence(body.members,actorUserId);
+    if(own)summary.ownMember=own;
   }
+  if(method===12011 && Object.hasOwn(body,'event'))
+    summary.eventValueType=
+      body.event===null?'null':Array.isArray(body.event)?'array':typeof body.event;
   return summary;
 }
 
 async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
-    servername,ca,onPacket,tlsConnect=tls.connect}={}) {
+    servername,ca,onPacket,diagnosticActorUserId,tlsConnect=tls.connect}={}) {
   if(typeof host!=='string' || !/^[a-zA-Z0-9.:-]+$/.test(host) ||
       !Number.isInteger(port)||port<1||port>65535)
     throw Error('VOX TLS 목적지 오류');
@@ -209,7 +267,7 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
         if(buffer.length<12+n)break;
         const packet=codec.parse(buffer.subarray(0,12+n));
         buffer=buffer.subarray(12+n);
-        if(onPacket)onPacket(packetSummary(packet));
+        if(onPacket)onPacket(packetSummary(packet,{actorUserId:diagnosticActorUserId}));
         const entry=[...pending].find(w=>w.methods.has(packet.method));
         if(entry){pending.delete(entry);clearTimeout(entry.timer);entry.resolve(packet);}
       }
