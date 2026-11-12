@@ -46,15 +46,28 @@ function installDirectVoice(client,{env=process.env,
         const {isPublicIpv4}=require('../experiments/vox30/synthetic-discovery');
         if(!isPublicIpv4(options.host))throw Error('VOX 서버 주소가 유효하지 않습니다.');
         const observedMethods=new Set();
+        const observedRoleStates=new Set();
         const conn=await voxConnect({
           ...options,servername:'kakao.com',
           onPacket(packet) {
             // Forward server events to the owning voice-session adapter.
             options.onPacket?.(packet);
             const {method,status}=packet;
-            const key=method+':'+status;
-            if(entry||observedMethods.has(key)||observedMethods.size>=16)return;
-            observedMethods.add(key);
+            if(entry)return;
+            if(method===12011){
+              // Log a role or roster transition when its safe summary changes,
+              // not only the first event of this method/status pair.
+              const snapshot=JSON.stringify({
+                codes:packet.codes,memberEnvelope:packet.memberEnvelope,
+                ownMember:packet.ownMember,structures:packet.structures,
+              });
+              if(observedRoleStates.has(snapshot)||observedRoleStates.size>=12)return;
+              observedRoleStates.add(snapshot);
+            }else{
+              const key=method+':'+status;
+              if(observedMethods.has(key)||observedMethods.size>=16)return;
+              observedMethods.add(key);
+            }
             log.info('[VOICE VOX30] call server packet '+JSON.stringify(packet));
           },
         });
