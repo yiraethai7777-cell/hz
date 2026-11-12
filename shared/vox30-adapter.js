@@ -38,7 +38,10 @@ function sessionTerminationEvidence({elapsedMs,lastPongAgeMs,pingReplies,
         moderator?.own==='not_observed'?'not_observed':'unknown',mic},
     declared:{createDefaultMicOnOff:CREATE_DEFAULT_MIC_ON_OFF,
       heartbeatAudioState:HEARTBEAT_AUDIO_STATE},
-    media:{connectionState,audioTxMode:txMode,audioTxFailed:media?.audioTxFailed===true},
+    media:{connectionState,
+      iceConnectionState:['new','checking','connected','completed','disconnected','failed','closed']
+        .includes(media?.iceConnectionState)?media.iceConnectionState:'unknown',
+      audioTxMode:txMode,audioTxFailed:media?.audioTxFailed===true},
     rtp:{available:rtp?.available===true,
       outboundPackets:boundedCounter(rtp?.outboundPackets),
       outboundBytes:boundedCounter(rtp?.outboundBytes),
@@ -205,6 +208,8 @@ function createVox30Adapter({
                 let media={};
                 try{media=current.peer.getState?.()||{};}catch{}
                 const now=Date.now();
+                console.info('[VOICE VOX30] signaling validation at termination '+
+                  JSON.stringify(current.session.signaling??{replyVerified:false}));
                 console.info('[VOICE VOX30] LOCO lifecycle at termination '+
                   JSON.stringify(require('./voice-room-auto-detect')
                     .callCorrelation(chatId,current.session.callId)));
@@ -226,6 +231,10 @@ function createVox30Adapter({
           },
         });
         await peer.applyAnswer(session.remoteSdp);
+        // 11003 packet reception is distinct from the 11028 acceptance.
+        // These counters are not proof of server-side media activation.
+        console.info('[VOICE VOX30] 11003/11028 signaling validation '+
+          JSON.stringify(session.signaling??{replyVerified:false}));
         active={chatId,session,peer,timer:null,
           createdAt:Date.now(),pingReplies:0,lastModerator:observedModerator};
         startKeepalive(active);
