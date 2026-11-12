@@ -128,7 +128,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         '검증된 VOX 기기 프로필: '+line(state.deviceProfileVerified)+'\n'+
         'VOX 서버 OAuth 인증: 미검증\n'+
         '보이스룸 생성 메서드·WebRTC: 미검증\n'+
-        '실제 생성: 비활성화\n'+
+        (state.creationEnabled?'생성 요청 경로: 연결됨 (실서버 미검증)':'실제 생성: 비활성화')+'\n'+
         '※ OAuth 토큰은 전송하거나 출력하지 않았습니다.');
     }catch{
       await safeReply(client,send,'⚠️ VOX 인증 준비 정보를 확인하지 못했습니다. 실제 생성 요청은 보내지 않았습니다.');

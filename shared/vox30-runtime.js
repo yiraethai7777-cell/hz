@@ -13,9 +13,12 @@ function profileFromEnv(env) {
     buildId:env.NEXI_VOX_BUILD_ID,
     carrierId:env.NEXI_VOX_CARRIER_ID,
   };
+  for(const key of Object.keys(fields)){
+    if(fields[key]===undefined || fields[key]==='')delete fields[key];
+  }
   if(Object.values(fields).some(value=>typeof value!=='string'||!value.trim()||
       value.length>128||/[\x00-\x1f\x7f]/.test(value)))return null;
-  if(!/^\d{5,6}$/.test(fields.carrierId))return null;
+  if(fields.carrierId!==undefined&&!/^\d{5,6}$/.test(fields.carrierId))return null;
   return {...fields,appVer:checkedAppVersion(env.NEXI_VOX_APP_VERSION||'26.3.1')};
 }
 
@@ -25,7 +28,7 @@ function installDirectVoice(client,{env=process.env,
   let profile;
   try{profile=profileFromEnv(env);}catch{}
   if(!profile){
-    log.info('[VOICE VOX30] creation unavailable: VOX device profile missing or invalid');
+    log.info('[VOICE VOX30] creation unavailable: invalid VOX settings');
     return false;
   }
   const auth=client.voiceRoomAuthCandidate;
@@ -77,7 +80,7 @@ function installDirectVoice(client,{env=process.env,
         }
       },
     };
-    log.info('[VOICE VOX30] direct create adapter installed');
+    log.info('[VOICE VOX30] direct create adapter installed; optional device fields: '+Object.keys(device).length);
     return true;
   }catch{
     log.warn('[VOICE VOX30] direct create adapter initialization failed');

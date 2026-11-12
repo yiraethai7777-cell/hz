@@ -199,3 +199,16 @@ test('create and discovery fail before any network when app version is implicit'
   assert.equal(attempts,0);
   assert.throws(()=>checkedAppVersion('26.1.2\nOAuth'),/앱 버전/);
 });
+
+test('profile-free discovery and create omit device and carrier fields on the wire',()=>{
+  const cfg={userId:USER};
+  const discovery=codec.parse(codec.frame(METHODS.DISCOVER,getDiscoveryBody(cfg,ROOM,'26.3.1'))).body;
+  assert.equal(Object.hasOwn(discovery,'devInfo'),false);
+  assert.equal(Object.hasOwn(discovery,'carrierId'),false);
+  const create=codec.parse(codec.frame(METHODS.CREATE,getCreateBody({
+    cfg,chatId:ROOM,title:'테스트',oauthToken:'token',deviceUuid:'uuid',sdp,appVer:'26.3.1',
+  }))).body;
+  assert.equal(Object.hasOwn(create,'carrierId'),false);
+  assert.equal(Object.hasOwn(create,'simOperator'),false);
+  assert.deepEqual(Object.keys(create.devInfo).sort(),['devSubType','os']);
+});
