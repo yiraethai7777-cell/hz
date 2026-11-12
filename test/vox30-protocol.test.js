@@ -252,8 +252,26 @@ test('VOX session sends keepalive and releases on signalling disconnect',async t
   await new Promise(resolve=>setImmediate(resolve));
   t.mock.timers.tick(15000);
   await new Promise(resolve=>setImmediate(resolve));
-  const ping={method:METHODS.PING,body:{callId:'1',csId:'2'}};
-  assert.deepEqual(messages.slice(2),[ping,ping]);
+  for(const {method,body} of messages.slice(2)){
+    assert.equal(method,METHODS.PING);
+    const wire=codec.parse(codec.frame(method,body)).body;
+    assert.deepEqual(Object.keys(wire),[
+      'userId','csId','callId','devType','voiceFilter','audioState','videoState','recInfo',
+    ]);
+    for(const [key,value] of Object.entries({userId:USER,csId:'2',callId:'1'})){
+      assert.equal(wire[key]._bsontype,'Long');
+      assert.equal(wire[key].toString(),value);
+    }
+    for(const [key,value] of Object.entries({devType:4,voiceFilter:0,audioState:0,videoState:0})){
+      assert.equal(wire[key]._bsontype,'Int32');
+      assert.equal(integer(wire[key]),value);
+    }
+    assert.equal(wire.recInfo.recSessionId._bsontype,'Long');
+    assert.equal(wire.recInfo.recordCount._bsontype,'Int32');
+    assert.equal(wire.recInfo.recordDuration._bsontype,'Long');
+    assert.deepEqual(wire.recInfo.recordIds,[]);
+  }
+  assert.equal(messages.length,4);
   socketClosed();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(mediaCloses,1);
