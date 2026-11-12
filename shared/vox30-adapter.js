@@ -30,7 +30,10 @@ function createVox30Adapter({
     console.info('[VOICE VOX30] local voice session released');
   }
   function startKeepalive(current) {
-    const {conn}=current.session;
+    const {conn,callId,csId}=current.session;
+    const pingBody={};
+    if(callId!=null)pingBody.callId=callId;
+    if(csId!=null)pingBody.csId=csId;
     let waiting=false;
     current.timer=setInterval(async()=>{
       if(active!==current || waiting)return;
@@ -43,8 +46,8 @@ function createVox30Adapter({
       let pong;
       try{
         pong=conn.wait(METHODS.PING);
-        // The method is documented. Empty BSON is a live compatibility trial.
-        await conn.send(METHODS.PING,{});
+        // The method is documented; the session fields are a compatibility trial.
+        await conn.send(METHODS.PING,pingBody);
         console.info('[VOICE VOX30] 11015 sent; media='+
           media);
       }catch{

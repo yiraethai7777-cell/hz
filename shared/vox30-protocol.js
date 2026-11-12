@@ -134,7 +134,7 @@ function parseServerAddress(reply) {
 }
 
 async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
-    servername,ca,tlsConnect=tls.connect}={}) {
+    servername,ca,onPacket,tlsConnect=tls.connect}={}) {
   if(typeof host!=='string' || !/^[a-zA-Z0-9.:-]+$/.test(host) ||
       !Number.isInteger(port)||port<1||port>65535)
     throw Error('VOX TLS 목적지 오류');
@@ -170,6 +170,7 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
         if(buffer.length<12+n)break;
         const packet=codec.parse(buffer.subarray(0,12+n));
         buffer=buffer.subarray(12+n);
+        onPacket?.({method:packet.method,status:packet.status});
         const entry=[...pending].find(w=>w.methods.has(packet.method));
         if(entry){pending.delete(entry);clearTimeout(entry.timer);entry.resolve(packet);}
       }
