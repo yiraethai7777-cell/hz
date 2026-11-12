@@ -133,6 +133,25 @@ function parseServerAddress(reply) {
   return {host,port};
 }
 
+const DIAGNOSTIC_FIELDS=['reason','reasonCode','byeReason','disconnectReason','resCode',
+  'resultCode','callId','csId','userId','chatId','sdp','sdpType','candidate',
+  'candidates','mediaType','mediaState','state','type','action','event','data','users'];
+
+function packetSummary(packet) {
+  const {method,status,body}=packet;
+  if(method!==12011 && method!==11009)return {method,status};
+  const fields=DIAGNOSTIC_FIELDS.filter(key=>Object.hasOwn(body,key));
+  const codes={};
+  for(const key of DIAGNOSTIC_FIELDS.slice(0,6)){
+    if(!Object.hasOwn(body,key))continue;
+    try{
+      const value=integer(body[key]);
+      if(Number.isSafeInteger(value)&&Math.abs(value)<100000)codes[key]=value;
+    }catch{}
+  }
+  return {method,status,fields,codes,otherFields:Object.keys(body).length-fields.length};
+}
+
 async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
     servername,ca,onPacket,tlsConnect=tls.connect}={}) {
   if(typeof host!=='string' || !/^[a-zA-Z0-9.:-]+$/.test(host) ||
@@ -170,7 +189,7 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
         if(buffer.length<12+n)break;
         const packet=codec.parse(buffer.subarray(0,12+n));
         buffer=buffer.subarray(12+n);
-        onPacket?.({method:packet.method,status:packet.status});
+        if(onPacket)onPacket(packetSummary(packet));
         const entry=[...pending].find(w=>w.methods.has(packet.method));
         if(entry){pending.delete(entry);clearTimeout(entry.timer);entry.resolve(packet);}
       }

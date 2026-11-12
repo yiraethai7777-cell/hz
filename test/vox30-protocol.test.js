@@ -270,3 +270,17 @@ test('a VOX response can echo the received nonce without changing the encrypted 
   assert.deepEqual(packet.requestNonce,requestNonce);
   assert.equal(integer(packet.body.resCode),0);
 });
+
+test('terminal packet summaries expose safe reason codes without IDs or SDP',async()=>{
+  const sock=new FakeTls();
+  const seen=[];
+  const ready=voxConnect({host:'127.0.0.1',port:995,codec,timeoutMs:500,
+    onPacket:packet=>seen.push(packet),
+    tlsConnect:()=>{queueMicrotask(()=>sock.emit('secureConnect'));return sock;}});
+  const conn=await ready;
+  sock.emit('data',codec.frame(11009,{reason:new I32(4),callId:'private-id',
+    sdp:'private-sdp',token:'private-token'}));
+  assert.deepEqual(seen,[{method:11009,status:0,fields:['reason','callId','sdp'],
+    codes:{reason:4},otherFields:1}]);
+  conn.close();
+});
