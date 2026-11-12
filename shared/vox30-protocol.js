@@ -583,36 +583,59 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
   });
   const c=await connect({host:server.host,port:server.port,codec,...transport});
   let outcome,ack;
+  const began=Date.now();
+  let replyMs=null,eventMs=null,createdAckMs=null;
   try {
-    // The original client reads session IDs from 11028 and SDP from 11003.
-    // Register both before sending so either packet can arrive first.
+    // The server may send 11028 and 11003 in either order.
+    // A successful 11003 alone does not prove the 11028 reply was accepted.
     outcome=c.wait(METHODS.CREATED,METHODS.REJECTED);
     ack=c.wait(METHODS.CREATE);
     const accepted=ack.promise.then(packet=>{
+      replyMs=Date.now()-began;
       const status=integer(packet.body.resCode ?? packet.status ?? 0);
       if(status!==0)throw Error('VOX 보이스룸 생성 응답 거절: resCode='+status);
       return packet;
     });
-    const first=Promise.race([outcome.promise,accepted]);
+    accepted.catch(()=>{}); // event-first path may await this only after 11003 ACK
+    const created=outcome.promise.then(packet=>{
+      eventMs=Date.now()-began;
+      return packet;
+    });
+    created.catch(()=>{});
+    const first=Promise.race([created,accepted]);
     first.catch(()=>{});
     await c.send(METHODS.CREATE,createBody);
-    const packet=await first;
-    const event=packet.method===METHODS.CREATE?await outcome.promise:packet;
+    const initial=await first;
+    const event=initial.method===METHODS.CREATE?await created:initial;
     if(event.method===METHODS.REJECTED)
       throw Error('VOX 보이스룸 생성 거절: reason='+integer(event.body.reason??0));
     const remoteSdp=event.body.sdp;
     // A 11003 event does NOT prove KakaoTalk server activation or ICE/DTLS.
     if(!remoteSdp || typeof remoteSdp!=='object')
       throw Error('VOX 원격 SDP 응답이 없습니다.');
-    let reply=packet.method===METHODS.CREATE?packet.body:{};
-    if(packet.method!==METHODS.CREATE && (event.body.callId==null || event.body.csId==null))
-      reply=(await accepted).body;
-    // Acknowledge the server's creation event using its packet nonce.
+    // Acknowledge the actual server event using its request nonce.
+    // Keep this send before waiting for a late 11028 reply: the remote
+    // server might require the 11003 response to finish sending 11028.
     await c.send(METHODS.CREATED,{resCode:new I32(0)},event.requestNonce);
+    createdAckMs=Date.now()-began;
+    // Explicitly verify 11028 even when 11003 arrived first. Previously an
+    // event carrying both IDs could bypass this independent acceptance.
+    const response=await accepted;
+    const reply=response.body;
+    for(const field of ['callId','csId']){
+      const fromCreate=reply[field],fromEvent=event.body[field];
+      if(fromCreate!=null && fromEvent!=null &&
+          String(fromCreate)!==String(fromEvent))
+        throw Error('VOX 생성 응답과 이벤트의 통화 식별자가 일치하지 않습니다.');
+    }
     return {
       conn:c,callId:reply.callId??event.body.callId??null,
       csId:reply.csId??event.body.csId??null,remoteSdp,
       requestAccepted:true,verified:false,
+      signaling:{replyVerified:true,
+        createReplyMs:replyMs,createdEventMs:eventMs,createdAckSentMs:createdAckMs,
+        ackUsesServerNonce:Buffer.isBuffer(event.requestNonce)&&event.requestNonce.length===4,
+        idsConsistent:true},
     };
   }catch(e){c.close();throw e;}
   finally{outcome?.cancel();ack?.cancel();}

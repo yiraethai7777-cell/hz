@@ -162,6 +162,111 @@ for(const ackFirst of [true,false]) {
   });
 }
 
+test('VOX 11003-first creation requires independent 11028 acceptance',async()=>{
+  const methods=[];
+  const waiters=new Map();
+  let closed=0;
+  const session={
+    close(){closed++;},
+    request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),
+    wait(...names){
+      let resolve;
+      const promise=new Promise(done=>{resolve=done;});
+      for(const name of names)waiters.set(name,resolve);
+      return {promise,cancel(){}};
+    },
+    async send(method,body,requestNonce){
+      methods.push(method);
+      if(method===METHODS.CREATE){
+        queueMicrotask(()=>waiters.get(METHODS.CREATED)({
+          method:METHODS.CREATED,status:0,
+          requestNonce:Buffer.from([1,2,3,4]),
+          body:{callId:'1',csId:'2',sdp:{sdp:'v=0\\r\\n'}},
+        }));
+      }else if(method===METHODS.CREATED){
+        assert.equal(integer(body.resCode),0);
+        assert.deepEqual(requestNonce,Buffer.from([1,2,3,4]));
+        queueMicrotask(()=>waiters.get(METHODS.CREATE)({
+          method:METHODS.CREATE,status:0,
+          body:{resCode:new I32(63),callId:'1',csId:'2'},
+        }));
+      }
+    },
+  };
+  await assert.rejects(createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
+    oauthToken:'private-auth',deviceUuid:'private-device',sdp,
+    entryHost:'entry.example',appVer:'26.3.1',
+    connect:async()=>session,codec}),/resCode=63/);
+  assert.deepEqual(methods,[METHODS.CREATE,METHODS.CREATED]);
+  assert.equal(closed,2);
+});
+
+test('VOX 11028 and 11003 must refer to the same call before success',async()=>{
+  let closed=0;
+  const waiters=new Map();
+  const session={
+    close(){closed++;},
+    request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),
+    wait(...names){
+      let resolve;
+      const promise=new Promise(done=>{resolve=done;});
+      for(const name of names)waiters.set(name,resolve);
+      return {promise,cancel(){}};
+    },
+    async send(method){
+      if(method===METHODS.CREATE)queueMicrotask(()=>{
+        waiters.get(METHODS.CREATE)({method:METHODS.CREATE,status:0,
+          body:{resCode:new I32(0),callId:'100',csId:'2'}});
+        waiters.get(METHODS.CREATED)({method:METHODS.CREATED,status:0,
+          requestNonce:Buffer.from([1,2,3,4]),
+          body:{callId:'101',csId:'2',sdp:{sdp:'v=0\\r\\n'}}});
+      });
+    },
+  };
+  await assert.rejects(createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
+    oauthToken:'private-auth',deviceUuid:'private-device',sdp,
+    entryHost:'entry.example',appVer:'26.3.1',
+    connect:async()=>session,codec}),/식별자가 일치하지 않습니다/);
+  assert.equal(closed,2);
+});
+
+test('successful VOX creation reports bounded 11003/11028 chronology only',async()=>{
+  const waiters=new Map();
+  const session={
+    close(){},
+    request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),
+    wait(...names){
+      let resolve;
+      const promise=new Promise(done=>{resolve=done;});
+      for(const name of names)waiters.set(name,resolve);
+      return {promise,cancel(){}};
+    },
+    async send(method){
+      if(method===METHODS.CREATE)queueMicrotask(()=>{
+        waiters.get(METHODS.CREATE)({method:METHODS.CREATE,status:0,
+          body:{resCode:new I32(0),callId:'100',csId:'2'}});
+        waiters.get(METHODS.CREATED)({method:METHODS.CREATED,status:0,
+          requestNonce:Buffer.from([1,2,3,4]),
+          body:{callId:'100',csId:'2',sdp:{sdp:'v=0\\r\\n'}}});
+      });
+    },
+  };
+  const result=await createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
+    oauthToken:'private-auth',deviceUuid:'private-device',sdp,
+    entryHost:'entry.example',appVer:'26.3.1',
+    connect:async()=>session,codec});
+  assert.equal(result.signaling.replyVerified,true);
+  assert.equal(result.signaling.idsConsistent,true);
+  assert.equal(result.signaling.ackUsesServerNonce,true);
+  for(const key of ['createReplyMs','createdEventMs','createdAckSentMs'])
+    assert.ok(Number.isSafeInteger(result.signaling[key]) &&
+      result.signaling[key]>=0 && result.signaling[key]<60000);
+  const output=JSON.stringify(result.signaling);
+  for(const secret of ['private-auth','private-device',ROOM,'100','v=0'])
+    assert.ok(!output.includes('"'+secret+'"'));
+  result.conn.close();
+});
+
 test('VOX refusal closes the connection, never marks verified',async()=>{
   let closed=0;
   const client={
