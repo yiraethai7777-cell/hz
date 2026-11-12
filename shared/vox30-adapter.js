@@ -51,7 +51,8 @@ function createVox30Adapter({
     let waiting=false;
     const tick=async()=>{
       if(active!==current || waiting)return;
-      const media=current.peer.getState?.().connectionState??'unknown';
+      const mediaState=current.peer.getState?.()||{};
+      const media=mediaState.connectionState??'unknown';
       if(media==='failed'||media==='closed'){
         await release(current);
         return;
@@ -62,7 +63,9 @@ function createVox30Adapter({
         pong=conn.wait(METHODS.PING);
         await conn.send(METHODS.PING,pingBody);
         console.info('[VOICE VOX30] 11015 sent; media='+
-          media);
+          media+' txMode='+(mediaState.audioTxMode??'unknown')+
+          ' txPackets='+(Number.isSafeInteger(mediaState.audioTxPackets)?mediaState.audioTxPackets:0)+
+          ' txFailed='+(mediaState.audioTxFailed===true));
       }catch{
         pong?.cancel();
         await release(current);
