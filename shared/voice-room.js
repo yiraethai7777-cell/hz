@@ -435,9 +435,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
     return true;
   }
   running.add(room);
+  const openEvent=require('./voice-room-auto-detect').watchOpen(client,room);
   try{
-    // Only an installed adapter whose implementation has been verified may
-    // perform the actual voice signalling operation.
     const response=await transport.create({
       roomId:room,
       title,
@@ -445,21 +444,13 @@ async function handle({client,roomId,msg,text,send,adapter}){
       openLinkId:msg?.room?.openLinkId == null?null:String(msg.room.openLinkId)
     });
     let confirmed=verifiedCreated(response);
-    let id=response?.voiceRoomId||null;
     if(!confirmed && response?.requestAccepted!==true && typeof transport.status==='function'){
       const state=await transport.status({roomId:room});
       confirmed=verifiedActive(state,room);
-      if(confirmed)id=state.voiceRoomId||id;
     }
-    if(confirmed){
-      await safeReply(client,send,'🎙️ 보이스룸 생성 확인!\n이름: '+title+
-        (id?'\n보이스룸 ID: '+String(id):''));
-    }else if(response?.requestAccepted===true){
-      await safeReply(client,send,'📨 보이스룸 생성 요청이 Railway 직접 VOX 클라이언트에 전달됐습니다.\n'+
-        '이름: '+title+'\n'+
-        '※ 실제 카카오톡 서버 개설은 아직 확인되지 않았습니다.\n'+
-        '개설 이벤트(vr_invite) 또는 카카오톡 화면에서 확인해 주세요.');
-    }else{
+    if(confirmed || (response?.requestAccepted===true && await openEvent?.wait())){
+      await safeReply(client,send,'보룸을 시작했습니다');
+    }else if(response?.requestAccepted!==true){
       await safeReply(client,send,'⚠️ 보이스룸 생성 요청 결과를 검증하지 못했습니다.\n'+
         '실제 카카오톡 화면에서 상태를 확인한 뒤 재시도해 주세요.');
     }
@@ -467,6 +458,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
     console.error('[보이스룸] 생성 요청 실패:',String(err?.message||err));
     await safeReply(client,send,'❌ 보이스룸 생성 실패: '+String(err?.message||err));
   }finally{
+    openEvent?.close();
     running.delete(room);
   }
   return true;

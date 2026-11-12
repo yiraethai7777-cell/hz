@@ -12,6 +12,28 @@ const MAX_MESSAGE_AGE_MS = 5 * 60 * 1000;
 const seen = new Map();
 const lastEvents = new Map();
 const installed = new WeakSet();
+const pendingOpens = new Map();
+const OPEN_EVENT_TIMEOUT_MS = 8000;
+
+function watchOpen(client, roomId) {
+  if (!installed.has(client)) return null;
+  let resolve, timer;
+  const received = new Promise(done => { resolve = done; });
+  const watch = {
+    confirm: () => resolve(true),
+    wait() {
+      timer = setTimeout(() => resolve(false), OPEN_EVENT_TIMEOUT_MS);
+      return received.finally(() => clearTimeout(timer));
+    },
+    close() {
+      if (pendingOpens.get(roomId) === watch) pendingOpens.delete(roomId);
+      clearTimeout(timer);
+      resolve(false);
+    },
+  };
+  pendingOpens.set(roomId, watch);
+  return watch;
+}
 
 function validId(value) {
   const id = value == null ? '' : String(value);
@@ -70,13 +92,16 @@ async function handleMessage(msg, { isManaged, isBotEnabled, send }, now = Date.
   if (typeof isManaged !== 'function' || typeof isBotEnabled !== 'function' ||
       typeof send !== 'function') return false;
 
-  // Fail closed if the DB cannot confirm that management and bot are ON.
-  if (!await isManaged(event.roomId)) return false;
-  if (!await isBotEnabled(event.roomId)) return false;
-
-  prune(now);
   const key = event.roomId + ':' + event.logId;
+  prune(now);
   if (seen.has(key)) return false;
+  const pending = event.eventType === 'vr_invite' ? pendingOpens.get(event.roomId) : null;
+  if (!pending) {
+    // Ordinary automatic notices require both management and bot power.
+    if (!await isManaged(event.roomId)) return false;
+    if (!await isBotEnabled(event.roomId)) return false;
+    if (seen.has(key)) return false;
+  }
   seen.set(key, now + SEEN_TTL_MS);
   lastEvents.delete(event.roomId);
   lastEvents.set(event.roomId, {
@@ -87,7 +112,8 @@ async function handleMessage(msg, { isManaged, isBotEnabled, send }, now = Date.
     verifiedActive: false,
   });
   prune(now);
-  await send(event.roomId, notice(event));
+  if (pending) pending.confirm();
+  else await send(event.roomId, notice(event));
   return true;
 }
 
@@ -107,5 +133,5 @@ function install(client, deps) {
 }
 
 module.exports = {
-  classify, handleMessage, install, last,
+  classify, handleMessage, install, last, watchOpen,
 };
