@@ -43,7 +43,16 @@ function installDirectVoice(client,{env=process.env,
         const entry=options.host===ENTRY_HOST&&options.port===ENTRY_PORT;
         const {isPublicIpv4}=require('../experiments/vox30/synthetic-discovery');
         if(!isPublicIpv4(options.host))throw Error('VOX 서버 주소가 유효하지 않습니다.');
-        const conn=await voxConnect({...options,servername:'kakao.com'});
+        const observedMethods=new Set();
+        const conn=await voxConnect({
+          ...options,servername:'kakao.com',
+          onPacket({method,status}) {
+            const key=method+':'+status;
+            if(entry||observedMethods.has(key)||observedMethods.size>=16)return;
+            observedMethods.add(key);
+            log.info('[VOICE VOX30] call server packet method='+method+' status='+status);
+          },
+        });
         log.info('[VOICE VOX30] '+(entry?'discovery':'call server')+' TLS connected');
         return {
           ...conn,

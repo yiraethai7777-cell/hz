@@ -252,7 +252,8 @@ test('VOX session sends keepalive and releases on signalling disconnect',async t
   await new Promise(resolve=>setImmediate(resolve));
   t.mock.timers.tick(15000);
   await new Promise(resolve=>setImmediate(resolve));
-  assert.deepEqual(messages.slice(2),[{method:METHODS.PING,body:{}},{method:METHODS.PING,body:{}}]);
+  const ping={method:METHODS.PING,body:{callId:'1',csId:'2'}};
+  assert.deepEqual(messages.slice(2),[ping,ping]);
   socketClosed();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(mediaCloses,1);
