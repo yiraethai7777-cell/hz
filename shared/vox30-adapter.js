@@ -7,6 +7,46 @@ const {
 
 const PING_INTERVAL_MS=5000;
 
+const CREATE_DEFAULT_MIC_ON_OFF=1;
+const HEARTBEAT_AUDIO_STATE=0;
+function boundedCounter(value,max=100000000){
+  return Number.isSafeInteger(value)&&value>=0&&value<=max?value:null;
+}
+// Own-account and transport-only correlation for server 11009. Never emit
+// raw 12011, credentials, participant IDs, SDP or transport addresses.
+function sessionTerminationEvidence({elapsedMs,lastPongAgeMs,pingReplies,
+  heartbeat,moderator,media,rtp}={}){
+  const own=moderator?.ownStates||{};
+  const mic=(typeof own.mic==='boolean'||
+    (Number.isInteger(own.mic)&&own.mic>=-1&&own.mic<=16))?own.mic:null;
+  const states=['connected','connecting','disconnected','failed','closed','new'];
+  const connectionState=states.includes(media?.connectionState)?media.connectionState:'unknown';
+  const txMode=['opus-silence','external-track','receive-only'].includes(media?.audioTxMode)?
+    media.audioTxMode:'unknown';
+  const acceptance=['body-resCode-zero','body-resCode-nonzero','unverified']
+    .includes(heartbeat?.acceptance)?heartbeat.acceptance:'unverified';
+  return {
+    elapsedMs:boundedCounter(elapsedMs,3600000),
+    lastPongAgeMs:boundedCounter(lastPongAgeMs,3600000),
+    pingReplies:boundedCounter(pingReplies,100000),
+    heartbeat:{replyReceived:heartbeat?.replyReceived===true,
+      headerStatus:boundedCounter(heartbeat?.headerStatus,65535),
+      resCodePresent:heartbeat?.resCodePresent===true,acceptance,
+      ...(Number.isSafeInteger(heartbeat?.resCode)&&Math.abs(heartbeat.resCode)<100000
+        ?{resCode:heartbeat.resCode}:{})},
+    moderator:{own:moderator?.own==='present'?'present':
+        moderator?.own==='not_observed'?'not_observed':'unknown',mic},
+    declared:{createDefaultMicOnOff:CREATE_DEFAULT_MIC_ON_OFF,
+      heartbeatAudioState:HEARTBEAT_AUDIO_STATE},
+    media:{connectionState,audioTxMode:txMode,audioTxFailed:media?.audioTxFailed===true},
+    rtp:{available:rtp?.available===true,
+      outboundPackets:boundedCounter(rtp?.outboundPackets),
+      outboundBytes:boundedCounter(rtp?.outboundBytes),
+      inboundPackets:boundedCounter(rtp?.inboundPackets)},
+  };
+}
+
+
 // Adapter for the existing #보룸시작 command.
 function createVox30Adapter({
   actorUserId,cfg,entryHost,entryPort=9282,codec,
@@ -77,7 +117,11 @@ function createVox30Adapter({
       try{
         const packet=await pong.promise;
         const evidence=heartbeatReplySummary(packet);
-        if(active===current)current.lastHeartbeatEvidence=evidence;
+        if(active===current){
+          current.lastHeartbeatEvidence=evidence;
+          current.lastHeartbeatReplyAt=Date.now();
+          current.pingReplies=(current.pingReplies||0)+1;
+        }
         // An absent BSON resCode is not a verified server acknowledgement,
         // even if the 11015 response's packet header status is 0.
         console.info('[VOICE VOX30] 11015 reply evidence '+
@@ -122,6 +166,7 @@ function createVox30Adapter({
       if(active)throw Error('VOX 계정에 이미 활성 음성 세션이 있습니다.');
       running=true;
       let peer=null,session=null;
+      let observedModerator=null;
       try {
         if(await verifyMembership({actorUserId:userId,chatId})!==true)
           throw Error('VOX 실행 계정의 오픈채팅 참여를 확인할 수 없습니다.');
@@ -145,12 +190,31 @@ function createVox30Adapter({
             diagnosticActorUserId:userId,
             onPacket(packet) {
               transport?.onPacket?.(packet);
+              if(packet?.method===12011 && packet?.memberGroups?.moderators){
+                // Own member states only: the server's moderator roster is
+                // already sanitized before this callback is invoked.
+                observedModerator=packet.memberGroups.moderators;
+                if(active?.chatId===chatId)active.lastModerator=observedModerator;
+              }
               if(packet?.method===11009 && active?.chatId===chatId) {
                 const current=active;
                 console.info('[VOICE VOX30] server terminal; latest RTP stats '+
                   JSON.stringify(current.lastRtpStats??{available:false})+
                   '; last heartbeat='+JSON.stringify(
                     current.lastHeartbeatEvidence??{replyReceived:false}));
+                let media={};
+                try{media=current.peer.getState?.()||{};}catch{}
+                const now=Date.now();
+                console.info('[VOICE VOX30] server termination correlation '+
+                  JSON.stringify(sessionTerminationEvidence({
+                    elapsedMs:now-current.createdAt,
+                    lastPongAgeMs:current.lastHeartbeatReplyAt==null?null:
+                      now-current.lastHeartbeatReplyAt,
+                    pingReplies:current.pingReplies||0,
+                    heartbeat:current.lastHeartbeatEvidence,
+                    moderator:current.lastModerator,
+                    media,rtp:current.lastRtpStats,
+                  })));
                 // The server already ended the call. Never keep a phantom
                 // local session alive or automatically recreate voice rooms.
                 void release(current);
@@ -159,7 +223,8 @@ function createVox30Adapter({
           },
         });
         await peer.applyAnswer(session.remoteSdp);
-        active={chatId,session,peer,timer:null};
+        active={chatId,session,peer,timer:null,
+          createdAt:Date.now(),pingReplies:0,lastModerator:observedModerator};
         startKeepalive(active);
         return {requestAccepted:true,verified:false};
       }catch(e){
@@ -178,4 +243,4 @@ function createVox30Adapter({
   };
 }
 
-module.exports={createVox30Adapter,createCodec};
+module.exports={createVox30Adapter,createCodec,sessionTerminationEvidence};
