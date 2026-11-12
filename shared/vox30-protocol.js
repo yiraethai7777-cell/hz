@@ -202,6 +202,17 @@ function ownMemberEvidence(members,actorUserId){
     for(const key of ['isHost','isCreator','isModerator','isSpeaker','isOwner']){
       if(typeof row[key]==='boolean')states[key]=row[key];
     }
+    // Read ONLY the caller's safe mic/camera/filter enums. This is diagnostic
+    // evidence, not proof of microphone permission or media delivery.
+    for(const key of ['mic','cam','voiceFilter']){
+      if(!Object.hasOwn(row,key))continue;
+      if(typeof row[key]==='boolean'){states[key]=row[key];continue;}
+      try{
+        const value=integer(row[key]);
+        if(Number.isSafeInteger(value)&&value>=-1&&value<=16)
+          states[key]=value;
+      }catch{}
+    }
     return states;
   };
   function visit(node,depth){
@@ -295,6 +306,32 @@ function memberGroupEvidence(members,actorUserId){
     groups[groupName]=evidence;
   }
   return included?groups:null;
+}
+
+// 11015 can be answered with a successful packet header but without an
+// explicit resCode. Distinguish reply arrival from confirmed server acceptance.
+function heartbeatReplySummary(packet){
+  const body=packet?.body&&typeof packet.body==='object'&&
+    !Array.isArray(packet.body)?packet.body:{};
+  const declared=['resCode','resultCode','interval','connTimeout',
+    'respTimeout','audioState','videoState','reason'];
+  const summary={
+    replyReceived:true,
+    headerStatus:Number.isSafeInteger(packet?.status)?packet.status:null,
+    responseFields:declared.filter(field=>Object.hasOwn(body,field)),
+    resCodePresent:Object.hasOwn(body,'resCode'),
+    acceptance:'unverified',
+  };
+  if(Object.hasOwn(body,'resCode')){
+    try{
+      const code=integer(body.resCode);
+      if(Number.isSafeInteger(code)&&Math.abs(code)<100000){
+        summary.resCode=code;
+        summary.acceptance=code===0?'body-resCode-zero':'body-resCode-nonzero';
+      }
+    }catch{}
+  }
+  return summary;
 }
 
 // Only shapes and role codes of the caller are exposed. No participant identifiers,
@@ -585,4 +622,5 @@ module.exports={
   VOX_IV,METHODS,I32,I64,integer,checkedId,validateTitle,pkcs7Pad,pkcs7Unpad,
   nativeSeedCbc,createCodec,parseServerAddress,voxConnect,checkedAppVersion,
   getDiscoveryBody,getCreateBody,getCallServer,createVoiceRoom,packetSummary,
+  heartbeatReplySummary,
 };
