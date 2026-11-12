@@ -87,12 +87,24 @@ async function kickAll() {
 client.onMessage(async (...received) => {
   const msg = received.length === 1 ? received[0] : received[1];
   const text = String(msg?.message?.text ?? msg?.text ?? '').trim();
-  if (String(msg?.room?.id) !== roomId || text !== '!핑') return;
-  try {
-    await client.chat.sendText(roomId, '🏓 퐁! PC 봇 연결 정상');
-  } catch (error) {
-    console.error('핑 응답 실패:', String(error?.message || error));
+  if (String(msg?.room?.id) !== roomId) return;
+  if (text === '!핑') {
+    try {
+      await client.chat.sendText(roomId, '🏓 퐁! PC 봇 연결 정상');
+    } catch (error) {
+      console.error('핑 응답 실패:', String(error?.message || error));
+    }
+    return;
   }
+  if (text !== '!일괄강퇴') return;
+  const senderId = msg?.sender?.id ?? msg?.senderId;
+  if (senderId == null || String(senderId) !== String(client.userId)) {
+    console.warn('일괄강퇴 무시: PC 로그인 봇 계정만 실행할 수 있습니다.');
+    return;
+  }
+  // Only the specifically configured room and bot-account message can start kicks.
+  // Never post a confirmation or status message to KakaoTalk.
+  void kickAll();
 });
 client.onReady(() => {
   connected = true;
