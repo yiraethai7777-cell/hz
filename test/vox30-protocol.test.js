@@ -294,6 +294,43 @@ test('a VOX response can echo the received nonce without changing the encrypted 
   assert.equal(integer(packet.body.resCode),0);
 });
 
+test('creation and role events log bounded structures and own member role only',()=>{
+  const {packetSummary}=require('../shared/vox30-protocol');
+  const personalUserId='123456789012345678';
+  const sensitive={
+    event:new I32(1),
+    members:[
+      {userId:'998877665544332211',role:new I32(1),nickname:'private-one'},
+      {userId:personalUserId,userType:new I32(3),role:new I32(2),
+        isModerator:true,oauthToken:'nested-private-token'},
+    ],
+    vrInfo:{hostId:personalUserId,mode:new I32(1),
+      roomTitle:'very-private-room-name',speakerRequestor:[]},
+    speakerRequestor:[{userId:'998877665544332211',nickname:'hidden'}],
+    oauthToken:'top-private-token',
+  };
+  const created=packetSummary({method:11028,status:0,body:sensitive},
+    {actorUserId:personalUserId});
+  assert.deepEqual(created.structures.members.elementKeys,['role','userType','isModerator']);
+  assert.equal(created.structures.members.count,2);
+  assert.equal(created.structures.vrInfo.kind,'object');
+  assert.deepEqual(created.structures.vrInfo.fieldKeys,
+    ['mode','speakerRequestor']);
+  assert.deepEqual(created.ownMember,{present:true,states:{userType:3,role:2,isModerator:true}});
+  const event=packetSummary({method:12011,status:0,body:sensitive},
+    {actorUserId:personalUserId});
+  assert.equal(event.codes.event,1);
+  assert.deepEqual(event.ownMember,created.ownMember);
+  for(const result of [created,event]){
+    const output=JSON.stringify(result);
+    for(const secret of [personalUserId,'998877665544332211','private-one',
+        'nested-private-token','very-private-room-name','top-private-token'])
+      assert.ok(!output.includes(secret),secret+' leaked');
+  }
+  assert.equal(packetSummary({method:11028,status:0,
+    body:{members:[],vrInfo:{}}}).ownMember,undefined);
+});
+
 test('terminal packet summaries expose safe reason codes without IDs or SDP',async()=>{
   const sock=new FakeTls();
   const seen=[];
