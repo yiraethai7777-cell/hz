@@ -6,7 +6,8 @@ const { EventEmitter } = require('node:events');
 const auto = require('../shared/voice-room-auto-detect');
 
 function event({ room = '71000000000001', logId = '990001', type = 'vr_invite',
-                 duration = 0, open = true, chatType = 52, sendAt } = {}) {
+                 duration = 0, open = true, chatType = 52, sendAt,
+                 callId = 'secret-call-id' } = {}) {
   return {
     room: { id: room, isOpenChat: open },
     message: { type: chatType, logId, text: 'untrusted body' },
@@ -15,7 +16,7 @@ function event({ room = '71000000000001', logId = '990001', type = 'vr_invite',
       ...(sendAt === undefined ? {} : { sendAt }),
       attachment: JSON.stringify({
         type, duration, csIP: '192.0.2.10', csIP6: '2001:db8::10',
-        csPort: 9000, callId: 'secret-call-id', token: 'secret-token',
+        csPort: 9000, callId, token: 'secret-token',
       }),
     } },
   };
@@ -127,4 +128,70 @@ test('installation handles actual EventEmitter message events once', async () =>
   client.emit('message', {}, event({room:'71000000000023'}));
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sent.length,1);
+});
+
+test('VOX invite only confirms exact call ID even when unrelated invite arrives first', async()=>{
+  const client=new EventEmitter(),room='71000000000101';
+  const {config,sent}=deps();
+  auto.install(client,config);
+  const watcher=auto.watchOpen(client,room);
+  assert.ok(watcher);
+  const own='13299692653040311',other='13299692653040312';
+  assert.equal(await auto.handleMessage(event({room,logId:'991101',callId:other}),config),true);
+  const pending=watcher.wait(own);
+  assert.deepEqual(auto.callCorrelation(room,own),{
+    inviteMatched:false,byeMatched:false,
+  });
+  assert.equal(await auto.handleMessage(event({room,logId:'991102',callId:own}),config),true);
+  assert.equal(await pending,true);
+  assert.deepEqual(auto.callCorrelation(room,own),{
+    inviteMatched:true,byeMatched:false,
+  });
+  assert.deepEqual(auto.callCorrelation(room,other),{
+    inviteMatched:false,byeMatched:false,
+  });
+  assert.ok(!JSON.stringify(auto.last(room)).includes(own));
+  assert.ok(!JSON.stringify(sent).includes(own));
+  watcher.close();
+});
+
+test('VOX invite received before create returns still matches expected call ID',async()=>{
+  const client=new EventEmitter(),room='71000000000102';
+  const {config}=deps();
+  auto.install(client,config);
+  const watcher=auto.watchOpen(client,room);
+  await auto.handleMessage(event({room,logId:'991104',callId:'13299692653040311'}),config);
+  assert.equal(await watcher.wait('13299692653040311'),true);
+  assert.equal(auto.callCorrelation(room,'13299692653040311').inviteMatched,true);
+  watcher.close();
+});
+
+test('matching VOX bye is correlated without leaking raw call ID',async()=>{
+  const client=new EventEmitter(),room='71000000000103';
+  const {config}=deps();
+  auto.install(client,config);
+  const watcher=auto.watchOpen(client,room);
+  const id='13299692653040311';
+  const done=watcher.wait(id);
+  await auto.handleMessage(event({room,logId:'991105',callId:id}),config);
+  assert.equal(await done,true);
+  await auto.handleMessage(event({room,logId:'991106',type:'vr_bye',
+    duration:30,callId:id}),config);
+  assert.deepEqual(auto.callCorrelation(room,id),{
+    inviteMatched:true,byeMatched:true,
+  });
+  assert.ok(!JSON.stringify(auto.callCorrelation(room,id)).includes(id));
+  watcher.close();
+});
+
+test('missing or invalid VOX invite call IDs never confirm a pending create',async()=>{
+  const client=new EventEmitter(),room='71000000000104';
+  const {config}=deps();
+  auto.install(client,config);
+  const watcher=auto.watchOpen(client,room);
+  assert.equal(await watcher.wait(undefined),false);
+  watcher.close();
+  assert.deepEqual(auto.callCorrelation(room,'13299692653040311'),{
+    inviteMatched:false,byeMatched:false,
+  });
 });

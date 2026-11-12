@@ -205,6 +205,9 @@ function createVox30Adapter({
                 let media={};
                 try{media=current.peer.getState?.()||{};}catch{}
                 const now=Date.now();
+                console.info('[VOICE VOX30] LOCO lifecycle at termination '+
+                  JSON.stringify(require('./voice-room-auto-detect')
+                    .callCorrelation(chatId,current.session.callId)));
                 console.info('[VOICE VOX30] server termination correlation '+
                   JSON.stringify(sessionTerminationEvidence({
                     elapsedMs:now-current.createdAt,
@@ -226,7 +229,8 @@ function createVox30Adapter({
         active={chatId,session,peer,timer:null,
           createdAt:Date.now(),pingReplies:0,lastModerator:observedModerator};
         startKeepalive(active);
-        return {requestAccepted:true,verified:false};
+        return {requestAccepted:true,verified:false,
+          callId:session.callId==null?null:checkedId(session.callId)};
       }catch(e){
         if(session && active?.session===session)await release(active);
         else {

@@ -6,7 +6,7 @@ const {voxConnect,checkedAppVersion}=require('./vox30-protocol');
 const ENTRY_HOST='211.242.12.121';
 const ENTRY_PORT=9282;
 
-function profileFromEnv(env) {
+function profileFromEnv(env,sessionAppVersion) {
   const fields={
     model:env.NEXI_VOX_MODEL,
     sdkVersion:env.NEXI_VOX_SDK_VERSION,
@@ -19,14 +19,17 @@ function profileFromEnv(env) {
   if(Object.values(fields).some(value=>typeof value!=='string'||!value.trim()||
       value.length>128||/[\x00-\x1f\x7f]/.test(value)))return null;
   if(fields.carrierId!==undefined&&!/^\d{5,6}$/.test(fields.carrierId))return null;
-  return {...fields,appVer:checkedAppVersion(env.NEXI_VOX_APP_VERSION||'26.3.1')};
+  // Prefer the already-connected KakaoForge client's app version to the
+  // historical VOX lab default. Explicit VOX version settings take precedence.
+  const version=env.NEXI_VOX_APP_VERSION||sessionAppVersion||'26.3.1';
+  return {...fields,appVer:checkedAppVersion(version)};
 }
 
 function installDirectVoice(client,{env=process.env,
   loadLab=()=>require('../experiments/vox30/lab'),
   log=console}={}) {
   let profile;
-  try{profile=profileFromEnv(env);}catch{}
+  try{profile=profileFromEnv(env,client?.appVer);}catch{}
   if(!profile){
     log.info('[VOICE VOX30] creation unavailable: invalid VOX settings');
     return false;
@@ -35,6 +38,9 @@ function installDirectVoice(client,{env=process.env,
   if(!auth)return false;
   try{
     const {appVer,...device}=profile;
+    log.info('[VOICE VOX30] app version source: '+
+      (env.NEXI_VOX_APP_VERSION?'explicit-vox-env':
+        client?.appVer?'current-kakaoforge-session':'laboratory-default'));
     const transport=loadLab().createLabAdapter({
       actorUserId:auth.actorUserId,
       cfg:{...device,userId:auth.actorUserId},

@@ -351,14 +351,16 @@ test('manager role is still needed for non-bot users',async()=>{
 });
 
 
-test('accepted create without an opening event sends no dispatch message', async () => {
+test('accepted create without a matching event reports unverified creation', async () => {
   const { args, sent } = fixture({ text: '#보룸시작 NEXI' });
   args.adapter = {
     create: async () => ({ requestAccepted: true, verified: false }),
     status: async () => { throw Error('must not be queried after acknowledged dispatch'); },
   };
   await voice.handle(args);
-  assert.deepEqual(sent, []);
+  assert.equal(sent.length,1);
+  assert.match(sent[0],/생성 요청을 수락했지만.*개설 이벤트를 검증하지 못했습니다/);
+  assert.doesNotMatch(sent[0],/^보룸을 시작했습니다$/);
 });
 
 test('opening event during a create request produces one short reply even with management off', async () => {
@@ -375,12 +377,12 @@ test('opening event during a create request produces one short reply even with m
   const event={
     room:{id:ROOM,isOpenChat:true},
     message:{type:52,logId:'44991'},
-    raw:{chatLog:{attachment:JSON.stringify({type:'vr_invite'})}},
+    raw:{chatLog:{attachment:JSON.stringify({type:'vr_invite',callId:'13299692653040311'})}},
   };
   args.adapter={create:async()=>{
     assert.equal(await auto.handleMessage(event,deps),true);
     assert.deepEqual(sent,[]);
-    return {requestAccepted:true,verified:false};
+    return {requestAccepted:true,verified:false,callId:'13299692653040311'};
   }};
   await voice.handle(args);
   assert.equal(await auto.handleMessage(event,deps),false);

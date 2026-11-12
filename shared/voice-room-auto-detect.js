@@ -3,7 +3,7 @@
 // Event-driven VoiceRoom lifecycle notices for rooms with management ON.
 // Only observes already received Kakao chat type-52 messages. No packet sends,
 // media connections, secret collection, or server-active-state assertions.
-const { lifecycleMetadata } = require('./voice-room-observer');
+const { lifecycleMetadata, attachmentObject } = require('./voice-room-observer');
 
 const SEEN_TTL_MS = 6 * 60 * 60 * 1000;
 const MAX_SEEN = 2048;
@@ -15,23 +15,69 @@ const installed = new WeakSet();
 const pendingOpens = new Map();
 const OPEN_EVENT_TIMEOUT_MS = 8000;
 
+// These call IDs are kept only briefly in process memory, never logged
+// or written to the persistent notification record.
+const recentCalls = new Map();
+const CALL_TRACK_TTL_MS = 2 * 60 * 1000;
+const MAX_RECENT_CALLS = 128;
+function callKey(value) {
+  const str = value == null ? '' : String(value);
+  return /^[1-9]\d{0,18}$/.test(str) &&
+    BigInt(str) <= 9223372036854775807n ? str : '';
+}
+function pruneCalls(now=Date.now()) {
+  for (const [room,state] of recentCalls)
+    if (state.expiresAt <= now) recentCalls.delete(room);
+  while (recentCalls.size > MAX_RECENT_CALLS)
+    recentCalls.delete(recentCalls.keys().next().value);
+}
+function callCorrelation(roomId,callId) {
+  pruneCalls();
+  const state=recentCalls.get(validId(roomId));
+  const id=callKey(callId);
+  const same=!!(id && state && state.callId===id);
+  return {inviteMatched:same,byeMatched:same&&state.byeMatched===true};
+}
 function watchOpen(client, roomId) {
-  if (!installed.has(client)) return null;
-  let resolve, timer;
-  const received = new Promise(done => { resolve = done; });
-  const watch = {
-    confirm: () => resolve(true),
-    wait() {
-      timer = setTimeout(() => resolve(false), OPEN_EVENT_TIMEOUT_MS);
-      return received.finally(() => clearTimeout(timer));
+  const id=validId(roomId);
+  if (!id || !installed.has(client)) return null;
+  const observed=new Set();
+  let expected='',settled=false,resolve,timer;
+  const received=new Promise(done=>{resolve=done;});
+  function finish(ok) {
+    if (settled) return;
+    settled=true;
+    clearTimeout(timer);
+    if (ok) {
+      recentCalls.set(id,{callId:expected,byeMatched:false,
+        expiresAt:Date.now()+CALL_TRACK_TTL_MS});
+      pruneCalls();
+    }
+    resolve(ok);
+  }
+  const watch={
+    confirm(callId) {
+      const value=callKey(callId);
+      if (!value) return;
+      if (observed.size < 16) observed.add(value);
+      if (expected && value===expected) finish(true);
+    },
+    wait(callId) {
+      expected=callKey(callId);
+      if (!expected) { finish(false); return received; }
+      if (observed.has(expected)) finish(true);
+      if (!settled) {
+        timer=setTimeout(()=>finish(false),OPEN_EVENT_TIMEOUT_MS);
+        timer.unref?.();
+      }
+      return received;
     },
     close() {
-      if (pendingOpens.get(roomId) === watch) pendingOpens.delete(roomId);
-      clearTimeout(timer);
-      resolve(false);
+      if (pendingOpens.get(id)===watch) pendingOpens.delete(id);
+      finish(false);
     },
   };
-  pendingOpens.set(roomId, watch);
+  pendingOpens.set(id,watch);
   return watch;
 }
 
@@ -96,6 +142,8 @@ async function handleMessage(msg, { isManaged, isBotEnabled, send }, now = Date.
   prune(now);
   if (seen.has(key)) return false;
   const pending = event.eventType === 'vr_invite' ? pendingOpens.get(event.roomId) : null;
+  const payload = pending || event.eventType==='vr_bye' ? attachmentObject(msg) : null;
+  const eventCallId=callKey(payload?.callId);
   if (!pending) {
     // Ordinary automatic notices require both management and bot power.
     if (!await isManaged(event.roomId)) return false;
@@ -112,8 +160,21 @@ async function handleMessage(msg, { isManaged, isBotEnabled, send }, now = Date.
     verifiedActive: false,
   });
   prune(now);
-  if (pending) pending.confirm();
-  else await send(event.roomId, notice(event));
+  if (pending) {
+    pending.confirm(eventCallId);
+    // Room-level invitation alone is not proof that this bot's VOX call
+    // was activated. Only the expected callId can confirm this watch.
+  } else {
+    if (event.eventType==='vr_bye' && eventCallId) {
+      const state=recentCalls.get(event.roomId);
+      if (state && state.expiresAt>Date.now() && state.callId===eventCallId) {
+        state.byeMatched=true;
+        console.info('[VOICE VOX30] matching LOCO vr_bye observed '+
+          JSON.stringify({sameCall:true,durationSeconds:event.durationSeconds??null}));
+      }
+    }
+    await send(event.roomId, notice(event));
+  }
   return true;
 }
 
@@ -133,5 +194,5 @@ function install(client, deps) {
 }
 
 module.exports = {
-  classify, handleMessage, install, last, watchOpen,
+  classify, handleMessage, install, last, watchOpen, callCorrelation,
 };

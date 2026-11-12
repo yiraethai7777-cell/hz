@@ -448,8 +448,15 @@ async function handle({client,roomId,msg,text,send,adapter}){
       const state=await transport.status({roomId:room});
       confirmed=verifiedActive(state,room);
     }
-    if(confirmed || (response?.requestAccepted===true && await openEvent?.wait())){
+    const matchedInvite=!confirmed && response?.requestAccepted===true &&
+      openEvent ? await openEvent.wait(response.callId) : false;
+    if(confirmed || matchedInvite){
+      if(matchedInvite)console.info('[VOICE VOX30] matching LOCO vr_invite observed (call ID withheld)');
       await safeReply(client,send,'보룸을 시작했습니다');
+    }else if(response?.requestAccepted===true){
+      console.info('[VOICE VOX30] VOX create accepted but matching LOCO invite unconfirmed');
+      await safeReply(client,send,'⚠️ VOX 서버가 생성 요청을 수락했지만 카카오톡 개설 이벤트를 검증하지 못했습니다.\n'+
+        '보이스룸의 정상 유지 여부는 아직 확인되지 않았습니다.');
     }else if(response?.requestAccepted!==true){
       await safeReply(client,send,'⚠️ 보이스룸 생성 요청 결과를 검증하지 못했습니다.\n'+
         '실제 카카오톡 화면에서 상태를 확인한 뒤 재시도해 주세요.');
