@@ -143,7 +143,8 @@ for(const ackFirst of [true,false]) {
           return;
         }
         assert.equal(method,METHODS.CREATE);
-        const reply={method:METHODS.CREATE,body:{resCode:0,callId:'c1',csId:'s1'}};
+        const reply={method:METHODS.CREATE,body:{resCode:0,callId:'c1',csId:'s1',
+          interval:new I32(30),connTimeout:new I32(20),respTimeout:new I32(15)}};
         const event={method:METHODS.CREATED,requestNonce:Buffer.from([1,2,3,4]),body:{sdp:remoteSdp}};
         const packets=ackFirst?[reply,event]:[event,reply];
         for(const packet of packets){
@@ -157,6 +158,7 @@ for(const ackFirst of [true,false]) {
       appVer:'26.3.1',connect:async()=>client,codec});
     assert.equal(result.callId,'c1');
     assert.equal(result.csId,'s1');
+    assert.deepEqual(result.serverTiming,{interval:30,connTimeout:20,respTimeout:15});
     assert.deepEqual(result.remoteSdp,remoteSdp);
     assert.equal(result.verified,false);
   });
@@ -615,6 +617,7 @@ test('VOX 11015 header-only response is not mistaken for explicit keepalive acce
   assert.equal(explicit.resCode,0);
   assert.equal(explicit.acceptance,'body-resCode-zero');
   assert.deepEqual(explicit.responseFields,['resCode','interval']);
+  assert.deepEqual(explicit.serverTiming,{interval:30});
   const refused=heartbeatReplySummary({method:11015,status:0,body:{
     resCode:new I32(1002),
   }});
@@ -704,4 +707,41 @@ test('VOX role event reports bounded enum codes and field names, never private c
   assert.ok(!json.includes('private-sdp'));
   assert.equal(packetSummary({method:11015,status:0,body:{secret:'bad'}}).fields,undefined);
   assert.equal(packetSummary({method:11009,status:0,body:{reason:new I32(1002)}}).codes.reason,1002);
+});
+
+test('VOX server timers and media termination evidence are safe, never guess time units',()=>{
+  const {heartbeatReplySummary}=require('../shared/vox30-protocol');
+  const {sessionTerminationEvidence}=require('../shared/vox30-adapter');
+  const pong=heartbeatReplySummary({status:0,body:{
+    resCode:new I32(0),interval:new I32(30),
+    connTimeout:new I32(20),respTimeout:new I32(15),
+    oauthToken:'private-token',callId:'123456789012345678',
+  }});
+  assert.deepEqual(pong.serverTiming,{interval:30,connTimeout:20,respTimeout:15});
+  const result=sessionTerminationEvidence({
+    elapsedMs:29990,pingReplies:6,heartbeat:pong,
+    createTiming:{interval:30,connTimeout:20,respTimeout:15,
+      oauthToken:'private-auth',callId:'123456789012345678'},
+    rtp:{available:true,outboundPackets:1225,outboundBytes:3675,
+      inboundPackets:0,remoteInboundReports:2,
+      network:{selectedPairObserved:true,selectedPairState:'succeeded',
+        selectedPairResponsesReceived:6,transportBytesReceived:1500,
+        remoteAddress:'10.3.1.11'}},
+  });
+  assert.equal(result.serverTimers.createInterval,30);
+  assert.equal(result.serverTimers.pingInterval,30);
+  assert.equal(result.serverTimers.configuredPingIntervalMs,5000);
+  assert.equal(result.serverTimers.serverTimerUnitsVerified,false);
+  assert.equal(result.rtp.networkObserved,true);
+  assert.equal(result.rtp.remoteInboundReports,2);
+  assert.equal(result.rtp.transportBytesReceived,1500);
+  assert.equal(result.rtp.selectedPairResponsesReceived,6);
+  for(const secret of ['private-token','private-auth',
+    '123456789012345678','10.3.1.11'])
+    assert.ok(!JSON.stringify(result).includes(secret));
+  const malformed=heartbeatReplySummary({status:0,body:{
+    resCode:0,interval:new I32(-100),connTimeout:'secret',
+    respTimeout:new I32(9000000),oauthToken:'private',
+  }});
+  assert.equal(malformed.serverTiming,undefined);
 });

@@ -181,9 +181,74 @@ test('WebRTC RTP statistics distinguish track writes from actual outbound transm
   const peer=createWebRtcPeer({PeerConnection:StatsRtc,iceTimeoutMs:500});
   const stats=await peer.getRtpStats();
   assert.deepEqual(stats,{available:true,outboundStreams:1,outboundPackets:125,
-    outboundBytes:9400,inboundStreams:1,inboundPackets:54});
+    outboundBytes:9400,inboundStreams:1,inboundPackets:54,
+    remoteInboundReports:0,
+    network:{transportReports:1,candidatePairReports:0,
+      selectedPairObserved:false,transportBytesSent:22000}});
   assert.ok(!JSON.stringify(stats).includes('private'));
   await peer.close();
   const fallback=await createWebRtcPeer({PeerConnection:FakeRtc}).getRtpStats();
   assert.deepEqual(fallback,{available:false});
+});
+
+test('VOX media stats distinguish ICE response and RTCP feedback without leaking transport identities',async()=>{
+  class VerifiedStatsRtc extends FakeRtc {
+    async getStats(){
+      return new Map([
+        ['private-local',{id:'private-identity',
+          type:'local-candidate',address:'192.0.2.33',port:12345}],
+        ['tr',{type:'transport',selectedCandidatePairId:'private-pair',
+          bytesSent:24000,bytesReceived:9200,localCandidateId:'private-local'}],
+        ['private-pair',{id:'private-pair',type:'candidate-pair',state:'succeeded',
+          nominated:true,localCandidateId:'private-local',
+          remoteCandidateId:'private-remote',
+          bytesSent:15000,bytesReceived:5000,responsesReceived:5,
+          requestsSent:7,consentRequestsSent:2}],
+        ['private-feedback',{type:'remote-inbound-rtp',kind:'audio',
+          ssrc:12345,fractionLost:0,remoteId:'private-feedback'}],
+        ['audioout',{type:'outbound-rtp',kind:'audio',packetsSent:1000,bytesSent:3000}],
+      ]);
+    }
+  }
+  const peer=createWebRtcPeer({PeerConnection:VerifiedStatsRtc,iceTimeoutMs:500});
+  try{
+    const result=await peer.getRtpStats();
+    assert.equal(result.outboundPackets,1000);
+    assert.equal(result.remoteInboundReports,1);
+    assert.deepEqual(result.network,{
+      transportReports:1,candidatePairReports:1,selectedPairObserved:true,
+      transportBytesSent:24000,transportBytesReceived:9200,
+      selectedPairState:'succeeded',selectedPairNominated:true,
+      selectedPairBytesSent:15000,selectedPairBytesReceived:5000,
+      selectedPairResponsesReceived:5,selectedPairRequestsSent:7,
+      selectedPairConsentRequestsSent:2,
+    });
+    for(const sensitive of ['192.0.2.33','private-local','private-pair',
+        'private-remote','private-feedback','12345'])
+      assert.ok(!JSON.stringify(result).includes(sensitive),sensitive+' leaked');
+  }finally{await peer.close();}
+});
+
+test('VOX stats discard unexpected state, excessive counters, candidate addresses and unsupported API',async()=>{
+  class UntrustedStatsRtc extends FakeRtc {
+    async getStats(){
+      return new Map([
+        ['one',{type:'candidate-pair',state:'private-token',
+          nominated:true,selected:true,bytesSent:-1,
+          bytesReceived:999999999999999,localCandidateId:'private-id'}],
+        ['two',{type:'transport',selectedCandidatePairId:'one',
+          bytesReceived:999999999999999}],
+      ]);
+    }
+  }
+  const peer=createWebRtcPeer({PeerConnection:UntrustedStatsRtc,iceTimeoutMs:500});
+  try{
+    const result=await peer.getRtpStats();
+    assert.equal(result.network.selectedPairState,'unknown');
+    assert.equal(result.network.selectedPairBytesSent,undefined);
+    assert.equal(result.network.selectedPairBytesReceived,undefined);
+    assert.equal(result.network.transportBytesReceived,undefined);
+    assert.ok(!JSON.stringify(result).includes('private-token'));
+    assert.ok(!JSON.stringify(result).includes('private-id'));
+  }finally{await peer.close();}
 });

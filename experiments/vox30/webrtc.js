@@ -114,37 +114,89 @@ function createWebRtcPeer({
         audioTxFailed:silence?.getState().failed??false};
     },
     async getRtpStats() {
-      // A local writeRtp() call does not mean that RTP was actually sent.
-      // Werift's outbound-rtp statistics provide a stronger, still local,
-      // transport-level signal. No peer addresses, SDP or SSRC are logged.
-      if(typeof pc.getStats!=='function')
-        return {available:false};
+      // Audio RTP sent locally is not proof that the server received it.
+      // Candidate-pair, transport and RTCP stats provide separate evidence.
+      // Strictly whitelist numerical counters and enum states: no SDP, ICE
+      // candidates, remote addresses, SSRCs or report IDs may reach logs.
+      if(typeof pc.getStats!=='function')return {available:false};
+      const metric=value=>Number.isSafeInteger(value)&&value>=0&&
+        value<=1000000000000?value:null;
       try {
         const report=await pc.getStats();
         const values=report instanceof Map?report.values():
           Array.isArray(report)?report:Object.values(report||{});
         let outboundPackets=0,outboundBytes=0,inboundPackets=0;
         let outboundStreams=0,inboundStreams=0;
+        let transportReports=0,transportBytesSent=0,transportBytesReceived=0;
+        let hasTransportSent=false,hasTransportReceived=false;
+        let remoteInboundReports=0;
+        const pairs=[];
+        let selectedCandidatePairId=null;
         for(const stat of values){
-          if(!stat || typeof stat!=='object')continue;
+          if(!stat||typeof stat!=='object')continue;
           const type=stat.type;
-          if(type!=='outbound-rtp' && type!=='inbound-rtp')continue;
-          const kind=stat.kind??stat.mediaType;
-          if(kind!==undefined && kind!=='audio')continue;
-          if(type==='outbound-rtp'){
-            outboundStreams++;
-            if(Number.isSafeInteger(stat.packetsSent)&&stat.packetsSent>=0)
-              outboundPackets+=stat.packetsSent;
-            if(Number.isSafeInteger(stat.bytesSent)&&stat.bytesSent>=0)
-              outboundBytes+=stat.bytesSent;
-          }else{
-            inboundStreams++;
-            if(Number.isSafeInteger(stat.packetsReceived)&&stat.packetsReceived>=0)
-              inboundPackets+=stat.packetsReceived;
+          if(type==='outbound-rtp'||type==='inbound-rtp'){
+            const kind=stat.kind??stat.mediaType;
+            if(kind!==undefined&&kind!=='audio')continue;
+            if(type==='outbound-rtp'){
+              outboundStreams++;
+              if(metric(stat.packetsSent)!==null)outboundPackets+=stat.packetsSent;
+              if(metric(stat.bytesSent)!==null)outboundBytes+=stat.bytesSent;
+            }else{
+              inboundStreams++;
+              if(metric(stat.packetsReceived)!==null)inboundPackets+=stat.packetsReceived;
+            }
+          }else if(type==='remote-inbound-rtp'){
+            // Usually derived from remote RTCP Receiver Reports, if werift
+            // exposes the category. Missing stats are inconclusive.
+            if(stat.kind===undefined||stat.kind==='audio')remoteInboundReports++;
+          }else if(type==='transport'){
+            transportReports++;
+            if(metric(stat.bytesSent)!==null){
+              hasTransportSent=true;transportBytesSent+=stat.bytesSent;
+            }
+            if(metric(stat.bytesReceived)!==null){
+              hasTransportReceived=true;transportBytesReceived+=stat.bytesReceived;
+            }
+            if(typeof stat.selectedCandidatePairId==='string'&&
+               stat.selectedCandidatePairId.length<256)
+              selectedCandidatePairId=stat.selectedCandidatePairId;
+          }else if(type==='candidate-pair'&&pairs.length<256){
+            pairs.push(stat);
           }
         }
-        return {available:true,outboundStreams,outboundPackets,
-          outboundBytes,inboundStreams,inboundPackets};
+        const result={available:true,outboundStreams,outboundPackets,
+          outboundBytes,inboundStreams,inboundPackets,
+          remoteInboundReports:Math.min(remoteInboundReports,256)};
+        if(transportReports||pairs.length){
+          const selected=pairs.find(pair=>
+            typeof pair.id==='string'&&pair.id===selectedCandidatePairId)||
+            pairs.find(pair=>pair.nominated===true&&pair.state==='succeeded')||
+            pairs.find(pair=>pair.selected===true);
+          const network={
+            transportReports:Math.min(transportReports,256),
+            candidatePairReports:pairs.length,
+            selectedPairObserved:!!selected,
+          };
+          if(hasTransportSent&&metric(transportBytesSent)!==null)
+            network.transportBytesSent=transportBytesSent;
+          if(hasTransportReceived&&metric(transportBytesReceived)!==null)
+            network.transportBytesReceived=transportBytesReceived;
+          if(selected){
+            const known=['succeeded','in-progress','waiting','frozen','failed','cancelled'];
+            network.selectedPairState=known.includes(selected.state)?
+              selected.state:'unknown';
+            if(typeof selected.nominated==='boolean')
+              network.selectedPairNominated=selected.nominated;
+            for(const key of ['bytesSent','bytesReceived','responsesReceived',
+                'requestsSent','consentRequestsSent']){
+              const value=metric(selected[key]);
+              if(value!==null)network['selectedPair'+key[0].toUpperCase()+key.slice(1)]=value;
+            }
+          }
+          result.network=network;
+        }
+        return result;
       }catch {
         return {available:false,failed:true};
       }
