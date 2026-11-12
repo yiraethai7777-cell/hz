@@ -1,7 +1,7 @@
 'use strict';
 
 const {
-  createCodec,createVoiceRoom,checkedId,validateTitle,integer,METHODS,
+  createCodec,createVoiceRoom,checkedId,validateTitle,integer,I32,I64,METHODS,
 } = require('./vox30-protocol');
 
 const PING_INTERVAL_MS=15000;
@@ -31,9 +31,23 @@ function createVox30Adapter({
   }
   function startKeepalive(current) {
     const {conn,callId,csId}=current.session;
-    const pingBody={};
-    if(callId!=null)pingBody.callId=callId;
-    if(csId!=null)pingBody.csId=csId;
+    // The Android 26.9.2 VOX serializer includes the user, device and media
+    // state. This receive-only peer has no outgoing video, filter or recording.
+    const pingBody={
+      userId:new I64(userId),
+      ...(csId==null?{}:{csId:new I64(checkedId(csId))}),
+      ...(callId==null?{}:{callId:new I64(checkedId(callId))}),
+      devType:new I32(4),
+      voiceFilter:new I32(0),
+      audioState:new I32(0),
+      videoState:new I32(0),
+      recInfo:{
+        recSessionId:new I64('0'),
+        recordCount:new I32(0),
+        recordDuration:new I64('0'),
+        recordIds:[],
+      },
+    };
     let waiting=false;
     current.timer=setInterval(async()=>{
       if(active!==current || waiting)return;
@@ -46,7 +60,6 @@ function createVox30Adapter({
       let pong;
       try{
         pong=conn.wait(METHODS.PING);
-        // The method is documented; the session fields are a compatibility trial.
         await conn.send(METHODS.PING,pingBody);
         console.info('[VOICE VOX30] 11015 sent; media='+
           media);
@@ -107,8 +120,11 @@ function createVox30Adapter({
         startKeepalive(active);
         return {requestAccepted:true,verified:false};
       }catch(e){
-        session?.conn.close();
-        if(peer)await Promise.resolve(peer.close()).catch(()=>{});
+        if(session && active?.session===session)await release(active);
+        else {
+          session?.conn.close();
+          if(peer)await Promise.resolve(peer.close()).catch(()=>{});
+        }
         throw e;
       }finally{running=false;}
     },
