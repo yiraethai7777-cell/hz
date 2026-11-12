@@ -59,7 +59,8 @@ function installDirectVoice(client,{env=process.env,
               // not only the first event of this method/status pair.
               const snapshot=JSON.stringify({
                 codes:packet.codes,memberEnvelope:packet.memberEnvelope,
-                ownMember:packet.ownMember,structures:packet.structures,
+                ownMember:packet.ownMember,memberGroups:packet.memberGroups,
+                structures:packet.structures,
               });
               if(observedRoleStates.has(snapshot)||observedRoleStates.size>=12)return;
               observedRoleStates.add(snapshot);
