@@ -148,10 +148,12 @@ function safeFieldKeys(record,max=16) {
 }
 function structuralField(value) {
   if(Array.isArray(value)){
-    const first=value.find(item=>item&&typeof item==='object'&&!Array.isArray(item));
+    const items=value.filter(item=>item&&typeof item==='object'&&
+      !Array.isArray(item)).slice(0,3);
+    const elementKeys=[...new Set(items.flatMap(item=>safeFieldKeys(item)))].slice(0,16);
     return {kind:'array',count:Math.min(value.length,2000),
       ...(value.length>2000?{capped:true}:{}),
-      ...(first?{elementKeys:safeFieldKeys(first)}:{})};
+      ...(elementKeys.length?{elementKeys}:{})};
   }
   if(value&&typeof value==='object'){
     const keys=Object.keys(value);
