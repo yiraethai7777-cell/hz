@@ -62,7 +62,7 @@ function assessVoxAuthPreflight(client,{chatId}={}) {
     authenticatedVoxSession:false,
     createMethodVerified:false,
     mediaSessionVerified:false,
-    creationEnabled:false,
+    creationEnabled:client?.voiceRoomAdapter?.kind==='vox30-direct-experimental',
   };
   const missing=[];
   for(const [key,ok] of [

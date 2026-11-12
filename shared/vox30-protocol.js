@@ -227,7 +227,7 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
 function validateCfg(cfg) {
   checkedId(cfg?.userId);
   for(const name of ['carrierId','model','sdkVersion','buildId']) {
-    if (typeof cfg[name]!=='string' || !cfg[name].trim() || cfg[name].length>128)
+    if (cfg[name]!==undefined && (typeof cfg[name]!=='string' || !cfg[name].trim() || cfg[name].length>128))
       throw Error('VOX cfg.'+name+' 값이 필요합니다.');
   }
   return cfg;
@@ -239,7 +239,10 @@ function checkedAppVersion(appVer) {
   return appVer;
 }
 function commonDevice(cfg,subType=false) {
-  return {model:cfg.model,os:'android',osver:cfg.sdkVersion,buildId:cfg.buildId,
+  return {os:'android',
+    ...(cfg.model===undefined?{}:{model:cfg.model}),
+    ...(cfg.sdkVersion===undefined?{}:{osver:cfg.sdkVersion}),
+    ...(cfg.buildId===undefined?{}:{buildId:cfg.buildId}),
     ...(subType?{devSubType:new I32(7)}:{})};
 }
 function getDiscoveryBody(cfg,chatId,appVer) {
@@ -247,8 +250,11 @@ function getDiscoveryBody(cfg,chatId,appVer) {
   return {
     userId:new I64(checkedId(cfg.userId)),devType:new I32(4),
     chatId:new I64(checkedId(chatId)),appVer,lang:'ko',country:'KR',
-    voxVer:new I32(5),carrierId:cfg.carrierId,netType:new I32(2),
-    checkOnCall:false,serviceType:new I32(11),devInfo:commonDevice(cfg),
+    voxVer:new I32(5),netType:new I32(2),
+    ...(cfg.carrierId===undefined?{}:{carrierId:cfg.carrierId}),
+    checkOnCall:false,serviceType:new I32(11),
+    ...([cfg.model,cfg.sdkVersion,cfg.buildId].some(value=>value!==undefined)
+      ?{devInfo:commonDevice(cfg)}:{}),
   };
 }
 function getCreateBody({cfg,chatId,title,oauthToken,deviceUuid,sdp,userType=1,appVer}) {
@@ -265,7 +271,8 @@ function getCreateBody({cfg,chatId,title,oauthToken,deviceUuid,sdp,userType=1,ap
     voxVer:new I32(5),serviceType:new I32(11),chatId:new I64(checkedId(chatId)),
     title:validateTitle(title),userType:new I32(userType),
     defaultMicOnOff:new I32(1),destId:new I64('0'),
-    netType:new I32(2),carrierId:cfg.carrierId,simOperator:cfg.carrierId,
+    netType:new I32(2),
+    ...(cfg.carrierId===undefined?{}:{carrierId:cfg.carrierId,simOperator:cfg.carrierId}),
     isRoaming:new I32(0),mobileNetType:new I32(13),
     devInfo:commonDevice(cfg,true),
     sdp:{sdp,sdpType:new I32(1),sdpUserId:userId},isMultiChat:false,
