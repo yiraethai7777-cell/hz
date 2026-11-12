@@ -135,6 +135,7 @@ function createVox30Adapter({
           // for the TCP socket to close or continuing to ping a dead call.
           transport:{
             ...transport,
+            diagnosticActorUserId:userId,
             onPacket(packet) {
               transport?.onPacket?.(packet);
               if(packet?.method===11009 && active?.chatId===chatId) {
