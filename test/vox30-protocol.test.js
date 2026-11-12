@@ -318,7 +318,7 @@ test('VOX role event reports bounded enum codes and field names, never private c
   assert.equal(actual.codes.event,7);
   assert.equal(actual.codes.role,3);
   assert.equal(actual.eventValueType,'object');
-  assert.deepEqual(actual.safeOtherKeys,['isSpeaker','moderatorState']);
+  assert.deepEqual(actual.safeOtherKeys,['role','isSpeaker','moderatorState']);
   const json=JSON.stringify(actual);
   assert.ok(!json.includes('super-private-token'));
   assert.ok(!json.includes('sensitive title'));
