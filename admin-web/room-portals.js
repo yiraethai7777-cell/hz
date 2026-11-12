@@ -1,14 +1,14 @@
 'use strict';
-const $=s=>document.querySelector(s);let csrf='',rooms=[],portals=[];
+const $=s=>document.querySelector(s);let csrf='',rooms=[],portals=[],roomSubscriptions={};
 const names={manage:'방 관리 ON/OFF',game:'게임 기능 ON/OFF',quiz:'퀴즈 기능 ON/OFF',fishing:'낚시 기능 ON/OFF',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'삭제 감지',spam:'도배 감지',templates:'입장·퇴장 문구 편집',warnings:'인원별 경고 및 내역',roles:'일반 관리자 지정 (최고관리자 제외)',prefixes:'명령어 접두사 변경',chatStats:'채팅순위·기록 관리',notes:'인원별 관리 메모',kick:'인원 개별 강퇴'};
 function notice(t){$('#message').textContent=t;}
 async function api(path,method='GET',body){const r=await fetch(path,{method,headers:{'Content-Type':'application/json',...(method==='GET'?{}:{'x-csrf-token':csrf})},...(method==='GET'?{}:{body:JSON.stringify(body)})});const x=await r.json();if(!r.ok)throw Error(x.error||'요청 실패');return x;}
 async function task(fn){try{await fn();}catch(e){notice('❌ '+e.message);}}
 const formatLeft=sec=>{sec=Math.max(0,Math.ceil(Number(sec)||0));const d=Math.floor(sec/86400),h=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60);return d+'일 '+h+'시간 '+m+'분';};
 function updatePlanForm(p){
- const license=p?.subscription||null;
+ const license=p?.subscription||roomSubscriptions[$('#room').value]||null;
  $('#plan').value=license?.plan||'all';
- $('#activatePlan').checked=!p;
+ $('#activatePlan').checked=!p&&!license;
  $('#activatePlan').disabled=!!license;
  $('#days').disabled=!!license||!$('#activatePlan').checked;
  $('#days').value=license?.durationDays||7;
@@ -19,7 +19,7 @@ function updatePlanForm(p){
  updatePermitted();
 }
 function updatePermitted(){
- const active=$('#activatePlan').checked||!!portals.find(p=>p.room_id===$('#room').value)?.subscription;
+ const active=$('#activatePlan').checked||!!portals.find(p=>p.room_id===$('#room').value)?.subscription||!!roomSubscriptions[$('#room').value];
  const plan=active?$('#plan').value:null;
  const games=new Set(['game','quiz','fishing']);
  const managed=new Set(['manage','mention','profile','deleted','spam','templates','warnings','roles','notes','kick']);
@@ -38,7 +38,7 @@ function fill(p){
  scrollTo({top:0,behavior:'smooth'});notice('선택한 고객의 설정을 편집 중입니다. 비밀번호를 비워두면 유지됩니다.');
 }
 async function load(){
- const b=await api('/api/admin/room-portals');rooms=(b.rooms||[]).map(r=>({room_id:r.id,name:r.name}));portals=b.portals;
+ const b=await api('/api/admin/room-portals');rooms=(b.rooms||[]).map(r=>({room_id:r.id,name:r.name}));portals=b.portals;roomSubscriptions=b.roomSubscriptions||{};
  const selected=$('#room').value;$('#room').replaceChildren();
  for(const r of rooms){const option=document.createElement('option');option.value=r.room_id;option.textContent=(r.name||'채팅방')+' · '+r.room_id;$('#room').append(option);}
  if(rooms.some(r=>r.room_id===selected))$('#room').value=selected;
@@ -89,7 +89,21 @@ async function load(){
    finally{extend.disabled=false;}
   }));more.append(days,extend);
  }else{more.textContent='요금제를 시작하려면 설정 수정에서 최초 이용 기간을 지정하세요.';}
- box.append(title,state,period,pwState,link,document.createElement('br'),button,' ',reset,more);$('#list').append(box);}
+ const remove=document.createElement('button');remove.type='button';remove.className='secondary danger';remove.textContent='웹사이트 삭제';
+ remove.addEventListener('click',()=>task(async()=>{
+  const description=p.label+' · '+p.room_name+' ('+p.room_id+')';
+  if(!confirm('['+description+'] 방 관리자 웹사이트를 영구 삭제하시겠습니까?\n발급 주소·로그인 정보·세션이 삭제됩니다.\n카카오톡 채팅방, 관리 기록, 게임 데이터, 요금제는 유지됩니다.'))return;
+  const typed=prompt('잘못된 사이트 삭제를 방지하기 위해 방 ID '+p.room_id+' 를 정확히 입력해 주세요.');
+  if(typed===null)return;
+  if(typed.trim()!==p.room_id){notice('❌ 방 ID가 일치하지 않아 웹사이트를 삭제하지 않았습니다.');return;}
+  remove.disabled=true;
+  try{
+   await api('/api/admin/room-portals','DELETE',{roomId:p.room_id,site:p.slug,confirm:true,confirmationRoomId:typed.trim()});
+   await load();
+   notice('✅ ['+description+'] 웹사이트 삭제 완료. 로그인 주소와 세션이 무효화되었습니다. 채팅방 및 요금제는 그대로 유지됩니다.');
+  }finally{remove.disabled=false;}
+ }));
+ box.append(title,state,period,pwState,link,document.createElement('br'),button,' ',reset,' ',remove,more);$('#list').append(box);}
  if(!portals.length)$('#list').textContent='발급된 웹사이트가 없습니다.';
  $('#room').dispatchEvent(new Event('change'));
 }

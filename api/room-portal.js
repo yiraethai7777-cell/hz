@@ -61,15 +61,19 @@ async function master(req,url,body){
    " b.plan AS sub_plan,b.status AS sub_status,b.duration_days AS sub_duration_days,"+
    " b.started_at AS sub_started_at,b.expires_at AS sub_expires_at"+
    " FROM gl_room_portals p LEFT JOIN gl_room_subscriptions b USING(room_id) ORDER BY p.id DESC");
-  return {portals:q.rows.map(row=>{
+  const activeRooms=await joinedRooms();
+  const licensed=await getPool().query('SELECT * FROM gl_room_subscriptions WHERE room_id=ANY($1::text[])',[activeRooms.map(x=>x.id)]);
+  const roomSubscriptions=Object.fromEntries(licensed.rows.map(row=>[row.room_id,subscriptions.view(row)]));
+  return {roomSubscriptions,portals:q.rows.map(row=>{
    const subscription=row.sub_plan?subscriptions.view({
     room_id:row.room_id,plan:row.sub_plan,status:row.sub_status,
     duration_days:row.sub_duration_days,started_at:row.sub_started_at,expires_at:row.sub_expires_at
    }):null;
    const {sub_plan,sub_status,sub_duration_days,sub_started_at,sub_expires_at,...portal}=row;
    return {...portal,subscription};
-  }),permissions:PERMISSIONS,rooms:await joinedRooms()};
+  }),permissions:PERMISSIONS,rooms:activeRooms};
  }
+ if(req.method==='DELETE')return masterDelete(body,s);
  if(req.method!=='POST')bad('지원되지 않는 요청입니다.',405);
  const rooms=await joinedRooms(),room=id(body.roomId);
  const active=rooms.find(r=>r.id===room);if(!active)bad('봇이 현재 참여 중인 방만 선택할 수 있습니다.');
@@ -82,7 +86,7 @@ async function master(req,url,body){
  if(!existing.rowCount&&password.length<10)bad('새 웹사이트 비밀번호는 10자 이상이어야 합니다.');
  if(password&&password.length<10)bad('비밀번호는 10자 이상이어야 합니다.');
  const activate=body.activatePlan===true;
- if(!existing.rowCount&&!activate)bad('새 방 관리자 웹 발급 시 요금제와 이용 일수를 설정해 주세요.');
+ if(!existing.rowCount&&!activate&&!license)bad('새 방 관리자 웹 발급 시 요금제와 이용 일수를 설정해 주세요.');
  const plan=activate||license&&body.plan?subscriptions.validPlan(body.plan):license?.plan||null;
  const days=activate?subscriptions.validDays(body.days):null;
  if(activate&&license)bad('이미 발급한 요금제는 연장 메뉴에서 기간을 추가해 주세요.');
@@ -118,6 +122,28 @@ async function master(req,url,body){
  }
  return {ok:true,portal:{...result,subscription:updatedLicense||license},
   url:'/room-panel?site='+result.slug,notificationPending:!!updatedLicense};
+}
+// Deleting an issued web portal revokes only the portal and its login sessions.
+// Bot subscription, room configuration, chat/game data and moderation notes stay intact.
+async function masterDelete(body,s){
+ const room=id(body.roomId);
+ const site=String(body.site||'');
+ if(!/^[a-f0-9]{24}$/.test(site)||body.confirm!==true||String(body.confirmationRoomId||'')!==room)
+  bad('삭제할 방 ID를 다시 입력하고 웹사이트 삭제를 확인해 주세요.',400);
+ const pool=getPool(),db=await pool.connect();
+ let deleted;
+ try{
+  await db.query('BEGIN');
+  const r=await db.query('DELETE FROM gl_room_portals WHERE room_id=$1 AND slug=$2 RETURNING id,label,room_name',[room,site]);
+  if(!r.rowCount)bad('웹사이트가 이미 삭제됐거나 발급 정보가 변경되었습니다. 목록을 새로고침해 주세요.',404);
+  deleted=r.rows[0];
+  await db.query('INSERT INTO gl_audit(actor,action,room_id,target_id,detail) VALUES($1,$2,$3,$4,$5::jsonb)',[
+   'master:'+s.user,'ROOM_PORTAL_DELETE',room,String(deleted.id),JSON.stringify({label:deleted.label})
+  ]);
+  // gl_room_portal_sessions has ON DELETE CASCADE on portal_id.
+  await db.query('COMMIT');
+ }catch(error){await db.query('ROLLBACK');throw error;}finally{db.release();}
+ return {ok:true,roomId:room,deletedSite:true};
 }
 async function masterExtend(req,body){
  await init();

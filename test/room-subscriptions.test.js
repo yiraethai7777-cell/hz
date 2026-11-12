@@ -116,7 +116,8 @@ test('all chat and automatic operations have a paid-plan gate',()=>{
 
 test('newly joined and unlicensed rooms appear in the master issuance chooser',()=>{
  const master=read('api/room-portal.js'),web=read('admin-web/room-portals.js');
- assert.match(master,/permissions:PERMISSIONS,rooms:await joinedRooms\(\)/);
+ assert.match(master,/permissions:PERMISSIONS,rooms:activeRooms/);
+ assert.match(master,/roomSubscriptions/);
  assert.match(web,/rooms=\(b\.rooms\|\|\[\]\)\.map/);
  assert.doesNotMatch(web,/rooms=a\.rooms/);
 });
