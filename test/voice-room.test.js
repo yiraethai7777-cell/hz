@@ -66,8 +66,7 @@ test('verified adapter may create named voice room',async()=>{
   }};
   await voice.handle(args);
   assert.deepEqual(calls,[{roomId:ROOM,title:'테스트 방',botUserId:client.userId,openLinkId:'9007199254740993333'}]);
-  assert.match(sent[0],/보이스룸 생성 확인/);
-  assert.match(sent[0],/901/);
+  assert.equal(sent[0],'보룸을 시작했습니다');
 });
 
 test('server status needs explicit verification, not status=0 alone',async()=>{
@@ -84,8 +83,7 @@ test('verify live status when start reply does not confirm',async()=>{
     status:async()=>({active:true,verified:true,roomId:ROOM,voiceRoomId:'302'})
   };
   await voice.handle(args);
-  assert.match(sent[0],/생성 확인/);
-  assert.match(sent[0],/302/);
+  assert.equal(sent[0],'보룸을 시작했습니다');
 });
 
 test('status query can report unconfigured transport',async()=>{
@@ -120,7 +118,7 @@ test('duplicate requests cannot run simultaneously',async()=>{
   assert.ok(sent.some(t=>t.includes('이미 이 방의 보이스룸 개설 요청')));
   release();
   await first;
-  assert.ok(sent.some(t=>t.includes('생성 확인')));
+  assert.ok(sent.includes('보룸을 시작했습니다'));
 });
 
 test('malformed title cannot be sent to adapter',async()=>{
@@ -254,7 +252,7 @@ test('bot account can invoke verified create adapter despite sender type 2',asyn
   }};
   await voice.handle(args);
   assert.equal(calls,1);
-  assert.match(sent[0],/생성 확인/);
+  assert.equal(sent[0],'보룸을 시작했습니다');
 });
 
 test('bot account can invoke verified stop adapter despite sender type 2',async()=>{
@@ -292,7 +290,7 @@ test('bot account may request creation even without cached manager role',async()
   }};
   await voice.handle(args);
   assert.equal(calls,1);
-  assert.match(sent[0],/생성 확인/);
+  assert.equal(sent[0],'보룸을 시작했습니다');
 });
 
 test('bot account may request stop even without cached manager role',async()=>{
@@ -316,7 +314,7 @@ test('screenshotted #보룸시작. is recognized and has default voice room titl
   args.adapter={create:async ({title})=>{name=title;return {created:true,verified:true};}};
   await voice.handle(args);
   assert.equal(name,'보이스룸');
-  assert.match(sent[0],/생성 확인/);
+  assert.equal(sent[0],'보룸을 시작했습니다');
 });
 
 test('aliases for start, stop and voice-room commands are all recognized',async()=>{
@@ -353,16 +351,40 @@ test('manager role is still needed for non-bot users',async()=>{
 });
 
 
-test('experimental Noa accepted request is only an unverified dispatch, never creation success', async () => {
+test('accepted create without an opening event sends no dispatch message', async () => {
   const { args, sent } = fixture({ text: '#보룸시작 NEXI' });
   args.adapter = {
     create: async () => ({ requestAccepted: true, verified: false }),
     status: async () => { throw Error('must not be queried after acknowledged dispatch'); },
   };
   await voice.handle(args);
-  assert.match(sent[0], /보이스룸 생성 요청이 Railway 직접 VOX 클라이언트에 전달/);
-  assert.match(sent[0], /실제 카카오톡 서버 개설은 아직 확인되지 않았습니다/);
-  assert.doesNotMatch(sent[0], /보이스룸 생성 확인!/);
+  assert.deepEqual(sent, []);
+});
+
+test('opening event during a create request produces one short reply even with management off', async () => {
+  const {args,sent,client}=fixture();
+  const bus=new (require('node:events').EventEmitter)();
+  client.on=bus.on.bind(bus);
+  const auto=require('../shared/voice-room-auto-detect');
+  const deps={
+    isManaged:async()=>false,
+    isBotEnabled:async()=>true,
+    send:async (_room,message)=>sent.push(message),
+  };
+  auto.install(client,deps);
+  const event={
+    room:{id:ROOM,isOpenChat:true},
+    message:{type:52,logId:'44991'},
+    raw:{chatLog:{attachment:JSON.stringify({type:'vr_invite'})}},
+  };
+  args.adapter={create:async()=>{
+    assert.equal(await auto.handleMessage(event,deps),true);
+    assert.deepEqual(sent,[]);
+    return {requestAccepted:true,verified:false};
+  }};
+  await voice.handle(args);
+  assert.equal(await auto.handleMessage(event,deps),false);
+  assert.deepEqual(sent,['보룸을 시작했습니다']);
 });
 
 test('experimental Noa current local session is not displayed as server verified', async () => {
