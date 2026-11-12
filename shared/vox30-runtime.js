@@ -39,6 +39,8 @@ function installDirectVoice(client,{env=process.env,
       actorUserId:auth.actorUserId,
       cfg:{...device,userId:auth.actorUserId},
       entryHost:ENTRY_HOST,entryPort:ENTRY_PORT,appVer,
+      // Opt-in so existing VOX rooms remain unaffected until test results.
+      enableSilentAudio:env.NEXI_VOX_TX_SILENCE==='1',
       async connect(options) {
         const entry=options.host===ENTRY_HOST&&options.port===ENTRY_PORT;
         const {isPublicIpv4}=require('../experiments/vox30/synthetic-discovery');
@@ -93,7 +95,8 @@ function installDirectVoice(client,{env=process.env,
         }
       },
     };
-    log.info('[VOICE VOX30] direct create adapter installed; optional device fields: '+Object.keys(device).length);
+    log.info('[VOICE VOX30] direct create adapter installed; optional device fields: '+Object.keys(device).length+
+      '; silent RTP TX: '+(env.NEXI_VOX_TX_SILENCE==='1'?'enabled':'off'));
     return true;
   }catch{
     log.warn('[VOICE VOX30] direct create adapter initialization failed');

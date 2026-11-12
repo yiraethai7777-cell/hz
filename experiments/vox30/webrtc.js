@@ -1,6 +1,7 @@
 'use strict';
 
 const {RTCPeerConnection}=require('werift');
+const {createSilentOpusSource}=require('./silent-opus-audio');
 
 const DEFAULT_ICE_TIMEOUT_MS=15000;
 
@@ -47,7 +48,7 @@ function waitIceGathering(peer,ms=DEFAULT_ICE_TIMEOUT_MS) {
 
 function createWebRtcPeer({
   PeerConnection=RTCPeerConnection,rtcConfig={},iceTimeoutMs=DEFAULT_ICE_TIMEOUT_MS,
-  outgoingAudioTrack=null,
+  outgoingAudioTrack=null,silentAudio=false,silentAudioFactory=createSilentOpusSource,
 }={}) {
   if(typeof PeerConnection!=='function')
     throw Error('WebRTC RTCPeerConnection 구현이 필요합니다.');
@@ -60,7 +61,19 @@ function createWebRtcPeer({
     pc.close?.();
     throw Error('WebRTC 필수 메서드가 누락됐습니다.');
   }
-  if(outgoingAudioTrack){
+  if(outgoingAudioTrack && silentAudio){
+    pc.close();throw Error('외부 오디오 트랙과 무음 RTP 테스트를 동시에 지정할 수 없습니다.');
+  }
+  const silence=silentAudio ? silentAudioFactory() : null;
+  if(silence){
+    if(silence.track?.kind!=='audio' || typeof silence.start!=='function' ||
+       typeof silence.stop!=='function' || typeof silence.getState!=='function'){
+      pc.close();throw Error('무음 Opus 송신 소스 형식 오류');
+    }
+    // Use one negotiated bidirectional audio m-line, not an extra sendonly
+    // line that the Kakao VOX answer may not recognize.
+    pc.addTransceiver(silence.track,{direction:'sendrecv'});
+  }else if(outgoingAudioTrack){
     if(outgoingAudioTrack.kind!=='audio' || typeof pc.addTrack!=='function'){
       pc.close();throw Error('WebRTC 오디오 트랙 입력 오류');
     }
@@ -87,16 +100,23 @@ function createWebRtcPeer({
       const answer=unwrapAnswer(remote);
       await pc.setRemoteDescription(answer);
       answered=true;
+      // Do not emit RTP until the local DTLS/ICE connection is fully connected.
+      // This diagnostic source can later be replaced by a licensed audio source.
+      silence?.start(()=>pc.connectionState==='connected');
       // Setting SDP alone does not prove ICE/DTLS or remote room creation.
       return {answerApplied:true,connectionState:pc.connectionState??'unknown'};
     },
     getState() {
       return {iceConnectionState:pc.iceConnectionState??'unknown',
-        connectionState:pc.connectionState??'unknown',answered,closed};
+        connectionState:pc.connectionState??'unknown',answered,closed,
+        audioTxMode:silence?'opus-silence':outgoingAudioTrack?'external-track':'receive-only',
+        audioTxPackets:silence?.getState().sentPackets??0,
+        audioTxFailed:silence?.getState().failed??false};
     },
     async close() {
       if(closed)return;
       closed=true;
+      silence?.stop();
       pc.close();
     },
   };

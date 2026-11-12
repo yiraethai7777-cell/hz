@@ -9,13 +9,13 @@ const {createWebRtcPeer}=require('./webrtc');
 function createLabAdapter({
   actorUserId,cfg,entryHost,entryPort,appVer,
   credentialsForRoom,verifyMembership,
-  rtcConfig,iceTimeoutMs,connect,userTypeForRoom,
+  rtcConfig,iceTimeoutMs,connect,userTypeForRoom,enableSilentAudio=false,
 }={}) {
   return createVox30Adapter({
     actorUserId,cfg,entryHost,entryPort,appVer,
     codec:createCodec({seed:seedCbcBytes()}),
     credentialsForRoom,verifyMembership,userTypeForRoom,
-    rtcFactory:()=>createWebRtcPeer({rtcConfig,iceTimeoutMs}),
+    rtcFactory:()=>createWebRtcPeer({rtcConfig,iceTimeoutMs,silentAudio:enableSilentAudio}),
     ...(connect?{connect}:{}),
   });
 }
