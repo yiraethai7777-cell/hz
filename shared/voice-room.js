@@ -80,7 +80,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
+  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보룸스피커받기|보룸진행자받기|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보이스룸스피커받기|보이스룸진행자받기|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
@@ -172,9 +172,56 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const isStop=match[1].endsWith('끄기') || match[1].endsWith('종료');
   const isUnsafeStopTest=match[1].endsWith('종료시험');
   const isHelp=match[1].endsWith('명령어');
+  const isAcceptRole=match[1].endsWith('스피커받기')||
+    match[1].endsWith('진행자받기');
+  const acceptedRole=match[1].endsWith('진행자받기')?'moderator':'speaker';
   const isJoinStatus=match[1].endsWith('참가상태')||match[1].endsWith('참여상태');
   const isJoin=match[1].endsWith('참가')||match[1].endsWith('참여');
   const isLeave=match[1].endsWith('퇴장');
+  if(isAcceptRole){
+    if(!isBotAccount){
+      await safeReply(client,send,'❌ 스피커·진행자 권한 수락은 봇 계정만 실행할 수 있습니다.');
+      return true;
+    }
+    if(!transport || typeof transport.status!=='function' ||
+       typeof transport.acceptRole!=='function'){
+      await safeReply(client,send,'⚠️ VOX 역할 수락 모듈이 연결되지 않았습니다.');
+      return true;
+    }
+    if(running.has(room)){
+      await safeReply(client,send,'⏳ 보이스룸 요청을 처리 중입니다.');
+      return true;
+    }
+    running.add(room);
+    try{
+      const state=await transport.status({roomId:room});
+      const roleText=acceptedRole==='moderator'?'진행자':'스피커';
+      if(state?.localActive!==true){
+        await safeReply(client,send,'⚠️ 이 방에 봇의 VOX 참가 세션이 없습니다. 먼저 #보룸참가를 실행해 주세요.');
+      }else if(state.roleSource==='vox-12011-own-roster' &&
+          (state.role===acceptedRole||state.role==='moderator')){
+        await safeReply(client,send,'✅ VOX 서버 명단에서 이미 '+roleText+
+          ' 권한을 확인했습니다.');
+      }else if(!state.invitedRoles?.includes(acceptedRole)){
+        await safeReply(client,send,'⚠️ 봇 계정을 대상으로 한 인증된 '+roleText+
+          ' 초대가 아직 수신되지 않았습니다. 서버 초대가 도착해야 수락할 수 있습니다.');
+      }else{
+        const result=await transport.acceptRole({roomId:room,role:acceptedRole});
+        if(result?.awaitingRoster){
+          await safeReply(client,send,'📨 '+roleText+
+            ' 초대 수락 요청을 전송했습니다. VOX 서버 역할 명단 반영을 확인해야 합니다.');
+        }else if(result?.reason==='protocol-unverified'){
+          await safeReply(client,send,'⚠️ '+roleText+' 초대 이벤트는 확인했지만, '+
+            '실제 수락 패킷 규격이 아직 검증되지 않아 서버로 요청하지 않았습니다.');
+        }else{
+          await safeReply(client,send,'⚠️ '+roleText+' 권한 수락을 확인하지 못했습니다.');
+        }
+      }
+    }catch{
+      await safeReply(client,send,'❌ VOX 역할 수락 처리에 실패했습니다.');
+    }finally{running.delete(room);}
+    return true;
+  }
   if(isJoinStatus){
     if(!transport || typeof transport.status!=='function'){
       const signal=require('./voice-room-join-info').status(room);
@@ -205,6 +252,11 @@ async function handle({client,roomId,msg,text,send,adapter}){
         ? '\nVOX 서버 명단에서 감지된 역할: '+require('./vox30-role-state').roleLabel(state.role)
         : '\nVOX 서버에서 확인된 역할: 미확인';
       const invite=require('./voice-room-join-info').status(room);
+      const invitedRoles=(state?.invitedRoles||[]).filter(x=>
+        x==='speaker'||x==='moderator');
+      const invitationLine='\n봇 계정 대상 초대: '+
+        (invitedRoles.length?
+          invitedRoles.map(x=>x==='speaker'?'스피커':'진행자').join(', '):'대기 중');
       const roleTransportLine='\n자동 스피커 권한 수락: '+
         (state?.speakerAutoAcceptAvailable===true?'검증된 어댑터 연결':'규격 검증 전')+
         '\n자동 진행자 권한 수락: '+
@@ -212,7 +264,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
       const inviteLine='\n최근 참가용 초대 접속정보: '+
         (invite.endpointReady?'확보 (인증 규격 미검증)':invite.phase==='ended'?'종료 이벤트 확인':'미확인');
       await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+line+
-        roleLine+inviteLine+roleTransportLine+'\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
+        roleLine+inviteLine+invitationLine+roleTransportLine+
+        '\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
     }catch{
       await safeReply(client,send,'⚠️ Railway 직접 VOX 참가 상태 조회 실패\n'+
         'VOX 인증 계정과 대상 채팅방 상태를 확인해 주세요.');
@@ -343,7 +396,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
       '#보룸TLS진단 · Railway에서 인증정보 없이 TLS 후보 연결 확인 (봇 계정만)\n' +
       '#보룸인증점검 · 기존 세션·기기 정보 확인, VOX 서버 인증 미실행 (봇 계정만)\n' +
-      '!보룸참여 / #보룸참가 · 기존 보룸 참가 (인증 패킷 검증 필요)\n' +
+      '!보룸참여 / #보룸참가 · 기존 보룸 참가 (11002 실험/인증 검증 필요)\n' +
+      '#보룸스피커받기 / #보룸진행자받기 · 봇 계정 초대 수락 (패킷 미검증)\n' +
       '!보룸참여상태 · VOX 세션 및 서버 명단 역할 관찰\n' +
       '※ 스피커·진행자 자동 수락은 응답 규격 검증 후 지원\n' +
       '#보룸참가상태 · Railway VOX 참가 세션 확인\n' +

@@ -106,7 +106,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // VOX credentials and the server's actual privileges.
       // An EXPIRED paid subscription is never revived by this exception.
       const botUnlicensedVoiceCreate=isBotAccount &&
-        require('./voice-room-permission').isCreateCommand(text);
+        require('./voice-room-permission').isBotVoiceCommand(text);
       const roomAccess=await require('./room-subscriptions').access(roomId);
       const license=roomAccess.subscription;
       if(!roomAccess.allowed && !(botUnlicensedVoiceCreate && !license))return;
@@ -321,7 +321,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         .catch(error => console.error('[JUNGGAE] alert error:', error));
       // Voice-room help/status must remain responsive even if unrelated
       // game/database initialization is still pending or has failed.
-      if (/^[#!]?(?:보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.test(text)) {
+      if (/^[#!]?(?:보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보룸스피커받기|보룸진행자받기|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보이스룸스피커받기|보이스룸진행자받기|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.test(text)) {
         console.log('[보이스룸] 명령 수신:', JSON.stringify({
           roomId: String(roomId),
           command: text.split(/\s/,1)[0],
@@ -369,7 +369,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
           // The exact Kakao account logged in as the bot may create a
           // VoiceRoom even if room voice settings or !봇끄기 are OFF.
           // Do not extend this bypass to ordinary members or other commands.
-          const botOwnVoiceCreate=isBotAccount && voicePermission.isCreateCommand(text);
+          const botOwnVoiceCreate=isBotAccount && voicePermission.isBotVoiceCommand(text);
           if (voicePermission.isActionCommand(text) && !botOwnVoiceCreate &&
               !(await voicePermission.enabled(roomId))) {
             await sendVoiceReply('🔒 이 채팅방은 보이스룸 기능이 OFF입니다.\n' +

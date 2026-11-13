@@ -5,7 +5,7 @@
 // still require an authenticated Android session and server-side privileges.
 const { getPool } = require('./db');
 
-const ACTION_COMMAND = /^[#!]?(?:보룸참여|보룸참가|보룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보이스룸참여|보이스룸참가|보이스룸퇴장|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료)(?=$|\s|[.!。])/;
+const ACTION_COMMAND = /^[#!]?(?:보룸참여|보룸참가|보룸퇴장|보룸스피커받기|보룸진행자받기|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보이스룸참여|보이스룸참가|보이스룸퇴장|보이스룸스피커받기|보이스룸진행자받기|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료)(?=$|\s|[.!。])/;
 
 function isActionCommand(text) {
   return ACTION_COMMAND.test(String(text ?? '').trim());
@@ -28,4 +28,11 @@ async function enabled(roomId, query = (sql, params) => getPool().query(sql, par
   return result?.rows?.[0]?.voice_enabled === 'true';
 }
 
-module.exports = { enabled, isActionCommand, isCreateCommand };
+// Bot-account participation and role acceptance are independent of the
+// customer-facing room web toggle. The real VOX server may still reject them.
+const BOT_VOICE_COMMAND=/^[#!]?(?:보룸참가|보룸참여|보룸참가상태|보룸참여상태|보룸스피커받기|보룸진행자받기|보이스룸참가|보이스룸참여|보이스룸참가상태|보이스룸참여상태|보이스룸스피커받기|보이스룸진행자받기)(?=$|\s|[.!。])/;
+function isBotVoiceCommand(text){
+  return isCreateCommand(text)||BOT_VOICE_COMMAND.test(String(text??'').trim());
+}
+
+module.exports = { enabled, isActionCommand, isCreateCommand, isBotVoiceCommand };
