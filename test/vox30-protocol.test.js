@@ -122,7 +122,7 @@ test('the discovery and create sequence follows 30000 then 11028 and event 11003
     wait:(...methods)=>{
       recorded.push(methods.join(','));
       return {promise:Promise.resolve({method:METHODS.CREATED,
-        body:{callId:'c1',csId:'s1',sdp:{sdp:'answer',sdpType:2}}}),cancel(){}};
+        body:{callId:'100',csId:'200',sdp:{sdp:'answer',sdpType:2}}}),cancel(){}};
     },
   };
   const connect=async()=>client;
@@ -134,7 +134,7 @@ test('the discovery and create sequence follows 30000 then 11028 and event 11003
     entryHost:'entry.example',connect,codec,appVer:'26.3.1'});
   assert.equal(result.requestAccepted,true);
   assert.equal(result.verified,false);
-  assert.equal(result.callId,'c1');
+  assert.equal(result.callId,'100');
   assert.deepEqual(result.remoteSdp,{sdp:'answer',sdpType:2});
   assert.deepEqual(recorded.filter(x=>typeof x==='number'),[
     METHODS.DISCOVER,METHODS.DISCOVER,METHODS.CREATE,METHODS.CREATED]);
@@ -160,7 +160,7 @@ for(const ackFirst of [true,false]) {
           return;
         }
         assert.equal(method,METHODS.CREATE);
-        const reply={method:METHODS.CREATE,body:{resCode:0,callId:'c1',csId:'s1',
+        const reply={method:METHODS.CREATE,body:{resCode:0,callId:'100',csId:'200',
           interval:new I32(30),connTimeout:new I32(20),respTimeout:new I32(15)}};
         const event={method:METHODS.CREATED,requestNonce:Buffer.from([1,2,3,4]),body:{sdp:remoteSdp}};
         const packets=ackFirst?[reply,event]:[event,reply];
@@ -173,8 +173,8 @@ for(const ackFirst of [true,false]) {
     const result=await createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
       oauthToken:'token',deviceUuid:'uuid',sdp,entryHost:'entry.example',
       appVer:'26.3.1',connect:async()=>client,codec});
-    assert.equal(result.callId,'c1');
-    assert.equal(result.csId,'s1');
+    assert.equal(result.callId,'100');
+    assert.equal(result.csId,'200');
     assert.deepEqual(result.serverTiming,{interval:30,connTimeout:20,respTimeout:15});
     assert.deepEqual(result.remoteSdp,remoteSdp);
     assert.equal(result.verified,false);
