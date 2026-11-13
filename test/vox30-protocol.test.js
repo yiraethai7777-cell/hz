@@ -6,7 +6,7 @@ const EventEmitter=require('node:events');
 const {
   METHODS,I32,I64,integer,pkcs7Pad,pkcs7Unpad,createCodec,
   parseServerAddress,voxConnect,getDiscoveryBody,getCreateBody,
-  getCallServer,createVoiceRoom,checkedAppVersion,
+  getCallServer,createVoiceRoom,getEventAckBody,checkedAppVersion,
 }=require('../shared/vox30-protocol');
 const {createVox30Adapter}=require('../shared/vox30-adapter');
 
@@ -284,6 +284,71 @@ test('successful VOX creation reports bounded 11003/11028 chronology only',async
   for(const secret of ['private-auth','private-device',ROOM,'100','v=0'])
     assert.ok(!output.includes('"'+secret+'"'));
   result.conn.close();
+});
+
+
+test('reference VOX event acknowledgements include actor and call identity for 11003 and 12011',async()=>{
+  const waiters=new Map(),messages=[];
+  let incoming;
+  const callServer={
+    close(){},
+    wait(...methods){
+      let resolve;const promise=new Promise(done=>{resolve=done;});
+      for(const method of methods)waiters.set(method,resolve);
+      return {promise,cancel(){}};
+    },
+    async send(method,body,nonce){
+      messages.push({method,body,nonce});
+      if(method!==METHODS.CREATE)return;
+      queueMicrotask(()=>{
+        // An early room event may arrive before the creation ACK.
+        incoming({method:METHODS.ROOM_EVENT,status:0,fields:['event'],
+          codes:{event:1},memberGroups:{listeners:{own:'present'}}});
+        waiters.get(METHODS.CREATE)({method:METHODS.CREATE,status:0,
+          body:{resCode:new I32(0),callId:'100',csId:'2'}});
+        waiters.get(METHODS.CREATED)({method:METHODS.CREATED,status:0,
+          requestNonce:Buffer.from([9,8,7,6]),
+          body:{callId:'100',csId:'2',sdp:{sdp:'v=0\r\n'}}});
+      });
+    },
+  };
+  const connect=async ({host,onPacket})=>{
+    if(host==='entry.example')return {
+      close(){},request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),
+    };
+    incoming=onPacket;return callServer;
+  };
+  const result=await createVoiceRoom({cfg,chatId:ROOM,title:'테스트',
+    oauthToken:'private',deviceUuid:'private-uuid',sdp,
+    entryHost:'entry.example',appVer:'26.3.1',codec,connect});
+  const acks=messages.filter(x=>x.method===METHODS.CREATED||x.method===METHODS.ROOM_EVENT);
+  assert.deepEqual(acks.map(x=>x.method),[METHODS.CREATED,METHODS.ROOM_EVENT]);
+  for(const ack of acks){
+    const wire=codec.parse(codec.frame(ack.method,ack.body)).body;
+    assert.deepEqual(Object.keys(wire),['userId','callId','resCode','devType']);
+    assert.equal(wire.userId.toString(),USER);
+    assert.equal(wire.callId.toString(),'100');
+    assert.equal(integer(wire.devType),4);
+    assert.equal(integer(wire.resCode),0);
+  }
+  assert.deepEqual(acks[0].nonce,Buffer.from([9,8,7,6]));
+  // A late server roster is also acknowledged.
+  incoming({method:METHODS.ROOM_EVENT,status:0,fields:['event'],codes:{event:2}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(messages.filter(x=>x.method===METHODS.ROOM_EVENT).length,2);
+  // But a reply with just a resCode must NOT trigger endless ACK loops.
+  incoming({method:METHODS.ROOM_EVENT,status:0,fields:['resCode'],codes:{resCode:0}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(messages.filter(x=>x.method===METHODS.ROOM_EVENT).length,2);
+  assert.equal(result.signaling.eventAckIdentityFields,true);
+  assert.equal(result.signaling.roomEventAcksAtCreate,1);
+});
+
+test('VOX event ACK identity rejects missing call ID',()=>{
+  assert.throws(()=>getEventAckBody(cfg,'0'),/ID/);
+  const packet=codec.parse(codec.frame(METHODS.CREATED,getEventAckBody(cfg,'100')));
+  assert.equal(packet.body.userId.toString(),USER);
+  assert.equal(packet.body.callId.toString(),'100');
 });
 
 test('VOX refusal closes the connection, never marks verified',async()=>{
