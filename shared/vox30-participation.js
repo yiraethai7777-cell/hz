@@ -98,7 +98,7 @@ function createParticipationController({
       attempts.get(role)?.callId===call)return {handled:false,reason:'duplicate'};
     const driver=role==='speaker'?acceptSpeakerTransport:acceptModeratorTransport;
     if(typeof driver!=='function')return {handled:false,reason:'protocol-unverified'};
-    attempts.set(role,{roomId:id,callId:call,state:'requested',at:now()});
+    attempts.set(role,{roomId:id,callId:call,role,state:'requested',at:now()});
     try {
       const result=await driver({roomId:id,callId:call,actorUserId:actor});
       if(result?.requestAccepted!==true){
