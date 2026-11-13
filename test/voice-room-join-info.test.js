@@ -153,3 +153,15 @@ test('missing LOCO history API returns a specific non-success result',async()=>{
   assert.equal(result.recovered,false);
   assert.equal(result.reason,'history-unavailable');
 });
+
+test('LOCO BSON-style Long IDs can be recovered without numeric precision loss',async()=>{
+  const now=1700000000000,room='18495931541358007';
+  const long={toString(){return '903007'}};
+  const client={connected:true,_carriage:{async syncMsg(){return {body:{chatLogs:[
+    {type:52,logId:long,sendAt:Math.floor(now/1000),
+      attachment:JSON.stringify({type:'vr_invite',callId:CALL,csIP:HOST,csPort:9000})}
+  ]}}}}};
+  const r=await joinInfo.recover(client,room,now);
+  assert.equal(r.recovered,true);
+  assert.equal(joinInfo.status(room,now).endpointReady,true);
+});

@@ -903,3 +903,37 @@ test('ordinary room moderator cannot accept voice rights for the bot without bei
   assert.equal(calls,0);
   assert.match(sent[0],/봇 계정만 실행할 수 있습니다/);
 });
+
+
+test('join command performs read-only recovery when an earlier vr_invite was not observed',async()=>{
+  const info=require('../shared/voice-room-join-info');
+  const {args,sent,client}=fixture({text:'#보룸참가'});
+  args.msg.sender.id=client.userId;
+  client.connected=true;
+  const now=Date.now();
+  let read=0,joined=0;
+  client._carriage={async syncMsg({chatId,cur,max,cnt}){
+    read++;
+    assert.equal(String(chatId),ROOM);
+    assert.equal(cur,0);assert.equal(max,0);assert.equal(cnt,100);
+    return {body:{chatLogs:[{
+      type:52,logId:'912349001111',sendAt:Math.floor((now-10000)/1000),
+      attachment:JSON.stringify({type:'vr_invite',callId:'13299692653040311',
+        csIP:'203.133.188.66',csPort:9000})
+    }]}};
+  }};
+  args.adapter={
+    async status(){return {roomId:ROOM,localActive:false,
+      statusKnown:false,joinAvailable:true,joinTrialAvailable:true}},
+    async join(request){
+      joined++;
+      assert.equal(request.roomId,ROOM);
+      assert.equal(info.resolve(ROOM).callId,'13299692653040311');
+      return {requestAccepted:true,verified:false};
+    },
+  };
+  await voice.handle(args);
+  assert.equal(read,1);
+  assert.equal(joined,1);
+  assert.match(sent[0],/11002 참가 실험/);
+});

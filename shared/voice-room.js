@@ -310,11 +310,23 @@ async function handle({client,roomId,msg,text,send,adapter}){
         return true;
       }
       if(isJoin){
+        // The bot may not have witnessed vr_invite (restart, earlier room),
+        // so try a bounded read-only SYNCMSG lookup once, without emitting old
+        // messages as commands. No endpoint means no guessed 11002 packet.
         if(state.joinTrialAvailable===true &&
            !require('./voice-room-join-info').status(room).endpointReady){
-          await safeReply(client,send,'⚠️ 이 채팅방에서 현재 보이스룸의 참가용 초대 접속정보를 찾지 못했습니다.\n'+
-            '카카오톡에 보룸이 열려 있어도 이전의 초대가 만료되었으면 11002 참가를 시도하지 않습니다.');
-          return true;
+          const recovery=await require('./voice-room-join-info').recover(client,room);
+          if(!require('./voice-room-join-info').status(room).endpointReady){
+            const detail=recovery.reason==='history-unavailable'
+              ?'Railway에서 이전 채팅 기록을 조회하지 못했습니다.'
+              :recovery.reason==='ended'
+                ?'최근 채팅 기록에 보이스룸 종료 이벤트가 있습니다.'
+                :'현재 보룸의 초대 접속정보가 최근 채팅 기록에서도 발견되지 않았습니다.';
+            await safeReply(client,send,'⚠️ 보이스룸 참가용 접속정보를 확인할 수 없습니다.\n'+
+              detail+'\n'+
+              '※ 봇이 보이스룸 개설 이벤트를 수신하거나 현재 초대 메시지가 기록에 남아 있어야 합니다.');
+            return true;
+          }
         }
         if(state.localActive===true){
           await safeReply(client,send,'🎙️ 이 방의 VOX 보이스룸 참가 세션이 이미 감지됩니다.\n'+

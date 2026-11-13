@@ -12,6 +12,15 @@ const LIVE_REPLAY_MAX_AGE_MS = 5 * 60 * 1000;
 const HISTORY_REQUEST_COOLDOWN_MS = 60 * 1000;
 const MAX_HISTORY_MESSAGES = 100;
 const historyRequests = new Map();
+function trustedHistoryId(value) {
+  if(typeof value==='string'||Number.isSafeInteger(value))
+    return positiveId(value);
+  if(value && typeof value==='object' &&
+     typeof value.toString==='function'){
+    try{return positiveId(value.toString());}catch{return '';}
+  }
+  return '';
+}
 const MAX_ROOMS = 128;
 const MAX_I64 = 9223372036854775807n;
 const roomEvents = new Map();
@@ -129,10 +138,10 @@ async function recover(client, roomId, now=Date.now()) {
         Array.isArray(body?.messages)?body.messages:[];
       const ordered=logs.slice(0,MAX_HISTORY_MESSAGES).filter(log=>
         log&&typeof log==='object'&&!Array.isArray(log) &&
-        positiveId(log.logId??log.msgId??log.id)
+        trustedHistoryId(log.logId??log.msgId??log.id)
       ).sort((a,b)=>{
-        const x=BigInt(positiveId(a.logId??a.msgId??a.id));
-        const y=BigInt(positiveId(b.logId??b.msgId??b.id));
+        const x=BigInt(trustedHistoryId(a.logId??a.msgId??a.id));
+        const y=BigInt(trustedHistoryId(b.logId??b.msgId??b.id));
         return x<y?-1:x>y?1:0;
       });
       let observed=0;
@@ -140,7 +149,7 @@ async function recover(client, roomId, now=Date.now()) {
         const msg={
           room:{id,isOpenChat:true},
           message:{type:Number(log.type??log.msgType??log.t??0),
-            logId:positiveId(log.logId??log.msgId??log.id)},
+            logId:trustedHistoryId(log.logId??log.msgId??log.id)},
           raw:{chatLog:log},
         };
         if(observe(msg,now,{fromHistory:true}))observed++;
