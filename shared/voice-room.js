@@ -204,10 +204,14 @@ async function handle({client,roomId,msg,text,send,adapter}){
         ? '\nVOX 서버 명단에서 감지된 역할: '+require('./vox30-role-state').roleLabel(state.role)
         : '\nVOX 서버에서 확인된 역할: 미확인';
       const invite=require('./voice-room-join-info').status(room);
+      const roleTransportLine='\n자동 스피커 권한 수락: '+
+        (state?.speakerAutoAcceptAvailable===true?'검증된 어댑터 연결':'규격 검증 전')+
+        '\n자동 진행자 권한 수락: '+
+        (state?.moderatorAutoAcceptAvailable===true?'검증된 어댑터 연결':'규격 검증 전');
       const inviteLine='\n최근 참가용 초대 접속정보: '+
         (invite.endpointReady?'확보 (인증 규격 미검증)':invite.phase==='ended'?'종료 이벤트 확인':'미확인');
       await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+line+
-        roleLine+inviteLine+'\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
+        roleLine+inviteLine+roleTransportLine+'\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
     }catch{
       await safeReply(client,send,'⚠️ Railway 직접 VOX 참가 상태 조회 실패\n'+
         'VOX 인증 계정과 대상 채팅방 상태를 확인해 주세요.');
@@ -237,7 +241,15 @@ async function handle({client,roomId,msg,text,send,adapter}){
     running.add(room);
     try{
       const state=await transport.status({roomId:room,botUserId:botId});
-      if(state?.statusKnown!==true){
+      if(isJoin && state?.joinAvailable===false){
+        const invite=require('./voice-room-join-info').status(room);
+        await safeReply(client,send,'⚠️ 보이스룸 자동 참가를 실행할 수 없습니다.\n'+
+          '초대 접속정보: '+(invite.endpointReady?'감지됨':'미확인')+'\n'+
+          'VOX 참가 LOGIN(11002) 인증 패킷의 검증된 본문이 없어 서버에 임의 요청을 보내지 않았습니다.\n'+
+          '스피커·진행자 자동 수락도 현재는 지원되지 않습니다.');
+        return true;
+      }
+      if(state?.statusKnown!==true && (!isJoin || state?.joinAvailable!==true)){
         await safeReply(client,send,'⚠️ Railway VOX 상태를 확인할 수 없어 '+operation+' 요청을 보내지 않았습니다.');
         return true;
       }
