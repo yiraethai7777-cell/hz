@@ -133,7 +133,10 @@ function installDirectVoice(client,{env=process.env,
       },
     });
     const transport=maxActiveRooms===2?
-      createMultiRoomAdapter({createAdapter:makeRoomAdapter,maxRooms:2}):
+      createMultiRoomAdapter({
+        createAdapter:makeRoomAdapter,maxRooms:2,
+        joinTrialEnabled:env.NEXI_VOX_JOIN_TRIAL==='1',
+      }):
       makeRoomAdapter();
     client.voiceRoomAdapter={
       ...transport,

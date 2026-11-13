@@ -142,3 +142,25 @@ test('invalid maxRooms and invalid room IDs are rejected',async()=>{
   await assert.rejects(multi.create({roomId:'bad'}),/ID/);
   await multi.dispose();
 });
+
+
+test('two-slot empty-room status exposes opt-in VOX join capability without pre-opening a socket',async()=>{
+  let created=0;
+  const m=createMultiRoomAdapter({
+    maxRooms:2,joinTrialEnabled:true,
+    createAdapter(){
+      created++;
+      return {async create(){return {requestAccepted:true}},
+        async join(){return {requestAccepted:false}},
+        async status({roomId}){return {roomId,localActive:false}},
+        async dispose(){}};
+    },
+  });
+  assert.equal((await m.status({roomId:'123'})).joinAvailable,true);
+  assert.equal((await m.status({roomId:'123'})).joinTrialAvailable,true);
+  assert.equal(created,0);
+  await m.join({roomId:'123'});
+  assert.equal(created,1);
+  assert.equal((await m.status({roomId:'123'})).joinAvailable,true);
+  await m.dispose();
+});

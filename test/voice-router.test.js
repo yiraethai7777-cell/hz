@@ -569,3 +569,42 @@ test('unregistered bot cannot bypass subscription for other VOX commands',async(
     assert.equal(sent.length,0);
   }finally{testRoomSubscriptionAccess={allowed:true,subscription:null};}
 });
+
+
+test('bot-only speaker acceptance reaches the VOX handler without room portal or voice ON',async()=>{
+  const {emit,client,sent}=fixture();
+  let calls=0;
+  client.voiceRoomAdapter={
+    async status({roomId}){return {roomId,localActive:true,invitedRoles:['speaker']};},
+    async acceptRole(req){
+      calls++;assert.deepEqual(req,{roomId:'18495931541358610',role:'speaker'});
+      return {handled:false,reason:'protocol-unverified'};
+    },
+  };
+  testRoomSubscriptionAccess={allowed:false,subscription:null};
+  testRoomVoiceEnabled='false';
+  testRoomRecordExists=false;
+  try{
+    await emit('#보룸스피커받기',2,client.userId);
+    assert.equal(calls,1);
+    assert.match(sent[0].body,/스피커 초대 이벤트는 확인했지만/);
+  }finally{
+    testRoomSubscriptionAccess={allowed:true,subscription:null};
+    testRoomVoiceEnabled='true';
+    testRoomRecordExists=true;
+  }
+});
+test('unregistered room manager cannot bypass account identity to accept VOX role',async()=>{
+  const {emit,client,sent}=fixture();
+  let calls=0;
+  client.voiceRoomAdapter={
+    async status(){return {localActive:true,invitedRoles:['moderator']}},
+    async acceptRole(){calls++;return {handled:true}},
+  };
+  testRoomSubscriptionAccess={allowed:false,subscription:null};
+  try{
+    await emit('#보룸진행자받기',1,'9007199254740993222');
+    assert.equal(calls,0);
+    assert.equal(sent.length,0);
+  }finally{testRoomSubscriptionAccess={allowed:true,subscription:null};}
+});

@@ -6,7 +6,7 @@
 // not been proven; production defaults to one session until explicitly opted in.
 const {checkedId}=require('./vox30-protocol');
 
-function createMultiRoomAdapter({createAdapter,maxRooms=1}={}){
+function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false}={}){
   if(typeof createAdapter!=='function')throw Error('VOX 어댑터 생성 함수가 필요합니다.');
   if(!Number.isInteger(maxRooms)||maxRooms<1||maxRooms>2)
     throw Error('VOX 동시 연결 제한은 1 또는 2여야 합니다.');
@@ -29,7 +29,8 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1}={}){
       roomId,verified:false,statusKnown:false,
       localSession:true,localActive:false,stopAvailable:false,
       unsafeStopExperimentAvailable:false,
-      joinAvailable:false,joinTrialAvailable:false,speakerAutoAcceptAvailable:false,
+      joinAvailable:joinTrialEnabled===true&&sessions.size<maxRooms,
+      joinTrialAvailable:joinTrialEnabled===true,speakerAutoAcceptAvailable:false,
       moderatorAutoAcceptAvailable:false,pendingRoles:[],invitedRoles:[],
       localBusyOtherRoom:sessions.size>=maxRooms,
       multiRoomExperimental:maxRooms>1,
