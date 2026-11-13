@@ -81,6 +81,7 @@ function createVox30Adapter({
     throw Error('VOX 암호화/BSON codec이 필요합니다.');
   let active=null;
   let running=false;
+  const {ownRole}=require('./vox30-role-state');
   async function release(current) {
     if(active!==current)return;
     active=null;
@@ -173,9 +174,14 @@ function createVox30Adapter({
     kind:'vox30-direct-experimental',
     async status({roomId}={}) {
       const id=checkedId(roomId);
+      const same=active?.chatId===id;
       return {
         roomId:id,verified:false,statusKnown:false,
-        localSession:true,localActive:active?.chatId===id,
+        localSession:true,localActive:same,
+        ...(same&&active.lastOwnRole?{
+          role:active.lastOwnRole.role,roleSource:active.lastOwnRole.source,
+          mic:active.lastOwnRole.mic,
+        }:{}),
         ...(active&&active.chatId!==id?{localBusyOtherRoom:true}:{}),
       };
     },
@@ -186,6 +192,7 @@ function createVox30Adapter({
       running=true;
       let peer=null,session=null;
       let observedModerator=null;
+      let observedOwnRole=null;
       try {
         if(await verifyMembership({actorUserId:userId,chatId})!==true)
           throw Error('VOX 실행 계정의 오픈채팅 참여를 확인할 수 없습니다.');
@@ -209,6 +216,13 @@ function createVox30Adapter({
             diagnosticActorUserId:userId,
             onPacket(packet) {
               transport?.onPacket?.(packet);
+              if(packet?.method===12011){
+                const role=ownRole(packet);
+                if(role){
+                  observedOwnRole=role;
+                  if(active?.chatId===chatId)active.lastOwnRole=role;
+                }
+              }
               if(packet?.method===12011 && packet?.memberGroups?.moderators){
                 // Own member states only: the server's moderator roster is
                 // already sanitized before this callback is invoked.
@@ -256,7 +270,8 @@ function createVox30Adapter({
           JSON.stringify(session.serverTiming??{notProvided:true})+
           '; unit interpretation unverified');
         active={chatId,session,peer,timer:null,
-          createdAt:Date.now(),pingReplies:0,lastModerator:observedModerator};
+          createdAt:Date.now(),pingReplies:0,lastModerator:observedModerator,
+          lastOwnRole:observedOwnRole};
         startKeepalive(active);
         return {requestAccepted:true,verified:false,
           callId:session.callId==null?null:checkedId(session.callId)};
