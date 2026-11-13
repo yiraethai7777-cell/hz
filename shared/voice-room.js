@@ -432,18 +432,26 @@ async function handle({client,roomId,msg,text,send,adapter}){
         await safeReply(client,send,'⚠️ 서버에서 활성 보이스룸을 확인하지 못해 종료 요청을 보내지 않았습니다.');
         return true;
       }
-      // Install the same-call LOCO watcher BEFORE dropping the VOX socket.
+      // Never send a termination request unless its same-call closure
+      // event can be observed. The watcher must precede the wire request.
       const endWatch=ownSession&&before.localCallId?
         require('./voice-room-auto-detect').watchEnd(client,room,before.localCallId):null;
+      if(ownSession&&!endWatch){
+        await safeReply(client,send,'⚠️ 보이스룸 종료 이벤트 감지기가 준비되지 않았습니다.\n'+
+          '실제 서버 종료 여부를 검증할 수 없어 종료 요청을 보내지 않았습니다.');
+        return true;
+      }
       try{
         const response=await transport.stop({
           roomId:room,voiceRoomId:before.voiceRoomId??null
         });
         const localReleased=response?.localReleased===true &&
           String(response?.roomId??'')===room;
-        let confirmed=verifiedStopped(response,room);
-        if(!confirmed&&localReleased&&endWatch)confirmed=await endWatch.wait();
-        if(!confirmed&&!localReleased){
+        let confirmed=ownSession?false:verifiedStopped(response,room);
+        // The driver only confirms request acceptance, not server closure.
+        if(ownSession&&response?.requestAccepted===true&&endWatch)
+          confirmed=await endWatch.wait();
+        if(!confirmed&&!localReleased&&!ownSession){
           const after=await transport.status({roomId:room});
           confirmed=verifiedInactive(after,room);
         }
@@ -451,6 +459,9 @@ async function handle({client,roomId,msg,text,send,adapter}){
           '🎙️ 보이스룸 종료가 서버에서 확인되었습니다.':
           response?.serverStopUnavailable===true?
             '❌ 실제 VOX 보이스룸 종료 패킷이 미구현입니다. 봇 연결은 유지했습니다.':
+          ownSession&&response?.requestAccepted===true?
+            '⚠️ VOX 종료 요청은 전달됐지만 동일 보이스룸의 서버 종료 이벤트(vr_bye)는 확인되지 않았습니다.\n'+
+            '보이스룸이 계속 열려 있을 수 있으니 #보룸상태와 카카오톡 화면을 확인해 주세요.':
           localReleased?
             '⚠️ Railway VOX 연결만 해제됐습니다. 서버 보이스룸은 종료되지 않았을 수 있습니다.':
             '⚠️ 보이스룸 종료 결과를 검증하지 못했습니다. 실제 상태를 확인해 주세요.';

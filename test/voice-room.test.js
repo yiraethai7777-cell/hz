@@ -817,3 +817,47 @@ test('voice room status distinguishes an active creator call in another chat',as
   await voice.handle(args);
   assert.match(sent[0],/다른 방에서 Railway VOX 세션 유지 중/);
 });
+
+
+test('a verified VOX hangup request is confirmed only by same-call server vr_bye',async()=>{
+  const {EventEmitter}=require('node:events');
+  const auto=require('../shared/voice-room-auto-detect');
+  const {args,client,sent}=fixture({text:'#보룸종료'});
+  const emitter=Object.assign(new EventEmitter(),client);
+  args.client=emitter;
+  const config={isManaged:async()=>false,isBotEnabled:async()=>false,send:async()=>{}};
+  auto.install(emitter,config);
+  const own='13299692653040311',different='13299692653040312';
+  function bye(callId,logId) {
+    return {room:{id:ROOM,isOpenChat:true},message:{type:52,logId},
+      raw:{chatLog:{logId,attachment:JSON.stringify({type:'vr_bye',callId})}}};
+  }
+  let requested=0;
+  args.adapter={
+    status:async()=>({roomId:ROOM,localSession:true,localActive:true,
+      localCallId:own,stopAvailable:true}),
+    async stop() {
+      requested++;
+      queueMicrotask(async()=>{
+        await auto.handleMessage(bye(different,'932105'),config);
+        await auto.handleMessage(bye(own,'932106'),config);
+      });
+      return {roomId:ROOM,requestAccepted:true,closed:false,verified:false};
+    },
+  };
+  await voice.handle(args);
+  assert.equal(requested,1);
+  assert.match(sent[0],/종료가 서버에서 확인되었습니다/);
+});
+test('no termination request is sent without registered closure-event watcher',async()=>{
+  const {args,sent}=fixture({text:'#보룸종료'});
+  let requested=0;
+  args.adapter={
+    status:async()=>({roomId:ROOM,localSession:true,localActive:true,
+      localCallId:'13299692653040311',stopAvailable:true}),
+    stop:async()=>{requested++;return {requestAccepted:true};},
+  };
+  await voice.handle(args);
+  assert.equal(requested,0);
+  assert.match(sent[0],/종료 이벤트 감지기가 준비되지 않았습니다/);
+});

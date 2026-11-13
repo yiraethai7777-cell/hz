@@ -891,3 +891,65 @@ test('VOX local creator shutdown requests a graceful TLS close instead of blind 
   await conn.whenClosed;
   await assert.rejects(()=>conn.send(METHODS.PING,{a:1}),/종료/);
 });
+
+
+test('verified, version-matched hangup driver requests shutdown but does not fake vr_bye',async()=>{
+  let sent=0,closed=0,activeRequest=null;
+  const fakeConn={
+    close(){closed++;},whenClosed:new Promise(()=>{}),
+    wait(method){
+      return {promise:Promise.resolve({method,body:method===METHODS.CREATED?
+        {callId:'100',csId:'200',sdp:{sdp:'answer'}}:
+        {resCode:0,callId:'100',csId:'200'}}),cancel(){}};
+    },
+    async send(){sent++;},
+  };
+  const opts={
+    actorUserId:USER,cfg,codec,entryHost:'entry.example',appVer:'26.3.1',
+    credentialsForRoom:async()=>({oauthToken:'token',deviceUuid:'uuid'}),
+    verifyMembership:async()=>true,
+    rtcFactory:async()=>({createOffer:async()=>sdp,applyAnswer:async()=>{},close:async()=>{}}),
+    connect:async({host})=>host==='entry.example'?
+      {request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),close(){}}:fakeConn,
+    hangupTransport:{
+      verified:true,appVer:'26.3.1',
+      async hangUp(req){
+        activeRequest=req;
+        return {requestAccepted:true,verified:true,closed:true};
+      },
+    },
+  };
+  const adapter=createVox30Adapter(opts);
+  await adapter.create({roomId:ROOM,title:'테스트'});
+  assert.equal((await adapter.status({roomId:ROOM})).stopAvailable,true);
+  const before=sent;
+  await assert.rejects(adapter.stop({roomId:ROOM,voiceRoomId:'999'}),/다른 보이스룸 통화/);
+  assert.equal(activeRequest,null);
+  const stopped=await adapter.stop({roomId:ROOM,voiceRoomId:'100'});
+  assert.deepEqual(stopped,{
+    roomId:ROOM,requestAccepted:true,closed:false,verified:false,
+    localReleased:false,serverStopUnavailable:false,
+  });
+  assert.equal(activeRequest.roomId,ROOM);
+  assert.equal(activeRequest.callId,'100');
+  assert.equal(activeRequest.csId,'200');
+  assert.equal(activeRequest.actorUserId,USER);
+  assert.equal(activeRequest.connection,fakeConn);
+  assert.equal(sent,before); // driver controlled; adapter never guesses a packet
+  assert.equal(closed,0); // do not orphan the existing creator connection
+  assert.equal((await adapter.status({roomId:ROOM})).localActive,true);
+  await adapter.dispose();
+});
+test('a mismatched hangup protocol version cannot enable production termination',async()=>{
+  const adapter=createVox30Adapter({
+    actorUserId:USER,cfg,codec,entryHost:'entry.example',appVer:'26.3.1',
+    credentialsForRoom:async()=>({oauthToken:'token',deviceUuid:'uuid'}),
+    verifyMembership:async()=>true,
+    rtcFactory:async()=>({}),
+    hangupTransport:{verified:true,appVer:'26.9.2',async hangUp(){
+      throw Error('mismatched driver must not be used');
+    }},
+  });
+  assert.equal((await adapter.status({roomId:ROOM})).stopAvailable,false);
+  await adapter.dispose();
+});

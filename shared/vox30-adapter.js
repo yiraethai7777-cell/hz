@@ -72,6 +72,9 @@ function createVox30Adapter({
   credentialsForRoom,rtcFactory,verifyMembership,connect,transport,appVer,userTypeForRoom=()=>1,
   // Only version-matched, independently verified drivers may be supplied.
   joinTransport=null,acceptSpeakerTransport=null,acceptModeratorTransport=null,
+  // A version-matched, independently verified wire implementation is required.
+  // No production hangup driver exists yet; unknown method numbers MUST NOT be sent.
+  hangupTransport=null,
 }={}) {
   const userId=checkedId(actorUserId);
   if(String(cfg?.userId??'')!==userId)
@@ -83,6 +86,9 @@ function createVox30Adapter({
     throw Error('VOX 암호화/BSON codec이 필요합니다.');
   let active=null;
   let running=false;
+  const canServerHangup=hangupTransport?.verified===true&&
+    hangupTransport.appVer===appVer&&
+    typeof hangupTransport.hangUp==='function';
   const {ownRole}=require('./vox30-role-state');
   const participant=require('./vox30-participation').createParticipationController({
     actorUserId:userId,joinTransport,acceptSpeakerTransport,acceptModeratorTransport,
@@ -188,7 +194,7 @@ function createVox30Adapter({
       const same=active?.chatId===id;
       return {
         roomId:id,verified:false,statusKnown:false,
-        localSession:true,localActive:same,stopAvailable:false,
+        localSession:true,localActive:same,stopAvailable:canServerHangup,
         ...(same&&active?.session?.callId!=null
           ?{localCallId:checkedId(active.session.callId)}:{}),
         ...((()=>{
@@ -309,26 +315,38 @@ function createVox30Adapter({
         throw e;
       }finally{running=false;}
     },
-    // The owner-initiated shutdown tears down the actual VOX signalling
-    // connection, RTP and keepalive. The only-moderator leave rule can end
-    // the KakaoTalk room, but server closure must be confirmed via vr_bye.
-    // The KakaoTalk server does not treat TLS socket FIN as the native
-    // VoxCall30Impl.hangUp(0) request. Disconnecting the sole moderator
-    // without an authenticated hangup packet ORPHANS the voice room.
-    // A real server termination transport is not verified for VOX30 yet.
-    // Keep the creator session alive and reject incomplete stop attempts.
+    // Only a real, version-matched VOX hangup implementation may request
+    // server termination. TLS FIN, 11009 server events and old 10004 examples
+    // are not client hangup evidence. Keep RTP/PING active until the server
+    // ends the call; callers verify same-call LOCO vr_bye before claiming success.
     async stop({roomId,voiceRoomId}={}) {
       const id=checkedId(roomId);
       const current=active;
       if(!current||current.chatId!==id)
         return {roomId:id,closed:false,verified:false,
           localReleased:false,serverStopUnavailable:true};
-      if(voiceRoomId!=null&&
-          checkedId(voiceRoomId)!==checkedId(current.session.callId))
+      const callId=checkedId(current.session.callId);
+      if(voiceRoomId!=null&&checkedId(voiceRoomId)!==callId)
         throw Error('다른 보이스룸 통화 ID로 종료할 수 없습니다.');
-      console.warn('[VOICE VOX30] verified hangUp wire unavailable; retained creator session');
-      return {roomId:id,closed:false,verified:false,
-        localReleased:false,serverStopUnavailable:true};
+      if(!canServerHangup){
+        console.warn('[VOICE VOX30] verified hangUp wire unavailable; retained creator session');
+        return {roomId:id,closed:false,verified:false,
+          localReleased:false,serverStopUnavailable:true};
+      }
+      if(running)throw Error('다른 VOX 요청을 처리 중입니다.');
+      running=true;
+      try {
+        const ack=await hangupTransport.hangUp({
+          roomId:id,callId,
+          csId:current.session.csId==null?null:checkedId(current.session.csId),
+          actorUserId:userId,connection:current.session.conn,
+        });
+        const requestAccepted=active===current && ack?.requestAccepted===true;
+        // An ACK (or a successful send) cannot establish room termination.
+        // Only an independently received matching vr_bye can confirm it.
+        return {roomId:id,requestAccepted,closed:false,verified:false,
+          localReleased:false,serverStopUnavailable:false};
+      }finally {running=false;}
     },
     async join({roomId,botUserId}={}) {
       const id=checkedId(roomId);
