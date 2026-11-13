@@ -36,7 +36,13 @@ jobs:
       - run: npm run build
       - run: node --check experiments/voice-room/frida-vox-observe.js
       - run: node --test test/vox30-role-state.test.js
-      - run: node --test test/vox30-participation.test.js
+      - run: node --test --test-name-pattern="unverified VOX methods" test/vox30-participation.test.js
+      - run: node --test --test-name-pattern="a verified join transport" test/vox30-participation.test.js
+      - run: node --test --test-name-pattern="fake chat invite" test/vox30-participation.test.js
+      - run: node --test --test-name-pattern="authenticated server invitation" test/vox30-participation.test.js
+      - run: node --test --test-name-pattern="moderator upgrade" test/vox30-participation.test.js
+      - run: node --test --test-name-pattern="driver denial" test/vox30-participation.test.js
+      - run: node --test --test-name-pattern="direct adapter exposes" test/vox30-participation.test.js
       - run: node --test test/voice-room.test.js test/voice-router.test.js test/voice-room-observer.test.js test/voice-room-auto-detect.test.js test/voice-room-join-info.test.js test/voice-room-frida-observe.test.js test/vox30-role-state.test.js
       # SEED-CBC is in OpenSSL's legacy provider. Scope it to this test subprocess.
       # Never change NODE_OPTIONS on the running KakaoForge/Railway bot.
