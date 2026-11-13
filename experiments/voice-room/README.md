@@ -42,3 +42,21 @@ node --test test/voice-room-frida-observe.test.js
 
 참고: 공식 Frida JS API https://frida.re/docs/javascript-api/
 
+
+## 보룸 종료 패킷 확인용 읽기 전용 후킹 (2026-11-14)
+
+- 파일: \`experiments/voice-room/frida-vox-hangup-metadata.js\`
+- 사용 목적: **테스트용 카카오톡 계정**에서 정상적으로 보룸 퇴장했을 때 \`VoxCall30Impl.hangUp()\` 호출과, 지원되는 동적 TLS \`SSL_write\`에 전달된 VOX **메서드 번호**만 관찰
+- 출력 정보: \`hangup_called\`, \`outgoing_vox_method\`의 숫자 \`method\`와 길이만. **원본 패킷/BSON/토큰/ID/SDP/주소/음성은 절대 출력하지 않습니다.**
+- 설치 방법: 기존 Frida 관찰 실험과 같은 방식으로 별도 시험 계정이 로그인된 LDPlayer에서 실행합니다.
+
+~~~bash
+frida-ps -Ua
+frida -U -n com.kakao.talk -l experiments/voice-room/frida-vox-hangup-metadata.js
+~~~
+
+- 메서드가 설치되면 **앱에서 직접 종료 버튼을 눌러** \`hangup_called\` 뒤 최대 3초 동안의 \`outgoing_vox_method\`를 비교합니다. 이 스크립트는 스스로 종료 요청을 실행하지 않습니다.
+- \`tlsHooks:0\` 또는 \`tls_hook_unavailable\`이면 대상 버전은 SSL 함수가 정적 링크/숨김 처리되었을 수 있어, **메서드 번호를 아직 확인할 수 없습니다**. 미확인 패킷을 추측해 전송하지 마세요.
+- method ID만으로는 부족합니다. 실제 VOX3.0 서버 종료 패킷의 **BSON 필드 이름·형식·서버 응답**까지 독립적으로 검증해야 합니다.
+- 테스트 계정으로만 사용하세요. 현재 Railway와 같은 카카오톡 계정으로 Android 로그인하면 서버 세션이 충돌할 수 있습니다.
+- 로컬 검사: \`node --check experiments/voice-room/frida-vox-hangup-metadata.js\`; \`node --test test/vox30-hangup-observe.test.js\`.
