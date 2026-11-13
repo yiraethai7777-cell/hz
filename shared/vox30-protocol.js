@@ -594,6 +594,13 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
   const createBody=getCreateBody({
     cfg,chatId,title,oauthToken,deviceUuid,sdp,userType,appVer,
   });
+  // Log safe create-request field evidence only; never log carrier value, token or SDP.
+  console.info('[VOICE VOX30] create network fields '+JSON.stringify({
+    carrierId:Object.hasOwn(createBody,'carrierId'),
+    simOperator:Object.hasOwn(createBody,'simOperator'),
+    netType:integer(createBody.netType),
+    mobileNetType:integer(createBody.mobileNetType),
+  }));
   const server=await getCallServer({
     cfg,chatId,entryHost,entryPort,codec,appVer,connect,transport,
   });
