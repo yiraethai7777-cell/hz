@@ -53,6 +53,23 @@ test('supplied VOX messages retain BSON numeric types and device fields',()=>{
     deviceUuid:'device-uuid',sdp,appVer:'26.3.1'}),/토큰/);
 });
 
+test('VOX carrier and network fields survive BSON serialization',()=>{
+  const discovery=codec.parse(codec.frame(METHODS.DISCOVER,
+    getDiscoveryBody(cfg,ROOM,'26.3.1'))).body;
+  assert.equal(discovery.carrierId,cfg.carrierId);
+  assert.equal(discovery.netType._bsontype,'Int32');
+  assert.equal(integer(discovery.netType),2);
+  const creation=codec.parse(codec.frame(METHODS.CREATE,getCreateBody({
+    cfg,chatId:ROOM,title:'테스트',oauthToken:'test-token',
+    deviceUuid:'device-uuid',sdp,appVer:'26.3.1',
+  }))).body;
+  assert.equal(creation.carrierId,cfg.carrierId);
+  assert.equal(creation.simOperator,cfg.carrierId);
+  assert.equal(creation.netType._bsontype,'Int32');
+  assert.equal(integer(creation.netType),2);
+  assert.equal(creation.mobileNetType._bsontype,'Int32');
+  assert.equal(integer(creation.mobileNetType),13);
+});
 test('entry address parsing handles signed IPv4 and validates ports',()=>{
   assert.deepEqual(parseServerAddress({callable:1,
     csSslAddr:{ip:-1062731519},csSslPort:995}),{host:'192.168.1.1',port:995});
