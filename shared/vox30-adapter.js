@@ -469,7 +469,7 @@ function createVox30Adapter({
         running=false;
       }
     },
-    async join({roomId,botUserId}={}) {
+    async join({roomId,botUserId,invitation:providedInvitation}={}) {
       const id=checkedId(roomId);
       if(botUserId!=null&&checkedId(botUserId)!==userId)
         throw Error('VOX 참가 계정이 Railway 봇과 다릅니다.');
@@ -480,6 +480,12 @@ function createVox30Adapter({
       // read-only VOX discovery for this exact chat room. A generic service
       // endpoint is not an active call and cannot substitute a callId.
       let invitation=require('./voice-room-join-info').resolve(id);
+      // Only the command's read-only authenticated CHATINFO path can supply
+      // this fallback; the VOX 11002 handshake independently verifies that
+      // the destination host matches VOX discovery for the same chat.
+      if(!invitation && providedInvitation?.source==='authenticated-chatinfo' &&
+          providedInvitation.roomId===id)
+        invitation=providedInvitation;
       running=true;
       try{
         if(!invitation&&experimentalJoin===true){

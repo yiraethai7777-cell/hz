@@ -201,6 +201,65 @@ async function recover(client, roomId, now=Date.now(), {maxLogId}={}) {
   return result;
 }
 
+
+// Read-only LOCO CHATINFO fallback: Android shared chat-meta 16 describes
+// VoiceRoom state, but its exact JSON content is version-dependent.
+// Only a CURRENT liveon=true meta carrying complete, valid coordinates
+// is eligible. The contents never enter logs or chat responses.
+async function inspectServerVoiceMeta(client,roomId){
+  const id=positiveId(roomId);
+  if(!id)return {ready:false,reason:'invalid-room'};
+  if(client?.connected!==true||typeof client?._carriage?.chatInfo!=='function')
+    return {ready:false,reason:'chatinfo-unavailable'};
+  try{
+    const res=await client._carriage.chatInfo(id);
+    if(res?.status!==undefined && Number(res.status)!==0)
+      return {ready:false,reason:'chatinfo-rejected'};
+    const body=res?.body??res;
+    const roomInfo=body?.chatInfo??body?.chatData??body;
+    const replyId=trustedHistoryId(roomInfo?.chatId??roomInfo?.id??body?.chatId);
+    if(replyId&&replyId!==id)return {ready:false,reason:'room-mismatch'};
+    const metas=Array.isArray(roomInfo?.chatMetas)?roomInfo.chatMetas:
+      Array.isArray(body?.chatMetas)?body.chatMetas:[];
+    const voice=metas.find(m=>{
+      try{return Number(m?.type?.valueOf?.()??m?.type)===16;}catch{return false;}
+    });
+    if(!voice) {
+      console.info('[VOICE JOIN] CHATINFO metadata '+JSON.stringify({
+        voiceroomMetaSeen:false,endpointReady:false}));
+      return {ready:false,reason:'no-voice-meta'};
+    }
+    let content=voice.content;
+    if(typeof content==='string'){
+      if(content.length>8192||!content.trim().startsWith('{'))
+        return {ready:false,reason:'unsupported-voice-meta'};
+      try{content=JSON.parse(content);}
+      catch{return {ready:false,reason:'unsupported-voice-meta'};}
+    }
+    if(!content||typeof content!=='object'||Array.isArray(content))
+      return {ready:false,reason:'unsupported-voice-meta'};
+    const live=content.liveon===true || content.liveon===1;
+    if(!live)return {ready:false,reason:'not-live'};
+    const callId=positiveId(content.callId);
+    const hostV4=typeof content.csIP==='string'&&isIP(content.csIP)===4?
+      content.csIP:'';
+    const hostV6=typeof content.csIP6==='string'&&isIP(content.csIP6)===6?
+      content.csIP6:'';
+    const port=portNumber(content.csPort);
+    const ready=!!(callId&&hostV4&&port);
+    console.info('[VOICE JOIN] CHATINFO voiceroom metadata '+
+      JSON.stringify({voiceroomMetaSeen:true,live:true,
+        callIdPresent:!!callId,endpointReady:ready}));
+    if(!ready)return {ready:false,reason:'incomplete-voice-meta'};
+    return {ready:true,reason:'current-voice-meta',
+      invitation:{roomId:id,callId,hostV4,hostV6,port,
+        source:'authenticated-chatinfo'}};
+  }catch{
+    console.info('[VOICE JOIN] CHATINFO voice metadata unavailable');
+    return {ready:false,reason:'chatinfo-unavailable'};
+  }
+}
+
 const installed = new WeakSet();
 function install(client) {
   if (!client || typeof client.on !== 'function') return false;
@@ -216,4 +275,4 @@ function install(client) {
   });
   return true;
 }
-module.exports = { observe, status, resolve, recover, install, positiveId, portNumber, TTL_MS };
+module.exports = { observe, status, resolve, recover, inspectServerVoiceMeta, install, positiveId, portNumber, TTL_MS };

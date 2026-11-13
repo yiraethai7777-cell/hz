@@ -310,6 +310,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         return true;
       }
       if(isJoin){
+        let metaInvite=null;
         // The bot may not have witnessed vr_invite (restart, earlier room),
         // so try a bounded read-only SYNCMSG lookup once, without emitting old
         // messages as commands. No endpoint means no guessed 11002 packet.
@@ -320,9 +321,12 @@ async function handle({client,roomId,msg,text,send,adapter}){
               maxLogId:msg?.message?.logId??msg?.raw?.chatLog?.logId??msg?.logId,
             });
           if(!require('./voice-room-join-info').status(room).endpointReady){
-            // No LOCO invite is not proof there is no call. VOX discovery is
-            // consulted in transport.join() to look for a real server callId.
-            console.info('[VOICE JOIN] LOCO invite unavailable; trying authenticated VOX discovery fallback');
+            // CHATINFO can carry VoiceRoom metadata even when the initiating
+            // type-52 chat log was not sent to the bot.
+            const meta=await require('./voice-room-join-info')
+              .inspectServerVoiceMeta(client,room);
+            if(meta.ready)metaInvite=meta.invitation;
+            else console.info('[VOICE JOIN] no usable LOCO metadata; authenticated discovery fallback remains available; meta='+meta.reason);
           }
         }
         if(state.localActive===true){
@@ -335,7 +339,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
             '기존 세션을 보호하기 위해 자동 전환하지 않습니다.');
           return true;
         }
-        const joined=await transport.join({roomId:room,botUserId:botId});
+        const joined=await transport.join({roomId:room,botUserId:botId,
+          ...(metaInvite?{invitation:metaInvite}:{})});
         if(joined?.requestAccepted===true){
           await safeReply(client,send,
             (state.joinTrialAvailable===true
