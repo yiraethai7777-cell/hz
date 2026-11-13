@@ -340,3 +340,20 @@ test('bot account with nonmanager message role can reach the voice join handler'
   assert.match(sent[0].body,/보이스룸 참가 실행 불가/);
   assert.doesNotMatch(sent[0].body,/방장·부방장 또는 봇 계정만/);
 });
+
+test('Iris Noa comparison command routes without replacing direct VOX',async()=>{
+  const {emit,sent,client}=fixture();
+  await emit('#보룸아이리스상태',2,client.userId);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/별도 Android 연동이 준비되지 않았습니다/);
+  await emit('#보룸아이리스시작 테스트',2,client.userId);
+  assert.equal(sent.length,2);
+  assert.match(sent[1].body,/별도 Android 연동이 준비되지 않았습니다/);
+});
+
+test('Iris Noa start command requires the actual bot ID',async()=>{
+  const {emit,sent}=fixture();
+  await emit('#보룸아이리스시작 테스트',1,'991');
+  assert.equal(sent.length,1);
+  assert.match(sent[0].body,/봇 계정만/);
+});
