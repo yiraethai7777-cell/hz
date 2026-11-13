@@ -75,6 +75,8 @@ function createVox30Adapter({
   // A version-matched, independently verified wire implementation is required.
   // No production hangup driver exists yet; unknown method numbers MUST NOT be sent.
   hangupTransport=null,
+  // Explicitly opt-in diagnostic only: NOT a verified server-side hangup.
+  unsafeStopExperiment=false,
 }={}) {
   const userId=checkedId(actorUserId);
   if(String(cfg?.userId??'')!==userId)
@@ -195,6 +197,7 @@ function createVox30Adapter({
       return {
         roomId:id,verified:false,statusKnown:false,
         localSession:true,localActive:same,stopAvailable:canServerHangup,
+        unsafeStopExperimentAvailable:unsafeStopExperiment===true && same,
         ...(same&&active?.session?.callId!=null
           ?{localCallId:checkedId(active.session.callId)}:{}),
         ...((()=>{
@@ -257,7 +260,9 @@ function createVox30Adapter({
                 observedModerator=packet.memberGroups.moderators;
                 if(active?.chatId===chatId)active.lastModerator=observedModerator;
               }
-              if(packet?.method===11009 && active?.chatId===chatId) {
+              if(packet?.method===11009 &&
+                  Number.isSafeInteger(packet?.codes?.reason) &&
+                  active?.chatId===chatId) {
                 const current=active;
                 console.info('[VOICE VOX30] server terminal; latest RTP stats '+
                   JSON.stringify(current.lastRtpStats??{available:false})+
@@ -347,6 +352,51 @@ function createVox30Adapter({
         return {roomId:id,requestAccepted,closed:false,verified:false,
           localReleased:false,serverStopUnavailable:false};
       }finally {running=false;}
+    },
+    // Experiment ONLY: the server's 11009 notification is not a documented
+    // client request; a guessed minimal BSON envelope may be ignored/rejected.
+    // Force-disconnect releases only THIS ROOM's VOX TLS/WebRTC, not KakaoForge.
+    async experimentalStop({roomId,mode}={}) {
+      const id=checkedId(roomId);
+      if(unsafeStopExperiment!==true)
+        return {roomId:id,disabled:true,serverEnded:false};
+      if(!['11009','disconnect'].includes(mode))
+        throw Error('허용되지 않은 VOX 종료 실험 방식입니다.');
+      const current=active;
+      if(!current||current.chatId!==id)
+        return {roomId:id,noLocalSession:true,serverEnded:false};
+      if(running)throw Error('다른 VOX 요청을 처리 중입니다.');
+      running=true;
+      try{
+        if(mode==='11009'){
+          if(current.sent11009Experiment===true)
+            return {roomId:id,alreadyTried:true,serverEnded:false};
+          current.sent11009Experiment=true;
+          const callId=checkedId(current.session.callId);
+          const body={
+            userId:new I64(userId),
+            callId:new I64(callId),
+            ...(current.session.csId==null?{}:{
+              csId:new I64(checkedId(current.session.csId))
+            }),
+            reason:new I32(0),
+          };
+          // Number and body schema are unverified. One attempt per live call.
+          try{
+            await current.session.conn.send(11009,body);
+            console.warn('[VOICE VOX30] experimental outgoing method=11009, server result unverified');
+            return {roomId:id,packetSent:true,localReleased:false,serverEnded:false};
+          }catch{
+            console.warn('[VOICE VOX30] experimental 11009 send failed');
+            return {roomId:id,packetSent:false,localReleased:false,serverEnded:false};
+          }
+        }
+        await release(current);
+        console.warn('[VOICE VOX30] experimental local VOX disconnect; Kakao room not verified closed');
+        return {roomId:id,packetSent:false,localReleased:true,serverEnded:false};
+      }finally{
+        running=false;
+      }
     },
     async join({roomId,botUserId}={}) {
       const id=checkedId(roomId);

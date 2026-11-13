@@ -80,7 +80,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
+  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
@@ -170,6 +170,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const role=botMemberType(client,room);
   const isStatus=match[1].endsWith('상태');
   const isStop=match[1].endsWith('끄기') || match[1].endsWith('종료');
+  const isUnsafeStopTest=match[1].endsWith('종료시험');
   const isHelp=match[1].endsWith('명령어');
   const isJoinStatus=match[1].endsWith('참가상태')||match[1].endsWith('참여상태');
   const isJoin=match[1].endsWith('참가')||match[1].endsWith('참여');
@@ -352,6 +353,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸감지 · 관찰된 신호 후보 확인\n' +
       '#보룸감지종료 · 관찰 중단\n' +
       '#보룸종료 / #보룸끄기 · 서버 정상 종료 구현 미검증 (진행자 세션 보호)\n' +
+      '#보룸종료시험 11009 / #보룸종료시험 연결해제 · 비검증 종료 실험 (방장·부방장 또는 봇 계정만)\n' +
       '※ 실제 서버 API가 연결된 경우에만 생성·종료합니다.\n' +
       '※ 방장·부방장 및 봇 계정이 사용 가능합니다.\n' +
       '※ 봇 계정은 명령어를 직접 사용할 수 있지만 실제 생성·종료는 카카오톡 서버 권한 및 API 지원에 따릅니다.');
@@ -396,6 +398,93 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '\n개설 연동: '+capability+authLine+
       '\n마지막 자동 감지: '+observedText+
       '\n※ 수신 이벤트 기록은 실제 보이스룸 활성 상태 조회가 아닙니다.');
+    return true;
+  }
+
+  if(isUnsafeStopTest){
+    // Deliberately separate from #보룸종료: never change verified stop flow.
+    // Elevated sender + elevated bot, same chat, explicit mode required.
+    if(!isBotAccount&&!managerRole(msg?.sender?.type)){
+      await safeReply(client,send,'❌ 종료 실험은 방장·부방장 또는 봇 계정만 실행할 수 있습니다.');
+      return true;
+    }
+    if(!isBotAccount&&!managerRole(role)){
+      await safeReply(client,send,'❌ 봇 계정에 방장·부방장 권한이 없어 종료 실험을 실행하지 않습니다.');
+      return true;
+    }
+    const argument=raw.slice(match[0].length).trim();
+    const mode=argument==='11009'?'11009':
+      argument==='연결해제'?'disconnect':null;
+    if(!mode){
+      await safeReply(client,send,'⚠️ 정확한 실험 명령어를 입력해 주세요.\n'+
+        '#보룸종료시험 11009 · 검증되지 않은 패킷을 1회 송신\n'+
+        '#보룸종료시험 연결해제 · 이 방의 Railway VOX 세션만 해제\n'+
+        '※ 두 방식 모두 카카오톡 서버 보룸 종료를 보장하지 않습니다.');
+      return true;
+    }
+    if(!transport||typeof transport.experimentalStop!=='function'||
+        typeof transport.status!=='function'){
+      await safeReply(client,send,'❌ Railway VOX 종료 실험 모듈이 연결되지 않았습니다.');
+      return true;
+    }
+    if(running.has(room)){
+      await safeReply(client,send,'⏳ 이미 이 방의 보이스룸 요청을 처리하고 있습니다.');
+      return true;
+    }
+    running.add(room);
+    let endWatch=null;
+    try{
+      const before=await transport.status({roomId:room});
+      if(before?.localSession!==true||before?.localActive!==true||
+          String(before.roomId)!==room){
+        await safeReply(client,send,'❌ 이 방에서 봇이 직접 유지하는 활성 VOX 연결이 없습니다.\n'+
+          '이미 끊어진 세션이나 다른 방의 보이스룸에는 실험을 실행할 수 없습니다.');
+        return true;
+      }
+      if(before.unsafeStopExperimentAvailable!==true){
+        await safeReply(client,send,'❌ Railway 종료 실험이 비활성화되어 있습니다. '+
+          'NEXI_VOX_UNSAFE_STOP_TEST=1 설정이 필요합니다.');
+        return true;
+      }
+      if(before.localCallId){
+        endWatch=require('./voice-room-auto-detect')
+          .watchEnd(client,room,before.localCallId);
+      }
+      const result=await transport.experimentalStop({roomId:room,mode});
+      if(result?.disabled||result?.noLocalSession){
+        await safeReply(client,send,'⚠️ 활성 VOX 연결이 없어 실험 요청을 수행하지 않았습니다.');
+        return true;
+      }
+      if(result?.alreadyTried){
+        await safeReply(client,send,'⚠️ 이 보이스룸에는 이미 11009 패킷을 시험했습니다. '+
+          '동일 통화에 다시 전송하지 않았습니다.');
+        return true;
+      }
+      const happened=(result?.packetSent===true||result?.localReleased===true);
+      const ended=happened&&endWatch?await endWatch.wait():false;
+      if(ended){
+        await safeReply(client,send,'🎙️ 실험 이후 같은 통화 ID의 서버 vr_bye 종료 이벤트를 확인했습니다.\n'+
+          '※ 사용한 실험 방식이 종료 원인인지는 별도 검증이 필요합니다.');
+      }else if(result?.packetSent===true){
+        await safeReply(client,send,'🧪 VOX 11009 패킷을 1회 송신했습니다.\n'+
+          '서버 종료 이벤트(vr_bye)는 확인되지 않았습니다.\n'+
+          '※ 패킷 규격은 미검증이며 보이스룸이 그대로 열려 있을 수 있습니다.');
+      }else if(result?.localReleased===true){
+        await safeReply(client,send,'🧪 이 방의 Railway VOX 연결만 강제로 해제했습니다.\n'+
+          '카카오톡 봇 로그인은 유지됩니다.\n'+
+          '서버 종료 이벤트(vr_bye)는 확인되지 않았습니다. 실제 보룸은 남아 있을 수 있습니다.');
+      }else{
+        await safeReply(client,send,'❌ 종료 실험 요청이 송신되지 않았습니다. '+
+          '기존 VOX 세션 상태를 확인해 주세요.');
+      }
+    }catch(error){
+      console.error('[VOICE VOX30] stop experiment failure:',
+        String(error?.message||error).slice(0,160));
+      await safeReply(client,send,'❌ VOX 종료 실험 처리에 실패했습니다. 서버 종료 여부는 미확인입니다.');
+    }finally{
+      endWatch?.close();
+      running.delete(room);
+    }
     return true;
   }
 

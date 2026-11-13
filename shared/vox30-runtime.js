@@ -66,6 +66,7 @@ function installDirectVoice(client,{env=process.env,
       // Opt-in so existing VOX rooms remain unaffected until test results.
       enableSilentAudio:env.NEXI_VOX_TX_SILENCE==='1',
       hangupTransport,
+      unsafeStopExperiment:env.NEXI_VOX_UNSAFE_STOP_TEST==='1',
       async connect(options) {
         const entry=options.host===ENTRY_HOST&&options.port===ENTRY_PORT;
         const {isPublicIpv4}=require('../experiments/vox30/synthetic-discovery');
@@ -151,7 +152,8 @@ function installDirectVoice(client,{env=process.env,
     };
     log.info('[VOICE VOX30] direct create adapter installed; optional device fields: '+Object.keys(device).length+
       '; silent RTP TX: '+(env.NEXI_VOX_TX_SILENCE==='1'?'enabled':'off')+
-      '; VOX local room slots='+maxActiveRooms+(maxActiveRooms>1?' (experimental; server unverified)':''));
+      '; VOX local room slots='+maxActiveRooms+(maxActiveRooms>1?' (experimental; server unverified)':'')+
+      '; unsafe stop test='+(env.NEXI_VOX_UNSAFE_STOP_TEST==='1'?'enabled':'disabled'));
     return true;
   }catch{
     log.warn('[VOICE VOX30] direct create adapter initialization failed');

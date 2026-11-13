@@ -10,12 +10,13 @@ function createLabAdapter({
   actorUserId,cfg,entryHost,entryPort,appVer,
   credentialsForRoom,verifyMembership,
   rtcConfig,iceTimeoutMs,connect,userTypeForRoom,enableSilentAudio=false,
-  hangupTransport=null,
+  hangupTransport=null,unsafeStopExperiment=false,
 }={}) {
   return createVox30Adapter({
     actorUserId,cfg,entryHost,entryPort,appVer,
     codec:createCodec({seed:seedCbcBytes()}),
     credentialsForRoom,verifyMembership,userTypeForRoom,hangupTransport,
+    unsafeStopExperiment,
     rtcFactory:()=>createWebRtcPeer({rtcConfig,iceTimeoutMs,silentAudio:enableSilentAudio}),
     ...(connect?{connect}:{}),
   });

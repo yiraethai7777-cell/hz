@@ -28,6 +28,7 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1}={}){
     return {
       roomId,verified:false,statusKnown:false,
       localSession:true,localActive:false,stopAvailable:false,
+      unsafeStopExperimentAvailable:false,
       joinAvailable:false,speakerAutoAcceptAvailable:false,
       moderatorAutoAcceptAvailable:false,pendingRoles:[],
       localBusyOtherRoom:sessions.size>=maxRooms,
@@ -82,6 +83,16 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1}={}){
           throw error;
         }
       }finally{negotiating=false;}
+    },
+    async experimentalStop(request={}){
+      ensureOpen();
+      const id=checkedId(request.roomId);
+      const entry=sessions.get(id);
+      if(!entry || entry.phase!=='live')
+        return {roomId:id,noLocalSession:true,serverEnded:false};
+      if(typeof entry.adapter.experimentalStop!=='function')
+        return {roomId:id,disabled:true,serverEnded:false};
+      return entry.adapter.experimentalStop({...request,roomId:id});
     },
     async stop(request={}){
       ensureOpen();
