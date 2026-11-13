@@ -56,12 +56,14 @@ function installDirectVoice(client,{env=process.env,
       (env.NEXI_VOX_CARRIER_ID?'explicit-vox-env':
         device.carrierId?'current-kakaoforge-session':'absent'));
     // One VOX call per account remains the production default.
-    // NEXI_VOX_MAX_ACTIVE_ROOMS=2 is an experimental opt-in only:
+    // NEXI_VOX_MAX_ACTIVE_ROOMS=2..10 is an experimental opt-in only:
     // separate TLS/RTC connections do NOT prove server-side multi-call support.
-    const maxActiveRooms=env.NEXI_VOX_MAX_ACTIVE_ROOMS==='2'?2:1;
+    const requestedRooms=String(env.NEXI_VOX_MAX_ACTIVE_ROOMS??'1');
+    const maxActiveRooms=/^(?:[1-9]|10)$/.test(requestedRooms)
+      ?Number(requestedRooms):1;
     if(env.NEXI_VOX_MAX_ACTIVE_ROOMS &&
-       !['1','2'].includes(env.NEXI_VOX_MAX_ACTIVE_ROOMS))
-      log.warn('[VOICE VOX30] unsupported concurrency setting; using one session');
+       !/^(?:[1-9]|10)$/.test(requestedRooms))
+      log.warn('[VOICE VOX30] concurrency must be 1..10; using one session');
     const makeRoomAdapter=()=>loadLab().createLabAdapter({
       actorUserId:auth.actorUserId,
       cfg:{...device,userId:auth.actorUserId},
@@ -132,9 +134,9 @@ function installDirectVoice(client,{env=process.env,
         return userType;
       },
     });
-    const transport=maxActiveRooms===2?
+    const transport=maxActiveRooms>1?
       createMultiRoomAdapter({
-        createAdapter:makeRoomAdapter,maxRooms:2,
+        createAdapter:makeRoomAdapter,maxRooms:maxActiveRooms,
         joinTrialEnabled:env.NEXI_VOX_JOIN_TRIAL==='1',
       }):
       makeRoomAdapter();
@@ -148,8 +150,8 @@ function installDirectVoice(client,{env=process.env,
           return result;
         }catch(error){
           const message=String(error?.message||'');
-          // Keep user-actionable VOX session errors. A second chat cannot
-          // create while the same bot account has an active VOX call.
+          // Keep user-actionable VOX session errors. Local room slots are
+          // independent of server-side account concurrency restrictions.
           // The generic fallback previously hid this explicit adapter guard.
           const safe=/^VOX 보이스룸 생성 (?:응답 )?거절: (?:resCode|reason)=-?\d+$/.test(message)
             ?message:
