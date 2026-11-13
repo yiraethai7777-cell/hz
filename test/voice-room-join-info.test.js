@@ -89,3 +89,67 @@ test('install attaches one passive listener and never makes network requests',()
   })});
   assert.equal(joinInfo.status('18495931541358619').endpointReady,true);
 });
+
+
+test('live invitation cache follows actual 48-hour room lifetime rather than five minutes',()=>{
+  const now=1700000000000;
+  const room='18495931541358001';
+  assert.equal(joinInfo.TTL_MS,48*60*60*1000);
+  assert.equal(joinInfo.observe(makeMessage({now,roomId:room,logId:'901001'}),now),true);
+  assert.equal(joinInfo.status(room,now+15*60*1000).endpointReady,true);
+  assert.equal(joinInfo.resolve(room,now+15*60*1000).callId,CALL);
+  assert.equal(joinInfo.status(room,now+joinInfo.TTL_MS+1).endpointReady,false);
+});
+test('SYNCMSG history recovery uses bounded read-only source without emitting old commands',async()=>{
+  const now=1700000000000;
+  const room='18495931541358002';
+  let calls=0;
+  const client={connected:true,_carriage:{async syncMsg(opts){
+    calls++;assert.deepEqual(opts,{chatId:room,cur:0,max:0,cnt:100});
+    return {body:{chatLogs:[{
+      type:52,logId:'901011',sendAt:Math.floor((now-60*60*1000)/1000),
+      attachment:JSON.stringify({type:'vr_invite',callId:CALL,csIP:HOST,csPort:9000}),
+    }]}};
+  }}};
+  const result=await joinInfo.recover(client,room,now);
+  assert.deepEqual(result,{recovered:true,reason:'history'});
+  assert.equal(calls,1);
+  assert.equal(joinInfo.resolve(room,now).hostV4,HOST);
+  const repeat=await joinInfo.recover(client,room,now+3000);
+  assert.equal(repeat.recovered,true);
+  assert.equal(calls,1);
+});
+test('historical room end event always overrides old invite regardless of unsorted response',async()=>{
+  const now=1700000000000,room='18495931541358003';
+  const logs=[
+    {type:52,logId:'902003',sendAt:Math.floor((now-80000)/1000),
+      attachment:JSON.stringify({type:'vr_bye',callId:CALL})},
+    {type:52,logId:'902001',sendAt:Math.floor((now-100000)/1000),
+      attachment:JSON.stringify({type:'vr_invite',callId:CALL,csIP:HOST,csPort:9000})},
+  ];
+  const client={connected:true,_carriage:{async syncMsg(){return {body:{chatLogs:logs}}}}};
+  const r=await joinInfo.recover(client,room,now);
+  assert.equal(r.recovered,false);
+  assert.equal(joinInfo.status(room,now).phase,'ended');
+  assert.equal(joinInfo.resolve(room,now),null);
+  assert.equal((await joinInfo.recover(client,room,now+1000)).reason,'ended');
+});
+test('history recovery ignores stale 48h records, malformed IDs and unrelated message text',async()=>{
+  const now=1700000000000,room='18495931541358004';
+  const client={connected:true,_carriage:{async syncMsg(){return {body:{chatLogs:[
+    {type:52,logId:'903001',sendAt:Math.floor((now-49*60*60*1000)/1000),
+      attachment:JSON.stringify({type:'vr_invite',callId:CALL,csIP:HOST,csPort:9000})},
+    {type:1,logId:'903002',sendAt:Math.floor(now/1000),
+      message:'#보룸참가',attachment:JSON.stringify({type:'vr_invite',callId:CALL,csIP:HOST,csPort:9000})},
+    {type:52,logId:'bad-id',sendAt:Math.floor(now/1000),
+      attachment:JSON.stringify({type:'vr_invite',callId:CALL,csIP:HOST,csPort:9000})},
+  ]}}}}};
+  const r=await joinInfo.recover(client,room,now);
+  assert.equal(r.recovered,false);
+  assert.equal(joinInfo.resolve(room,now),null);
+});
+test('missing LOCO history API returns a specific non-success result',async()=>{
+  const result=await joinInfo.recover({connected:true},'18495931541358005');
+  assert.equal(result.recovered,false);
+  assert.equal(result.reason,'history-unavailable');
+});
