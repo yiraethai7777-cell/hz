@@ -3,6 +3,21 @@ const { getPool } = require("../shared/db");
 const { ensureWallet } = require("./wallet");
 const BONUS = 100000;
 const fmt = n => Number(n).toLocaleString("ko-KR");
+// Keep signup copy aligned with other KakaoTalk Game Manager replies.
+function formatJoinGameMessage({ name, balance, bonus = 0, joined }) {
+  const lines = [
+    `🎮 카카오톡 게임 매니저 | ${joined ? '게임 가입 완료' : '게임 가입 안내'}`,
+    '━━━━━━━━━━━━━━━━━━',
+    `👤 닉네임 · ${name}`,
+    `✅ 가입 상태 · ${joined ? '가입 완료' : '이미 가입됨'}`
+  ];
+  if (joined) lines.push(`🎁 가입 축하금 · ${fmt(bonus)}코인`);
+  lines.push(`🪙 보유 코인 · ${fmt(balance)}코인`);
+  if (joined && !bonus) lines.push('📌 기존 지갑 잔액은 그대로 유지됩니다.');
+  lines.push('━━━━━━━━━━━━━━━━━━');
+  lines.push('📖 !게임명령어로 게임 목록을 확인할 수 있습니다.');
+  return lines.join('\n');
+}
 async function initMembers() {
   const db = getPool();
   await db.query(`CREATE TABLE IF NOT EXISTS hz_game_members (
@@ -38,10 +53,8 @@ async function joinGame(roomId,userId,userName) {
     const wallet=await db.query("SELECT balance FROM hz_wallets WHERE room_id=$1 AND user_id=$2",[room,user]);
     await db.query("COMMIT");
     const balance=wallet.rows[0].balance;
-    return inserted.rowCount
-      ? `🎮 HZ 게임 가입 완료!\n━━━━━━━━━━━━━━\n👤 이름: ${name}\n🪙 가입 축하금: ${fmt(bonus)}코인\n💰 현재 잔액: ${fmt(balance)}코인${bonus ? '' : '\n📌 기존 지갑 잔액은 그대로 유지됩니다.'}`
-      : `🎮 이미 가입된 사용자입니다.\n━━━━━━━━━━━━━━\n👤 이름: ${name}\n🪙 현재 코인: ${fmt(balance)}코인`;
+    return formatJoinGameMessage({ name, balance, bonus, joined: !!inserted.rowCount });
   } catch(e) { await db.query("ROLLBACK"); throw e; }
   finally { db.release(); }
 }
-module.exports={initMembers,isMember,joinGame};
+module.exports={initMembers,isMember,joinGame,formatJoinGameMessage};
