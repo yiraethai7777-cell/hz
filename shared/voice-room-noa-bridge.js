@@ -170,4 +170,30 @@ function installFromEnv(client, env = process.env, fetchImpl) {
   }
 }
 
-module.exports = { createNoaBridge, installFromEnv, bridgeConfig };
+
+// Optional Iris/Noa comparison path. Never replace the Railway direct adapter.
+// Require a deliberately configured, separate Android KakaoTalk actor so the
+// existing Railway bot login is not silently reused on another device.
+function installIrisSidecarFromEnv(client, env = process.env, fetchImpl) {
+  if (!env.NEXI_VOICE_NOA_URL && !env.NEXI_VOICE_NOA_TOKEN &&
+      !env.NEXI_VOICE_NOA_ACTOR_USER_ID) return false;
+  try {
+    if (!client || typeof client !== 'object') throw Error('클라이언트 없음');
+    if (!env.NEXI_VOICE_NOA_ACTOR_USER_ID)
+      throw Error('별도 Android 실행 계정이 지정되지 않았습니다.');
+    const bridge = createNoaBridge({
+      baseUrl: env.NEXI_VOICE_NOA_URL,
+      token: env.NEXI_VOICE_NOA_TOKEN,
+      actorUserId: env.NEXI_VOICE_NOA_ACTOR_USER_ID,
+      fetchImpl,
+    });
+    client.voiceRoomIrisAdapter = bridge;
+    console.info('[VOICE IRIS] isolated Noa comparison adapter installed; direct VOX unchanged');
+    return true;
+  } catch {
+    console.warn('[VOICE IRIS] Noa comparison configuration incomplete or invalid');
+    return false;
+  }
+}
+
+module.exports = { createNoaBridge, installFromEnv, installIrisSidecarFromEnv, bridgeConfig };
