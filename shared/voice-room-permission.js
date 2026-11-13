@@ -11,6 +11,13 @@ function isActionCommand(text) {
   return ACTION_COMMAND.test(String(text ?? '').trim());
 }
 
+// Only the VOX create command is exempt from the room's voice ON/OFF
+// switch when the real sending account equals the connected bot account.
+const CREATE_COMMAND = /^[#!]?(?:보룸시작|보룸켜기|보이스룸시작|보이스룸켜기)(?=$|\s|[.!。])/;
+function isCreateCommand(text) {
+  return CREATE_COMMAND.test(String(text ?? '').trim());
+}
+
 async function enabled(roomId, query = (sql, params) => getPool().query(sql, params)) {
   const room = String(roomId ?? '');
   if (!/^[1-9]\d{0,23}$/.test(room)) return false;
@@ -21,4 +28,4 @@ async function enabled(roomId, query = (sql, params) => getPool().query(sql, par
   return result?.rows?.[0]?.voice_enabled === 'true';
 }
 
-module.exports = { enabled, isActionCommand };
+module.exports = { enabled, isActionCommand, isCreateCommand };

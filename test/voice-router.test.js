@@ -5,9 +5,13 @@ const assert=require('node:assert/strict');
 // Voice routing is tested without a real PostgreSQL instance. This only
 // mocks DB reads/command-block schema setup; integration tests use real DB.
 const dbModule=require('../shared/db');
+let testRoomVoiceEnabled='true';
+let testRoomBotEnabled='true';
 dbModule.getPool=()=>({query:async sql=>/voiceRoomEnabled/.test(sql)
-  ? {rows:[{voice_enabled:'true'}],rowCount:1}
-  : {rows:[],rowCount:0}});
+  ? {rows:[{voice_enabled:testRoomVoiceEnabled}],rowCount:1}
+  : /botEnabled/.test(sql)
+    ? {rows:[{enabled:testRoomBotEnabled,arden_clan:'false'}],rowCount:1}
+    : {rows:[],rowCount:0}});
 // Mock a grandfathered, active room so voice routing tests stay focused on the
 // voice handler; subscription-expiry behavior is exercised by room-subscriptions.test.js.
 require('../shared/room-subscriptions').access=async()=>({allowed:true,subscription:null});
@@ -402,4 +406,68 @@ test('VOX stop experiment is subject to room voice enabled permission gate',asyn
     assert.equal(permission.isActionCommand(text),true);
   }
   assert.equal(permission.isActionCommand('#보룸종료시험방'),false);
+});
+
+
+test('bot account starts VOX even when !봇끄기 and room voice are both OFF',async()=>{
+  const voice=require('../shared/voice-room');
+  const {emit,client,sent}=fixture();
+  let called=0,request;
+  client.voiceRoomAdapter={
+    async status({roomId}){return {roomId,localSession:true,localActive:false};},
+    async create(args){called++;request=args;return {created:true,verified:true};},
+  };
+  testRoomBotEnabled='false';
+  testRoomVoiceEnabled='false';
+  try{
+    await emit('#보룸시작 봇전용',2,client.userId);
+    assert.equal(called,1,'bot-own message must reach voice create');
+    assert.equal(request.roomId,'18495931541358610');
+    assert.equal(request.title,'봇전용');
+    assert.match(sent.at(-1).body,/보룸을 시작했습니다/);
+    assert.doesNotMatch(sent.at(-1).body,/OFF/);
+  }finally{
+    testRoomBotEnabled='true';testRoomVoiceEnabled='true';
+  }
+});
+test('bot account create aliases bypass voice OFF, non-create voice actions do not',async()=>{
+  const voice=require('../shared/voice-room');
+  const permission=require('../shared/voice-room-permission');
+  for(const input of ['#보룸시작 테스트','!보룸켜기 테스트','보이스룸시작 테스트','#보이스룸켜기 테스트']){
+    assert.equal(permission.isCreateCommand(input),true,input);
+  }
+  for(const input of ['#보룸종료','#보룸종료시험 11009','#보룸상태','#보룸시작금지']){
+    assert.equal(permission.isCreateCommand(input),false,input);
+  }
+  const {emit,client,sent}=fixture();
+  let calls=0;
+  client.voiceRoomAdapter={async status({roomId}){return {roomId,localSession:true,localActive:false};},
+    async create(){calls++;return {created:true,verified:true};}};
+  testRoomVoiceEnabled='false';
+  try{
+    await emit('#보룸켜기 테스트',2,client.userId);
+    assert.equal(calls,1);
+    assert.match(sent.at(-1).body,/보룸을 시작했습니다/);
+    await emit('#보룸종료',2,client.userId);
+    assert.match(sent.at(-1).body,/보이스룸 기능이 OFF/);
+  }finally{testRoomVoiceEnabled='true';}
+});
+test('bot OFF continues to block other users and voice OFF still blocks ordinary manager create',async()=>{
+  const {emit,client,sent}=fixture();
+  let called=0;
+  client.voiceRoomAdapter={async create(){called++;return {created:true,verified:true};}};
+  testRoomBotEnabled='false';
+  testRoomVoiceEnabled='false';
+  try{
+    await emit('#보룸시작 일반',1,'999991');
+    assert.equal(called,0);
+    assert.equal(sent.length,0);
+    testRoomBotEnabled='true';
+    await emit('#보룸시작 일반',1,'999991');
+    assert.equal(called,0);
+    assert.equal(sent.length,1);
+    assert.match(sent[0].body,/보이스룸 기능이 OFF/);
+  }finally{
+    testRoomBotEnabled='true';testRoomVoiceEnabled='true';
+  }
 });

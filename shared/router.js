@@ -362,7 +362,11 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         };
         try {
           const voicePermission = require('./voice-room-permission');
-          if (voicePermission.isActionCommand(text) &&
+          // The exact Kakao account logged in as the bot may create a
+          // VoiceRoom even if room voice settings or !봇끄기 are OFF.
+          // Do not extend this bypass to ordinary members or other commands.
+          const botOwnVoiceCreate=isBotAccount && voicePermission.isCreateCommand(text);
+          if (voicePermission.isActionCommand(text) && !botOwnVoiceCreate &&
               !(await voicePermission.enabled(roomId))) {
             await sendVoiceReply('🔒 이 채팅방은 보이스룸 기능이 OFF입니다.\n' +
               '총관리자 웹 > 채팅방 관리에서 보이스룸 기능을 활성화해 주세요.');
