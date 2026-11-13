@@ -707,3 +707,58 @@ test('voice participation status distinguishes observed roles from unsupported a
   assert.match(sent[0],/규격 검증 전/);
   assert.doesNotMatch(sent[0],/자동 수락 성공/);
 });
+
+
+test('Railway local VOX creator session can be stopped without claiming server confirmation',async()=>{
+  const {args,sent}=fixture({text:'#보룸종료'});
+  let released=0;
+  args.adapter={
+    status:async()=>({roomId:ROOM,verified:false,statusKnown:false,
+      localSession:true,localActive:released===0,localCallId:'13299692653040311'}),
+    stop:async()=>{released++;return {roomId:ROOM,closed:false,verified:false,localReleased:true};},
+  };
+  assert.equal(await voice.handle(args),true);
+  assert.equal(released,1);
+  assert.match(sent[0],/Railway VOX 보이스룸 진행자 연결을 종료했습니다/);
+  assert.match(sent[0],/서버의 종료 이벤트.*아직 확인되지 않았습니다/);
+  assert.doesNotMatch(sent[0],/종료가 서버에서 확인되었습니다/);
+});
+test('Railway VOX stop refuses another room even if there is another local session',async()=>{
+  const {args,sent}=fixture({text:'#보룸끄기'});
+  let stops=0;
+  args.adapter={
+    status:async()=>({roomId:'999',localSession:true,localActive:true,
+      localCallId:'13299692653040311'}),
+    stop:async()=>{stops++;throw Error('must never stop another chat');},
+  };
+  await voice.handle(args);
+  assert.equal(stops,0);
+  assert.match(sent[0],/활성 보이스룸을 확인하지 못해/);
+});
+test('Railway VOX stop verifies server bye only when matching room and call ID',async()=>{
+  const {EventEmitter}=require('node:events');
+  const auto=require('../shared/voice-room-auto-detect');
+  const {args,sent,client}=fixture({text:'#보룸종료'});
+  const live=Object.assign(new EventEmitter(),client);
+  args.client=live;
+  const same='13299692653040311',foreign='13299692653040312';
+  const config={isManaged:async()=>false,isBotEnabled:async()=>false,send:async()=>{}};
+  auto.install(live,config);
+  function bye(callId,logId){
+    return {room:{id:ROOM,isOpenChat:true},message:{type:52,logId},
+      raw:{chatLog:{logId,attachment:JSON.stringify({type:'vr_bye',callId})}}};
+  }
+  args.adapter={
+    status:async()=>({roomId:ROOM,localSession:true,localActive:true,
+      localCallId:same,statusKnown:false,verified:false}),
+    stop:async()=>{
+      queueMicrotask(async()=>{
+        await auto.handleMessage(bye(foreign,'930111'),config);
+        await auto.handleMessage(bye(same,'930112'),config);
+      });
+      return {roomId:ROOM,closed:false,verified:false,localReleased:true};
+    },
+  };
+  await voice.handle(args);
+  assert.match(sent[0],/보이스룸 종료가 서버에서 확인되었습니다/);
+});
