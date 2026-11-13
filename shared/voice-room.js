@@ -80,7 +80,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참가상태|보룸참가|보룸퇴장|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
+  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
@@ -171,8 +171,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const isStatus=match[1].endsWith('상태');
   const isStop=match[1].endsWith('끄기') || match[1].endsWith('종료');
   const isHelp=match[1].endsWith('명령어');
-  const isJoinStatus=match[1].endsWith('참가상태');
-  const isJoin=match[1].endsWith('참가');
+  const isJoinStatus=match[1].endsWith('참가상태')||match[1].endsWith('참여상태');
+  const isJoin=match[1].endsWith('참가')||match[1].endsWith('참여');
   const isLeave=match[1].endsWith('퇴장');
   if(isJoinStatus){
     if(!transport || typeof transport.status!=='function'){
@@ -191,15 +191,20 @@ async function handle({client,roomId,msg,text,send,adapter}){
     }
     try{
       const state=await transport.status({roomId:room,botUserId:botId});
-      const line=state?.localActive===true && state?.statusKnown===true
-        ? 'Railway 직접 VOX에서 이 방의 음성 세션 감지'
+      const line=state?.localActive===true
+        ? 'Railway 직접 VOX에서 이 방의 음성 세션 감지 (카카오톡 서버 참가 미확정)'
         : state?.localBusyOtherRoom===true
           ? 'Railway VOX 클라이언트가 다른 방의 음성 세션을 사용 중'
           : state?.statusKnown===true
             ? '이 방의 VOX 참가 세션 확인 안 됨'
             : 'VOX 참가 상태 확인 불가';
+      const verifiedRole=state?.roleSource==='vox-12011-own-roster'&&
+        ['listener','speaker','moderator'].includes(state?.role);
+      const roleLine=verifiedRole
+        ? '\nVOX 서버 명단에서 감지된 역할: '+require('./vox30-role-state').roleLabel(state.role)
+        : '\nVOX 서버에서 확인된 역할: 미확인';
       await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+line+
-        '\n※ 카카오톡 서버의 참가자 명단 및 진행자 권한을 확인한 결과는 아닙니다.');
+        roleLine+'\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
     }catch{
       await safeReply(client,send,'⚠️ Railway 직접 VOX 참가 상태 조회 실패\n'+
         'VOX 인증 계정과 대상 채팅방 상태를 확인해 주세요.');
@@ -217,6 +222,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       await safeReply(client,send,'⚠️ 보이스룸 '+operation+' 실행 불가\n'+
         detail+'\n'+
         'Railway 직접 VOX 인증 및 음성 세션이 아직 연결되지 않았습니다.\n'+
+        (isJoin?'11002(LOGIN) 참가 요청의 인증 필드가 검증되지 않아 임의 패킷을 보내지 않습니다.\n':'')+
         '기존 Railway 카카오톡 로그인은 변경하지 않았습니다.');
       return true;
     }
@@ -321,7 +327,9 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸상태 · 서버 상태/연동 및 마지막 자동 감지\n' +
       '#보룸TLS진단 · Railway에서 인증정보 없이 TLS 후보 연결 확인 (봇 계정만)\n' +
       '#보룸인증점검 · 기존 세션·기기 정보 확인, VOX 서버 인증 미실행 (봇 계정만)\n' +
-      '#보룸참가 · 기존 보룸에 참가 요청 (직접 VOX 인증 필요)\n' +
+      '!보룸참여 / #보룸참가 · 기존 보룸 참가 (인증 패킷 검증 필요)\n' +
+      '!보룸참여상태 · VOX 세션 및 서버 명단 역할 관찰\n' +
+      '※ 스피커·진행자 자동 수락은 응답 규격 검증 후 지원\n' +
       '#보룸참가상태 · Railway VOX 참가 세션 확인\n' +
       '#보룸퇴장 · Railway VOX 음성 세션에서 나가기 (보룸 종료 아님)\n' +
       '※ 관리 ON인 방은 보이스룸 개설·종료 이벤트를 자동 감지해 알립니다.\n' +
