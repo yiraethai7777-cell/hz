@@ -5,9 +5,10 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 
-test('live bot startup does not install any Android/Noa voice transport',()=>{
+test('Railway direct VOX remains default and Iris Noa sidecar is isolated',()=>{
  const source=fs.readFileSync(path.join(root,'hz-new.js'),'utf8');
- assert.doesNotMatch(source,/require\(['"]\.\/shared\/voice-room-noa-bridge['"]\)/);
+ assert.match(source,/installDirectVoice\(client\)/);
+ assert.match(source,/installIrisSidecarFromEnv\(client\)/);
  assert.doesNotMatch(source,/installFromEnv\(client\)/);
  assert.match(source,/direct-only mode/);
 });
