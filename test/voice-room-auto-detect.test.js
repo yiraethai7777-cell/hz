@@ -195,3 +195,33 @@ test('missing or invalid VOX invite call IDs never confirm a pending create',asy
     inviteMatched:false,byeMatched:false,
   });
 });
+
+
+test('stop watcher confirms only same-call vr_bye, even when management is off',async()=>{
+  const client=new EventEmitter(),room='71000000000505';
+  const config=deps({manage:false}).config;
+  auto.install(client,config);
+  const callId='13299692653040311',unrelated='13299692653040312';
+  const watch=auto.watchEnd(client,room,callId);
+  assert.ok(watch);
+  let resolved=null;
+  watch.wait().then(x=>{resolved=x;});
+  assert.equal(await auto.handleMessage(event({room,logId:'995501',
+    type:'vr_bye',callId:unrelated}),config),false);
+  await Promise.resolve();
+  assert.equal(resolved,null);
+  assert.equal(await auto.handleMessage(event({room,logId:'995502',
+    type:'vr_bye',callId}),config),false);
+  assert.equal(await watch.wait(),true);
+  watch.close();
+  assert.equal(auto.last(room),null);
+});
+test('stop watcher cancellation does not invent room closure',async()=>{
+  const client=new EventEmitter(),room='71000000000506';
+  const {config}=deps();
+  auto.install(client,config);
+  assert.equal(auto.watchEnd(client,room,'non-numeric-call'),null);
+  const watch=auto.watchEnd(client,room,'13299692653040311');
+  watch.close();
+  assert.equal(await watch.wait(),false);
+});
