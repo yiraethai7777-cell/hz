@@ -35,6 +35,9 @@ function installDirectVoice(client,{env=process.env,
   // Only a manually reviewed, version-matched native VOX wire driver.
   // No driver exists in production and there is no env-only packet override.
   hangupTransport=null,
+  // The role-accept native method and BSON are not verified on VOX3.
+  // Only injection of an independently reviewed version-matched wire driver.
+  roleTransports=null,
   log=console}={}) {
   let profile;
   try{profile=profileFromEnv(env,client?.appVer,client?.mccmnc);}catch{}
@@ -67,6 +70,13 @@ function installDirectVoice(client,{env=process.env,
       enableSilentAudio:env.NEXI_VOX_TX_SILENCE==='1',
       hangupTransport,
       unsafeStopExperiment:env.NEXI_VOX_UNSAFE_STOP_TEST==='1',
+      experimentalJoin:env.NEXI_VOX_JOIN_TRIAL==='1',
+      acceptSpeakerTransport:roleTransports?.verified===true &&
+        roleTransports.appVer===appVer && typeof roleTransports.acceptSpeaker==='function'
+          ?roleTransports.acceptSpeaker:null,
+      acceptModeratorTransport:roleTransports?.verified===true &&
+        roleTransports.appVer===appVer && typeof roleTransports.acceptModerator==='function'
+          ?roleTransports.acceptModerator:null,
       async connect(options) {
         const entry=options.host===ENTRY_HOST&&options.port===ENTRY_PORT;
         const {isPublicIpv4}=require('../experiments/vox30/synthetic-discovery');
@@ -153,7 +163,8 @@ function installDirectVoice(client,{env=process.env,
     log.info('[VOICE VOX30] direct create adapter installed; optional device fields: '+Object.keys(device).length+
       '; silent RTP TX: '+(env.NEXI_VOX_TX_SILENCE==='1'?'enabled':'off')+
       '; VOX local room slots='+maxActiveRooms+(maxActiveRooms>1?' (experimental; server unverified)':'')+
-      '; unsafe stop test='+(env.NEXI_VOX_UNSAFE_STOP_TEST==='1'?'enabled':'disabled'));
+      '; unsafe stop test='+(env.NEXI_VOX_UNSAFE_STOP_TEST==='1'?'enabled':'disabled')+
+      '; experimental join='+(env.NEXI_VOX_JOIN_TRIAL==='1'?'enabled':'disabled'));
     return true;
   }catch{
     log.warn('[VOICE VOX30] direct create adapter initialization failed');

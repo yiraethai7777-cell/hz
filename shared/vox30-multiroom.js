@@ -29,8 +29,8 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1}={}){
       roomId,verified:false,statusKnown:false,
       localSession:true,localActive:false,stopAvailable:false,
       unsafeStopExperimentAvailable:false,
-      joinAvailable:false,speakerAutoAcceptAvailable:false,
-      moderatorAutoAcceptAvailable:false,pendingRoles:[],
+      joinAvailable:false,joinTrialAvailable:false,speakerAutoAcceptAvailable:false,
+      moderatorAutoAcceptAvailable:false,pendingRoles:[],invitedRoles:[],
       localBusyOtherRoom:sessions.size>=maxRooms,
       multiRoomExperimental:maxRooms>1,
       maxLocalRooms:maxRooms,
@@ -106,11 +106,46 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1}={}){
           localReleased:false,serverStopUnavailable:true};
       return item.adapter.stop({...request,roomId:id});
     },
-    async join({roomId}={}){
+    async join(request={}){
       ensureOpen();
-      // No verified VOX 11002 login packet in the current implementation.
-      checkedId(roomId);
-      return {requestAccepted:false,verified:false};
+      const id=checkedId(request.roomId);
+      if(negotiating)throw Error('다른 VOX 생성/참가 요청을 처리 중입니다.');
+      negotiating=true;
+      try{
+        await cleanup();
+        if(sessions.has(id))
+          return {requestAccepted:false,verified:false,reason:'already-active'};
+        if(sessions.size>=maxRooms)
+          throw Error('VOX 계정에 이미 활성 음성 세션이 있습니다.');
+        const adapter=createAdapter();
+        if(typeof adapter?.join!=='function'||typeof adapter.status!=='function')
+          throw Error('VOX 독립 참가 어댑터가 유효하지 않습니다.');
+        const item={adapter,phase:'starting'};
+        sessions.set(id,item);
+        try {
+          const result=await adapter.join({...request,roomId:id});
+          if(result?.requestAccepted!==true ||
+             (await adapter.status({roomId:id}))?.localActive!==true){
+            sessions.delete(id);
+            await adapter.dispose?.();
+            return {requestAccepted:false,verified:false};
+          }
+          item.phase='live';
+          return result;
+        }catch(error){
+          if(sessions.get(id)===item)sessions.delete(id);
+          try{await adapter.dispose?.();}catch{}
+          throw error;
+        }
+      }finally{negotiating=false;}
+    },
+    async acceptRole(request={}){
+      ensureOpen();
+      const id=checkedId(request.roomId);
+      const item=sessions.get(id);
+      if(!item||item.phase!=='live'||typeof item.adapter.acceptRole!=='function')
+        return {handled:false,reason:'no-voice-session'};
+      return item.adapter.acceptRole({...request,roomId:id});
     },
     async receiveAuthenticatedRoleInvitation(info={}){
       ensureOpen();

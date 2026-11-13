@@ -11,13 +11,17 @@ function createLabAdapter({
   credentialsForRoom,verifyMembership,
   rtcConfig,iceTimeoutMs,connect,userTypeForRoom,enableSilentAudio=false,
   hangupTransport=null,unsafeStopExperiment=false,
+  experimentalJoin=false,acceptSpeakerTransport=null,acceptModeratorTransport=null,
 }={}) {
   return createVox30Adapter({
     actorUserId,cfg,entryHost,entryPort,appVer,
     codec:createCodec({seed:seedCbcBytes()}),
     credentialsForRoom,verifyMembership,userTypeForRoom,hangupTransport,
-    unsafeStopExperiment,
-    rtcFactory:()=>createWebRtcPeer({rtcConfig,iceTimeoutMs,silentAudio:enableSilentAudio}),
+    unsafeStopExperiment,experimentalJoin,
+    acceptSpeakerTransport,acceptModeratorTransport,
+    rtcFactory:({role}={})=>createWebRtcPeer({
+      rtcConfig,iceTimeoutMs,silentAudio:role==='listener'?false:enableSilentAudio,
+    }),
     ...(connect?{connect}:{}),
   });
 }
