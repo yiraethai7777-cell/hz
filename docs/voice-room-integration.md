@@ -215,3 +215,43 @@ NEXI_VOICE_NOA_TOKEN=<16자 이상 보안 토큰>
 2020년 VOIP 메모에 있는 TLS/SEED 기반 구형 제어 패킷은 **2026년 보이스룸 참가와 동일하다고 검증되지 않았으므로 임의로 송신하지 않습니다.** 제공된 DLL의 복호화 함수만으로 가입 인증이 가능하다고 판단하지 않습니다.
 
 테스트: `node --test test/voice-room-join-info.test.js`. 테스트는 실제 네트워크나 VOX 세션에 접속하지 않고 이미 알려진 이벤트 구조를 모의합니다.
+
+## Iris/Noa 비교 실험 (2026-11-13)
+
+Railway 단독 VOX 기능을 바꾸지 않고, 별도 Android/Redroid Noa 구현과 결과를 비교하기 위한 **선택형 기능**입니다.
+Iris Python 클라이언트는 Noa API를 호출하며, 실제 생성은 Noa가 로그인된 Android 카카오톡의 `makeVoiceroom()`을 호출합니다.
+따라서 이 기능은 **Railway 단독 보이스룸 생성이나 30초 유지 문제 해결을 의미하지 않습니다.**
+
+### 코드와 명령어
+
+- `shared/voice-room-iris-commands.js`: `#보룸아이리스시작 [제목]`, `#보룸아이리스상태`, `#보룸아이리스참가`, `#보룸아이리스퇴장`
+- `shared/voice-room-noa-bridge.js`: 별도 `voiceRoomIrisAdapter`를 등록합니다.
+- 기존 `#보룸시작` 및 `voiceRoomAdapter`는 Railway 직접 VOX 구현을 계속 사용합니다.
+- Iris/Noa 명령은 **봇 계정만** 실행할 수 있고 해당 방의 보이스룸 사용 권한 설정을 따릅니다.
+
+### 필수 환경
+
+루팅 Android 또는 Redroid에 Noa, 로그인된 카카오톡 및 활성 VOX 후킹이 필요합니다.
+Noa에 접속할 수 있는 인증된 **HTTPS** 게이트웨이를 사용해야 합니다. 다음 Railway 변수 세 가지를 모두 설정합니다.
+
+```text
+NEXI_VOICE_NOA_URL=https://example-noa-gateway.example
+NEXI_VOICE_NOA_TOKEN=<개인 API 인증 토큰>
+NEXI_VOICE_NOA_ACTOR_USER_ID=<별도의 Android 카카오톡 계정 사용자 ID>
+```
+
+별도 Android 계정을 명시하지 않으면 Iris/Noa 실험 연결을 차단합니다. 기존 Railway 카카오톡 로그인 및 auth.json은 변경하지 않습니다.
+명령을 실행하기 전 Noa `/api/status`, `/api/rooms/:id`, `/api/vox/status`를 확인합니다.
+이미 다른 방에서 Android 음성 세션이 실행 중인 경우 자동으로 종료하거나 전환하지 않습니다.
+
+`#보룸아이리스시작`은 Noa `POST /api/vox/voice-rooms`에 생성 요청을 보냅니다.
+성공 응답은 **요청 접수**로만 처리하고 실제 개설·30초 이상 유지되었다고 표시하지 않습니다.
+`#보룸아이리스상태`는 Android의 로컬 VOX 상태를 조회합니다.
+`#보룸아이리스참가`는 Noa 참가 API를, `#보룸아이리스퇴장`은 로컬 세션 퇴장 API를 사용하며 전체 보이스룸 종료는 지원하지 않습니다.
+
+비교 실험에서는 생성 뒤 10초, 35초, 60초에 `#보룸아이리스상태`를 조회하고 별도 카카오톡 앱에서 실제 룸 유지 상태를 확인합니다.
+테스트: `node --test test/voice-room-iris-commands.test.js test/voice-room-noa-bridge.test.js test/voice-router.test.js test/voice-room-permission.test.js test/voice-direct-only-mode.test.js`
+
+소스:
+- https://github.com/entworacy/irispy-noa-client/blob/main/examples/noa/voice_room.py
+- https://github.com/entworacy/noa/blob/main/kakao-agent/java/dev/noa/kakao/VoxController.java
