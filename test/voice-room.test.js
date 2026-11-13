@@ -861,3 +861,45 @@ test('no termination request is sent without registered closure-event watcher',a
   assert.equal(requested,0);
   assert.match(sent[0],/종료 이벤트 감지기가 준비되지 않았습니다/);
 });
+
+
+test('bot account receives an authenticated invitation prompt for manual speaker acceptance',async()=>{
+  const {args,sent,client}=fixture({text:'#보룸스피커받기'});
+  args.msg.sender.id=client.userId;
+  let calls=0;
+  args.adapter={
+    status:async()=>({roomId:ROOM,localActive:true,
+      invitedRoles:['speaker'],role:'listener',roleSource:'vox-12011-own-roster'}),
+    acceptRole:async req=>{
+      calls++;assert.deepEqual(req,{roomId:ROOM,role:'speaker'});
+      return {handled:false,reason:'protocol-unverified'};
+    },
+  };
+  await voice.handle(args);
+  assert.equal(calls,1);
+  assert.match(sent[0],/스피커 초대 이벤트는 확인했지만/);
+  assert.match(sent[0],/수락 패킷 규격이 아직 검증되지 않아/);
+});
+test('bot account accepts only a matched invitation and does not invent moderator rights',async()=>{
+  const {args,sent,client}=fixture({text:'#보룸진행자받기'});
+  args.msg.sender.id=client.userId;
+  let calls=0;
+  args.adapter={
+    status:async()=>({roomId:ROOM,localActive:true,invitedRoles:['speaker']}),
+    acceptRole:async()=>{calls++;return {handled:true,verified:true}},
+  };
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/인증된 진행자 초대가 아직 수신되지 않았습니다/);
+});
+test('ordinary room moderator cannot accept voice rights for the bot without being bot account',async()=>{
+  const {args,sent}=fixture({text:'#보룸진행자받기'});
+  let calls=0;
+  args.adapter={
+    status:async()=>({localActive:true,invitedRoles:['moderator']}),
+    acceptRole:async()=>{calls++;return {handled:true}},
+  };
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/봇 계정만 실행할 수 있습니다/);
+});

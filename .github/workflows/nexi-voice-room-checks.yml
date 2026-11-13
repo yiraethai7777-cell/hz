@@ -39,6 +39,7 @@ jobs:
       - run: node --test test/vox30-hangup-observe.test.js
       - run: node --test test/vox30-role-state.test.js test/vox30-participation.test.js
       - run: node --test test/vox30-protocol.test.js
+      - run: node --test test/vox30-join-trial.test.js
       - run: node --test test/vox30-runtime.test.js test/vox30-multiroom.test.js
       - run: node --test test/vox30-unsafe-stop.test.js
       - run: node --test test/voice-room.test.js test/voice-router.test.js test/voice-room-observer.test.js test/voice-room-auto-detect.test.js test/voice-room-join-info.test.js test/voice-room-frida-observe.test.js test/vox30-role-state.test.js
