@@ -261,3 +261,40 @@ test('VOX discovery refuses server status without callable before examining call
   assert.equal(got.reason,'not-callable');
   assert.equal(got.invitation,undefined);
 });
+
+
+test('VOX join can merge a verified CHATINFO callId with an authenticated discovery endpoint',async()=>{
+  const {createVox30Adapter}=require('../shared/vox30-adapter');
+  let requested=0,closed=0,observed=null;
+  const adapter=createVox30Adapter({
+    actorUserId:USER,cfg,entryHost:'entry.test',appVer,
+    codec:{frame(){return Buffer.alloc(16)},parse(){}},
+    credentialsForRoom:async()=>({oauthToken:'t',deviceUuid:'u'}),
+    rtcFactory:async()=>({}),
+    verifyMembership:async()=>true,
+    connect:async({host})=>{
+      assert.equal(host,'entry.test');requested++;
+      return {async request(method){
+        assert.equal(method,METHODS.DISCOVER);
+        return {callable:1,csSslAddr:{ip:0xcb85bc42},csSslPort:995};
+      },close(){closed++;}};
+    },
+    joinTransport:async opts=>{
+      observed=opts;return {requestAccepted:true,verified:false};
+    },
+  });
+  const result=await adapter.join({
+    roomId:ROOM,botUserId:USER,
+    invitation:{roomId:ROOM,callId:CALL,hostV4:'',port:0,
+      source:'authenticated-chatinfo'},
+  });
+  assert.equal(result.requestAccepted,true);
+  assert.equal(result.verified,false);
+  assert.equal(requested,1);
+  assert.equal(closed,1);
+  assert.equal(observed.invitation.roomId,ROOM);
+  assert.equal(observed.invitation.callId,CALL);
+  assert.equal(observed.invitation.hostV4,'203.133.188.66');
+  assert.equal(observed.invitation.port,995);
+  await adapter.dispose();
+});

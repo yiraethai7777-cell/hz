@@ -969,3 +969,38 @@ test('bot #보룸참가 falls back to VOX discovery when LOCO history has no inv
   assert.match(sent[0],/통화 ID를 반환하지 않았습니다/);
   assert.match(sent[0],/추정한 통화 ID/);
 });
+
+
+test('bot join reads authenticated CHATINFO after missing history and passes its call candidate',async()=>{
+  const {args,sent,client}=fixture({text:'#보룸참가'});
+  const room='18495931541358689';
+  args.roomId=room;args.msg.room.id=room;
+  args.msg.sender.id=client.userId;
+  args.msg.message={logId:'912352002001'};
+  client._getCachedMemberType=()=>4;
+  client._carriage={
+    async syncMsg(){return {status:0,body:{chatLogs:[]}}},
+    async chatInfo(requestRoom){
+      assert.equal(requestRoom,room);
+      return {status:0,body:{chatInfo:{chatId:room,chatMetas:[
+        {type:16,content:JSON.stringify({liveon:true,
+          callId:'13299692653040311'})}
+      ]}}};
+    }
+  };
+  let attempted=0;
+  args.adapter={
+    async status(){return {roomId:room,localActive:false,
+      statusKnown:false,joinAvailable:true,joinTrialAvailable:true}},
+    async join(req){
+      attempted++;
+      assert.equal(req.invitation.source,'authenticated-chatinfo');
+      assert.equal(req.invitation.callId,'13299692653040311');
+      return {requestAccepted:false,verified:false,
+        reason:'missing-invitation'};
+    },
+  };
+  await voice.handle(args);
+  assert.equal(attempted,1);
+  assert.match(sent[0],/초대 접속정보/);
+});

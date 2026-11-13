@@ -247,3 +247,57 @@ test('invalid or imprecise command logId is never used as history max',async()=>
   await joinInfo.recover(client,room,now,{maxLogId:9007199254740993});
   assert.equal(calls[0].max,0);
 });
+
+
+test('CHATINFO VOX meta type 16 with liveon and exact call/socket fields is accepted',async()=>{
+  const room='18495931541358171';
+  const client={connected:true,_carriage:{async chatInfo(id){
+    assert.equal(id,room);
+    return {status:0,body:{chatInfo:{chatId:room,chatMetas:[
+      {type:3,content:'test-room'},
+      {type:16,content:JSON.stringify({liveon:true,callId:CALL,csIP:HOST,csPort:995})},
+    ]}}};
+  }}};
+  const result=await joinInfo.inspectServerVoiceMeta(client,room);
+  assert.equal(result.ready,true);
+  assert.equal(result.reason,'current-voice-meta');
+  assert.equal(result.invitation.callId,CALL);
+  assert.equal(result.invitation.hostV4,HOST);
+  assert.equal(result.invitation.source,'authenticated-chatinfo');
+});
+test('CHATINFO VOX metadata can provide a verified callId without leaking user content',async()=>{
+  const room='18495931541358172';
+  const client={connected:true,_carriage:{async chatInfo(){
+    return {body:{chatMetas:[{type:16,
+      content:JSON.stringify({liveon:true,callId:CALL,title:'not for logs'})}]}};
+  }}};
+  const result=await joinInfo.inspectServerVoiceMeta(client,room);
+  assert.equal(result.ready,true);
+  assert.equal(result.reason,'meta-call-id-only');
+  assert.equal(result.invitation.callId,CALL);
+  assert.equal(result.invitation.hostV4,'');
+  assert.equal(result.invitation.port,0);
+  assert.equal(JSON.stringify(result).includes('not for logs'),false);
+});
+test('CHATINFO metadata must prove an active call and exact room',async()=>{
+  const room='18495931541358173';
+  for(const meta of [
+    {type:16,content:JSON.stringify({liveon:false,callId:CALL,csIP:HOST,csPort:995})},
+    {type:16,content:JSON.stringify({liveon:true,csIP:HOST,csPort:995})},
+    {type:17,content:JSON.stringify({liveon:true,callId:CALL,csIP:HOST,csPort:995})},
+    {type:16,content:'malformed-json'},
+  ]){
+    const client={connected:true,_carriage:{async chatInfo(){
+      return {body:{chatInfo:{chatId:room,chatMetas:[meta]}}};
+    }}};
+    const result=await joinInfo.inspectServerVoiceMeta(client,room);
+    assert.equal(result.ready,false);
+    assert.equal(result.invitation,undefined);
+  }
+  const wrong={connected:true,_carriage:{async chatInfo(){
+    return {body:{chatInfo:{chatId:'999',chatMetas:[{type:16,
+      content:JSON.stringify({liveon:true,callId:CALL,csIP:HOST,csPort:995})
+    }]}}};
+  }}};
+  assert.equal((await joinInfo.inspectServerVoiceMeta(wrong,room)).reason,'room-mismatch');
+});
