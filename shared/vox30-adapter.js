@@ -1,7 +1,7 @@
 'use strict';
 
 const {
-  createCodec,createVoiceRoom,checkedId,validateTitle,integer,I32,I64,METHODS,
+  createCodec,createVoiceRoom,joinVoiceRoomTrial,checkedId,validateTitle,integer,I32,I64,METHODS,
   heartbeatReplySummary,
 } = require('./vox30-protocol');
 
@@ -72,6 +72,7 @@ function createVox30Adapter({
   credentialsForRoom,rtcFactory,verifyMembership,connect,transport,appVer,userTypeForRoom=()=>1,
   // Only version-matched, independently verified drivers may be supplied.
   joinTransport=null,acceptSpeakerTransport=null,acceptModeratorTransport=null,
+  experimentalJoin=false,
   // A version-matched, independently verified wire implementation is required.
   // No production hangup driver exists yet; unknown method numbers MUST NOT be sent.
   hangupTransport=null,
@@ -92,8 +93,65 @@ function createVox30Adapter({
     hangupTransport.appVer===appVer&&
     typeof hangupTransport.hangUp==='function';
   const {ownRole}=require('./vox30-role-state');
+  // This is deliberately NOT claimed as a verified join implementation.
+  // The 11002 BSON trial only runs with an explicit environment opt-in.
+  const joinDriver=joinTransport || (experimentalJoin===true?
+    async({roomId,actorUserId,invitation})=>{
+      if(active||!invitation)throw Error('VOX 참가 대상 세션이 없습니다.');
+      let peer=null,session=null;
+      try{
+        peer=await rtcFactory({actorUserId,chatId:roomId,role:'listener'});
+        if(!peer||typeof peer.createOffer!=='function'||
+           typeof peer.applyAnswer!=='function'||typeof peer.close!=='function')
+          throw Error('VOX WebRTC 오디오 참가 연결이 없습니다.');
+        const offer=await peer.createOffer();
+        session=await joinVoiceRoomTrial({
+          cfg,chatId:roomId,callId:invitation.callId,invitation,
+          ...((await credentialsForRoom({actorUserId,chatId:roomId}))||{}),
+          sdp:offer,appVer,entryHost,entryPort,codec,
+          userType:userTypeForRoom({chatId:roomId}),...(connect?{connect}:{}),
+          transport:{
+            ...transport,diagnosticActorUserId:userId,
+            onPacket(packet) {
+              transport?.onPacket?.(packet);
+              if(active?.chatId!==roomId)return;
+              if(packet?.method===12011){
+                const role=ownRole(packet);
+                if(role)active.lastOwnRole=role;
+                participant.onRoster(packet,{roomId,callId:active.session.callId});
+              }
+              if(packet?.method===11009&&
+                 Number.isSafeInteger(packet?.codes?.reason)){
+                void release(active);
+              }
+            },
+            onAuthenticatedRoleInvitation(info) {
+              if(active?.chatId!==roomId||
+                 String(active.session?.callId)!==info.callId)return;
+              void participant.receiveAuthenticatedInvitation({
+                ...info,roomId,
+              }).catch(()=>{});
+            },
+          },
+        });
+        await peer.applyAnswer(session.remoteSdp);
+        if(active)throw Error('다른 보이스룸이 이미 활성화되어 있습니다.');
+        const current={chatId:roomId,session,peer,timer:null,
+          createdAt:Date.now(),pingReplies:0,joinedExisting:true};
+        active=current;
+        participant.activate({roomId,callId:session.callId});
+        startKeepalive(current);
+        console.info('[VOICE VOX30] experimental join login accepted; roster/media unverified');
+        return {requestAccepted:true,verified:false};
+      }catch(err){
+        try{session?.conn.close();}catch{}
+        try{await peer?.close();}catch{}
+        throw err;
+      }
+    }:null);
   const participant=require('./vox30-participation').createParticipationController({
-    actorUserId:userId,joinTransport,acceptSpeakerTransport,acceptModeratorTransport,
+    actorUserId:userId,joinTransport:joinDriver,
+    acceptSpeakerTransport,acceptModeratorTransport,
   });
   async function release(current,{graceful=false}={}) {
     if(active!==current)return;
@@ -203,6 +261,7 @@ function createVox30Adapter({
         ...((()=>{
           const info=participant.status(id);
           return {joinAvailable:info.joinAvailable,
+            joinTrialAvailable:experimentalJoin===true,
             speakerAutoAcceptAvailable:info.speakerAutoAcceptAvailable,
             moderatorAutoAcceptAvailable:info.moderatorAutoAcceptAvailable,
             pendingRoles:info.pendingRoles,invitedRoles:info.invitedRoles};
@@ -419,7 +478,9 @@ function createVox30Adapter({
         throw Error('VOX 오픈채팅 참여 정보를 확인할 수 없습니다.');
       // An invite is an untrusted locator, NOT proof of VOX login.
       const invitation=require('./voice-room-join-info').resolve(id);
-      return participant.join({roomId:id,invitation});
+      running=true;
+      try{return await participant.join({roomId:id,invitation});}
+      finally{running=false;}
     },
     // To be called ONLY after a verified decoder supplies an exact bot-targeted
     // server invitation on the active authenticated call connection.
