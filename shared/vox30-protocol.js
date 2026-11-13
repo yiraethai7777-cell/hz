@@ -629,6 +629,89 @@ function getCreateBody({cfg,chatId,title,oauthToken,deviceUuid,sdp,userType=1,ap
   };
 }
 
+
+// EXPERIMENTAL only: no public source establishes the complete 2026
+// VOX 11002 LOGIN BSON wire contract. This trial reuses only well-formed
+// fields already observed for 11028 CREATE plus an authenticated callId.
+// Never treat a send or header-only reply as confirmed voice membership.
+function getLoginTrialBody({cfg,chatId,callId,oauthToken,deviceUuid,sdp,appVer,userType=1}={}) {
+  validateCfg(cfg);
+  const body=getCreateBody({
+    cfg,chatId,title:'VOX',oauthToken,deviceUuid,sdp,appVer,userType,
+  });
+  delete body.title; // JOIN refers to an existing call, not a new room
+  body.callId=new I64(checkedId(callId));
+  body.defaultMicOnOff=new I32(0);
+  return body;
+}
+
+async function joinVoiceRoomTrial({cfg,chatId,callId,
+  oauthToken,deviceUuid,sdp,appVer,userType=1,
+  entryHost,entryPort=9282,codec,connect=voxConnect,transport={},
+  invitation}={}) {
+  validateCfg(cfg);
+  const id=checkedId(chatId),call=checkedId(callId);
+  if(String(invitation?.roomId??'')!==id||
+     String(invitation?.callId??'')!==call ||
+     !invitation.hostV4)
+    throw Error('현재 통화의 검증된 초대 접속정보가 없습니다.');
+  const body=getLoginTrialBody({
+    cfg,chatId:id,callId:call,oauthToken,deviceUuid,sdp,appVer,userType,
+  });
+  const server=await getCallServer({
+    cfg,chatId:id,entryHost,entryPort,codec,connect,appVer,transport,
+  });
+  // A chat/LOCO attachment is only a locator. Never dial its untrusted IP.
+  // The server selected by authenticated VOX discovery must agree with it.
+  if(server.host!==invitation.hostV4)
+    throw Error('VOX 초대 서버와 인증된 검색 결과가 일치하지 않습니다.');
+  let conn;
+  try{
+    conn=await connect({host:server.host,port:server.port,codec,...transport});
+    const eventWait=conn.wait(METHODS.CREATED,METHODS.REJECTED);
+    const replyWait=conn.wait(METHODS.LOGIN);
+    try{
+      await conn.send(METHODS.LOGIN,body);
+      console.info('[VOICE VOX30] experimental 11002 login sent; wire schema unverified');
+      const first=await Promise.race([replyWait.promise,eventWait.promise]);
+      if(first.method===METHODS.REJECTED)
+        throw Error('VOX 참가 서버 거절: reason='+integer(first.body?.reason??0));
+      const reply=first.method===METHODS.LOGIN?first:await replyWait.promise;
+      const code=integer(reply.body?.resCode??reply.status??-1);
+      if(code!==0)
+        throw Error('VOX 참가 응답 거절: resCode='+code);
+      // Some VOX variants may deliver a separate 11003 with remote SDP.
+      // Avoid waiting for a second event when LOGIN already contains an SDP.
+      const nested=reply.body?.sdp;
+      let event=null;
+      if(!nested){
+        event=first.method===METHODS.CREATED?first:await eventWait.promise;
+        if(event.method===METHODS.REJECTED)
+          throw Error('VOX 참가 서버 거절: reason='+integer(event.body?.reason??0));
+      }
+      const remoteSdp=nested??event?.body?.sdp;
+      if(!remoteSdp||typeof remoteSdp!=='object')
+        throw Error('VOX 참가 응답에서 원격 WebRTC SDP가 확인되지 않았습니다.');
+      if(event){
+        await conn.send(METHODS.CREATED,getEventAckBody(cfg,call),event.requestNonce);
+      }
+      const serverCallId=reply.body?.callId??event?.body?.callId;
+      if(serverCallId!=null && checkedId(serverCallId)!==call)
+        throw Error('VOX 참가 응답의 통화 ID가 초대와 일치하지 않습니다.');
+      const csId=reply.body?.csId??event?.body?.csId;
+      return {conn,callId:call,csId:csId==null?null:checkedId(csId),
+        remoteSdp,requestAccepted:true,verified:false,
+        signaling:{loginReplyVerified:true,experimentalLogin:true,
+          eventAckSent:!!event}};
+    }finally{
+      replyWait.cancel();eventWait.cancel();
+    }
+  }catch(error){
+    try{conn?.close();}catch{}
+    throw error;
+  }
+}
+
 // Based on the public veropy VOX 3.0 create/event reference.
 // 11003 and 12011 server notifications need the same identity/call payload.
 // The server's message type and response acceptance remain independently checked.
@@ -773,6 +856,7 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
 module.exports={
   VOX_IV,METHODS,I32,I64,integer,checkedId,validateTitle,pkcs7Pad,pkcs7Unpad,
   nativeSeedCbc,createCodec,parseServerAddress,voxConnect,checkedAppVersion,
-  getDiscoveryBody,getCreateBody,getEventAckBody,getCallServer,createVoiceRoom,packetSummary,
+  getDiscoveryBody,getCreateBody,getLoginTrialBody,joinVoiceRoomTrial,
+  getEventAckBody,getCallServer,createVoiceRoom,packetSummary,
   heartbeatReplySummary,authenticatedRoleInvitation,
 };
