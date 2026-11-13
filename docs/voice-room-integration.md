@@ -154,3 +154,22 @@ node --test test/voice-room.test.js test/voice-router.test.js
 2020년 VOIP 메모에 있는 TLS/SEED 기반 구형 제어 패킷은 **2026년 보이스룸 참가와 동일하다고 검증되지 않았으므로 임의로 송신하지 않습니다.** 제공된 DLL의 복호화 함수만으로 가입 인증이 가능하다고 판단하지 않습니다.
 
 테스트: `node --test test/voice-room-join-info.test.js`. 테스트는 실제 네트워크나 VOX 세션에 접속하지 않고 이미 알려진 이벤트 구조를 모의합니다.
+
+## Railway 직접 VOX 참가·역할 관찰 1차 구현 (2026-11-13)
+
+명령 `!보룸참여` 및 `!보룸참여상태`는 기존 보룸 참가 명령에 연결했습니다.
+기존 직접 VOX 생성(`!보룸시작`, `#보룸시작`)과 로그인 흐름은 변경하지 않았습니다.
+`shared/vox30-role-state.js`는 VOX 서버의 12011 멤버 명단에서 봇 계정이 속한
+`moderators`/`speakers`/`listeners` 목록만 판독합니다. 서버가 명시적으로 봇을
+단 한 그룹에 포함한 경우에만 `진행자`/`스피커`/`리스너`를 표시합니다.
+원시 패킷·타인 ID·VOX 서버 주소 및 OAuth 토큰은 저장하거나 출력하지 않습니다.
+
+**현재 제한사항:** 초대 첨부에서 세션 위치와 callId를 가져오는 기능은 기존에 존재하지만,
+서버 참가용 11002(LOGIN) 요청의 정확한 인증 BSON 스키마와
+12023(CLIENT_OFFER)의 동작·역할 수락 응답 패킷은 검증되지 않았습니다.
+따라서 `!보룸참여`는 현재 무리하게 참가 패킷을 전송하지 않고 부족한 절차를 안내하며,
+진행자·스피커 초대에 자동 응답하지 않습니다. **실제 참가와 권한 수락은 미구현**입니다.
+
+검증: `node --test test/vox30-role-state.test.js test/voice-room.test.js test/voice-router.test.js test/voice-room-permission.test.js`
+
+참고 제3자 VOX 분석 자료: https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md
