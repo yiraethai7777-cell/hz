@@ -246,12 +246,15 @@ async function inspectServerVoiceMeta(client,roomId){
     const hostV6=typeof content.csIP6==='string'&&isIP(content.csIP6)===6?
       content.csIP6:'';
     const port=portNumber(content.csPort);
-    const ready=!!(callId&&hostV4&&port);
+    const completeEndpoint=!!(hostV4&&port);
+    const ready=!!callId;
     console.info('[VOICE JOIN] CHATINFO voiceroom metadata '+
       JSON.stringify({voiceroomMetaSeen:true,live:true,
-        callIdPresent:!!callId,endpointReady:ready}));
+        callIdPresent:!!callId,endpointReady:completeEndpoint}));
     if(!ready)return {ready:false,reason:'incomplete-voice-meta'};
-    return {ready:true,reason:'current-voice-meta',
+    // When chat metadata has a server-authenticated callId but no socket
+    // coordinates, VOX 30000 provides the actual destination in join().
+    return {ready:true,reason:completeEndpoint?'current-voice-meta':'meta-call-id-only',
       invitation:{roomId:id,callId,hostV4,hostV6,port,
         source:'authenticated-chatinfo'}};
   }catch{

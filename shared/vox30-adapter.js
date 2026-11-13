@@ -484,8 +484,23 @@ function createVox30Adapter({
       // this fallback; the VOX 11002 handshake independently verifies that
       // the destination host matches VOX discovery for the same chat.
       if(!invitation && providedInvitation?.source==='authenticated-chatinfo' &&
-          providedInvitation.roomId===id)
-        invitation=providedInvitation;
+          providedInvitation.roomId===id) {
+        const call=checkedId(providedInvitation.callId);
+        if(providedInvitation.hostV4){
+          invitation=providedInvitation;
+        }else{
+          // Never connect to a guessed/chat-provided IP; use authenticated
+          // VOX service discovery for the socket and CHATINFO for the callId.
+          const server=await require('./vox30-protocol').getCallServer({
+            cfg,chatId:id,appVer,entryHost,entryPort,codec,
+            ...(connect?{connect}:{}),transport:{
+              ...transport,diagnosticActorUserId:userId,
+            },
+          });
+          invitation={roomId:id,callId:call,hostV4:server.host,
+            hostV6:'',port:server.port,source:'authenticated-chatinfo'};
+        }
+      }
       running=true;
       try{
         if(!invitation&&experimentalJoin===true){
