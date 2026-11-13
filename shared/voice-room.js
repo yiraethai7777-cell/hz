@@ -261,10 +261,12 @@ async function handle({client,roomId,msg,text,send,adapter}){
         (state?.speakerAutoAcceptAvailable===true?'검증된 어댑터 연결':'규격 검증 전')+
         '\n자동 진행자 권한 수락: '+
         (state?.moderatorAutoAcceptAvailable===true?'검증된 어댑터 연결':'규격 검증 전');
+      const trialLine='\nVOX 11002 기존 보룸 참가 실험: '+
+        (state?.joinTrialAvailable===true?'연결됨 (서버 검증 전)':'비활성화');
       const inviteLine='\n최근 참가용 초대 접속정보: '+
         (invite.endpointReady?'확보 (인증 규격 미검증)':invite.phase==='ended'?'종료 이벤트 확인':'미확인');
       await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+line+
-        roleLine+inviteLine+invitationLine+roleTransportLine+
+        roleLine+inviteLine+trialLine+invitationLine+roleTransportLine+
         '\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
     }catch{
       await safeReply(client,send,'⚠️ Railway 직접 VOX 참가 상태 조회 실패\n'+
@@ -308,6 +310,12 @@ async function handle({client,roomId,msg,text,send,adapter}){
         return true;
       }
       if(isJoin){
+        if(state.joinTrialAvailable===true &&
+           !require('./voice-room-join-info').status(room).endpointReady){
+          await safeReply(client,send,'⚠️ 이 채팅방에서 현재 보이스룸의 참가용 초대 접속정보를 찾지 못했습니다.\n'+
+            '카카오톡에 보룸이 열려 있어도 이전의 초대가 만료되었으면 11002 참가를 시도하지 않습니다.');
+          return true;
+        }
         if(state.localActive===true){
           await safeReply(client,send,'🎙️ 이 방의 VOX 보이스룸 참가 세션이 이미 감지됩니다.\n'+
             '※ 실제 참가자 명단·진행자 권한은 별도로 확인해야 합니다.');
@@ -320,9 +328,12 @@ async function handle({client,roomId,msg,text,send,adapter}){
         }
         const joined=await transport.join({roomId:room,botUserId:botId});
         if(joined?.requestAccepted===true){
-          await safeReply(client,send,'📨 보이스룸 참가 요청을 Railway 직접 VOX 클라이언트에 전달했습니다.\n'+
+          await safeReply(client,send,
+            (state.joinTrialAvailable===true
+              ?'🧪 VOX 11002 참가 실험에서 서버 응답과 WebRTC SDP 적용을 확인했습니다.\n'
+              :'📨 보이스룸 참가 요청을 Railway 직접 VOX 클라이언트에 전달했습니다.\n')+
             '※ 실제 참가 여부는 카카오톡의 참가자 목록에서 확인해야 합니다.\n'+
-            '※ 진행자 권한 승격은 자동으로 수행되지 않습니다.');
+            '※ 스피커·진행자 권한은 VOX 서버 명단으로 별도 확인합니다.');
         }else{
           await safeReply(client,send,'⚠️ 보이스룸 참가 요청이 접수됐는지 확인하지 못했습니다.');
         }
@@ -337,9 +348,17 @@ async function handle({client,roomId,msg,text,send,adapter}){
             '※ 실제 퇴장 여부는 앱에서 확인해 주세요. 보룸 전체 종료 명령은 아닙니다.'
           : '⚠️ 보이스룸 퇴장 요청이 접수됐는지 확인하지 못했습니다.');
       }
-    }catch{
-      await safeReply(client,send,'❌ 보이스룸 '+operation+' 요청 실패\n'+
-        'Railway VOX 인증과 대상 채팅방 연결을 확인해 주세요.');
+    }catch(error){
+      const cause=String(error?.message||'');
+      // Do not print VOX endpoints, account IDs, SDP or session secrets.
+      const safe=/^VOX 참가 (?:응답 거절: resCode=-?\d+|서버 거절: reason=-?\d+)$/.test(cause)
+        ?cause: /초대 서버와 인증된 검색 결과가 일치하지 않습니다/.test(cause)
+        ?'VOX 초대 서버가 인증된 검색 결과와 일치하지 않습니다.'
+        : /원격 WebRTC SDP/.test(cause)?'VOX 서버 응답에 필요한 WebRTC SDP가 없습니다.'
+        : /서버 resCode/.test(cause)?'VOX 서버에서 로그인 성공 코드가 확인되지 않았습니다.'
+        : 'Railway VOX 인증과 대상 채팅방 연결을 확인해 주세요.';
+      console.warn('[VOICE VOX30] join operation failed: '+safe);
+      await safeReply(client,send,'❌ 보이스룸 '+operation+' 요청 실패\n'+safe);
     }finally{
       running.delete(room);
     }
