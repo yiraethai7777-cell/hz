@@ -658,3 +658,27 @@ test('VOX auth preflight is in help and never sends credentials',async()=>{
   await voice.handle(args);
   assert.match(sent[0],/#보룸인증점검/);
 });
+
+test('!보룸참여 is routed to direct VOX join without fabricated packets',async()=>{
+  const {args,sent}=fixture({text:'!보룸참여'});
+  assert.equal(await voice.handle(args),true);
+  assert.match(sent[0],/11002\(LOGIN\) 참가 요청의 인증 필드가 검증되지 않아/);
+  assert.match(sent[0],/보이스룸 참가 실행 불가/);
+});
+
+test('!보룸참여상태 reports server roster role only when exact evidence exists',async()=>{
+  const {args,sent}=fixture({text:'!보룸참여상태'});
+  args.adapter={status:async()=>({localActive:true,statusKnown:false,
+    role:'speaker',roleSource:'vox-12011-own-roster'})};
+  await voice.handle(args);
+  assert.match(sent[0],/VOX 서버 명단에서 감지된 역할: 스피커/);
+  assert.match(sent[0],/서버 참가 미확정/);
+});
+
+test('!보룸참여상태 refuses to infer moderator without exact own-roster evidence',async()=>{
+  const {args,sent}=fixture({text:'!보룸참여상태'});
+  args.adapter={status:async()=>({localActive:true,statusKnown:false,role:'moderator'})};
+  await voice.handle(args);
+  assert.match(sent[0],/역할: 미확인/);
+  assert.doesNotMatch(sent[0],/감지된 역할: 진행자/);
+});
