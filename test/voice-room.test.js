@@ -709,20 +709,21 @@ test('voice participation status distinguishes observed roles from unsupported a
 });
 
 
-test('Railway local VOX creator session can be stopped without claiming server confirmation',async()=>{
+test('Railway VOX stop refuses unverified hangUp and does not release moderator',async()=>{
   const {args,sent}=fixture({text:'#보룸종료'});
-  let released=0;
+  let stops=0;
   args.adapter={
     status:async()=>({roomId:ROOM,verified:false,statusKnown:false,
-      localSession:true,localActive:released===0,localCallId:'13299692653040311'}),
-    stop:async()=>{released++;return {roomId:ROOM,closed:false,verified:false,localReleased:true};},
+      localSession:true,localActive:true,stopAvailable:false,
+      localCallId:'13299692653040311'}),
+    stop:async()=>{stops++;throw Error('unverified stop must never run');},
   };
   assert.equal(await voice.handle(args),true);
-  assert.equal(released,1);
-  assert.match(sent[0],/Railway VOX 보이스룸 진행자 연결을 종료했습니다/);
-  assert.match(sent[0],/서버의 종료 이벤트.*아직 확인되지 않았습니다/);
-  assert.doesNotMatch(sent[0],/종료가 서버에서 확인되었습니다/);
-});
+  assert.equal(stops,0);
+  assert.match(sent[0],/서버 종료 패킷.*아직 검증되지 않았습니다/);
+  assert.match(sent[0],/진행자 연결은 유지했습니다/);
+  assert.doesNotMatch(sent[0],/연결을 종료했습니다/);
+})
 test('Railway VOX stop refuses another room even if there is another local session',async()=>{
   const {args,sent}=fixture({text:'#보룸끄기'});
   let stops=0;
@@ -761,4 +762,18 @@ test('Railway VOX stop verifies server bye only when matching room and call ID',
   };
   await voice.handle(args);
   assert.match(sent[0],/보이스룸 종료가 서버에서 확인되었습니다/);
+});
+
+
+test('Railway VOX stop explains an orphaned previous session without false success',async()=>{
+  const {args,sent}=fixture({text:'#보룸끄기'});
+  let calls=0;
+  args.adapter={
+    status:async()=>({roomId:ROOM,localSession:true,
+      localActive:false,stopAvailable:false}),
+    stop:async()=>{calls++;throw Error('must not run');},
+  };
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/이전에 생성한 보이스룸을 종료할 수 없습니다/);
 });

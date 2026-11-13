@@ -829,7 +829,7 @@ test('VOX server timers and media termination evidence are safe, never guess tim
 });
 
 
-test('direct VOX adapter stop closes only its own active creator session',async()=>{
+test('direct VOX adapter refuses unverified hangUp and retains active creator session',async()=>{
   const messages=[];
   let graceful=0,closed=0,peerClosed=0;
   const callConn={
@@ -863,13 +863,17 @@ test('direct VOX adapter stop closes only its own active creator session',async(
   assert.equal(foreign.localReleased,false);
   assert.equal(graceful,0);
   const stopped=await adapter.stop({roomId:ROOM});
-  assert.deepEqual(stopped,{roomId:ROOM,closed:false,verified:false,localReleased:true});
-  assert.equal(graceful,1);
+  assert.deepEqual(stopped,{roomId:ROOM,closed:false,verified:false,
+    localReleased:false,serverStopUnavailable:true});
+  assert.equal(graceful,0);
   assert.equal(closed,0);
-  assert.equal(peerClosed,1);
-  assert.equal((await adapter.status({roomId:ROOM})).localActive,false);
-  assert.equal((await adapter.stop({roomId:ROOM})).localReleased,false);
+  assert.equal(peerClosed,0);
+  const stillAlive=await adapter.status({roomId:ROOM});
+  assert.equal(stillAlive.localActive,true);
+  assert.equal(stillAlive.stopAvailable,false);
   await adapter.dispose();
+  assert.equal(closed,1);
+  assert.equal(peerClosed,1);
 });
 
 

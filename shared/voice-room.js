@@ -351,7 +351,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸감지시작 · 3분간 수신 이벤트 관찰\n' +
       '#보룸감지 · 관찰된 신호 후보 확인\n' +
       '#보룸감지종료 · 관찰 중단\n' +
-      '#보룸종료 / #보룸끄기 · Railway VOX 진행자 세션 종료 (서버 종료 별도 확인)\n' +
+      '#보룸종료 / #보룸끄기 · 서버 정상 종료 구현 미검증 (진행자 세션 보호)\n' +
       '※ 실제 서버 API가 연결된 경우에만 생성·종료합니다.\n' +
       '※ 방장·부방장 및 봇 계정이 사용 가능합니다.\n' +
       '※ 봇 계정은 명령어를 직접 사용할 수 있지만 실제 생성·종료는 카카오톡 서버 권한 및 API 지원에 따릅니다.');
@@ -415,6 +415,17 @@ async function handle({client,roomId,msg,text,send,adapter}){
       const before=await transport.status({roomId:room});
       const ownSession=before?.localSession===true &&
         before?.localActive===true && String(before?.roomId??'')===room;
+      // A VOX TLS disconnect is NOT the native hangUp packet. Fail closed
+      // and retain the live moderator so the server room is not orphaned.
+      if(before?.localSession===true&&before.stopAvailable===false){
+        await safeReply(client,send,ownSession?
+          '❌ Railway VOX 서버 종료 패킷(hangUp)의 규격이 아직 검증되지 않았습니다.\n'+
+          '봇 진행자 연결은 유지했습니다. 현재 명령으로 보이스룸 전체를 종료할 수 없습니다.\n'+
+          '카카오톡에서 진행자가 직접 퇴장하여 종료해 주세요.':
+          '❌ Railway VOX 진행자 연결이 없어 이전에 생성한 보이스룸을 종료할 수 없습니다.\n'+
+          '서버 종료 패킷도 아직 미구현입니다. 카카오톡에서 직접 종료해 주세요.');
+        return true;
+      }
       if(!verifiedActive(before,room)&&!ownSession){
         await safeReply(client,send,'⚠️ 서버에서 활성 보이스룸을 확인하지 못해 종료 요청을 보내지 않았습니다.');
         return true;
@@ -436,10 +447,10 @@ async function handle({client,roomId,msg,text,send,adapter}){
         }
         const message=confirmed?
           '🎙️ 보이스룸 종료가 서버에서 확인되었습니다.':
+          response?.serverStopUnavailable===true?
+            '❌ 실제 VOX 보이스룸 종료 패킷이 미구현입니다. 봇 연결은 유지했습니다.':
           localReleased?
-            '✅ Railway VOX 보이스룸 진행자 연결을 종료했습니다.\n'+
-            '서버의 종료 이벤트(vr_bye)는 아직 확인되지 않았습니다.\n'+
-            '다른 진행자가 남아 있으면 보이스룸이 계속될 수 있습니다.':
+            '⚠️ Railway VOX 연결만 해제됐습니다. 서버 보이스룸은 종료되지 않았을 수 있습니다.':
             '⚠️ 보이스룸 종료 결과를 검증하지 못했습니다. 실제 상태를 확인해 주세요.';
         await safeReply(client,send,message);
       }finally{

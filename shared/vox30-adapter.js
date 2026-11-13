@@ -188,7 +188,7 @@ function createVox30Adapter({
       const same=active?.chatId===id;
       return {
         roomId:id,verified:false,statusKnown:false,
-        localSession:true,localActive:same,
+        localSession:true,localActive:same,stopAvailable:false,
         ...(same&&active?.session?.callId!=null
           ?{localCallId:checkedId(active.session.callId)}:{}),
         ...((()=>{
@@ -312,21 +312,23 @@ function createVox30Adapter({
     // The owner-initiated shutdown tears down the actual VOX signalling
     // connection, RTP and keepalive. The only-moderator leave rule can end
     // the KakaoTalk room, but server closure must be confirmed via vr_bye.
+    // The KakaoTalk server does not treat TLS socket FIN as the native
+    // VoxCall30Impl.hangUp(0) request. Disconnecting the sole moderator
+    // without an authenticated hangup packet ORPHANS the voice room.
+    // A real server termination transport is not verified for VOX30 yet.
+    // Keep the creator session alive and reject incomplete stop attempts.
     async stop({roomId,voiceRoomId}={}) {
       const id=checkedId(roomId);
       const current=active;
       if(!current||current.chatId!==id)
-        return {roomId:id,closed:false,verified:false,localReleased:false};
+        return {roomId:id,closed:false,verified:false,
+          localReleased:false,serverStopUnavailable:true};
       if(voiceRoomId!=null&&
           checkedId(voiceRoomId)!==checkedId(current.session.callId))
         throw Error('다른 보이스룸 통화 ID로 종료할 수 없습니다.');
-      if(running)throw Error('이미 VOX 요청을 처리하고 있습니다.');
-      running=true;
-      try {
-        await release(current,{graceful:true});
-        console.info('[VOICE VOX30] local VOX creator session ended by command; server bye unconfirmed');
-        return {roomId:id,closed:false,verified:false,localReleased:true};
-      }finally{running=false;}
+      console.warn('[VOICE VOX30] verified hangUp wire unavailable; retained creator session');
+      return {roomId:id,closed:false,verified:false,
+        localReleased:false,serverStopUnavailable:true};
     },
     async join({roomId,botUserId}={}) {
       const id=checkedId(roomId);
