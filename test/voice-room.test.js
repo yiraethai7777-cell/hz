@@ -777,3 +777,43 @@ test('Railway VOX stop explains an orphaned previous session without false succe
   assert.equal(calls,0);
   assert.match(sent[0],/이전에 생성한 보이스룸을 종료할 수 없습니다/);
 });
+
+
+test('a second room gets an explicit single-session explanation without a create request',async()=>{
+  const {args,sent}=fixture({text:'#보룸시작 두 번째 방'});
+  let calls=0;
+  args.adapter={
+    status:async()=>({localSession:true,localActive:false,localBusyOtherRoom:true,
+      roomId:ROOM,verified:false}),
+    create:async()=>{calls++;throw Error('must never send duplicate VOX request');},
+  };
+  const used=await voice.handle(args);
+  assert.equal(used,true);
+  assert.equal(calls,0);
+  assert.match(sent[0],/다른 채팅방에서 이미 보이스룸을 유지 중입니다/);
+  assert.match(sent[0],/활성 세션 1개/);
+  assert.doesNotMatch(sent[0],/VOX 생성 요청 또는 응답 처리에 실패/);
+});
+
+test('creating a second VOX in the same chat is refused without disrupting the live session',async()=>{
+  const {args,sent}=fixture({text:'#보룸시작 중복'});
+  let calls=0;
+  args.adapter={
+    status:async()=>({localSession:true,localActive:true,roomId:ROOM,
+      verified:false}),
+    create:async()=>{calls++;throw Error('must not replace live VOX');},
+  };
+  await voice.handle(args);
+  assert.equal(calls,0);
+  assert.match(sent[0],/이 방에서 Railway VOX 보이스룸을 이미 유지 중입니다/);
+});
+
+test('voice room status distinguishes an active creator call in another chat',async()=>{
+  const {args,sent}=fixture({text:'#보룸상태'});
+  args.adapter={
+    status:async()=>({localSession:true,localActive:false,localBusyOtherRoom:true,
+      roomId:ROOM,verified:false}),
+  };
+  await voice.handle(args);
+  assert.match(sent[0],/다른 방에서 Railway VOX 세션 유지 중/);
+});

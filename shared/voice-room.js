@@ -368,6 +368,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
           capability='✅ 서버에서 개설 상태 확인'+(state.voiceRoomId?' · ID: '+String(state.voiceRoomId):'');
         else if(verifiedInactive(state,room))
           capability='✅ 서버에서 비활성 상태 확인';
+        else if(state?.localBusyOtherRoom===true)
+          capability='다른 방에서 Railway VOX 세션 유지 중 · 이 계정의 동시 개설 미검증';
         else if(state?.localSession===true)
           capability=state.localActive?
             'Railway 직접 VOX에서 이 방의 보룸 세션 표시 (서버 상태 미검증)':
@@ -480,6 +482,27 @@ async function handle({client,roomId,msg,text,send,adapter}){
     return true;
   }
   if(client?.connected===false)return true;
+  // Preserve the already-running VOX creator session and report the actual
+  // cause before calling the adapter's create() (which is single-session).
+  if(typeof transport.status==='function'){
+    try{
+      const session=await transport.status({roomId:room});
+      if(session?.localSession===true && session?.localActive===true){
+        await safeReply(client,send,'⚠️ 이 방에서 Railway VOX 보이스룸을 이미 유지 중입니다.\n'+
+          '중복 생성 요청을 보내지 않았습니다.');
+        return true;
+      }
+      if(session?.localBusyOtherRoom===true){
+        await safeReply(client,send,'❌ 다른 채팅방에서 이미 보이스룸을 유지 중입니다.\n'+
+          '현재 Railway VOX는 봇 계정당 활성 세션 1개로 제한되어 있습니다.\n'+
+          '다른 방 동시 개설은 서버 지원 여부가 아직 검증되지 않았으며, 기존 보이스룸 연결은 유지했습니다.');
+        return true;
+      }
+    }catch(error){
+      console.warn('[VOICE VOX30] pre-create local state unavailable');
+      // The adapter still refuses duplicate sessions before network activity.
+    }
+  }
   let title;
   try{title=parseTitle(raw.slice(match[0].length));}
   catch(err){await safeReply(client,send,'❌ '+String(err.message||err));return true;}

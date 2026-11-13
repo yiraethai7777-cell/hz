@@ -119,8 +119,16 @@ function installDirectVoice(client,{env=process.env,
           return result;
         }catch(error){
           const message=String(error?.message||'');
+          // Keep user-actionable VOX session errors. A second chat cannot
+          // create while the same bot account has an active VOX call.
+          // The generic fallback previously hid this explicit adapter guard.
           const safe=/^VOX 보이스룸 생성 (?:응답 )?거절: (?:resCode|reason)=-?\d+$/.test(message)
-            ?message:'VOX 생성 요청 또는 응답 처리에 실패했습니다. Railway 로그를 확인해 주세요.';
+            ?message:
+            message==='VOX 계정에 이미 활성 음성 세션이 있습니다.'?
+              '이 봇 계정은 다른 방에서 이미 보이스룸을 유지 중입니다. 같은 계정의 여러 방 동시 통화는 미검증입니다. 기존 보이스룸은 유지했습니다.':
+            message==='다른 VOX 생성 요청을 처리 중입니다.'?
+              '현재 VOX 보이스룸 생성 요청을 처리 중입니다. 완료된 뒤 다시 시도해 주세요.':
+            'VOX 생성 요청 또는 응답 처리에 실패했습니다. Railway 로그를 확인해 주세요.';
           log.warn('[VOICE VOX30] '+safe);
           throw Error(safe);
         }
