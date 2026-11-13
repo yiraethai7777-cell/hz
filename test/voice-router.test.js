@@ -7,14 +7,18 @@ const assert=require('node:assert/strict');
 const dbModule=require('../shared/db');
 let testRoomVoiceEnabled='true';
 let testRoomBotEnabled='true';
+let testRoomRecordExists=true;
+let testRoomSubscriptionAccess={allowed:true,subscription:null};
 dbModule.getPool=()=>({query:async sql=>/voiceRoomEnabled/.test(sql)
   ? {rows:[{voice_enabled:testRoomVoiceEnabled}],rowCount:1}
   : /botEnabled/.test(sql)
-    ? {rows:[{enabled:testRoomBotEnabled,arden_clan:'false'}],rowCount:1}
+    ? testRoomRecordExists
+      ? {rows:[{enabled:testRoomBotEnabled,arden_clan:'false'}],rowCount:1}
+      : {rows:[],rowCount:0}
     : {rows:[],rowCount:0}});
 // Mock a grandfathered, active room so voice routing tests stay focused on the
 // voice handler; subscription-expiry behavior is exercised by room-subscriptions.test.js.
-require('../shared/room-subscriptions').access=async()=>({allowed:true,subscription:null});
+require('../shared/room-subscriptions').access=async()=>testRoomSubscriptionAccess;
 const {attachRouter}=require('../shared/router');
 
 function fixture() {
@@ -470,4 +474,98 @@ test('bot OFF continues to block other users and voice OFF still blocks ordinary
   }finally{
     testRoomBotEnabled='true';testRoomVoiceEnabled='true';
   }
+});
+
+
+test('bot #보룸시작 works without web-issued room subscription or hz_rooms record',async()=>{
+  const {emit,client,sent}=fixture();
+  let calls=0,request;
+  client.voiceRoomAdapter={
+    async status({roomId}){return {roomId,localSession:true,localActive:false};},
+    async create(options){calls++;request=options;return {created:true,verified:true};},
+  };
+  testRoomSubscriptionAccess={allowed:false,subscription:null};
+  testRoomRecordExists=false;
+  testRoomBotEnabled='false';
+  testRoomVoiceEnabled='false';
+  try {
+    await emit('#보룸시작 웹없이',2,client.userId);
+    assert.equal(calls,1);
+    assert.equal(request.roomId,'18495931541358610');
+    assert.equal(request.title,'웹없이');
+    assert.equal(sent.length,1);
+    assert.match(sent[0].body,/보룸을 시작했습니다/);
+  } finally {
+    testRoomSubscriptionAccess={allowed:true,subscription:null};
+    testRoomRecordExists=true;
+    testRoomBotEnabled='true';
+    testRoomVoiceEnabled='true';
+  }
+});
+
+test('bot account aliases also work in unregistered room without manager portal',async()=>{
+  for(const cmd of ['#보룸켜기 관리자웹없음','!보이스룸시작 관리자웹없음']){
+    const {emit,client,sent}=fixture();
+    let created=0;
+    client.voiceRoomAdapter={
+      async status({roomId}){return {roomId,localSession:true,localActive:false};},
+      async create(){created++;return {created:true,verified:true};},
+    };
+    testRoomSubscriptionAccess={allowed:false,subscription:null};
+    testRoomRecordExists=false;
+    testRoomVoiceEnabled='false';
+    try {
+      await emit(cmd,2,client.userId);
+      assert.equal(created,1,cmd);
+      assert.match(sent[0].body,/보룸을 시작했습니다/);
+    }finally{
+      testRoomSubscriptionAccess={allowed:true,subscription:null};
+      testRoomRecordExists=true;
+      testRoomVoiceEnabled='true';
+    }
+  }
+});
+
+test('unlicensed room still blocks manager and ordinary account VOX create',async()=>{
+  const {emit,client,sent}=fixture();
+  let created=0;
+  client.voiceRoomAdapter={async create(){created++;return {created:true,verified:true};}};
+  testRoomSubscriptionAccess={allowed:false,subscription:null};
+  testRoomRecordExists=false;
+  try {
+    await emit('#보룸시작 일반방장',1,'9007199254740993444');
+    await emit('#보룸시작 일반',2,'9007199254740993555');
+    assert.equal(created,0);
+    assert.equal(sent.length,0);
+  }finally{
+    testRoomSubscriptionAccess={allowed:true,subscription:null};
+    testRoomRecordExists=true;
+  }
+});
+
+test('expired paid subscription is never bypassed, including the bot account',async()=>{
+  const {emit,client,sent}=fixture();
+  let created=0;
+  client.voiceRoomAdapter={async create(){created++;return {created:true,verified:true};}};
+  testRoomSubscriptionAccess={allowed:false,subscription:{
+    roomId:'18495931541358610',active:false,status:'expired',plan:'all'
+  }};
+  try{
+    await emit('#보룸시작 기간만료',1,client.userId);
+    assert.equal(created,0);
+    assert.equal(sent.length,0);
+  }finally{testRoomSubscriptionAccess={allowed:true,subscription:null};}
+});
+
+test('unregistered bot cannot bypass subscription for other VOX commands',async()=>{
+  const {emit,client,sent}=fixture();
+  let stopped=0;
+  client.voiceRoomAdapter={async stop(){stopped++;return {closed:true,verified:true}}};
+  testRoomSubscriptionAccess={allowed:false,subscription:null};
+  try{
+    await emit('#보룸종료',1,client.userId);
+    await emit('#보룸종료시험 연결해제',1,client.userId);
+    assert.equal(stopped,0);
+    assert.equal(sent.length,0);
+  }finally{testRoomSubscriptionAccess={allowed:true,subscription:null};}
 });

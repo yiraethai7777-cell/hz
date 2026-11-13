@@ -101,11 +101,15 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
     const isBotAccount = client.userId != null && String(client.userId) !== '0' &&
       senderId != null && String(client.userId) === String(senderId);
     try {
-      // Subscription enforcement precedes every chat command, including bot-owner
-      // power commands. An expired plan cannot be revived from KakaoTalk.
+      // A bot-account-authored VOX create is independent of room web-portal
+      // issuance and room bot ON/OFF. It still requires a joined open chat,
+      // VOX credentials and the server's actual privileges.
+      // An EXPIRED paid subscription is never revived by this exception.
+      const botUnlicensedVoiceCreate=isBotAccount &&
+        require('./voice-room-permission').isCreateCommand(text);
       const roomAccess=await require('./room-subscriptions').access(roomId);
       const license=roomAccess.subscription;
-      if(!roomAccess.allowed)return;
+      if(!roomAccess.allowed && !(botUnlicensedVoiceCreate && !license))return;
       if(license&&text==='!봇방지정')return; // Owner-room bootstrap must never override a purchased package.
       if((text==='!요금제'||text==='!남은시간')&&license&&await require('./bot-power').enabled(roomId)){
         const sub=require('./room-subscriptions');
