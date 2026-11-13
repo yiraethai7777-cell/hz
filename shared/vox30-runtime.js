@@ -2,6 +2,7 @@
 
 const {botMemberType}=require('./voice-room');
 const {voxConnect,checkedAppVersion}=require('./vox30-protocol');
+const {createMultiRoomAdapter}=require('./vox30-multiroom');
 
 const ENTRY_HOST='211.242.12.121';
 const ENTRY_PORT=9282;
@@ -48,7 +49,14 @@ function installDirectVoice(client,{env=process.env,
     log.info('[VOICE VOX30] carrier source: '+
       (env.NEXI_VOX_CARRIER_ID?'explicit-vox-env':
         device.carrierId?'current-kakaoforge-session':'absent'));
-    const transport=loadLab().createLabAdapter({
+    // One VOX call per account remains the production default.
+    // NEXI_VOX_MAX_ACTIVE_ROOMS=2 is an experimental opt-in only:
+    // separate TLS/RTC connections do NOT prove server-side multi-call support.
+    const maxActiveRooms=env.NEXI_VOX_MAX_ACTIVE_ROOMS==='2'?2:1;
+    if(env.NEXI_VOX_MAX_ACTIVE_ROOMS &&
+       !['1','2'].includes(env.NEXI_VOX_MAX_ACTIVE_ROOMS))
+      log.warn('[VOICE VOX30] unsupported concurrency setting; using one session');
+    const makeRoomAdapter=()=>loadLab().createLabAdapter({
       actorUserId:auth.actorUserId,
       cfg:{...device,userId:auth.actorUserId},
       entryHost:ENTRY_HOST,entryPort:ENTRY_PORT,appVer,
@@ -109,6 +117,9 @@ function installDirectVoice(client,{env=process.env,
         return userType;
       },
     });
+    const transport=maxActiveRooms===2?
+      createMultiRoomAdapter({createAdapter:makeRoomAdapter,maxRooms:2}):
+      makeRoomAdapter();
     client.voiceRoomAdapter={
       ...transport,
       async create(request) {
@@ -135,7 +146,8 @@ function installDirectVoice(client,{env=process.env,
       },
     };
     log.info('[VOICE VOX30] direct create adapter installed; optional device fields: '+Object.keys(device).length+
-      '; silent RTP TX: '+(env.NEXI_VOX_TX_SILENCE==='1'?'enabled':'off'));
+      '; silent RTP TX: '+(env.NEXI_VOX_TX_SILENCE==='1'?'enabled':'off')+
+      '; VOX local room slots='+maxActiveRooms+(maxActiveRooms>1?' (experimental; server unverified)':''));
     return true;
   }catch{
     log.warn('[VOICE VOX30] direct create adapter initialization failed');

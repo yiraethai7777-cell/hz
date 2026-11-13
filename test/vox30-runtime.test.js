@@ -74,3 +74,57 @@ test('silent audio is opt-in and does not change production default',()=>{
     loadLab:()=>({createLabAdapter(config){value=config.enableSilentAudio;return {create(){}};}})}),true);
   assert.equal(value,true);
 });
+
+
+test('multi-room opt-in creates separate VOX room adapters; default remains single',async()=>{
+  const instances=[];
+  const client={
+    connected:true,userId:'10',_getCachedMemberType:()=>4,
+    voiceRoomAuthCandidate:{
+      actorUserId:'10',
+      getCredentials:()=>({oauthToken:'token',deviceUuid:'uuid'}),
+      localRoomEvidence:()=>({isOpenChatInLocalRoster:true,memberTypeCached:true}),
+    },
+  };
+  const loadLab=()=>({createLabAdapter(){
+    let room=null,active=false;
+    const instance={
+      async create({roomId}){
+        room=roomId;active=true;return {requestAccepted:true,callId:'99'};
+      },
+      async status({roomId}){
+        return {roomId,localSession:true,localActive:active,stopAvailable:false};
+      },
+      async dispose(){active=false},
+    };
+    instances.push(instance);
+    return instance;
+  }});
+  assert.equal(installDirectVoice(client,{
+    env:{NEXI_VOX_MAX_ACTIVE_ROOMS:'2'},loadLab,log,
+  }),true);
+  assert.equal(instances.length,0); // room adapters are initialized per request
+  const a=client.voiceRoomAdapter;
+  assert.equal((await a.status({roomId:'101'})).maxLocalRooms,2);
+  await a.create({roomId:'101'});
+  assert.equal((await a.status({roomId:'202'})).localBusyOtherRoom,false);
+  await a.create({roomId:'202'});
+  assert.equal(instances.length,2);
+  assert.equal((await a.status({roomId:'101'})).localActive,true);
+  assert.equal((await a.status({roomId:'202'})).localActive,true);
+  assert.equal((await a.status({roomId:'303'})).localBusyOtherRoom,true);
+  await assert.rejects(a.create({roomId:'303'}),/이미 보이스룸/);
+  await a.dispose();
+});
+
+test('unrecognized multi-room setting fails closed to the existing single-room adapter',()=>{
+  let created=0;
+  const client={voiceRoomAuthCandidate:{actorUserId:'10',
+    getCredentials:()=>({oauthToken:'a',deviceUuid:'b'}),
+    localRoomEvidence:()=>({isOpenChatInLocalRoster:true,memberTypeCached:true})}};
+  assert.equal(installDirectVoice(client,{
+    env:{NEXI_VOX_MAX_ACTIVE_ROOMS:'3'},log,
+    loadLab:()=>({createLabAdapter(){created++;return {create:async()=>true}}}),
+  }),true);
+  assert.equal(created,1);
+});
