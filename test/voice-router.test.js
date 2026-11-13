@@ -348,3 +348,58 @@ test('!보룸참여 and !보룸참여상태 are routed before unrelated initiali
   await emit('!보룸참여상태');
   assert.match(sent.at(-1).body,/보룸 참가 상태/);
 });
+
+
+test('screenshotted VOX stop experiment commands are routed before global game ready',async()=>{
+  for(const [cmd,expected] of [
+    ['#보룸종료시험 11009','종료 실험이 비활성화되어 있습니다'],
+    ['#보룸종료시험 연결해제','종료 실험이 비활성화되어 있습니다'],
+    ['#보이스룸종료시험 11009','종료 실험이 비활성화되어 있습니다'],
+  ]){
+    const {emit,client,sent}=fixture();
+    client.voiceRoomAdapter={
+      async status({roomId}){
+        return {roomId,localSession:true,localActive:true,
+          unsafeStopExperimentAvailable:false};
+      },
+      async experimentalStop(){throw Error('disabled experiment cannot be invoked')},
+    };
+    await emit(cmd);
+    assert.equal(sent.length,1,cmd);
+    assert.match(sent[0].body,/종료 실험이 비활성화되어 있습니다/);
+  }
+});
+
+test('VOX stop experiment reaches exactly the intended transport and never reports closure on send',async()=>{
+  for(const [cmd,mode,response,expected] of [
+    ['#보룸종료시험 11009','11009',{packetSent:true},/11009 패킷을 1회 송신/],
+    ['#보룸종료시험 연결해제','disconnect',{localReleased:true},/VOX 연결만 강제로 해제/],
+  ]){
+    const {emit,client,sent}=fixture();
+    const calls=[];
+    client.voiceRoomAdapter={
+      async status({roomId}){
+        return {roomId,localSession:true,localActive:true,
+          unsafeStopExperimentAvailable:true};
+      },
+      async experimentalStop(req){
+        calls.push(req);
+        return response;
+      },
+    };
+    await emit(cmd);
+    assert.deepEqual(calls,[{roomId:'18495931541358610',mode}]);
+    assert.equal(sent.length,1);
+    assert.match(sent[0].body,expected);
+    assert.doesNotMatch(sent[0].body,/보이스룸 종료가 서버에서 확인되었습니다/);
+  }
+});
+
+test('VOX stop experiment is subject to room voice enabled permission gate',async()=>{
+  const permission=require('../shared/voice-room-permission');
+  for(const text of ['#보룸종료시험 11009','#보룸종료시험 연결해제',
+    '#보이스룸종료시험 11009']){
+    assert.equal(permission.isActionCommand(text),true);
+  }
+  assert.equal(permission.isActionCommand('#보룸종료시험방'),false);
+});
