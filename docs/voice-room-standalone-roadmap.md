@@ -81,3 +81,18 @@ node --openssl-legacy-provider --test test/voice-room-vox-wire.test.js
 5. 기존 Railway 채팅 연결이 유지되는지, 중복 로그인을 초래하지 않는지 확인
 
 검증이 끝나지 않은 실제 네트워크 접속을 무리하게 자동 실행하는 것은 기존 채팅 봇의 세션을 망가뜨릴 수 있으므로, 전송 모듈은 현재 NEXI 본 프로세스에서 로드하지 않습니다.
+
+## 2026-11-13: 확인된 Android 원본 함수와 Railway 미구현 경계
+
+[VoiceroomCoreManager 디컴파일 코드](https://github.com/theman001/KakaoWebTalk/blob/f3e1d5bc0f85c910873e8d95071c4a732cc736b4/app/kakaotalk_apk_jadxExport/app/src/main/java/p3093zR/C75899c.java) 기준으로 다음 Java-to-native API 호출이 실제 확인되었습니다.
+
+- **참가**: `joinVoiceroom(chatId, callId, vcsHostV4, vcsHostV6, vcsPort,...)`가 Android 내부 `joinVoiceRoomCall(networkHost, netType, chatId, userId, callId, VCallMediaType(1), VServiceType(11), openChatUserType, true)`를 호출 (약 442, 1647행).
+- **스피커 초대 수락**: `requestSpeakerInvitationAccept()`가 `IVoxCall.vRCAcceptSpeakerInvitation(currentUserId, true)` 실행 (약 1249, 2402행).
+- **진행자 초대 수락**: `requestModeratorInvitationAccept()`가 `IVoxCall.vRCAcceptModeratorInvitation()` 실행 (약 2314행).
+- **수락 결과**: `onVRCAcceptSpeakerInvitationResult`, `onVRCAcceptModeratorInvitationResult` 콜백이 응답 코드를 수신 (약 1873–1886행).
+- **역할 검증**: `onVRCRecvMemberList`가 moderator/speaker/listener 목록을 보고 (약 1489행).
+
+주의: 위 메서드는 **Android 앱 내부 네이티브 VOX 엔진의 Java API**이며 Railway Node.js에서 호출할 수 있는 네트워크 요청 또는 BSON 직렬화 스키마가 아닙니다. GitHub에 공개된 [VOX 분석 문서](https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md)는 JOIN = 11002 LOGIN, 스피커 연결 = 12023 CLIENT_OFFER까지 밝히지만 **두 BSON 본문과 서버 역할 수락 명령을 설명하지 않습니다**.
+
+기존 `shared/vox30-participation.js`는 검증된 드라이버가 들어오기 전까지 송신하지 않습니다. 기능을 실제 작동시키려면 사용자 본인 계정의 정상 참가·스피커 초대 수락·진행자 초대 수락 시 VOX 엔진이 TLS 내부에 넣는 **각 요청의 명령 번호, 민감정보 제거한 BSON 필드명·자료형, 서버 성공 응답 및 역할 명단 변화**가 필요합니다. 그 데이터를 확보하지 않고 생성 명령 `11028` 또는 추측한 패킷을 재사용하지 않습니다.
+
