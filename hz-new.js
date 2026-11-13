@@ -58,6 +58,9 @@ function start() {
   client.voiceRoomAuthPreflight=({chatId})=>
     require('./shared/vox30-auth-preflight').assessVoxAuthPreflight(client,{chatId});
   require('./shared/vox30-runtime').installDirectVoice(client);
+  // Optional isolated Iris/Noa comparison (requires separate Android actor).
+  // Never alters client.voiceRoomAdapter, LOCO auth, or Railway direct creation.
+  require('./shared/voice-room-noa-bridge').installIrisSidecarFromEnv(client);
   const game = createGame(client);
 
   let resolveReady, rejectReady;
