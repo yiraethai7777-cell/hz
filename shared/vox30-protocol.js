@@ -11,6 +11,7 @@ const DEFAULT_TIMEOUT_MS = 12000;
 const MAX_BODY_BYTES = 1024 * 1024;
 const METHODS = Object.freeze({
   DISCOVER:30000, CREATE:11028, CREATED:11003, REJECTED:11007, PING:11015,
+  ROOM_EVENT:12011,
 });
 const I32 = bson.Int32;
 const I64 = class extends bson.Long {
@@ -574,6 +575,19 @@ function getCreateBody({cfg,chatId,title,oauthToken,deviceUuid,sdp,userType=1,ap
   };
 }
 
+// Based on the public veropy VOX 3.0 create/event reference.
+// 11003 and 12011 server notifications need the same identity/call payload.
+// The server's message type and response acceptance remain independently checked.
+function getEventAckBody(cfg,callId) {
+  validateCfg(cfg);
+  return {
+    userId:new I64(checkedId(cfg.userId)),
+    callId:new I64(checkedId(callId)),
+    resCode:new I32(0),
+    devType:new I32(4),
+  };
+}
+
 async function getCallServer({cfg,chatId,entryHost,entryPort=9282,codec,
     appVer,connect=voxConnect,transport={}}) {
   validateCfg(cfg);
@@ -604,7 +618,35 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
   const server=await getCallServer({
     cfg,chatId,entryHost,entryPort,codec,appVer,connect,transport,
   });
-  const c=await connect({host:server.host,port:server.port,codec,...transport});
+  let callConn=null, eventAckCallId=null;
+  let eventAckQueue=0, eventAckCount=0, eventAckFailed=0;
+  // Never ACK a response to our ACK. Require a server event/roster body.
+  function isRoomEvent(packet) {
+    return packet?.method===METHODS.ROOM_EVENT &&
+      (packet.fields?.includes('event') ||
+       packet.structures?.members || packet.memberEnvelope || packet.memberGroups);
+  }
+  async function ackRoomEvent() {
+    if(!callConn || !eventAckCallId)return;
+    try {
+      await callConn.send(METHODS.ROOM_EVENT,getEventAckBody(cfg,eventAckCallId));
+      eventAckCount++;
+      console.info('[VOICE VOX30] 12011 event acknowledgement sent (reference body)');
+    } catch {
+      eventAckFailed++;
+      console.warn('[VOICE VOX30] 12011 event acknowledgement failed');
+    }
+  }
+  // The call server may emit a roster BEFORE the 11028/11003 pair resolves.
+  // Keep only a bounded count; neither raw member records nor ids are retained.
+  const eventTransport={...transport,onPacket(packet){
+    transport.onPacket?.(packet);
+    if(!isRoomEvent(packet))return;
+    if(eventAckCallId){void ackRoomEvent();return;}
+    if(eventAckQueue<32)eventAckQueue++;
+  }};
+  const c=await connect({host:server.host,port:server.port,codec,...eventTransport});
+  callConn=c;
   let outcome,ack;
   const began=Date.now();
   let replyMs=null,eventMs=null,createdAckMs=null;
@@ -636,11 +678,18 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
     // A 11003 event does NOT prove KakaoTalk server activation or ICE/DTLS.
     if(!remoteSdp || typeof remoteSdp!=='object')
       throw Error('VOX 원격 SDP 응답이 없습니다.');
-    // Acknowledge the actual server event using its request nonce.
-    // Keep this send before waiting for a late 11028 reply: the remote
-    // server might require the 11003 response to finish sending 11028.
-    await c.send(METHODS.CREATED,{resCode:new I32(0)},event.requestNonce);
+    // veropy sends userId/callId/devType in the 11003 ACK (not just resCode).
+    // The call ID must come from the authentic 11003 event or a verified
+    // 11028 reply, never an untrusted chat attachment.
+    const eventCallId=event.body.callId ??
+      (event.body.callId==null ? (await accepted).body.callId : null);
+    const ackBody=getEventAckBody(cfg,eventCallId);
+    await c.send(METHODS.CREATED,ackBody,event.requestNonce);
     createdAckMs=Date.now()-began;
+    eventAckCallId=checkedId(eventCallId);
+    const queued=eventAckQueue;
+    eventAckQueue=0;
+    for(let i=0;i<queued;i++)await ackRoomEvent();
     // Explicitly verify 11028 even when 11003 arrived first. Previously an
     // event carrying both IDs could bypass this independent acceptance.
     const response=await accepted;
@@ -659,6 +708,8 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
       signaling:{replyVerified:true,
         createReplyMs:replyMs,createdEventMs:eventMs,createdAckSentMs:createdAckMs,
         ackUsesServerNonce:Buffer.isBuffer(event.requestNonce)&&event.requestNonce.length===4,
+        eventAckIdentityFields:true,roomEventAcksAtCreate:eventAckCount,
+        roomEventAckErrorsAtCreate:eventAckFailed,
         idsConsistent:true},
     };
   }catch(e){c.close();throw e;}
@@ -668,6 +719,6 @@ async function createVoiceRoom({cfg,chatId,title,oauthToken,deviceUuid,sdp,
 module.exports={
   VOX_IV,METHODS,I32,I64,integer,checkedId,validateTitle,pkcs7Pad,pkcs7Unpad,
   nativeSeedCbc,createCodec,parseServerAddress,voxConnect,checkedAppVersion,
-  getDiscoveryBody,getCreateBody,getCallServer,createVoiceRoom,packetSummary,
+  getDiscoveryBody,getCreateBody,getEventAckBody,getCallServer,createVoiceRoom,packetSummary,
   heartbeatReplySummary,
 };
