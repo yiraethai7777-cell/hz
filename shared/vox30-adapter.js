@@ -70,6 +70,8 @@ function sessionTerminationEvidence({elapsedMs,lastPongAgeMs,pingReplies,
 function createVox30Adapter({
   actorUserId,cfg,entryHost,entryPort=9282,codec,
   credentialsForRoom,rtcFactory,verifyMembership,connect,transport,appVer,userTypeForRoom=()=>1,
+  // Only version-matched, independently verified drivers may be supplied.
+  joinTransport=null,acceptSpeakerTransport=null,acceptModeratorTransport=null,
 }={}) {
   const userId=checkedId(actorUserId);
   if(String(cfg?.userId??'')!==userId)
@@ -82,9 +84,13 @@ function createVox30Adapter({
   let active=null;
   let running=false;
   const {ownRole}=require('./vox30-role-state');
+  const participant=require('./vox30-participation').createParticipationController({
+    actorUserId:userId,joinTransport,acceptSpeakerTransport,acceptModeratorTransport,
+  });
   async function release(current) {
     if(active!==current)return;
     active=null;
+    participant.release();
     clearInterval(current.timer);
     current.session.conn.close();
     try{await current.peer.close();}catch{}
@@ -178,6 +184,13 @@ function createVox30Adapter({
       return {
         roomId:id,verified:false,statusKnown:false,
         localSession:true,localActive:same,
+        ...((()=>{
+          const info=participant.status(id);
+          return {joinAvailable:info.joinAvailable,
+            speakerAutoAcceptAvailable:info.speakerAutoAcceptAvailable,
+            moderatorAutoAcceptAvailable:info.moderatorAutoAcceptAvailable,
+            pendingRoles:info.pendingRoles};
+        })()),
         ...(same&&active.lastOwnRole?{
           role:active.lastOwnRole.role,roleSource:active.lastOwnRole.source,
           mic:active.lastOwnRole.mic,
@@ -217,6 +230,8 @@ function createVox30Adapter({
             onPacket(packet) {
               transport?.onPacket?.(packet);
               if(packet?.method===12011){
+                if(active?.chatId===chatId && active.session?.callId)
+                  participant.onRoster(packet,{roomId:chatId,callId:active.session.callId});
                 const role=ownRole(packet);
                 if(role){
                   observedOwnRole=role;
@@ -272,6 +287,9 @@ function createVox30Adapter({
         active={chatId,session,peer,timer:null,
           createdAt:Date.now(),pingReplies:0,lastModerator:observedModerator,
           lastOwnRole:observedOwnRole};
+        if(session.callId!=null){
+          participant.activate({roomId:chatId,callId:session.callId});
+        }
         startKeepalive(active);
         return {requestAccepted:true,verified:false,
           callId:session.callId==null?null:checkedId(session.callId)};
@@ -283,6 +301,22 @@ function createVox30Adapter({
         }
         throw e;
       }finally{running=false;}
+    },
+    async join({roomId,botUserId}={}) {
+      const id=checkedId(roomId);
+      if(botUserId!=null&&checkedId(botUserId)!==userId)
+        throw Error('VOX 참가 계정이 Railway 봇과 다릅니다.');
+      if(active||running)throw Error('VOX 음성 세션이 이미 활성화되어 있거나 처리 중입니다.');
+      if(await verifyMembership({actorUserId:userId,chatId:id})!==true)
+        throw Error('VOX 오픈채팅 참여 정보를 확인할 수 없습니다.');
+      // An invite is an untrusted locator, NOT proof of VOX login.
+      const invitation=require('./voice-room-join-info').resolve(id);
+      return participant.join({roomId:id,invitation});
+    },
+    // To be called ONLY after a verified decoder supplies an exact bot-targeted
+    // server invitation on the active authenticated call connection.
+    async receiveAuthenticatedRoleInvitation(info) {
+      return participant.receiveAuthenticatedInvitation(info);
     },
     // Local release only. It is NOT the KakaoTalk server's room termination.
     async dispose() {
