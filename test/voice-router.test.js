@@ -340,3 +340,11 @@ test('bot account with nonmanager message role can reach the voice join handler'
   assert.match(sent[0].body,/보이스룸 참가 실행 불가/);
   assert.doesNotMatch(sent[0].body,/방장·부방장 또는 봇 계정만/);
 });
+
+test('!보룸참여 and !보룸참여상태 are routed before unrelated initialization',async()=>{
+  const {emit,sent}=fixture();
+  await emit('!보룸참여');
+  assert.match(sent.at(-1).body,/11002\(LOGIN\)/);
+  await emit('!보룸참여상태');
+  assert.match(sent.at(-1).body,/보룸 참가 상태/);
+});
