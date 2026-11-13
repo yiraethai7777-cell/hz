@@ -871,3 +871,19 @@ test('direct VOX adapter stop closes only its own active creator session',async(
   assert.equal((await adapter.stop({roomId:ROOM})).localReleased,false);
   await adapter.dispose();
 });
+
+
+test('VOX local creator shutdown requests a graceful TLS close instead of blind packet',async()=>{
+  class EndableTls extends FakeTls {
+    end(){this.ended=true;queueMicrotask(()=>this.emit('close'));}
+  }
+  const sock=new EndableTls();
+  const conn=await voxConnect({
+    host:'127.0.0.1',port:995,codec,timeoutMs:500,
+    tlsConnect:()=>{queueMicrotask(()=>sock.emit('secureConnect'));return sock;},
+  });
+  await conn.closeGracefully();
+  assert.equal(sock.ended,true);
+  await conn.whenClosed;
+  await assert.rejects(()=>conn.send(METHODS.PING,{a:1}),/종료/);
+});
