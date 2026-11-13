@@ -111,7 +111,7 @@ function resolve(roomId, now = Date.now()) {
 // On-demand, read-only LOCO history recovery. It never forwards history
 // messages to the chat router and never logs or persists call coordinates.
 // The SYNCMSG response is not guaranteed to contain past logs on all servers.
-async function recover(client, roomId, now=Date.now()) {
+async function recover(client, roomId, now=Date.now(), {maxLogId}={}) {
   const id=positiveId(roomId);
   if(!id)return {recovered:false,reason:'invalid-room'};
   prune(now);
@@ -120,55 +120,80 @@ async function recover(client, roomId, now=Date.now()) {
   if(resolve(id,now))return {recovered:true,reason:'cached'};
   if(client?.connected!==true || typeof client?._carriage?.syncMsg!=='function')
     return {recovered:false,reason:'history-unavailable'};
+  // LOCO SYNCMSG history uses a known latest logId as its upper bound.
+  // The invoking #보룸참가 event supplies an exact server-issued logId.
+  // A request with max=0 may legitimately return no history.
+  const hint=trustedHistoryId(maxLogId)||
+    trustedHistoryId(client?._chatRooms?.get?.(id)?.lastChatLogId)||
+    trustedHistoryId(client?._chatRooms?.get?.(id)?.lastLogId)||'';
   const previous=historyRequests.get(id);
   if(previous && now-previous.at<HISTORY_REQUEST_COOLDOWN_MS){
     if(previous.pending)return previous.pending;
-    return {recovered:!!resolve(id,now),reason:'recently-checked'};
+    // A newer message anchor can unlock history that was empty earlier.
+    const newer=hint && (!previous.maxLogId ||
+      BigInt(hint)>BigInt(previous.maxLogId));
+    if(!newer)return {recovered:!!resolve(id,now),reason:'recently-checked'};
   }
   const pending=(async()=>{
+    const MAX_HISTORY_PAGES=3;
+    let cursor='0',total=0,lifecycleEvents=0,pages=0;
+    let upper=hint||'0',reason='history-empty';
     try{
-      // Query only this joined room. Never emit messages or modify cursors:
-      // that could trigger commands or expose historical user content.
-      const reply=await client._carriage.syncMsg({
-        chatId:id,cur:0,max:0,cnt:MAX_HISTORY_MESSAGES,
-      });
-      const body=reply?.body??reply;
-      const logs=Array.isArray(body?.chatLogs)?body.chatLogs:
-        Array.isArray(body?.logs)?body.logs:
-        Array.isArray(body?.messages)?body.messages:[];
-      const ordered=logs.slice(0,MAX_HISTORY_MESSAGES).filter(log=>
-        log&&typeof log==='object'&&!Array.isArray(log) &&
-        trustedHistoryId(log.logId??log.msgId??log.id)
-      ).sort((a,b)=>{
-        const x=BigInt(trustedHistoryId(a.logId??a.msgId??a.id));
-        const y=BigInt(trustedHistoryId(b.logId??b.msgId??b.id));
-        return x<y?-1:x>y?1:0;
-      });
-      let observed=0;
-      for(const log of ordered){
-        const msg={
-          room:{id,isOpenChat:true},
-          message:{type:Number(log.type??log.msgType??log.t??0),
-            logId:trustedHistoryId(log.logId??log.msgId??log.id)},
-          raw:{chatLog:log},
-        };
-        if(observe(msg,now,{fromHistory:true}))observed++;
+      while(pages<MAX_HISTORY_PAGES && total<MAX_HISTORY_MESSAGES*MAX_HISTORY_PAGES){
+        // Read only, never emit returned chat logs to event handlers.
+        const reply=await client._carriage.syncMsg({
+          chatId:id,cur:cursor,max:upper,cnt:MAX_HISTORY_MESSAGES,
+        });
+        if(reply?.status!==undefined && Number(reply.status)!==0)
+          return {recovered:false,reason:'history-unavailable'};
+        const body=reply?.body??reply;
+        const logs=Array.isArray(body?.chatLogs)?body.chatLogs:
+          Array.isArray(body?.logs)?body.logs:
+          Array.isArray(body?.messages)?body.messages:[];
+        const valid=logs.slice(0,MAX_HISTORY_MESSAGES).filter(log=>
+          log&&typeof log==='object'&&!Array.isArray(log) &&
+          trustedHistoryId(log.logId??log.msgId??log.id)
+        );
+        const ordered=valid.sort((a,b)=>{
+          const x=BigInt(trustedHistoryId(a.logId??a.msgId??a.id));
+          const y=BigInt(trustedHistoryId(b.logId??b.msgId??b.id));
+          return x<y?-1:x>y?1:0;
+        });
+        pages++;total+=ordered.length;
+        for(const log of ordered){
+          const msg={
+            room:{id,isOpenChat:true},
+            message:{type:Number(log.type??log.msgType??log.t??0),
+              logId:trustedHistoryId(log.logId??log.msgId??log.id)},
+            raw:{chatLog:log},
+          };
+          if(observe(msg,now,{fromHistory:true}))lifecycleEvents++;
+        }
+        if(resolve(id,now) || roomEvents.get(id)?.phase==='ended')break;
+        if(ordered.length)reason='no-current-invite';
+        // The response may include unrelated messages. Avoid unbounded
+        // reverse scans and only advance if the server returned a full page.
+        if(ordered.length<MAX_HISTORY_MESSAGES)break;
+        const first=trustedHistoryId(ordered[0].logId??
+          ordered[0].msgId??ordered[0].id);
+        if(!first||first===cursor)break;
+        cursor=first;
       }
-      // Even a non-empty history batch might not contain the current
-      // voice-room start, so report no match rather than inventing access.
+      const recovered=!!resolve(id,now);
+      if(recovered)reason='history';
+      else if(roomEvents.get(id)?.phase==='ended')reason='ended';
       console.info('[VOICE JOIN] bounded history recovery '+
-        JSON.stringify({logsExamined:ordered.length,lifecycleEvents:observed,
-          endpointReady:!!resolve(id,now)}));
-      return {recovered:!!resolve(id,now),
-        reason:resolve(id,now)?'history':'no-current-invite'};
+        JSON.stringify({logsExamined:total,pages,anchorPresent:!!hint,
+          lifecycleEvents,endpointReady:recovered,reason}));
+      return {recovered,reason};
     }catch{
       console.warn('[VOICE JOIN] bounded history lookup failed');
       return {recovered:false,reason:'history-unavailable'};
     }
   })();
-  historyRequests.set(id,{at:now,pending});
+  historyRequests.set(id,{at:now,maxLogId:hint,pending});
   const result=await pending;
-  historyRequests.set(id,{at:now,pending:null});
+  historyRequests.set(id,{at:now,maxLogId:hint,pending:null});
   if(historyRequests.size>MAX_ROOMS){
     historyRequests.delete(historyRequests.keys().next().value);
   }

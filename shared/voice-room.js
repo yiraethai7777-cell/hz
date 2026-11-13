@@ -315,13 +315,20 @@ async function handle({client,roomId,msg,text,send,adapter}){
         // messages as commands. No endpoint means no guessed 11002 packet.
         if(state.joinTrialAvailable===true &&
            !require('./voice-room-join-info').status(room).endpointReady){
-          const recovery=await require('./voice-room-join-info').recover(client,room);
+          const recovery=await require('./voice-room-join-info').recover(
+            client,room,Date.now(),{
+              maxLogId:msg?.message?.logId??msg?.raw?.chatLog?.logId??msg?.logId,
+            });
           if(!require('./voice-room-join-info').status(room).endpointReady){
             const detail=recovery.reason==='history-unavailable'
               ?'Railway에서 이전 채팅 기록을 조회하지 못했습니다.'
               :recovery.reason==='ended'
                 ?'최근 채팅 기록에 보이스룸 종료 이벤트가 있습니다.'
-                :'현재 보룸의 초대 접속정보가 최근 채팅 기록에서도 발견되지 않았습니다.';
+                :recovery.reason==='history-empty'
+                  ?'LOCO 서버가 이전 채팅 기록을 반환하지 않았습니다. 초대 접속정보를 확보할 수 없습니다.'
+                  :recovery.reason==='recently-checked'
+                    ?'방금 조회한 기록에서도 참가 가능한 초대 정보가 없었습니다.'
+                    :'조회된 채팅 기록에서 현재 보룸의 초대 접속정보를 찾지 못했습니다.';
             await safeReply(client,send,'⚠️ 보이스룸 참가용 접속정보를 확인할 수 없습니다.\n'+
               detail+'\n'+
               '※ 봇이 보이스룸 개설 이벤트를 수신하거나 현재 초대 메시지가 기록에 남아 있어야 합니다.');
