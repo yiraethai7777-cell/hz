@@ -916,7 +916,7 @@ test('join command performs read-only recovery when an earlier vr_invite was not
   client._carriage={async syncMsg({chatId,cur,max,cnt}){
     read++;
     assert.equal(String(chatId),ROOM);
-    assert.equal(cur,'0');assert.equal(max,'912350001111');assert.equal(cnt,100);
+    assert.equal(cur,0);assert.equal(max,'912350001111');assert.equal(cnt,100);
     return {body:{chatLogs:[{
       type:52,logId:'912349001111',sendAt:Math.floor((now-10000)/1000),
       attachment:JSON.stringify({type:'vr_invite',callId:'13299692653040311',

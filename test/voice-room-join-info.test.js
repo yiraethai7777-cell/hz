@@ -179,7 +179,7 @@ test('known current command logId anchors SYNCMSG when cur=0,max=0 returns no hi
   }}};
   const r=await joinInfo.recover(client,room,now,{maxLogId:anchor});
   assert.deepEqual(r,{recovered:true,reason:'history'});
-  assert.deepEqual(calls,[{chatId:room,cur:'0',max:anchor,cnt:100}]);
+  assert.deepEqual(calls,[{chatId:room,cur:0,max:anchor,cnt:100}]);
 });
 test('empty anchored reply is distinguished from missing invite in existing messages',async()=>{
   const now=1700000000000,room='18495931541358109';
@@ -222,7 +222,7 @@ test('bounded backward SYNCMSG pagination reads a past invite after a full page'
   const calls=[];
   const client={connected:true,_carriage:{async syncMsg(opts){
     calls.push(opts);
-    return {status:0,body:{chatLogs:opts.cur==='0'?page:[{
+    return {status:0,body:{chatLogs:opts.cur===0?page:[{
       type:52,logId:'93000000000200',
       sendAt:Math.floor((now-600000)/1000),
       attachment:JSON.stringify({type:'vr_invite',callId:CALL,csIP:HOST,csPort:9000}),
@@ -231,6 +231,7 @@ test('bounded backward SYNCMSG pagination reads a past invite after a full page'
   const res=await joinInfo.recover(client,room,now,{maxLogId:max});
   assert.deepEqual(res,{recovered:true,reason:'history'});
   assert.equal(calls.length,2);
+  assert.equal(calls[0].cur,0);
   assert.equal(calls[0].max,max);
   assert.equal(calls[1].max,max);
   assert.equal(calls[1].cur,'93000000000201');
@@ -244,5 +245,5 @@ test('invalid or imprecise command logId is never used as history max',async()=>
     return {status:0,body:{chatLogs:[]}};
   }}};
   await joinInfo.recover(client,room,now,{maxLogId:9007199254740993});
-  assert.equal(calls[0].max,'0');
+  assert.equal(calls[0].max,0);
 });

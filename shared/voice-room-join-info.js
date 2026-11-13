@@ -142,7 +142,8 @@ async function recover(client, roomId, now=Date.now(), {maxLogId}={}) {
       while(pages<MAX_HISTORY_PAGES && total<MAX_HISTORY_MESSAGES*MAX_HISTORY_PAGES){
         // Read only, never emit returned chat logs to event handlers.
         const reply=await client._carriage.syncMsg({
-          chatId:id,cur:cursor,max:upper,cnt:MAX_HISTORY_MESSAGES,
+          chatId:id,cur:cursor==='0'?0:cursor,
+          max:upper==='0'?0:upper,cnt:MAX_HISTORY_MESSAGES,
         });
         if(reply?.status!==undefined && Number(reply.status)!==0)
           return {recovered:false,reason:'history-unavailable'};
