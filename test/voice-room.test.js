@@ -682,3 +682,28 @@ test('!보룸참여상태 refuses to infer moderator without exact own-roster ev
   assert.match(sent[0],/역할: 미확인/);
   assert.doesNotMatch(sent[0],/감지된 역할: 진행자/);
 });
+
+test('direct join command reports missing verified driver instead of pretending the bot joined',async()=>{
+  const {args,sent}=fixture({text:'!보룸참여'});
+  args.adapter={
+    status:async()=>({statusKnown:false,joinAvailable:false,localActive:false}),
+    join:async()=>{throw Error('must never join without verified contract');},
+  };
+  await voice.handle(args);
+  assert.match(sent[0],/11002/);
+  assert.match(sent[0],/실행할 수 없습니다/);
+  assert.doesNotMatch(sent[0],/요청을.*전달했습니다/);
+});
+
+test('voice participation status distinguishes observed roles from unsupported auto accept',async()=>{
+  const {args,sent}=fixture({text:'!보룸참여상태'});
+  args.adapter={
+    status:async()=>({statusKnown:false,role:'speaker',
+      roleSource:'vox-12011-own-roster',localActive:true,
+      speakerAutoAcceptAvailable:false,moderatorAutoAcceptAvailable:false}),
+  };
+  await voice.handle(args);
+  assert.match(sent[0],/스피커/);
+  assert.match(sent[0],/규격 검증 전/);
+  assert.doesNotMatch(sent[0],/자동 수락 성공/);
+});
