@@ -827,3 +827,47 @@ test('VOX server timers and media termination evidence are safe, never guess tim
   }});
   assert.equal(malformed.serverTiming,undefined);
 });
+
+
+test('direct VOX adapter stop closes only its own active creator session',async()=>{
+  const messages=[];
+  let graceful=0,closed=0,peerClosed=0;
+  const callConn={
+    close(){closed++;},
+    async closeGracefully(){graceful++;},
+    whenClosed:new Promise(()=>{}),
+    wait(...methods){
+      const method=methods[0];
+      const packet=method===METHODS.CREATED?
+        {method,body:{callId:'100',csId:'200',sdp:{sdp:'answer'}}}:
+        {method,body:{resCode:0,callId:'100',csId:'200'}};
+      return {promise:Promise.resolve(packet),cancel(){}};
+    },
+    async send(method,body){messages.push({method,body});},
+  };
+  const adapter=createVox30Adapter({
+    actorUserId:USER,cfg,codec,entryHost:'entry.example',appVer:'26.3.1',
+    credentialsForRoom:async()=>({oauthToken:'token',deviceUuid:'uuid'}),
+    verifyMembership:async()=>true,
+    rtcFactory:async()=>({
+      createOffer:async()=>sdp,applyAnswer:async()=>{},
+      close:async()=>{peerClosed++;},
+    }),
+    connect:async({host})=>host==='entry.example'?
+      {request:async()=>({callable:1,csSslAddr:{ip:0x01020304},csSslPort:995}),close(){}}:
+      callConn,
+  });
+  await adapter.create({roomId:ROOM,title:'테스트'});
+  assert.equal((await adapter.status({roomId:ROOM})).localCallId,'100');
+  const foreign=await adapter.stop({roomId:'9007199254740993123'});
+  assert.equal(foreign.localReleased,false);
+  assert.equal(graceful,0);
+  const stopped=await adapter.stop({roomId:ROOM});
+  assert.deepEqual(stopped,{roomId:ROOM,closed:false,verified:false,localReleased:true});
+  assert.equal(graceful,1);
+  assert.equal(closed,0);
+  assert.equal(peerClosed,1);
+  assert.equal((await adapter.status({roomId:ROOM})).localActive,false);
+  assert.equal((await adapter.stop({roomId:ROOM})).localReleased,false);
+  await adapter.dispose();
+});
