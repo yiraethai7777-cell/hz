@@ -728,6 +728,44 @@ function getEventAckBody(cfg,callId) {
   };
 }
 
+
+// Read-only authenticated VOX discovery fallback for a room whose LOCO
+// vr_invite was not delivered or is no longer in the available history.
+// Discovery commonly returns a call-server address but may NOT supply a
+// current callId. Never construct a guessed ID or treat callable=1 as a
+// confirmed active call. Do not log the actual call/server/user identifiers.
+async function discoverExistingCall({cfg,chatId,appVer,entryHost,
+  entryPort=9282,codec,connect=voxConnect,transport={}}={}) {
+  validateCfg(cfg);
+  const id=checkedId(chatId);
+  checkedAppVersion(appVer);
+  const c=await connect({host:entryHost,port:entryPort,codec,...transport});
+  try {
+    const reply=await c.request(METHODS.DISCOVER,getDiscoveryBody(cfg,id,appVer));
+    // On some VOX versions, discovery may reply with a service endpoint
+    // but no active call metadata. That must never authorize LOGIN.
+    const callable=integer(reply?.callable??0)===1;
+    const hasCallId=reply?.callId!=null;
+    if(reply?.chatId!=null&&checkedId(reply.chatId)!==id)
+      return {ready:false,reason:'room-mismatch',hasCallId,callable};
+    if(reply?.resCode!=null&&integer(reply.resCode)!==0)
+      return {ready:false,reason:'server-rejected',hasCallId,callable};
+    if(!callable)return {ready:false,reason:'not-callable',hasCallId,callable};
+    let location;
+    try{location=parseServerAddress(reply);}
+    catch{return {ready:false,reason:'missing-call-server',hasCallId,callable};}
+    let callId=null;
+    try{if(hasCallId)callId=checkedId(reply.callId);}
+    catch{return {ready:false,reason:'invalid-call-id',hasCallId,callable};}
+    if(!callId)
+      return {ready:false,reason:'missing-call-id',hasCallId:false,callable};
+    console.info('[VOICE JOIN] authenticated discovery contains active-call candidate; 11002 still unverified');
+    return {ready:true,reason:'discovery-call-id',hasCallId:true,callable,
+      invitation:{roomId:id,callId,hostV4:location.host,hostV6:'',
+        port:location.port}};
+  }finally {c.close();}
+}
+
 async function getCallServer({cfg,chatId,entryHost,entryPort=9282,codec,
     appVer,connect=voxConnect,transport={}}) {
   validateCfg(cfg);
@@ -860,6 +898,6 @@ module.exports={
   VOX_IV,METHODS,I32,I64,integer,checkedId,validateTitle,pkcs7Pad,pkcs7Unpad,
   nativeSeedCbc,createCodec,parseServerAddress,voxConnect,checkedAppVersion,
   getDiscoveryBody,getCreateBody,getLoginTrialBody,joinVoiceRoomTrial,
-  getEventAckBody,getCallServer,createVoiceRoom,packetSummary,
+  getEventAckBody,getCallServer,discoverExistingCall,createVoiceRoom,packetSummary,
   heartbeatReplySummary,authenticatedRoleInvitation,
 };

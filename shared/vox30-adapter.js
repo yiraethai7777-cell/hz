@@ -1,7 +1,7 @@
 'use strict';
 
 const {
-  createCodec,createVoiceRoom,joinVoiceRoomTrial,checkedId,validateTitle,integer,I32,I64,METHODS,
+  createCodec,createVoiceRoom,joinVoiceRoomTrial,discoverExistingCall,checkedId,validateTitle,integer,I32,I64,METHODS,
   heartbeatReplySummary,
 } = require('./vox30-protocol');
 
@@ -476,11 +476,29 @@ function createVox30Adapter({
       if(active||running)throw Error('VOX 음성 세션이 이미 활성화되어 있거나 처리 중입니다.');
       if(await verifyMembership({actorUserId:userId,chatId:id})!==true)
         throw Error('VOX 오픈채팅 참여 정보를 확인할 수 없습니다.');
-      // An invite is an untrusted locator, NOT proof of VOX login.
-      const invitation=require('./voice-room-join-info').resolve(id);
+      // Prefer witnessed LOCO invite. If absent, perform an authenticated,
+      // read-only VOX discovery for this exact chat room. A generic service
+      // endpoint is not an active call and cannot substitute a callId.
+      let invitation=require('./voice-room-join-info').resolve(id);
       running=true;
-      try{return await participant.join({roomId:id,invitation});}
-      finally{running=false;}
+      try{
+        if(!invitation&&experimentalJoin===true){
+          const found=await discoverExistingCall({
+            cfg,chatId:id,appVer,entryHost,entryPort,codec,
+            ...(connect?{connect}:{}),transport:{
+              ...transport,diagnosticActorUserId:userId,
+            },
+          });
+          if(!found.ready){
+            console.info('[VOICE JOIN] server discovery did not supply existing-call coordinates; reason='+found.reason);
+            return {requestAccepted:false,verified:false,
+              reason:found.reason,source:'authenticated-discovery',
+              serviceCallable:found.callable===true};
+          }
+          invitation=found.invitation;
+        }
+        return await participant.join({roomId:id,invitation});
+      }finally{running=false;}
     },
     // To be called ONLY after a verified decoder supplies an exact bot-targeted
     // server invitation on the active authenticated call connection.

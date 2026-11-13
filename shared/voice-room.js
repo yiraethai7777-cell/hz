@@ -320,19 +320,9 @@ async function handle({client,roomId,msg,text,send,adapter}){
               maxLogId:msg?.message?.logId??msg?.raw?.chatLog?.logId??msg?.logId,
             });
           if(!require('./voice-room-join-info').status(room).endpointReady){
-            const detail=recovery.reason==='history-unavailable'
-              ?'Railway에서 이전 채팅 기록을 조회하지 못했습니다.'
-              :recovery.reason==='ended'
-                ?'최근 채팅 기록에 보이스룸 종료 이벤트가 있습니다.'
-                :recovery.reason==='history-empty'
-                  ?'LOCO 서버가 이전 채팅 기록을 반환하지 않았습니다. 초대 접속정보를 확보할 수 없습니다.'
-                  :recovery.reason==='recently-checked'
-                    ?'방금 조회한 기록에서도 참가 가능한 초대 정보가 없었습니다.'
-                    :'조회된 채팅 기록에서 현재 보룸의 초대 접속정보를 찾지 못했습니다.';
-            await safeReply(client,send,'⚠️ 보이스룸 참가용 접속정보를 확인할 수 없습니다.\n'+
-              detail+'\n'+
-              '※ 봇이 보이스룸 개설 이벤트를 수신하거나 현재 초대 메시지가 기록에 남아 있어야 합니다.');
-            return true;
+            // No LOCO invite is not proof there is no call. VOX discovery is
+            // consulted in transport.join() to look for a real server callId.
+            console.info('[VOICE JOIN] LOCO invite unavailable; trying authenticated VOX discovery fallback');
           }
         }
         if(state.localActive===true){
@@ -354,7 +344,22 @@ async function handle({client,roomId,msg,text,send,adapter}){
             '※ 실제 참가 여부는 카카오톡의 참가자 목록에서 확인해야 합니다.\n'+
             '※ 스피커·진행자 권한은 VOX 서버 명단으로 별도 확인합니다.');
         }else{
-          await safeReply(client,send,'⚠️ 보이스룸 참가 요청이 접수됐는지 확인하지 못했습니다.');
+          const why=joined?.source==='authenticated-discovery'
+            ?joined.reason==='missing-call-id'
+              ?'VOX 서버 조회는 성공했지만 현재 보이스룸의 통화 ID를 반환하지 않았습니다.'
+              :joined.reason==='not-callable'
+                ?'VOX 서버에서 이 방의 통화 서버 연결을 허용하지 않았습니다.'
+                :joined.reason==='room-mismatch'
+                  ?'VOX 서버의 응답이 현재 채팅방과 일치하지 않습니다.'
+                  :joined.reason==='server-rejected'
+                    ?'VOX 서버가 통화 정보 조회를 거절했습니다.'
+                    :'VOX 서버 조회에서 참가에 필요한 통화 정보를 확인하지 못했습니다.'
+            :joined?.reason==='missing-invitation'
+              ?'기존 보룸의 초대 접속정보가 확인되지 않았습니다.'
+              :'보이스룸 참가 요청이 접수됐는지 확인하지 못했습니다.';
+          await safeReply(client,send,'⚠️ '+why+'\n'+
+            '채팅 기록에서 현재 보룸의 초대 정보를 확보하지 못한 상태입니다.\n'+
+            '※ 추정한 통화 ID로 VOX 참가 패킷을 전송하지 않았습니다.');
         }
       }else{
         if(state.localActive!==true){
