@@ -8,6 +8,9 @@ on:
     branches: [main]
     paths:
       - 'shared/voice-room.js'
+      - 'shared/vox30-participation.js'
+      - 'shared/vox30-adapter.js'
+      - 'shared/vox30-role-state.js'
       - 'shared/voice-room-observer.js'
       - 'shared/voice-room-join-info.js'
       - 'shared/voice-room-vox-wire.js'
@@ -32,6 +35,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node --check experiments/voice-room/frida-vox-observe.js
+      - run: node --test test/vox30-participation.test.js test/vox30-role-state.test.js
       - run: node --test test/voice-room.test.js test/voice-router.test.js test/voice-room-observer.test.js test/voice-room-auto-detect.test.js test/voice-room-join-info.test.js test/voice-room-frida-observe.test.js test/vox30-role-state.test.js
       # SEED-CBC is in OpenSSL's legacy provider. Scope it to this test subprocess.
       # Never change NODE_OPTIONS on the running KakaoForge/Railway bot.
