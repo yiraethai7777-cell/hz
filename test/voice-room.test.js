@@ -938,3 +938,34 @@ test('join command performs read-only recovery when an earlier vr_invite was not
   assert.equal(joined,1);
   assert.match(sent[0],/11002 참가 실험/);
 });
+
+
+test('bot #보룸참가 falls back to VOX discovery when LOCO history has no invite',async()=>{
+  const {args,sent,client}=fixture({text:'#보룸참가'});
+  const room='18495931541358688';
+  args.roomId=room;args.msg.room.id=room;
+  args.msg.sender.id=client.userId;
+  args.msg.message={logId:'912352001999'};
+  client._getCachedMemberType=()=>4;
+  client._carriage={
+    async syncMsg(){return {status:0,body:{chatLogs:[{
+      type:1,logId:'912352001990',
+      sendAt:Math.floor(Date.now()/1000),message:'testing',
+    }]}}},
+  };
+  let joined=0;
+  args.adapter={
+    async status(){return {roomId:room,localActive:false,
+      statusKnown:false,joinAvailable:true,joinTrialAvailable:true}},
+    async join(request){
+      joined++;assert.equal(request.roomId,room);
+      return {requestAccepted:false,verified:false,
+        source:'authenticated-discovery',
+        reason:'missing-call-id',serviceCallable:true};
+    },
+  };
+  await voice.handle(args);
+  assert.equal(joined,1);
+  assert.match(sent[0],/통화 ID를 반환하지 않았습니다/);
+  assert.match(sent[0],/추정한 통화 ID/);
+});

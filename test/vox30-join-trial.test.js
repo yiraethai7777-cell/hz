@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {I32,I64,authenticatedRoleInvitation,getLoginTrialBody,joinVoiceRoomTrial,
-  METHODS}=require('../shared/vox30-protocol');
+  discoverExistingCall,METHODS}=require('../shared/vox30-protocol');
 const {createParticipationController}=require('../shared/vox30-participation');
 const {createMultiRoomAdapter}=require('../shared/vox30-multiroom');
 const USER='9007199254740993123',ROOM='18495931541358610',CALL='13299692653040311';
@@ -193,4 +193,71 @@ test('multiroom join uses isolated per-room adapters, preserves original creator
   assert.equal(instances[1].active,true);
   await assert.rejects(multi.join({roomId:'303'}),/이미 활성 음성 세션/);
   await multi.dispose();
+});
+
+
+test('authenticated VOX 30000 discovery returns call coordinates only with actual callId',async()=>{
+  let closes=0,queries=0;
+  const connect=async({host})=>{
+    assert.equal(host,'entry.test');
+    return {
+      async request(method,body){
+        queries++;assert.equal(method,METHODS.DISCOVER);
+        assert.equal(body.chatId.toString(),ROOM);
+        return {callable:new I32(1),chatId:new I64(ROOM),
+          callId:new I64(CALL),csSslAddr:{ip:0xcb85bc42},csSslPort:new I32(995)};
+      },
+      close(){closes++;}
+    };
+  };
+  const got=await discoverExistingCall({
+    cfg,chatId:ROOM,appVer,entryHost:'entry.test',codec:{},connect
+  });
+  assert.equal(got.ready,true);
+  assert.equal(got.hasCallId,true);
+  assert.equal(got.invitation.roomId,ROOM);
+  assert.equal(got.invitation.callId,CALL);
+  assert.equal(got.invitation.hostV4,'203.133.188.66');
+  assert.equal(got.invitation.port,995);
+  assert.equal(closes,1);
+  assert.equal(queries,1);
+});
+test('server callable=1 without active callId cannot authorize a guessed 11002 login',async()=>{
+  let closes=0;
+  const connect=async()=>({
+    async request(){return {callable:1,csSslAddr:{ip:0xcb85bc42},csSslPort:995}},
+    close(){closes++;}
+  });
+  const result=await discoverExistingCall({
+    cfg,chatId:ROOM,appVer,entryHost:'entry.test',codec:{},connect
+  });
+  assert.deepEqual(result,{
+    ready:false,reason:'missing-call-id',hasCallId:false,callable:true,
+  });
+  assert.equal(closes,1);
+});
+test('foreign-room VOX discovery reply is refused without disclosing call details',async()=>{
+  const connect=async()=>({
+    request:async()=>({callable:1,chatId:new I64('123456789'),
+      callId:new I64(CALL),csSslAddr:{ip:0xcb85bc42},csSslPort:995}),
+    close(){},
+  });
+  const result=await discoverExistingCall({
+    cfg,chatId:ROOM,appVer,entryHost:'entry.test',codec:{},connect
+  });
+  assert.equal(result.ready,false);
+  assert.equal(result.reason,'room-mismatch');
+  assert.equal(Object.hasOwn(result,'invitation'),false);
+});
+test('VOX discovery refuses server status without callable before examining call IDs',async()=>{
+  const connect=async()=>({
+    request:async()=>({callable:0,callId:new I64(CALL)}),
+    close(){},
+  });
+  const got=await discoverExistingCall({
+    cfg,chatId:ROOM,appVer,entryHost:'entry.test',codec:{},connect
+  });
+  assert.equal(got.ready,false);
+  assert.equal(got.reason,'not-callable');
+  assert.equal(got.invitation,undefined);
 });
