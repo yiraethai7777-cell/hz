@@ -173,3 +173,16 @@ node --test test/voice-room.test.js test/voice-router.test.js
 검증: `node --test test/vox30-role-state.test.js test/voice-room.test.js test/voice-router.test.js test/voice-room-permission.test.js`
 
 참고 제3자 VOX 분석 자료: https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md
+
+## Railway 직접 VOX 참가·역할 수락 구현 상태 (2026-11-13)
+
+- `!보룸참여`, `!보룸참여상태`는 기존 관리 웹의 `voiceRoomEnabled` 권한을 따릅니다.
+- `shared/vox30-participation.js`는 봇 계정과 현재 callId를 확인하고, 참가 요청·스피커/진행자 초대 수락의 중복 실행을 방지합니다.
+- 권한 수락 **요청 접수**와 권한 변경 **완료**는 별도로 취급합니다. 완료 판정은 서버 `12011`에 봇 자신의 역할이 표시된 뒤에만 가능합니다.
+- 기존 `#보룸시작` 생성, VOX `11015` PING, WebRTC 음성 전송 및 로그인은 변경하지 않았습니다.
+- 다음 세 가지 송신 드라이버에는 임의 패킷 대신 실제 검증된 규격을 주입해야 합니다: `joinTransport`, `acceptSpeakerTransport`, `acceptModeratorTransport`.
+- 현재 KakaoForge/Railway 실행 환경에서는 이 드라이버들이 **미연결**이므로 실제 자동 참가·스피커/진행자 자동 수락은 아직 불가능합니다.
+- 공개 VOX 연구는 `LOGIN(11002)` 및 `CLIENT_OFFER(12023)`의 번호·절차를 다루지만 LOGIN BSON 인증 필드, 역할 초대 이벤트·수락 payload는 제공하지 않습니다.
+- 디코딩된 카카오톡 오픈채팅의 `vr_invite` 서버 주소는 인증된 VOX 접속정보로 간주하지 않으며, 미검증 포트로 자동 연결하지 않습니다.
+- 테스트: `node --test test/vox30-participation.test.js test/vox30-role-state.test.js`
+- 참고: https://github.com/itznullbyte/itznullbyte.github.io/blob/d0fe05d60315ca450cc84595f9ce2593d3266611/src/content/posts/vox_room/index.md
