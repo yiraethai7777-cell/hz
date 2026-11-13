@@ -22,6 +22,17 @@ function createParticipationController({
   let active=null;
   let inFlight=false;
   const attempts=new Map();
+  // Server-authenticated invitations only; no LOCO/chat-sourced role changes.
+  const invitations=new Map();
+  const INVITATION_TTL_MS=3*60*1000;
+  function usableInvitation(role,roomId,callId) {
+    const i=invitations.get(role);
+    if(!i)return null;
+    if(now()-i.at>INVITATION_TTL_MS){
+      invitations.delete(role);return null;
+    }
+    return i.roomId===roomId&&i.callId===callId?i:null;
+  }
   function supports(){
     return {
       join:typeof joinTransport==='function',
@@ -41,6 +52,8 @@ function createParticipationController({
       localActive:own,localBusyOtherRoom:!!active&&!own,
       role:own?active.role:null,roleVerified:own&&active.roleSource==='vox-12011-own-roster',
       pendingRoles:pending,
+      invitedRoles:own?[...invitations.keys()].filter(role=>
+        Boolean(usableInvitation(role,id,active.callId))):[],
     };
   }
   async function join({roomId,invitation}={}) {
@@ -81,6 +94,9 @@ function createParticipationController({
     const pending=attempts.get(evidence.role);
     if(pending&&pending.roomId===id&&pending.callId===call&&
       pending.state==='requested')pending.state='observed';
+    if(evidence.role==='moderator'){
+      invitations.delete('moderator');invitations.delete('speaker');
+    }else if(evidence.role==='speaker')invitations.delete('speaker');
     return true;
   }
   // Only a version-matched, authenticated call-server decoder may supply this.
@@ -96,8 +112,10 @@ function createParticipationController({
       return {handled:false,reason:'already-granted'};
     if(attempts.get(role)?.state==='requested' &&
       attempts.get(role)?.callId===call)return {handled:false,reason:'duplicate'};
+    invitations.set(role,{roomId:id,callId:call,at:now()});
     const driver=role==='speaker'?acceptSpeakerTransport:acceptModeratorTransport;
-    if(typeof driver!=='function')return {handled:false,reason:'protocol-unverified'};
+    if(typeof driver!=='function')
+      return {handled:true,pending:true,reason:'protocol-unverified'};
     attempts.set(role,{roomId:id,callId:call,role,state:'requested',at:now()});
     try {
       const result=await driver({roomId:id,callId:call,actorUserId:actor});
@@ -112,11 +130,33 @@ function createParticipationController({
       return {handled:false,reason:'request-failed'};
     }
   }
+  async function acceptRole({roomId,role}={}) {
+    const id=validatedId(roomId);
+    if(!id||!active||active.roomId!==id||!TARGET_ROLES.has(role))
+      return {handled:false,reason:'no-voice-session'};
+    const invite=usableInvitation(role,id,active.callId);
+    if(!invite)return {handled:false,reason:'no-authenticated-invitation'};
+    if(active.role===role||active.role==='moderator')
+      return {handled:false,reason:'already-granted'};
+    const driver=role==='speaker'?acceptSpeakerTransport:acceptModeratorTransport;
+    if(typeof driver!=='function')return {handled:false,reason:'protocol-unverified'};
+    if(attempts.get(role)?.state==='requested')return {handled:false,reason:'already-requested'};
+    attempts.set(role,{roomId:id,callId:active.callId,role,state:'requested',at:now()});
+    try{
+      const result=await driver({roomId:id,callId:active.callId,actorUserId:actor});
+      if(result?.requestAccepted!==true){
+        attempts.delete(role);return {handled:false,reason:'request-not-accepted'};
+      }
+      return {handled:true,verified:false,awaitingRoster:true};
+    }catch{
+      attempts.delete(role);return {handled:false,reason:'request-failed'};
+    }
+  }
   function release() {
-    active=null;attempts.clear();
+    active=null;attempts.clear();invitations.clear();
   }
   return Object.freeze({
-    supports,status,join,activate,onRoster,receiveAuthenticatedInvitation,release,
+    supports,status,join,activate,onRoster,receiveAuthenticatedInvitation,acceptRole,release,
   });
 }
 module.exports={createParticipationController};

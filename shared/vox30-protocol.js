@@ -11,7 +11,7 @@ const DEFAULT_TIMEOUT_MS = 12000;
 const MAX_BODY_BYTES = 1024 * 1024;
 const METHODS = Object.freeze({
   DISCOVER:30000, CREATE:11028, CREATED:11003, REJECTED:11007, PING:11015,
-  ROOM_EVENT:12011,
+  ROOM_EVENT:12011, LOGIN:11002, CLIENT_OFFER:12023,
 });
 const I32 = bson.Int32;
 const I64 = class extends bson.Long {
@@ -425,8 +425,30 @@ function packetSummary(packet,{actorUserId}={}) {
   return summary;
 }
 
+// Native Android VOX3 VRC_NOTIFY codes: 21=moderator invitation,
+// 33=speaker invitation; 22=REVOKED speaker permission (not an invitation).
+// Never trust chat attachments for role invitations. Read only the authenticated
+// VOX TLS/decrypted BSON packet and bind an exact target/call identity.
+function authenticatedRoleInvitation(packet,actorUserId) {
+  if(packet?.method!==METHODS.ROOM_EVENT||packet.status!==0)return null;
+  const roleCode=(()=>{
+    try{return integer(packet.body?.event);}catch{return null;}
+  })();
+  const role=roleCode===21?'moderator':roleCode===33?'speaker':null;
+  if(!role)return null;
+  let actor,recipient,callId;
+  try{
+    actor=checkedId(actorUserId);
+    recipient=checkedId(packet.body?.destId);
+    callId=checkedId(packet.body?.callId);
+  }catch{return null;}
+  if(actor!==recipient)return null;
+  return {recipientUserId:actor,callId,role,authenticated:true};
+}
+
 async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
-    servername,ca,onPacket,diagnosticActorUserId,tlsConnect=tls.connect}={}) {
+    servername,ca,onPacket,onAuthenticatedRoleInvitation,
+    diagnosticActorUserId,tlsConnect=tls.connect}={}) {
   if(typeof host!=='string' || !/^[a-zA-Z0-9.:-]+$/.test(host) ||
       !Number.isInteger(port)||port<1||port>65535)
     throw Error('VOX TLS 목적지 오류');
@@ -463,6 +485,18 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
         const packet=codec.parse(buffer.subarray(0,12+n));
         buffer=buffer.subarray(12+n);
         if(onPacket)onPacket(packetSummary(packet,{actorUserId:diagnosticActorUserId}));
+        // Do not expose raw BSON/recipient ID in public packet logs.
+        if(typeof onAuthenticatedRoleInvitation==='function'){
+          const invite=authenticatedRoleInvitation(packet,diagnosticActorUserId);
+          if(invite){
+            try{
+              Promise.resolve(onAuthenticatedRoleInvitation(invite))
+                .catch(()=>console.warn('[VOICE VOX30] authenticated invitation handler failed'));
+            }catch{
+              console.warn('[VOICE VOX30] authenticated invitation handler failed');
+            }
+          }
+        }
         const entry=[...pending].find(w=>w.methods.has(packet.method));
         if(entry){pending.delete(entry);clearTimeout(entry.timer);entry.resolve(packet);}
       }
@@ -740,5 +774,5 @@ module.exports={
   VOX_IV,METHODS,I32,I64,integer,checkedId,validateTitle,pkcs7Pad,pkcs7Unpad,
   nativeSeedCbc,createCodec,parseServerAddress,voxConnect,checkedAppVersion,
   getDiscoveryBody,getCreateBody,getEventAckBody,getCallServer,createVoiceRoom,packetSummary,
-  heartbeatReplySummary,
+  heartbeatReplySummary,authenticatedRoleInvitation,
 };

@@ -205,7 +205,7 @@ function createVox30Adapter({
           return {joinAvailable:info.joinAvailable,
             speakerAutoAcceptAvailable:info.speakerAutoAcceptAvailable,
             moderatorAutoAcceptAvailable:info.moderatorAutoAcceptAvailable,
-            pendingRoles:info.pendingRoles};
+            pendingRoles:info.pendingRoles,invitedRoles:info.invitedRoles};
         })()),
         ...(same&&active.lastOwnRole?{
           role:active.lastOwnRole.role,roleSource:active.lastOwnRole.source,
@@ -243,6 +243,18 @@ function createVox30Adapter({
           transport:{
             ...transport,
             diagnosticActorUserId:userId,
+            onAuthenticatedRoleInvitation(info) {
+              // Trust only a matched actor + same active VOX call. Never
+              // authorize invitations copied from chat attachments.
+              if(active?.chatId!==chatId || 
+                 String(active.session?.callId)!==info.callId)return;
+              void participant.receiveAuthenticatedInvitation({
+                ...info,roomId:chatId,
+              }).then(result=>{
+                if(result?.pending)console.info('[VOICE VOX30] verified role invitation stored; acceptance wire unavailable');
+                if(result?.awaitingRoster)console.info('[VOICE VOX30] role acceptance requested; waiting for own roster');
+              }).catch(()=>{});
+            },
             onPacket(packet) {
               transport?.onPacket?.(packet);
               if(packet?.method===12011){
@@ -413,6 +425,11 @@ function createVox30Adapter({
     // server invitation on the active authenticated call connection.
     async receiveAuthenticatedRoleInvitation(info) {
       return participant.receiveAuthenticatedInvitation(info);
+    },
+    // Manual role acceptance requires a matching invitation from the
+    // authenticated VOX TLS session; arbitrary user-entered roles are ignored.
+    async acceptRole({roomId,role}={}) {
+      return participant.acceptRole({roomId,role});
     },
     // Local release only. It is NOT the KakaoTalk server's room termination.
     async dispose() {
