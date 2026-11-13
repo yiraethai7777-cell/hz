@@ -517,7 +517,27 @@ async function voxConnect({host,port,codec,timeoutMs=DEFAULT_TIMEOUT_MS,
       return packet.body;
     }catch(e){w.cancel();throw e;}
   }
-  return {wait,send,request,close:fail,whenClosed};
+  // End the authenticated VOX TLS transport with a FIN, not a forced RST.
+  // This is a connection departure, NOT a verified call-server hangUp packet.
+  async function closeGracefully(){
+    if(closed)return;
+    await new Promise(resolve=>{
+      let finished=false;
+      let timer;
+      const finish=()=>{
+        if(finished)return;
+        finished=true;
+        clearTimeout(timer);
+        socket.removeListener('close',finish);
+        resolve();
+      };
+      socket.once('close',finish);
+      timer=setTimeout(()=>{fail();finish();},1200);
+      timer.unref?.();
+      try{socket.end();}catch{fail();finish();}
+    });
+  }
+  return {wait,send,request,close:fail,closeGracefully,whenClosed};
 }
 
 function validateCfg(cfg) {

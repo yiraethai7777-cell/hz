@@ -87,12 +87,17 @@ function createVox30Adapter({
   const participant=require('./vox30-participation').createParticipationController({
     actorUserId:userId,joinTransport,acceptSpeakerTransport,acceptModeratorTransport,
   });
-  async function release(current) {
+  async function release(current,{graceful=false}={}) {
     if(active!==current)return;
     active=null;
     participant.release();
     clearInterval(current.timer);
-    current.session.conn.close();
+    if(graceful&&typeof current.session.conn.closeGracefully==='function') {
+      try{await current.session.conn.closeGracefully();}
+      catch{current.session.conn.close();}
+    }else{
+      current.session.conn.close();
+    }
     try{await current.peer.close();}catch{}
     console.info('[VOICE VOX30] local voice session released');
   }
@@ -184,6 +189,8 @@ function createVox30Adapter({
       return {
         roomId:id,verified:false,statusKnown:false,
         localSession:true,localActive:same,
+        ...(same&&active?.session?.callId!=null
+          ?{localCallId:checkedId(active.session.callId)}:{}),
         ...((()=>{
           const info=participant.status(id);
           return {joinAvailable:info.joinAvailable,
@@ -300,6 +307,25 @@ function createVox30Adapter({
           if(peer)await Promise.resolve(peer.close()).catch(()=>{});
         }
         throw e;
+      }finally{running=false;}
+    },
+    // The owner-initiated shutdown tears down the actual VOX signalling
+    // connection, RTP and keepalive. The only-moderator leave rule can end
+    // the KakaoTalk room, but server closure must be confirmed via vr_bye.
+    async stop({roomId,voiceRoomId}={}) {
+      const id=checkedId(roomId);
+      const current=active;
+      if(!current||current.chatId!==id)
+        return {roomId:id,closed:false,verified:false,localReleased:false};
+      if(voiceRoomId!=null&&
+          checkedId(voiceRoomId)!==checkedId(current.session.callId))
+        throw Error('다른 보이스룸 통화 ID로 종료할 수 없습니다.');
+      if(running)throw Error('이미 VOX 요청을 처리하고 있습니다.');
+      running=true;
+      try {
+        await release(current,{graceful:true});
+        console.info('[VOICE VOX30] local VOX creator session ended by command; server bye unconfirmed');
+        return {roomId:id,closed:false,verified:false,localReleased:true};
       }finally{running=false;}
     },
     async join({roomId,botUserId}={}) {

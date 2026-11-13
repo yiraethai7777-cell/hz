@@ -13,7 +13,9 @@ const seen = new Map();
 const lastEvents = new Map();
 const installed = new WeakSet();
 const pendingOpens = new Map();
+const pendingEnds = new Map();
 const OPEN_EVENT_TIMEOUT_MS = 8000;
+const END_EVENT_TIMEOUT_MS = 8000;
 
 // These call IDs are kept only briefly in process memory, never logged
 // or written to the persistent notification record.
@@ -81,6 +83,37 @@ function watchOpen(client, roomId) {
   return watch;
 }
 
+
+// Wait only for a same-room, same-callId server-generated LOCO vr_bye.
+// A local VOX socket close is never proof that the room has ended.
+function watchEnd(client,roomId,callId) {
+  const id=validId(roomId),expected=callKey(callId);
+  if(!id||!expected||!installed.has(client))return null;
+  const previous=pendingEnds.get(id);
+  previous?.close();
+  let settled=false,resolve,timer;
+  const received=new Promise(done=>{resolve=done;});
+  const watch={
+    wait(){return received;},
+    confirm(observed){
+      if(observed!==expected)return;
+      finish(true);
+    },
+    close(){finish(false);},
+  };
+  function finish(ok){
+    if(settled)return;
+    settled=true;
+    clearTimeout(timer);
+    if(pendingEnds.get(id)===watch)pendingEnds.delete(id);
+    resolve(ok);
+  }
+  pendingEnds.set(id,watch);
+  timer=setTimeout(()=>finish(false),END_EVENT_TIMEOUT_MS);
+  timer.unref?.();
+  return watch;
+}
+
 function validId(value) {
   const id = value == null ? '' : String(value);
   return /^[1-9]\d{0,29}$/.test(id) ? id : '';
@@ -142,8 +175,11 @@ async function handleMessage(msg, { isManaged, isBotEnabled, send }, now = Date.
   prune(now);
   if (seen.has(key)) return false;
   const pending = event.eventType === 'vr_invite' ? pendingOpens.get(event.roomId) : null;
-  const payload = pending || event.eventType==='vr_bye' ? attachmentObject(msg) : null;
+  const endWatch=event.eventType==='vr_bye'?pendingEnds.get(event.roomId):null;
+  const payload = pending || endWatch || event.eventType==='vr_bye' ? attachmentObject(msg) : null;
   const eventCallId=callKey(payload?.callId);
+  // This may confirm a specific command even if automatic notices are OFF.
+  endWatch?.confirm(eventCallId);
   if (!pending) {
     // Ordinary automatic notices require both management and bot power.
     if (!await isManaged(event.roomId)) return false;
@@ -194,5 +230,5 @@ function install(client, deps) {
 }
 
 module.exports = {
-  classify, handleMessage, install, last, watchOpen, callCorrelation,
+  classify, handleMessage, install, last, watchOpen, watchEnd, callCorrelation,
 };
