@@ -203,8 +203,11 @@ async function handle({client,roomId,msg,text,send,adapter}){
       const roleLine=verifiedRole
         ? '\nVOX 서버 명단에서 감지된 역할: '+require('./vox30-role-state').roleLabel(state.role)
         : '\nVOX 서버에서 확인된 역할: 미확인';
+      const invite=require('./voice-room-join-info').status(room);
+      const inviteLine='\n최근 참가용 초대 접속정보: '+
+        (invite.endpointReady?'확보 (인증 규격 미검증)':invite.phase==='ended'?'종료 이벤트 확인':'미확인');
       await safeReply(client,send,'🎙️ 카카오톡 관리 매니저 | 보룸 참가 상태\n'+line+
-        roleLine+'\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
+        roleLine+inviteLine+'\n※ 서버 명단 관찰은 참가 요청 성공·역할 수락을 의미하지 않습니다.');
     }catch{
       await safeReply(client,send,'⚠️ Railway 직접 VOX 참가 상태 조회 실패\n'+
         'VOX 인증 계정과 대상 채팅방 상태를 확인해 주세요.');
