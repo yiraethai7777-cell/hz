@@ -32,6 +32,9 @@ function profileFromEnv(env,sessionAppVersion,sessionCarrier) {
 
 function installDirectVoice(client,{env=process.env,
   loadLab=()=>require('../experiments/vox30/lab'),
+  // Only a manually reviewed, version-matched native VOX wire driver.
+  // No driver exists in production and there is no env-only packet override.
+  hangupTransport=null,
   log=console}={}) {
   let profile;
   try{profile=profileFromEnv(env,client?.appVer,client?.mccmnc);}catch{}
@@ -62,6 +65,7 @@ function installDirectVoice(client,{env=process.env,
       entryHost:ENTRY_HOST,entryPort:ENTRY_PORT,appVer,
       // Opt-in so existing VOX rooms remain unaffected until test results.
       enableSilentAudio:env.NEXI_VOX_TX_SILENCE==='1',
+      hangupTransport,
       async connect(options) {
         const entry=options.host===ENTRY_HOST&&options.port===ENTRY_PORT;
         const {isPublicIpv4}=require('../experiments/vox30/synthetic-discovery');

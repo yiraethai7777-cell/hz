@@ -128,3 +128,35 @@ test('unrecognized multi-room setting fails closed to the existing single-room a
   }),true);
   assert.equal(created,1);
 });
+
+
+test('runtime passes a reviewed hangup driver only by explicit injection',()=>{
+  const supplied={
+    verified:true,appVer:'26.9.2',async hangUp(){
+      return {requestAccepted:true};
+    },
+  };
+  const client={
+    appVer:'26.9.2',voiceRoomAuthCandidate:{
+      actorUserId:'10',getCredentials:()=>({oauthToken:'test',deviceUuid:'test'}),
+      localRoomEvidence:()=>({isOpenChatInLocalRoster:true,memberTypeCached:true}),
+    },
+  };
+  let observed;
+  assert.equal(installDirectVoice(client,{
+    env:{},hangupTransport:supplied,log,
+    loadLab:()=>({createLabAdapter(opts){
+      observed=opts.hangupTransport;
+      return {create:async()=>true};
+    }}),
+  }),true);
+  assert.equal(observed,supplied);
+  const other={voiceRoomAuthCandidate:client.voiceRoomAuthCandidate};
+  assert.equal(installDirectVoice(other,{
+    env:{},log,
+    loadLab:()=>({createLabAdapter(opts){
+      observed=opts.hangupTransport;return {create:async()=>true};
+    }}),
+  }),true);
+  assert.equal(observed,null); // no runtime default, no env-toggle fallback
+});
