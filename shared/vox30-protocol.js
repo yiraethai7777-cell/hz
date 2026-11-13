@@ -677,7 +677,10 @@ async function joinVoiceRoomTrial({cfg,chatId,callId,
       if(first.method===METHODS.REJECTED)
         throw Error('VOX 참가 서버 거절: reason='+integer(first.body?.reason??0));
       const reply=first.method===METHODS.LOGIN?first:await replyWait.promise;
-      const code=integer(reply.body?.resCode??reply.status??-1);
+      // A header-only status 0 is not an authenticated LOGIN acceptance.
+      if(!Object.hasOwn(reply.body||{},'resCode'))
+        throw Error('VOX 참가 응답에 서버 resCode가 없습니다.');
+      const code=integer(reply.body.resCode);
       if(code!==0)
         throw Error('VOX 참가 응답 거절: resCode='+code);
       // Some VOX variants may deliver a separate 11003 with remote SDP.
