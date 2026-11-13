@@ -5,12 +5,11 @@ const voice = require('../shared/voice-room-permission');
 
 test('voice room action commands are distinguished from read-only commands', () => {
   for (const command of ['#보룸시작 테스트', '!보룸켜기', '#보룸종료',
-    '#보룸참가', '#보룸퇴장', '#보이스룸시작 방송',
-    '#보룸아이리스시작 비교', '#보룸아이리스참가', '#보룸아이리스퇴장']) {
+    '#보룸참가', '#보룸퇴장', '#보이스룸시작 방송']) {
     assert.equal(voice.isActionCommand(command), true, command);
   }
   for (const command of ['#보룸참가상태', '#보룸상태', '#보룸명령어',
-    '#보룸감지시작', '!명령어', '#보룸시작하기', '#보룸아이리스상태']) {
+    '#보룸감지시작', '!명령어', '#보룸시작하기']) {
     assert.equal(voice.isActionCommand(command), false, command);
   }
 });

@@ -2,6 +2,8 @@
 
 ## 명령어
 
+현재 운영 방식은 Railway 단독 VOX 생성입니다. 생성은 성공하지만 약 30초에 서버 종료 신호 `11009` / `reason=1002`를 수신하는 문제가 남아 있습니다. Android, Iris, Noa 브리지는 사용하지 않습니다.
+
 - `#보룸시작 [제목]` / `#보룸켜기 [제목]` (`#보이스룸시작`, `#보이스룸켜기`): 생성 요청 (최대 40자)
 - `#보룸상태` / `#보이스룸상태`: 실제 서버 상태 및 봇 권한 조회
 - `#보룸종료` / `#보룸끄기` (`#보이스룸종료`, `#보이스룸끄기`): 실제 서버에서 개설 상태가 확인된 경우에만 종료 요청
@@ -129,72 +131,9 @@ node --test test/voice-room.test.js test/voice-router.test.js
 테스트는 **모의 어댑터 기준의 컨트롤러 동작 확인**이며 실제 카카오톡 보이스룸 서버의 생성 성공을 증명하지 않습니다.
 
 
-## 실험용 VOX 브리지 (2026-11-09, 명령어 상시 인식)
-
-현재 확보된 공개 소스 중 실제 생성 호출을 포함한 것은 제3자 [Noa VOX API](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/src/web/vox.rs)입니다.
-Noa의 `POST /api/vox/voice-rooms`는 `{ "chatId": "문자열", "title": "문자열" }`을 받아 실행 중인 Android 카카오톡의 `makeVoiceroom()`을 호출합니다.
-Noa는 **루팅된 Android 또는 Redroid + 실제 로그인된 카카오톡 앱**이 필요합니다. 따라서 이 브리지는 **Railway 단독 생성 구현이 아니며**, Windows PC 카카오톡 또는 KakaoForge의 LOCO 전송만으로 작동하지 않습니다.
-
-### 구현 범위
-
-- `shared/voice-room-noa-bridge.js`: 확인된 Noa HTTP 생성 호출을 HTTPS + Bearer Token으로 호출하는 선택형 어댑터입니다. 리디렉션 차단, 12초 제한 시간, JSON 크기 제한 및 채팅방 ID 확인을 적용합니다.
-- `hz-new.js` 시작 시 `NEXI_VOICE_NOA_URL` 및 `NEXI_VOICE_NOA_TOKEN`이 올바르게 설정돼 있으면 어댑터를 연결합니다. **명령어 ON/OFF 스위치는 없습니다.** 연결 정보가 없으면 설명을 반환하며 기존 NEXI 동작은 유지됩니다.
-- Noa의 `{ok:true,chatId}`는 **Android 브리지 호출 접수**일 뿐 **서버의 실제 보이스룸 개설 성공을 증명하지 않습니다**. `#보룸시작`은 요청 전달만 안내합니다.
-- `GET /api/vox/status`는 Android 보이스룸 매니저의 로컬 세션 단서만 제공하며, 실제 카카오 서버의 활성 확인으로 취급하지 않습니다.
-- Noa의 `/api/vox/leave`는 Android가 보룸에서 나가는 동작일 수 있어 `#보룸종료`에 연결하지 않았습니다.
-- `vr_invite` 메시지를 **생성 요청 대신 전송하거나**, 현재 활동 여부가 불분명한데도 `verified:true`로 처리하지 않습니다.
-
-### 실험 환경 설정 (별도 Noa 운영 환경이 준비된 경우에만)
-
-Railway Variables에 다음을 설정합니다. 실제 토큰이나 계정 정보를 GitHub에 올리지 마세요.
-
-```text
-NEXI_VOICE_NOA_URL=https://your-own-noa-bridge.example
-NEXI_VOICE_NOA_TOKEN=<16자 이상 보안 토큰>
-```
-
-- 전제: 외부에서 접근할 수 있는 **사용자 소유 Noa HTTPS 게이트웨이**가 있어야 하며, 전용 인증 토큰과 접근 제한이 필요합니다. Noa를 인터넷에 무인증으로 공개하지 마세요.
-- 설정 미완료: `#보룸시작`은 기존처럼 '생성 API 미연동' 안내만 합니다. `#보룸참가`/`#보룸퇴장` 명령어는 인식되지만 실제 VOX 브리지 연결 정보가 부족하다고 안내합니다.
-- 설정 완료: 기존 명령어 권한 검사가 통과하면 Noa 브리지에 생성 요청을 전달하지만, **수신 `vr_invite` 또는 실제 앱 화면에서 개설됐는지 별도로 확인해야** 합니다.
-- 이번 PR은 실제 Noa 서버, 루팅된 Android, 운영 카카오톡에서 **라이브 생성 시험을 수행하지 않았습니다**. 테스트는 모의 HTTP 응답 기준입니다.
-
-### 다음 단계
-
-사용자가 원하는 **기기 없는 Railway 단독 생성**을 달성하려면 Android 내부 `makeVoiceroom()`을 재현할 독립적인 VOX 생성·인증·세션 유지 프로토콜이 필요합니다. 이 작업은 아직 완료되지 않았습니다.
-
-
-## Noa 보이스룸 참가·퇴장 명령어 (2026-11-09)
-
-**명령어는 기본 활성화되어 있습니다.** `NEXI_VOICE_BRIDGE_ENABLED`, `!보룸on`, `!보룸off` 같은 별도의 ON/OFF는 사용하지 않습니다. 단, 실제 VOX 참가는 서버에서 구성된 Noa 브리지 및 Android 카카오톡 세션에 의존합니다.
-
-| 명령어 | 기능 | 사전 조건 |
-|---|---|---|
-| `#보룸참가` | 이미 개설된 보룸에 참가 요청 | Noa HTTP `POST /api/vox/voice-rooms/join`, 동일 계정 확인 |
-| `#보룸참가상태` | Android의 로컬 음성 세션 관찰 | Noa HTTP `GET /api/vox/status` |
-| `#보룸퇴장` | Android 계정이 보룸에서 나가도록 요청 | Noa HTTP `POST /api/vox/leave` `kind=voiceroom` |
-
-각 명령은 방장·부방장 또는 실제 NEXI 봇 계정만 사용할 수 있으며, NEXI가 해당 오픈채팅방에서 실행할 수 있는 기존 명령어 제약은 유지합니다.
-
-**중요한 안전 조건**
-
-1. 참가·퇴장은 Noa의 `GET /api/status`에 있는 `currentUserId`와 실제 KakaoForge `client.userId`가 일치하고, Android 및 VOX 후킹 준비 상태가 유효할 때만 전송됩니다. 계정 불일치 시 전송하지 않습니다.
-2. 참가 전에는 Noa `GET /api/vox/status`로 로컬 세션을 검사합니다. 이미 같은 방에 참가 중이면 중복 요청하지 않고, 다른 방에서 사용 중이면 해당 세션을 강제로 전환하지 않습니다.
-3. 퇴장 전에는 **해당 방의 로컬 참가 세션**이 감지되어야 합니다. Noa의 `leave`는 **Android 음성 세션에서 나가기**이지 방 전체를 종료하는 검증된 명령어가 아닙니다.
-4. Noa의 `{ok:true,chatId}`는 요청 접수의 증거일 뿐 카카오톡 서버 참가자 명단의 검증이 아닙니다. 실제 참가 및 진행자 권한 여부는 앱에서 확인해야 합니다.
-5. 진행자 자동 승격/유지 API는 확인되지 않았으므로 구현하지 않았습니다. 수동으로 진행자 권한을 부여할 수 있는지도 실제 카카오톡 앱에서 확인해야 합니다.
-6. NEXI의 기존 `auth.json`, Railway KakaoForge 로그인·자동 재연결 및 채팅 송수신 로직은 변경하지 않습니다. **다만 동일 카카오톡 계정으로 별도의 Android 카카오톡에 로그인하면 Railway의 로그인 세션에 영향을 줄 수 있으므로, 무중단 유지는 보장할 수 없습니다.**
-7. 본 코드는 Noa로 실행되는 별도 루팅 Android 또는 Redroid 서버가 준비되어야만 음성 참가 요청을 전송합니다. 기기 없는 Railway 자체에서 VOX 참가 세션을 실행하는 기능은 아직 없습니다.
-
-관련 Noa 소스:
-- [VOX 참가 / 퇴장 API](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/src/web/vox.rs)
-- [Noa API 레퍼런스](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/docs/6-api.md)
-
-테스트는 실제 서버 접속이 아닌 모의 Noa HTTP 응답을 사용합니다. Noa 자체를 실행하거나 카카오톡 음성 세션·계정을 새로 연결하지 않습니다.
-
-
 ## Railway 서버형 VOX 참가 전제: 수신 초대의 접속 정보 추출 (2026-11-09)
 
-**이 단계는 독립적인 음성 참가 클라이언트 완성이 아닙니다.** Noa의 [실제 참가 소스](https://github.com/entworacy/noa/blob/9a20fdc47d55d99832b2f55cdf5a17aca32a83d5/src/web/vox.rs)는 채팅 유형 52의 최신 `vr_invite` 첨부에서 `callId`, `csIP`, `csIP6`, `csPort`를 가져와 로그인된 Android 카카오톡의 `joinVoiceroom()` 메서드에 전달합니다. VOX 인증·세션 협상·오디오 연결은 카카오톡 앱이 수행하므로 서버형 Node.js 클라이언트는 해당 부분을 별도로 구현해야 합니다.
+**참고(기존 분석 자료):** Android 앱은 채팅 유형 52의 최신 `vr_invite` 첨부에서 `callId`, `csIP`, `csIP6`, `csPort`를 가져와 로그인된 Android 카카오톡의 `joinVoiceroom()` 메서드에 전달합니다. VOX 인증·세션 협상·오디오 연결은 카카오톡 앱이 수행하므로 서버형 Node.js 클라이언트는 해당 부분을 별도로 구현해야 합니다.
 
 ### 구현
 
@@ -203,7 +142,7 @@ NEXI_VOICE_NOA_TOKEN=<16자 이상 보안 토큰>
 - 접속 정보는 **메모리에서만 최대 5분** 유지하며 SQLite·PostgreSQL·디스크 파일·채팅 메시지·로그에는 저장하지 않습니다. 최대 128개 방만 유지합니다.
 - `#보룸참가상태` 및 `#보룸참가`에서는 수신 준비 여부만 알립니다. **통화 ID·VOX 서버 IP/포트는 출력하지 않습니다.**
 - `hz-new.js`에 별도 수신 리스너를 추가했습니다. 기존 Railway QR 인증·KakaoForge 연결·명령어 접두사·보이스룸 알림 로직은 유지합니다.
-- 공개 Noa 브리지가 없더라도 명령어는 인식합니다. 접속 정보를 받았어도 **독립적인 VOX 암호화/인증 클라이언트가 없으므로 참가하지 못했다고 분명히 안내합니다.**
+- Railway 직접 VOX 연결이 없더라도 명령어는 인식합니다. 접속 정보를 받았어도 **독립적인 VOX 암호화/인증 클라이언트가 없으므로 참가하지 못했다고 분명히 안내합니다.**
 
 ### 다음으로 반드시 구현·검증할 단계
 
@@ -215,43 +154,3 @@ NEXI_VOICE_NOA_TOKEN=<16자 이상 보안 토큰>
 2020년 VOIP 메모에 있는 TLS/SEED 기반 구형 제어 패킷은 **2026년 보이스룸 참가와 동일하다고 검증되지 않았으므로 임의로 송신하지 않습니다.** 제공된 DLL의 복호화 함수만으로 가입 인증이 가능하다고 판단하지 않습니다.
 
 테스트: `node --test test/voice-room-join-info.test.js`. 테스트는 실제 네트워크나 VOX 세션에 접속하지 않고 이미 알려진 이벤트 구조를 모의합니다.
-
-## Iris/Noa 비교 실험 (2026-11-13)
-
-Railway 단독 VOX 기능을 바꾸지 않고, 별도 Android/Redroid Noa 구현과 결과를 비교하기 위한 **선택형 기능**입니다.
-Iris Python 클라이언트는 Noa API를 호출하며, 실제 생성은 Noa가 로그인된 Android 카카오톡의 `makeVoiceroom()`을 호출합니다.
-따라서 이 기능은 **Railway 단독 보이스룸 생성이나 30초 유지 문제 해결을 의미하지 않습니다.**
-
-### 코드와 명령어
-
-- `shared/voice-room-iris-commands.js`: `#보룸아이리스시작 [제목]`, `#보룸아이리스상태`, `#보룸아이리스참가`, `#보룸아이리스퇴장`
-- `shared/voice-room-noa-bridge.js`: 별도 `voiceRoomIrisAdapter`를 등록합니다.
-- 기존 `#보룸시작` 및 `voiceRoomAdapter`는 Railway 직접 VOX 구현을 계속 사용합니다.
-- Iris/Noa 명령은 **봇 계정만** 실행할 수 있고 해당 방의 보이스룸 사용 권한 설정을 따릅니다.
-
-### 필수 환경
-
-루팅 Android 또는 Redroid에 Noa, 로그인된 카카오톡 및 활성 VOX 후킹이 필요합니다.
-Noa에 접속할 수 있는 인증된 **HTTPS** 게이트웨이를 사용해야 합니다. 다음 Railway 변수 세 가지를 모두 설정합니다.
-
-```text
-NEXI_VOICE_NOA_URL=https://example-noa-gateway.example
-NEXI_VOICE_NOA_TOKEN=<개인 API 인증 토큰>
-NEXI_VOICE_NOA_ACTOR_USER_ID=<별도의 Android 카카오톡 계정 사용자 ID>
-```
-
-별도 Android 계정을 명시하지 않으면 Iris/Noa 실험 연결을 차단합니다. 기존 Railway 카카오톡 로그인 및 auth.json은 변경하지 않습니다.
-명령을 실행하기 전 Noa `/api/status`, `/api/rooms/:id`, `/api/vox/status`를 확인합니다.
-이미 다른 방에서 Android 음성 세션이 실행 중인 경우 자동으로 종료하거나 전환하지 않습니다.
-
-`#보룸아이리스시작`은 Noa `POST /api/vox/voice-rooms`에 생성 요청을 보냅니다.
-성공 응답은 **요청 접수**로만 처리하고 실제 개설·30초 이상 유지되었다고 표시하지 않습니다.
-`#보룸아이리스상태`는 Android의 로컬 VOX 상태를 조회합니다.
-`#보룸아이리스참가`는 Noa 참가 API를, `#보룸아이리스퇴장`은 로컬 세션 퇴장 API를 사용하며 전체 보이스룸 종료는 지원하지 않습니다.
-
-비교 실험에서는 생성 뒤 10초, 35초, 60초에 `#보룸아이리스상태`를 조회하고 별도 카카오톡 앱에서 실제 룸 유지 상태를 확인합니다.
-테스트: `node --test test/voice-room-iris-commands.test.js test/voice-room-noa-bridge.test.js test/voice-router.test.js test/voice-room-permission.test.js test/voice-direct-only-mode.test.js`
-
-소스:
-- https://github.com/entworacy/irispy-noa-client/blob/main/examples/noa/voice_room.py
-- https://github.com/entworacy/noa/blob/main/kakao-agent/java/dev/noa/kakao/VoxController.java

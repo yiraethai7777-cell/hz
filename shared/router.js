@@ -317,7 +317,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         .catch(error => console.error('[JUNGGAE] alert error:', error));
       // Voice-room help/status must remain responsive even if unrelated
       // game/database initialization is still pending or has failed.
-      if (/^[#!]?(?:보룸아이리스시작|보룸아이리스상태|보룸아이리스참가|보룸아이리스퇴장|보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참가상태|보룸참가|보룸퇴장|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.test(text)) {
+      if (/^[#!]?(?:보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참가상태|보룸참가|보룸퇴장|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보룸켜기|보룸시작|보룸끄기|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.test(text)) {
         console.log('[보이스룸] 명령 수신:', JSON.stringify({
           roomId: String(roomId),
           command: text.split(/\s/,1)[0],
@@ -368,15 +368,9 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
               '총관리자 웹 > 채팅방 관리에서 보이스룸 기능을 활성화해 주세요.');
             return;
           }
-          if (require('./voice-room-iris-commands').commandOf(text)) {
-            await require('./voice-room-iris-commands').handle({
-              client, roomId, msg, text, send: sendVoiceReply
-            });
-          } else {
           await require('./voice-room').handle({
             client, roomId, msg, text, send: sendVoiceReply
           });
-          }
         } catch (error) {
           console.error('[보이스룸] 명령어 처리 오류:', error);
           try {

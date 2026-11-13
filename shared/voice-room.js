@@ -322,7 +322,6 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸TLS진단 · Railway에서 인증정보 없이 TLS 후보 연결 확인 (봇 계정만)\n' +
       '#보룸인증점검 · 기존 세션·기기 정보 확인, VOX 서버 인증 미실행 (봇 계정만)\n' +
       '#보룸참가 · 기존 보룸에 참가 요청 (직접 VOX 인증 필요)\n' +
-      '#보룸아이리스시작 / #보룸아이리스상태 · 별도 Android Noa 비교 실험 (봇 계정 전용)\n' +
       '#보룸참가상태 · Railway VOX 참가 세션 확인\n' +
       '#보룸퇴장 · Railway VOX 음성 세션에서 나가기 (보룸 종료 아님)\n' +
       '※ 관리 ON인 방은 보이스룸 개설·종료 이벤트를 자동 감지해 알립니다.\n' +

@@ -2,13 +2,13 @@ name: NEXI voice-room checks
 on:
   push:
     branches:
+      - main
       - feature/nexi-voice-room-controls-20261108
   pull_request:
     branches: [main]
     paths:
       - 'shared/voice-room.js'
       - 'shared/voice-room-observer.js'
-      - 'shared/voice-room-noa-bridge.js'
       - 'shared/voice-room-join-info.js'
       - 'shared/voice-room-vox-wire.js'
       - 'shared/voice-room-vox-transport.js'
@@ -31,8 +31,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: node --check experiments/voice-room/noa-multi-start.js && node --check experiments/voice-room/frida-vox-observe.js
-      - run: node --test test/voice-room.test.js test/voice-router.test.js test/voice-room-observer.test.js test/voice-room-noa-bridge.test.js test/voice-room-auto-detect.test.js test/voice-room-join-info.test.js test/voice-room-noa-multi-start.test.js test/voice-room-frida-observe.test.js
+      - run: node --check experiments/voice-room/frida-vox-observe.js
+      - run: node --test test/voice-room.test.js test/voice-router.test.js test/voice-room-observer.test.js test/voice-room-auto-detect.test.js test/voice-room-join-info.test.js test/voice-room-frida-observe.test.js
       # SEED-CBC is in OpenSSL's legacy provider. Scope it to this test subprocess.
       # Never change NODE_OPTIONS on the running KakaoForge/Railway bot.
       - run: node --openssl-legacy-provider --test test/voice-room-vox-wire.test.js test/voice-room-vox-transport.test.js test/voice-room-vox-membership.test.js
