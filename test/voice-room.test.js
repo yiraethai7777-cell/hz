@@ -751,13 +751,13 @@ test('Railway VOX stop verifies server bye only when matching room and call ID',
   }
   args.adapter={
     status:async()=>({roomId:ROOM,localSession:true,localActive:true,
-      localCallId:same,statusKnown:false,verified:false}),
+      localCallId:same,statusKnown:false,verified:false,stopAvailable:true}),
     stop:async()=>{
       queueMicrotask(async()=>{
         await auto.handleMessage(bye(foreign,'930111'),config);
         await auto.handleMessage(bye(same,'930112'),config);
       });
-      return {roomId:ROOM,closed:false,verified:false,localReleased:true};
+      return {roomId:ROOM,requestAccepted:true,closed:false,verified:false,localReleased:false};
     },
   };
   await voice.handle(args);
