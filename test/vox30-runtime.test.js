@@ -52,6 +52,20 @@ test('VOX version uses current authenticated client and explicit env overrides',
   assert.throws(()=>profileFromEnv({},'not-a-version'),/앱 버전/);
 });
 
+test('VOX uses the KakaoForge session carrier unless a valid explicit override is provided',()=>{
+  const {profileFromEnv}=require('../shared/vox30-runtime');
+  assert.equal(profileFromEnv({},'26.9.2','45005').carrierId,'45005');
+  assert.equal(profileFromEnv({NEXI_VOX_CARRIER_ID:'45008'},'26.9.2','45005').carrierId,'45008');
+  assert.equal(profileFromEnv({},'26.9.2','unverified').carrierId,undefined);
+  assert.equal(profileFromEnv({NEXI_VOX_CARRIER_ID:'bad'},'26.9.2','45005'),null);
+  let received;
+  const client={mccmnc:'45005',voiceRoomAuthCandidate:{actorUserId:'10',
+    getCredentials:()=>({oauthToken:'test',deviceUuid:'test'}),
+    localRoomEvidence:()=>({isOpenChatInLocalRoster:true,memberTypeCached:true})}};
+  assert.equal(installDirectVoice(client,{env:{},log,
+    loadLab:()=>({createLabAdapter(config){received=config.cfg.carrierId;return {create(){}};}})}),true);
+  assert.equal(received,'45005');
+});
 test('silent audio is opt-in and does not change production default',()=>{
   let value;
   const client={voiceRoomAuthCandidate:{actorUserId:'10',getCredentials:()=>({oauthToken:'x',deviceUuid:'x'}),
