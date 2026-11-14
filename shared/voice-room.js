@@ -697,9 +697,9 @@ async function handle({client,roomId,msg,text,send,adapter}){
       if(session?.localBusyOtherRoom===true){
         const limit=Number.isInteger(session.maxLocalRooms)&&session.maxLocalRooms>0
           ?session.maxLocalRooms:null;
-        await safeReply(client,send,'❌ Railway VOX 동시 보이스룸 슬롯이 모두 사용 중입니다.\\n'+
-          (limit?'현재 봇의 동시 세션 설정: 최대 '+limit+'개\\n':'현재 봇의 동시 세션 제한을 확인할 수 없습니다.\\n')+
-          '이 오류는 봇 내부 제한이며 카카오톡 서버의 동시 접속 거부를 의미하지 않습니다.\\n'+
+        await safeReply(client,send,'❌ Railway VOX 동시 보이스룸 슬롯이 모두 사용 중입니다.\n'+
+          (limit?'현재 봇의 동시 세션 설정: 최대 '+limit+'개\n':'현재 봇의 동시 세션 제한을 확인할 수 없습니다.\n')+
+          '이 오류는 봇 내부 제한이며 카카오톡 서버의 동시 접속 거부를 의미하지 않습니다.\n'+
           '기존 보이스룸 연결은 유지했습니다.');
         return true;
       }
