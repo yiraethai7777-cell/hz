@@ -71,6 +71,7 @@ function installDirectVoice(client,{env=process.env,
       enableSilentAudio:env.NEXI_VOX_TX_SILENCE==='1',
       hangupTransport,
       unsafeStopExperiment:env.NEXI_VOX_UNSAFE_STOP_TEST==='1',
+      hangup10008Trial:env.NEXI_VOX_HANGUP_10008_TEST==='1',
       experimentalJoin:env.NEXI_VOX_JOIN_TRIAL==='1',
       acceptSpeakerTransport:roleTransports?.verified===true &&
         roleTransports.appVer===appVer && typeof roleTransports.acceptSpeaker==='function'
@@ -168,7 +169,8 @@ function installDirectVoice(client,{env=process.env,
       '; silent RTP TX: '+(env.NEXI_VOX_TX_SILENCE==='1'?'enabled':'off')+
       '; VOX local room slots='+(multiRoomEnabled?'uncapped (experimental; server unverified)':'1')+
       '; unsafe stop test='+(env.NEXI_VOX_UNSAFE_STOP_TEST==='1'?'enabled':'disabled')+
-      '; experimental join='+(env.NEXI_VOX_JOIN_TRIAL==='1'?'enabled':'disabled'));
+      '; experimental join='+(env.NEXI_VOX_JOIN_TRIAL==='1'?'enabled':'disabled')+
+      '; 10008 hypothesis='+(env.NEXI_VOX_HANGUP_10008_TEST==='1'?'enabled':'disabled'));
     return true;
   }catch{
     log.warn('[VOICE VOX30] direct create adapter initialization failed');
