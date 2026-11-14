@@ -106,7 +106,15 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false
       if(typeof item.adapter.stop!=='function')
         return {roomId:id,closed:false,verified:false,
           localReleased:false,serverStopUnavailable:true};
-      return item.adapter.stop({...request,roomId:id});
+      const outcome=await item.adapter.stop({...request,roomId:id});
+      // Only authoritative, room-matched closure may release the local slot.
+      // Request ACKs, local disconnects and unverified events must preserve it.
+      if(outcome?.closed===true&&outcome?.verified===true&&
+         String(outcome.roomId??'')===id && sessions.get(id)===item){
+        sessions.delete(id);
+        try{await item.adapter.dispose?.();}catch{}
+      }
+      return outcome;
     },
     async join(request={}){
       ensureOpen();
