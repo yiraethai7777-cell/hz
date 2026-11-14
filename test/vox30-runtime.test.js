@@ -123,7 +123,7 @@ test('unrecognized multi-room setting fails closed to the existing single-room a
     getCredentials:()=>({oauthToken:'a',deviceUuid:'b'}),
     localRoomEvidence:()=>({isOpenChatInLocalRoster:true,memberTypeCached:true})}};
   assert.equal(installDirectVoice(client,{
-    env:{NEXI_VOX_MAX_ACTIVE_ROOMS:'3'},log,
+    env:{NEXI_VOX_MAX_ACTIVE_ROOMS:'11'},log,
     loadLab:()=>({createLabAdapter(){created++;return {create:async()=>true}}}),
   }),true);
   assert.equal(created,1);
@@ -159,4 +159,22 @@ test('runtime passes a reviewed hangup driver only by explicit injection',()=>{
     }}),
   }),true);
   assert.equal(observed,null); // no runtime default, no env-toggle fallback
+});
+
+test('ten-room runtime opt-in lazily allocates ten independent adapters',async()=>{
+ const instances=[];
+ const client={voiceRoomAuthCandidate:{actorUserId:'10',getCredentials:()=>({oauthToken:'x',deviceUuid:'y'}),
+  localRoomEvidence:()=>({isOpenChatInLocalRoster:true,memberTypeCached:true})}};
+ assert.equal(installDirectVoice(client,{env:{NEXI_VOX_MAX_ACTIVE_ROOMS:'10'},log,
+  loadLab:()=>({createLabAdapter(){const a={active:false,
+   async create(){a.active=true;return {requestAccepted:true}},
+   async status({roomId}){return {roomId,localActive:a.active}},
+   async dispose(){a.active=false}};instances.push(a);return a;}})}),true);
+ const manager=client.voiceRoomAdapter;
+ assert.equal((await manager.status({roomId:'101'})).maxLocalRooms,10);
+ for(let n=1;n<=10;n++)await manager.create({roomId:String(n+100)});
+ assert.equal(instances.length,10);
+ assert.equal(instances.every(a=>a.active),true);
+ await assert.rejects(manager.create({roomId:'111'}),/이미 보이스룸/);
+ await manager.dispose();
 });

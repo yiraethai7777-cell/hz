@@ -4,12 +4,13 @@
 // Each room has an independent VOX connection, WebRTC peer and keepalive.
 // The Kakao server's ability to accept multiple calls from ONE account has
 // not been proven; production defaults to one session until explicitly opted in.
+// Local admission control supports up to ten independent room sessions.
 const {checkedId}=require('./vox30-protocol');
 
 function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false}={}){
   if(typeof createAdapter!=='function')throw Error('VOX 어댑터 생성 함수가 필요합니다.');
-  if(!Number.isInteger(maxRooms)||maxRooms<1||maxRooms>2)
-    throw Error('VOX 동시 연결 제한은 1 또는 2여야 합니다.');
+  if(!Number.isInteger(maxRooms)||maxRooms<1||maxRooms>10)
+    throw Error('VOX 동시 연결 제한은 1~10이어야 합니다.');
   const sessions=new Map();
   let negotiating=false,disposed=false;
   function ensureOpen(){if(disposed)throw Error('VOX 세션 관리자가 종료됐습니다.');}
@@ -105,7 +106,15 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false
       if(typeof item.adapter.stop!=='function')
         return {roomId:id,closed:false,verified:false,
           localReleased:false,serverStopUnavailable:true};
-      return item.adapter.stop({...request,roomId:id});
+      const outcome=await item.adapter.stop({...request,roomId:id});
+      // Only authoritative, room-matched closure may release the local slot.
+      // Request ACKs, local disconnects and unverified events must preserve it.
+      if(outcome?.closed===true&&outcome?.verified===true&&
+         String(outcome.roomId??'')===id && sessions.get(id)===item){
+        sessions.delete(id);
+        try{await item.adapter.dispose?.();}catch{}
+      }
+      return outcome;
     },
     async join(request={}){
       ensureOpen();

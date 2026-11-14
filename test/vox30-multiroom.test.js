@@ -136,8 +136,9 @@ test('a second create in same room is denied and authenticated role event is rou
 });
 test('invalid maxRooms and invalid room IDs are rejected',async()=>{
   const {createAdapter}=makeFactory();
-  for(const n of [0,3,1.5,NaN])
-    assert.throws(()=>createMultiRoomAdapter({createAdapter,maxRooms:n}),/1 또는 2/);
+  for(const n of [0,11,1.5,NaN])
+    assert.throws(()=>createMultiRoomAdapter({createAdapter,maxRooms:n}),/1~10/);
+  assert.doesNotThrow(()=>createMultiRoomAdapter({createAdapter,maxRooms:10}));
   const multi=createMultiRoomAdapter({createAdapter});
   await assert.rejects(multi.create({roomId:'bad'}),/ID/);
   await multi.dispose();
@@ -163,4 +164,64 @@ test('two-slot empty-room status exposes opt-in VOX join capability without pre-
   assert.equal(created,1);
   assert.equal((await m.status({roomId:'123'})).joinAvailable,true);
   await m.dispose();
+});
+
+test('ten independent room slots preserve other sessions when capacity is reached',async()=>{
+  const {createAdapter,all}=makeFactory();
+  const multi=createMultiRoomAdapter({createAdapter,maxRooms:10});
+  for(let i=1;i<=10;i++)await multi.create({roomId:String(100+i)});
+  assert.equal(all.length,10);
+  assert.equal((await multi.status({roomId:'111'})).maxLocalRooms,10);
+  assert.equal((await multi.status({roomId:'111'})).localBusyOtherRoom,true);
+  await assert.rejects(multi.create({roomId:'111'}),/이미 활성 음성 세션/);
+  assert.equal(all.every(item=>item.active),true);
+  all[4].active=false;
+  assert.equal((await multi.status({roomId:'111'})).localBusyOtherRoom,false);
+  await multi.create({roomId:'111'});
+  assert.equal(all.length,11);
+  assert.equal(all[0].active,true);
+  assert.equal(all[4].closed,1);
+  await multi.dispose();
+  assert.equal(all[0].closed,1);
+});
+
+test('verified stop releases only the matching room and keeps other live rooms',async()=>{
+  const instances=[];
+  const multi=createMultiRoomAdapter({maxRooms:2,createAdapter(){
+    const a={
+      active:false,disposed:0,
+      async create(){this.active=true;return {requestAccepted:true}},
+      async status({roomId}){return {roomId,localActive:this.active}},
+      async stop({roomId}){return {roomId,closed:true,verified:true}},
+      async dispose(){this.active=false;this.disposed++}
+    };
+    instances.push(a);return a;
+  }});
+  await multi.create({roomId:'101'});
+  await multi.create({roomId:'202'});
+  assert.equal((await multi.stop({roomId:'101'})).verified,true);
+  assert.equal(instances[0].disposed,1);
+  assert.equal(instances[1].active,true);
+  assert.equal((await multi.status({roomId:'202'})).localActive,true);
+  assert.equal((await multi.status({roomId:'303'})).localBusyOtherRoom,false);
+  await multi.dispose();
+  assert.equal(instances[1].disposed,1);
+});
+
+test('unverified stop response cannot evict the current session',async()=>{
+  let stopCalls=0,disposed=0;
+  const multi=createMultiRoomAdapter({maxRooms:1,createAdapter:()=>({
+    async create(){return {requestAccepted:true}},
+    async status({roomId}){return {roomId,localActive:true}},
+    async stop({roomId}){stopCalls++;return {roomId,requestAccepted:true,closed:false,verified:false}},
+    async dispose(){disposed++}
+  })});
+  await multi.create({roomId:'101'});
+  const stopped=await multi.stop({roomId:'101'});
+  assert.equal(stopped.closed,false);
+  assert.equal(stopCalls,1);
+  assert.equal(disposed,0);
+  assert.equal((await multi.status({roomId:'202'})).localBusyOtherRoom,true);
+  await multi.dispose();
+  assert.equal(disposed,1);
 });
