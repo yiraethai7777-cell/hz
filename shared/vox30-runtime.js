@@ -55,13 +55,14 @@ function installDirectVoice(client,{env=process.env,
     log.info('[VOICE VOX30] carrier source: '+
       (env.NEXI_VOX_CARRIER_ID?'explicit-vox-env':
         device.carrierId?'current-kakaoforge-session':'absent'));
-    // One VOX call per account remains the production default.
-    // NEXI_VOX_MAX_ACTIVE_ROOMS=2 is an experimental opt-in only:
-    // separate TLS/RTC connections do NOT prove server-side multi-call support.
-    const maxActiveRooms=env.NEXI_VOX_MAX_ACTIVE_ROOMS==='2'?2:1;
-    if(env.NEXI_VOX_MAX_ACTIVE_ROOMS &&
-       !['1','2'].includes(env.NEXI_VOX_MAX_ACTIVE_ROOMS))
-      log.warn('[VOICE VOX30] unsupported concurrency setting; using one session');
+    // Keep the single-room default. Any previously enabled multi-room value
+    // (including legacy '2') opts into an uncapped number of room-scoped
+    // transports. The Kakao server and host resources may still impose limits.
+    const requestedRooms=String(env.NEXI_VOX_MAX_ACTIVE_ROOMS??'1').trim().toLowerCase();
+    const multiRoomEnabled=requestedRooms==='unlimited'||
+      (/^[0-9]+$/.test(requestedRooms)&&Number(requestedRooms)>=2);
+    if(env.NEXI_VOX_MAX_ACTIVE_ROOMS && !multiRoomEnabled && requestedRooms!=='1')
+      log.warn('[VOICE VOX30] invalid multi-room setting; using one session');
     const makeRoomAdapter=()=>loadLab().createLabAdapter({
       actorUserId:auth.actorUserId,
       cfg:{...device,userId:auth.actorUserId},
@@ -132,9 +133,9 @@ function installDirectVoice(client,{env=process.env,
         return userType;
       },
     });
-    const transport=maxActiveRooms===2?
+    const transport=multiRoomEnabled?
       createMultiRoomAdapter({
-        createAdapter:makeRoomAdapter,maxRooms:2,
+        createAdapter:makeRoomAdapter,maxRooms:Infinity,
         joinTrialEnabled:env.NEXI_VOX_JOIN_TRIAL==='1',
       }):
       makeRoomAdapter();
@@ -165,7 +166,7 @@ function installDirectVoice(client,{env=process.env,
     };
     log.info('[VOICE VOX30] direct create adapter installed; optional device fields: '+Object.keys(device).length+
       '; silent RTP TX: '+(env.NEXI_VOX_TX_SILENCE==='1'?'enabled':'off')+
-      '; VOX local room slots='+maxActiveRooms+(maxActiveRooms>1?' (experimental; server unverified)':'')+
+      '; VOX local room slots='+(multiRoomEnabled?'uncapped (experimental; server unverified)':'1')+
       '; unsafe stop test='+(env.NEXI_VOX_UNSAFE_STOP_TEST==='1'?'enabled':'disabled')+
       '; experimental join='+(env.NEXI_VOX_JOIN_TRIAL==='1'?'enabled':'disabled'));
     return true;
