@@ -573,10 +573,18 @@ async function handle({client,roomId,msg,text,send,adapter}){
       return true;
     }
     const argument=raw.slice(match[0].length).trim();
-    const mode=argument==='11009'?'11009':
+    const mode=argument==='10008'?'10008':
+      argument==='11009'?'11009':
       argument==='연결해제'?'disconnect':null;
+    // The Windows 10008 value is an *internal code*, not a verified VOX method.
+    // Allow the narrowly scoped live experiment only from the bot account.
+    if(mode==='10008'&&!isBotAccount){
+      await safeReply(client,send,'❌ 10008 종료 후보 실험은 봇 계정만 실행할 수 있습니다.');
+      return true;
+    }
     if(!mode){
       await safeReply(client,send,'⚠️ 정확한 실험 명령어를 입력해 주세요.\n'+
+        '#보룸종료시험 10008 · 내부 코드 번호를 VOX 패킷으로 1회 시험 (봇 계정 전용)\n'+
         '#보룸종료시험 11009 · 검증되지 않은 패킷을 1회 송신\n'+
         '#보룸종료시험 연결해제 · 이 방의 Railway VOX 세션만 해제\n'+
         '※ 두 방식 모두 카카오톡 서버 보룸 종료를 보장하지 않습니다.');
@@ -601,9 +609,17 @@ async function handle({client,roomId,msg,text,send,adapter}){
           '이미 끊어진 세션이나 다른 방의 보이스룸에는 실험을 실행할 수 없습니다.');
         return true;
       }
-      if(before.unsafeStopExperimentAvailable!==true){
-        await safeReply(client,send,'❌ Railway 종료 실험이 비활성화되어 있습니다. '+
-          'NEXI_VOX_UNSAFE_STOP_TEST=1 설정이 필요합니다.');
+      if(mode==='10008' ? before.hangup10008TrialAvailable!==true :
+          before.unsafeStopExperimentAvailable!==true){
+        await safeReply(client,send,mode==='10008'?
+          '❌ 10008 실험이 비활성화되어 있습니다. NEXI_VOX_HANGUP_10008_TEST=1 설정이 필요합니다.':
+          '❌ Railway 종료 실험이 비활성화되어 있습니다. NEXI_VOX_UNSAFE_STOP_TEST=1 설정이 필요합니다.');
+        return true;
+      }
+      // Refuse the test if the server-issued call ID is unknown: only the
+      // current room and current call may be used, never a global guess.
+      if(mode==='10008'&&!before.localCallId){
+        await safeReply(client,send,'❌ 현재 통화 ID가 확인되지 않아 10008 실험을 실행하지 않습니다.');
         return true;
       }
       if(before.localCallId){
@@ -616,17 +632,17 @@ async function handle({client,roomId,msg,text,send,adapter}){
         return true;
       }
       if(result?.alreadyTried){
-        await safeReply(client,send,'⚠️ 이 보이스룸에는 이미 11009 패킷을 시험했습니다. '+
+        await safeReply(client,send,'⚠️ 이 보이스룸에는 이미 '+(mode==='10008'?'10008':'11009')+' 패킷을 시험했습니다. '+ 
           '동일 통화에 다시 전송하지 않았습니다.');
         return true;
       }
       const happened=(result?.packetSent===true||result?.localReleased===true);
       const ended=happened&&endWatch?await endWatch.wait():false;
       if(ended){
-        await safeReply(client,send,'🎙️ 실험 이후 같은 통화 ID의 서버 vr_bye 종료 이벤트를 확인했습니다.\n'+
-          '※ 사용한 실험 방식이 종료 원인인지는 별도 검증이 필요합니다.');
+        await safeReply(client,send,'🎙️ '+(mode==='10008'?'10008':'11009')+' 실험 이후 같은 통화 ID의 서버 vr_bye 종료 이벤트를 확인했습니다.\n'+
+          '※ 이 결과만으로 해당 메서드나 BSON 규격이 검증된 것은 아닙니다.');
       }else if(result?.packetSent===true){
-        await safeReply(client,send,'🧪 VOX 11009 패킷을 1회 송신했습니다.\n'+
+        await safeReply(client,send,'🧪 VOX '+(mode==='10008'?'10008':'11009')+' 후보 패킷을 1회 송신했습니다.\n'+
           '서버 종료 이벤트(vr_bye)는 확인되지 않았습니다.\n'+
           '※ 패킷 규격은 미검증이며 보이스룸이 그대로 열려 있을 수 있습니다.');
       }else if(result?.localReleased===true){
