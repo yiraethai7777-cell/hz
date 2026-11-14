@@ -681,7 +681,9 @@ export class KakaoForgeClient extends EventEmitter {
       this._reconnectTimer = null;
       try {
         await this.connect();
-        this._reconnectAttempt = 0;
+        // Only a transport surviving the stability window resets backoff.
+        // Otherwise LOGINLIST-success + immediate server FIN would reconnect
+        // at 1 second forever and can exacerbate server-side throttling.
       } catch (err) {
         console.error('[!] Reconnect failed:', err.message);
         this._scheduleReconnect(err);
@@ -741,9 +743,12 @@ export class KakaoForgeClient extends EventEmitter {
       throw new Error('No deviceUuid. Use auth.json or call login() first.');
     }
 
-    if (this._carriage) {
-      await this._carriage.end().catch(() => {});
+    // Detach a retired transport before ending it: its close event must not
+    // schedule another reconnect while its replacement is being created.
+    const previousCarriage = this._carriage;
+    if (previousCarriage) {
       this._carriage = null;
+      await previousCarriage.end().catch(() => {});
     }
     if (this._booking) {
       this._booking.disconnect();
@@ -832,12 +837,19 @@ export class KakaoForgeClient extends EventEmitter {
     // Step 2: Carriage - V2SL handshake + LOGINLIST
     console.log(`[*] Connecting to Carriage server ${checkinResult.host}:${checkinResult.port}...`);
     this._carriage = new CarriageClient();
+    const currentCarriage = this._carriage;
+    let loginReadyAt = 0;
 
     this._carriage.on('push', (packet) => {
       void this._onPush(packet);
     });
     this._carriage.on('error', (err) => console.error('[!] Carriage error:', err.message));
     this._carriage.on('disconnected', () => {
+      if (this._carriage !== currentCarriage) return;
+      // Reset the exponential retry only after an actually stable LOCO
+      // session, not merely a LOGINLIST status=0 followed by a quick FIN.
+      const stableMs = loginReadyAt ? Date.now() - loginReadyAt : 0;
+      if (stableMs >= 30000) this._reconnectAttempt = 0;
       // Missed departures during disconnection make existing rosters unsafe.
       this._eventRosterIds.clear();
       this._eventDepartedIds.clear();
@@ -875,6 +887,7 @@ export class KakaoForgeClient extends EventEmitter {
 
     // Start keepalive
     this._carriage.startPing(this.pingIntervalMs);
+    loginReadyAt = Date.now();
     console.log('[+] Bot is ready!');
     this.emit('ready', this.chat);
     this._startMemberRefresh();
@@ -884,7 +897,7 @@ export class KakaoForgeClient extends EventEmitter {
 
     try {
       const result = await this._connectPromise;
-      this._reconnectAttempt = 0;
+      // A transient successful LOGINLIST must not zero the retry counter.
       return result;
     } catch (err) {
       this._scheduleReconnect(err);
