@@ -136,8 +136,8 @@ test('a second create in same room is denied and authenticated role event is rou
 });
 test('invalid maxRooms and invalid room IDs are rejected',async()=>{
   const {createAdapter}=makeFactory();
-  for(const n of [0,3,1.5,NaN])
-    assert.throws(()=>createMultiRoomAdapter({createAdapter,maxRooms:n}),/1 또는 2/);
+  for(const n of [0,-1,1.5,NaN])
+    assert.throws(()=>createMultiRoomAdapter({createAdapter,maxRooms:n}),/양의 정수 또는 Infinity/);
   const multi=createMultiRoomAdapter({createAdapter});
   await assert.rejects(multi.create({roomId:'bad'}),/ID/);
   await multi.dispose();
@@ -163,4 +163,35 @@ test('two-slot empty-room status exposes opt-in VOX join capability without pre-
   assert.equal(created,1);
   assert.equal((await m.status({roomId:'123'})).joinAvailable,true);
   await m.dispose();
+});
+
+test('uncapped multi-room mode keeps independent sessions beyond legacy two-room limit',async()=>{
+  const {createAdapter,all}=makeFactory();
+  const multi=createMultiRoomAdapter({createAdapter,maxRooms:Infinity,joinTrialEnabled:true});
+  for(let i=1;i<=12;i++)await multi.create({roomId:String(i*101)});
+  assert.equal(all.length,12);
+  assert.equal((await multi.status({roomId:'9999'})).localBusyOtherRoom,false);
+  assert.equal((await multi.status({roomId:'9999'})).joinAvailable,true);
+  assert.equal((await multi.status({roomId:'9999'})).maxLocalRooms,null);
+  assert.ok(all.every(x=>x.active));
+  await multi.dispose();
+  assert.ok(all.every(x=>x.closed===1));
+});
+test('server rejection in uncapped mode releases only rejected room',async()=>{
+  const {createAdapter,all}=makeFactory();
+  let n=0;
+  const multi=createMultiRoomAdapter({maxRooms:Infinity,createAdapter(){
+    const a=createAdapter();
+    if(++n===3)a.rejected=true;
+    return a;
+  }});
+  await multi.create({roomId:'101'});
+  await multi.create({roomId:'202'});
+  await assert.rejects(multi.create({roomId:'303'}),/server rejected/);
+  assert.equal(all[0].active,true);
+  assert.equal(all[1].active,true);
+  assert.equal(all[2].closed,1);
+  await multi.create({roomId:'404'});
+  assert.equal(all[3].active,true);
+  await multi.dispose();
 });
