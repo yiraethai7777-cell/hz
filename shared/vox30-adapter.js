@@ -78,6 +78,9 @@ function createVox30Adapter({
   hangupTransport=null,
   // Explicitly opt-in diagnostic only: NOT a verified server-side hangup.
   unsafeStopExperiment=false,
+  // Explicit bot-account-only trial for the observed Windows internal code.
+  // It is NOT a verified wire method or BSON schema.
+  hangup10008Trial=false,
 }={}) {
   const userId=checkedId(actorUserId);
   if(String(cfg?.userId??'')!==userId)
@@ -256,6 +259,7 @@ function createVox30Adapter({
         roomId:id,verified:false,statusKnown:false,
         localSession:true,localActive:same,stopAvailable:canServerHangup,
         unsafeStopExperimentAvailable:unsafeStopExperiment===true && same,
+        hangup10008TrialAvailable:hangup10008Trial===true && same,
         ...(same&&active?.session?.callId!=null
           ?{localCallId:checkedId(active.session.callId)}:{}),
         ...((()=>{
@@ -429,9 +433,9 @@ function createVox30Adapter({
     // Force-disconnect releases only THIS ROOM's VOX TLS/WebRTC, not KakaoForge.
     async experimentalStop({roomId,mode}={}) {
       const id=checkedId(roomId);
-      if(unsafeStopExperiment!==true)
+      if(mode==='10008' ? hangup10008Trial!==true : unsafeStopExperiment!==true)
         return {roomId:id,disabled:true,serverEnded:false};
-      if(!['11009','disconnect'].includes(mode))
+      if(!['10008','11009','disconnect'].includes(mode))
         throw Error('허용되지 않은 VOX 종료 실험 방식입니다.');
       const current=active;
       if(!current||current.chatId!==id)
@@ -439,6 +443,31 @@ function createVox30Adapter({
       if(running)throw Error('다른 VOX 요청을 처리 중입니다.');
       running=true;
       try{
+        if(mode==='10008'){
+          if(current.sent10008Experiment===true)
+            return {roomId:id,alreadyTried:true,serverEnded:false};
+          current.sent10008Experiment=true;
+          const callId=checkedId(current.session.callId);
+          // CONTROLLED HYPOTHESIS ONLY: method 10008 appeared in a Windows
+          // internal state path. The BSON below is not a captured hangUp body.
+          // Do not log identifiers or release the existing audio session.
+          const body={
+            userId:new I64(userId),callId:new I64(callId),
+            ...(current.session.csId==null?{}:{
+              csId:new I64(checkedId(current.session.csId))}),
+            reason:new I32(0),
+          };
+          try{
+            await current.session.conn.send(10008,body);
+            console.warn('[VOICE VOX30] 10008 hypothesis sent once; BSON and server termination unverified');
+            return {roomId:id,packetSent:true,testedMethod:10008,
+              localReleased:false,serverEnded:false};
+          }catch{
+            console.warn('[VOICE VOX30] 10008 hypothesis send failed');
+            return {roomId:id,packetSent:false,testedMethod:10008,
+              localReleased:false,serverEnded:false};
+          }
+        }
         if(mode==='11009'){
           if(current.sent11009Experiment===true)
             return {roomId:id,alreadyTried:true,serverEnded:false};
