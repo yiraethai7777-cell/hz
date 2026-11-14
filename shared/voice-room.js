@@ -187,13 +187,52 @@ async function handle({client,roomId,msg,text,send,adapter}){
       await safeReply(client,send,'❌ #보룸종료찾기 명령어만 입력해 주세요.');
       return true;
     }
-    // Scan reviewed evidence from the running bot only. Never probe the live
-    // Kakao server, send guessed methods, or interrupt any active call.
+    // Only a reviewed client hangUp wire implementation may perform a live
+    // test. No guessed method numbers or arbitrary BSON are ever sent.
     const evidence=client?.voiceRoomVerifiedHangupEvidence;
     const method=require('./vox30-hangup-discovery').findVerifiedHangupMethod(evidence);
-    await safeReply(client,send,method==null
-      ?'검증된 종료 매서드를 찾지 못했습니다. (오프라인 검색 · 서버 요청 없음)'
-      :'매서드: '+method);
+    if(method==null){
+      await safeReply(client,send,'검증된 종료 매서드를 찾지 못했습니다. (서버 요청 없음)');
+      return true;
+    }
+    if(!transport || typeof transport.status!=='function' ||
+       typeof transport.stop!=='function'){
+      await safeReply(client,send,'종료 요청용 VOX 드라이버가 연결되지 않았습니다.');
+      return true;
+    }
+    if(running.has(room)){
+      await safeReply(client,send,'보이스룸 요청을 처리 중입니다.');
+      return true;
+    }
+    running.add(room);
+    let endWatch=null;
+    try {
+      const before=await transport.status({roomId:room});
+      if(before?.localSession!==true || before?.localActive!==true ||
+         String(before.roomId)!==room || !before.localCallId){
+        await safeReply(client,send,'이 방의 활성 VOX 통화 ID가 없습니다.');
+        return true;
+      }
+      if(before.stopAvailable!==true){
+        await safeReply(client,send,'검증된 서버 종료 드라이버가 연결되지 않았습니다.');
+        return true;
+      }
+      endWatch=require('./voice-room-auto-detect').watchEnd(client,room,before.localCallId);
+      const result=await transport.stop({roomId:room,voiceRoomId:before.localCallId});
+      if(result?.requestAccepted!==true){
+        await safeReply(client,send,'종료 요청이 수락되지 않았습니다.');
+        return true;
+      }
+      const ended=await endWatch.wait();
+      await safeReply(client,send,ended?'매서드: '+method:
+        '서버 종료 이벤트를 확인하지 못했습니다.');
+    }catch(error){
+      console.warn('[VOICE VOX30] verified hangup test failed:',String(error?.message||error).slice(0,160));
+      await safeReply(client,send,'서버 종료 테스트에 실패했습니다.');
+    }finally{
+      endWatch?.close();
+      running.delete(room);
+    }
     return true;
   }
   if(isAcceptRole){
