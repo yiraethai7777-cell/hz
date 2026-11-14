@@ -80,7 +80,7 @@ async function safeReply(client,send,message) {
 
 async function handle({client,roomId,msg,text,send,adapter}){
   const raw=String(text??'').trim();
-  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보룸스피커받기|보룸진행자받기|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보이스룸스피커받기|보이스룸진행자받기|보룸켜기|보룸시작|보룸끄기|보룸종료시험|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료시험|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
+  const match=/^[#!]?(보룸인증점검|보이스룸인증점검|보룸TLS진단|보이스룸TLS진단|보룸참여상태|보룸참여|보룸참가상태|보룸참가|보룸퇴장|보룸스피커받기|보룸진행자받기|보이스룸참여상태|보이스룸참여|보이스룸참가상태|보이스룸참가|보이스룸퇴장|보이스룸스피커받기|보이스룸진행자받기|보룸켜기|보룸시작|보룸끄기|보룸종료찾기|보룸종료시험|보룸종료|보룸상태|보룸감지시작|보룸감지종료|보룸감지|보룸명령어|보이스룸켜기|보이스룸시작|보이스룸끄기|보이스룸종료찾기|보이스룸종료시험|보이스룸종료|보이스룸상태|보이스룸감지시작|보이스룸감지종료|보이스룸감지|보이스룸명령어)(?=$|\s|[.!。])/.exec(raw);
   if(!match)return false;
   // Authorize the actual bot account by its Kakao ID, independently of the
   // sender.type carried by the message. Never trust a boolean from the event.
@@ -178,6 +178,24 @@ async function handle({client,roomId,msg,text,send,adapter}){
   const isJoinStatus=match[1].endsWith('참가상태')||match[1].endsWith('참여상태');
   const isJoin=match[1].endsWith('참가')||match[1].endsWith('참여');
   const isLeave=match[1].endsWith('퇴장');
+  if(match[1]==='보룸종료찾기'||match[1]==='보이스룸종료찾기'){
+    if(!isBotAccount){
+      await safeReply(client,send,'❌ 보룸 종료 메서드 검색은 봇 계정만 사용할 수 있습니다.');
+      return true;
+    }
+    if(raw.slice(match[0].length).trim()){
+      await safeReply(client,send,'❌ #보룸종료찾기 명령어만 입력해 주세요.');
+      return true;
+    }
+    // Scan reviewed evidence from the running bot only. Never probe the live
+    // Kakao server, send guessed methods, or interrupt any active call.
+    const evidence=client?.voiceRoomVerifiedHangupEvidence;
+    const method=require('./vox30-hangup-discovery').findVerifiedHangupMethod(evidence);
+    await safeReply(client,send,method==null
+      ?'검증된 종료 매서드를 찾지 못했습니다. (오프라인 검색 · 서버 요청 없음)'
+      :'매서드: '+method);
+    return true;
+  }
   if(isAcceptRole){
     if(!isBotAccount){
       await safeReply(client,send,'❌ 스피커·진행자 권한 수락은 봇 계정만 실행할 수 있습니다.');
@@ -455,6 +473,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
       '#보룸감지 · 관찰된 신호 후보 확인\n' +
       '#보룸감지종료 · 관찰 중단\n' +
       '#보룸종료 / #보룸끄기 · 서버 정상 종료 구현 미검증 (진행자 세션 보호)\n' +
+      '#보룸종료찾기 · 검증된 종료 메서드 오프라인 검색 (서버 전송 없음, 봇 계정만)\n' +
       '#보룸종료시험 11009 / #보룸종료시험 연결해제 · 비검증 종료 실험 (방장·부방장 또는 봇 계정만)\n' +
       '※ 실제 서버 API가 연결된 경우에만 생성·종료합니다.\n' +
       '※ 방장·부방장 및 봇 계정이 사용 가능합니다.\n' +
