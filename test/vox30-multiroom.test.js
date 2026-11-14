@@ -184,3 +184,44 @@ test('ten independent room slots preserve other sessions when capacity is reache
   await multi.dispose();
   assert.equal(all[0].closed,1);
 });
+
+test('verified stop releases only the matching room and keeps other live rooms',async()=>{
+  const instances=[];
+  const multi=createMultiRoomAdapter({maxRooms:2,createAdapter(){
+    const a={
+      active:false,disposed:0,
+      async create(){this.active=true;return {requestAccepted:true}},
+      async status({roomId}){return {roomId,localActive:this.active}},
+      async stop({roomId}){return {roomId,closed:true,verified:true}},
+      async dispose(){this.active=false;this.disposed++}
+    };
+    instances.push(a);return a;
+  }});
+  await multi.create({roomId:'101'});
+  await multi.create({roomId:'202'});
+  assert.equal((await multi.stop({roomId:'101'})).verified,true);
+  assert.equal(instances[0].disposed,1);
+  assert.equal(instances[1].active,true);
+  assert.equal((await multi.status({roomId:'202'})).localActive,true);
+  assert.equal((await multi.status({roomId:'303'})).localBusyOtherRoom,false);
+  await multi.dispose();
+  assert.equal(instances[1].disposed,1);
+});
+
+test('unverified stop response cannot evict the current session',async()=>{
+  let stopCalls=0,disposed=0;
+  const multi=createMultiRoomAdapter({maxRooms:1,createAdapter:()=>({
+    async create(){return {requestAccepted:true}},
+    async status({roomId}){return {roomId,localActive:true}},
+    async stop({roomId}){stopCalls++;return {roomId,requestAccepted:true,closed:false,verified:false}},
+    async dispose(){disposed++}
+  })});
+  await multi.create({roomId:'101'});
+  const stopped=await multi.stop({roomId:'101'});
+  assert.equal(stopped.closed,false);
+  assert.equal(stopCalls,1);
+  assert.equal(disposed,0);
+  assert.equal((await multi.status({roomId:'202'})).localBusyOtherRoom,true);
+  await multi.dispose();
+  assert.equal(disposed,1);
+});
