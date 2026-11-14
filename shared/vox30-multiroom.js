@@ -8,8 +8,8 @@ const {checkedId}=require('./vox30-protocol');
 
 function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false}={}){
   if(typeof createAdapter!=='function')throw Error('VOX 어댑터 생성 함수가 필요합니다.');
-  if(!Number.isInteger(maxRooms)||maxRooms<1||maxRooms>2)
-    throw Error('VOX 동시 연결 제한은 1 또는 2여야 합니다.');
+  if(maxRooms!==Infinity&&(!Number.isSafeInteger(maxRooms)||maxRooms<1))
+    throw Error('VOX 동시 연결 제한은 양의 정수 또는 Infinity여야 합니다.');
   const sessions=new Map();
   let negotiating=false,disposed=false;
   function ensureOpen(){if(disposed)throw Error('VOX 세션 관리자가 종료됐습니다.');}
@@ -34,7 +34,7 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false
       moderatorAutoAcceptAvailable:false,pendingRoles:[],invitedRoles:[],
       localBusyOtherRoom:sessions.size>=maxRooms,
       multiRoomExperimental:maxRooms>1,
-      maxLocalRooms:maxRooms,
+      maxLocalRooms:Number.isFinite(maxRooms)?maxRooms:null,
     };
   }
   return {
@@ -49,7 +49,7 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false
       return {
         ...state,roomId:id,
         localCreating:item.phase==='starting',
-        multiRoomExperimental:maxRooms>1,maxLocalRooms:maxRooms,
+        multiRoomExperimental:maxRooms>1,maxLocalRooms:Number.isFinite(maxRooms)?maxRooms:null,
       };
     },
     async create(request={}){
