@@ -791,7 +791,7 @@ test('a second room gets an explicit single-session explanation without a create
   assert.equal(used,true);
   assert.equal(calls,0);
   assert.match(sent[0],/다른 채팅방에서 이미 보이스룸을 유지 중입니다/);
-  assert.match(sent[0],/활성 세션 1개/);
+  assert.match(sent[0],/다중 보이스룸 설정과 서버 지원 여부/);
   assert.doesNotMatch(sent[0],/VOX 생성 요청 또는 응답 처리에 실패/);
 });
 
