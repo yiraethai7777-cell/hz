@@ -685,7 +685,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
   }
   if(client?.connected===false)return true;
   // Preserve the already-running VOX creator session and report the actual
-  // cause before calling the adapter's create() (which is single-session).
+  // cause before calling the adapter's create().
   if(typeof transport.status==='function'){
     try{
       const session=await transport.status({roomId:room});
@@ -696,8 +696,8 @@ async function handle({client,roomId,msg,text,send,adapter}){
       }
       if(session?.localBusyOtherRoom===true){
         await safeReply(client,send,'❌ 다른 채팅방에서 이미 보이스룸을 유지 중입니다.\n'+
-          '현재 Railway VOX는 봇 계정당 활성 세션 1개로 제한되어 있습니다.\n'+
-          '다른 방 동시 개설은 서버 지원 여부가 아직 검증되지 않았으며, 기존 보이스룸 연결은 유지했습니다.');
+          '현재 Railway VOX는 다른 방의 추가 연결이 제한된 상태입니다.\n'+
+          '다중 보이스룸 설정과 서버 지원 여부를 확인해 주세요. 기존 연결은 유지했습니다.');
         return true;
       }
     }catch(error){
