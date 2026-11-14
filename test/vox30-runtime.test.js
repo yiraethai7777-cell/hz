@@ -76,7 +76,7 @@ test('silent audio is opt-in and does not change production default',()=>{
 });
 
 
-test('multi-room opt-in creates separate VOX room adapters; default remains single',async()=>{
+test('legacy two-room opt-in now creates uncapped independent VOX room adapters',async()=>{
   const instances=[];
   const client={
     connected:true,userId:'10',_getCachedMemberType:()=>4,
@@ -105,19 +105,21 @@ test('multi-room opt-in creates separate VOX room adapters; default remains sing
   }),true);
   assert.equal(instances.length,0); // room adapters are initialized per request
   const a=client.voiceRoomAdapter;
-  assert.equal((await a.status({roomId:'101'})).maxLocalRooms,2);
+  assert.equal((await a.status({roomId:'101'})).maxLocalRooms,null);
   await a.create({roomId:'101'});
   assert.equal((await a.status({roomId:'202'})).localBusyOtherRoom,false);
   await a.create({roomId:'202'});
   assert.equal(instances.length,2);
   assert.equal((await a.status({roomId:'101'})).localActive,true);
   assert.equal((await a.status({roomId:'202'})).localActive,true);
-  assert.equal((await a.status({roomId:'303'})).localBusyOtherRoom,true);
-  await assert.rejects(a.create({roomId:'303'}),/이미 보이스룸/);
+  assert.equal((await a.status({roomId:'303'})).localBusyOtherRoom,false);
+  await a.create({roomId:'303'});
+  assert.equal(instances.length,3);
+  assert.equal((await a.status({roomId:'303'})).localActive,true);
   await a.dispose();
 });
 
-test('unrecognized multi-room setting fails closed to the existing single-room adapter',()=>{
+test('numeric multi-room settings no longer cap room count or instantiate eager sessions',()=>{
   let created=0;
   const client={voiceRoomAuthCandidate:{actorUserId:'10',
     getCredentials:()=>({oauthToken:'a',deviceUuid:'b'}),
@@ -126,7 +128,8 @@ test('unrecognized multi-room setting fails closed to the existing single-room a
     env:{NEXI_VOX_MAX_ACTIVE_ROOMS:'3'},log,
     loadLab:()=>({createLabAdapter(){created++;return {create:async()=>true}}}),
   }),true);
-  assert.equal(created,1);
+  assert.equal(created,0);
+  assert.equal(client.voiceRoomAdapter.kind,'vox30-direct-experimental');
 });
 
 
