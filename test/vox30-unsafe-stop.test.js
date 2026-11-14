@@ -24,7 +24,7 @@ function fixture(text){
     text,send:async t=>sent.push(t)};
   return {sent,client,args};
 }
-function liveAdapter(enabled=true){
+function liveAdapter(enabled=true,trial=false){
   const sends=[];
   let socketClosed=0,peerClosed=0,serverPacket=null;
   const conn={
@@ -38,7 +38,7 @@ function liveAdapter(enabled=true){
   };
   const adapter=createVox30Adapter({
     actorUserId:USER,cfg,codec,entryHost:'entry.example',appVer:'26.3.1',
-    unsafeStopExperiment:enabled,
+    unsafeStopExperiment:enabled,hangup10008Trial:trial,
     credentialsForRoom:async()=>({oauthToken:'token',deviceUuid:'uuid'}),
     verifyMembership:async()=>true,
     rtcFactory:async()=>({createOffer:async()=>sdp,
@@ -197,4 +197,61 @@ test('runtime enables unsafe stop only by explicit setting',()=>{
     env:{NEXI_VOX_UNSAFE_STOP_TEST:'1'},loadLab,log,
   }),true);
   assert.deepEqual(seen,[false,true]);
+});
+
+test('10008 hypothesis stays opt-in and sends only once for the current live session',async()=>{
+  const disabled=liveAdapter(false,false);
+  await disabled.adapter.create({roomId:ROOM,title:'테스트'});
+  assert.equal((await disabled.adapter.status({roomId:ROOM})).hangup10008TrialAvailable,false);
+  assert.equal((await disabled.adapter.experimentalStop({roomId:ROOM,mode:'10008'})).disabled,true);
+  assert.equal(disabled.sends.filter(v=>v.method===10008).length,0);
+  await disabled.adapter.dispose();
+
+  const trial=liveAdapter(false,true);
+  await trial.adapter.create({roomId:ROOM,title:'테스트'});
+  assert.equal((await trial.adapter.status({roomId:ROOM})).hangup10008TrialAvailable,true);
+  assert.equal((await trial.adapter.experimentalStop({roomId:'101',mode:'10008'})).noLocalSession,true);
+  assert.equal((await trial.adapter.experimentalStop({roomId:ROOM,mode:'11009'})).disabled,true);
+  const outcome=await trial.adapter.experimentalStop({roomId:ROOM,mode:'10008'});
+  assert.equal(outcome.packetSent,true);
+  assert.equal(outcome.serverEnded,false);
+  assert.equal(trial.sends.filter(v=>v.method===10008).length,1);
+  assert.equal(trial.sends.find(v=>v.method===10008).body.callId.toString(),'100');
+  assert.equal((await trial.adapter.experimentalStop({roomId:ROOM,mode:'10008'})).alreadyTried,true);
+  assert.equal(trial.closed(),0);
+  assert.equal((await trial.adapter.status({roomId:ROOM})).localActive,true);
+  await trial.adapter.dispose();
+});
+
+test('10008 chat experiment is restricted to bot account and correct active room',async()=>{
+  const {args,sent,client}=fixture('#보룸종료시험 10008');
+  let count=0;
+  args.adapter={async status(){return {roomId:ROOM,localSession:true,localActive:true,
+    localCallId:'100',hangup10008TrialAvailable:true}},
+    async experimentalStop(req){count++;return {packetSent:true,testedMethod:10008};}};
+  await voice.handle(args);
+  assert.equal(count,0);
+  assert.match(sent[0],/봇 계정만/);
+
+  args.msg.sender.id=client.userId;
+  sent.length=0;
+  await voice.handle(args);
+  assert.equal(count,1);
+  assert.match(sent[0],/10008 후보 패킷을 1회/);
+  assert.doesNotMatch(sent[0],/종료가 서버에서 확인/);
+});
+
+test('10008 chat experiment refuses a missing call ID or disabled test',async()=>{
+  for(const state of [
+    {roomId:ROOM,localSession:true,localActive:true,hangup10008TrialAvailable:true},
+    {roomId:ROOM,localSession:true,localActive:true,localCallId:'100',hangup10008TrialAvailable:false},
+  ]){
+    const {args,client,sent}=fixture('#보룸종료시험 10008');
+    args.msg.sender.id=client.userId;
+    let sentPacket=false;
+    args.adapter={async status(){return state},async experimentalStop(){sentPacket=true;}};
+    await voice.handle(args);
+    assert.equal(sentPacket,false);
+    assert.match(sent[0],/통화 ID|비활성화/);
+  }
 });
