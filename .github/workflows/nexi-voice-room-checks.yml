@@ -37,6 +37,7 @@ jobs:
       - run: node --check experiments/voice-room/frida-vox-observe.js
       - run: node --check experiments/voice-room/frida-vox-hangup-metadata.js
       - run: node --test test/vox30-hangup-observe.test.js
+      - run: node --test test/vox30-hangup-discovery.test.js
       - run: node --test test/vox30-role-state.test.js test/vox30-participation.test.js
       - run: node --test test/vox30-protocol.test.js
       - run: node --test test/vox30-join-trial.test.js
