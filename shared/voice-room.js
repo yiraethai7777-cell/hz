@@ -642,7 +642,7 @@ async function handle({client,roomId,msg,text,send,adapter}){
         await safeReply(client,send,'🎙️ '+(mode==='10008'?'10008':'11009')+' 실험 이후 같은 통화 ID의 서버 vr_bye 종료 이벤트를 확인했습니다.\n'+
           '※ 이 결과만으로 해당 메서드나 BSON 규격이 검증된 것은 아닙니다.');
       }else if(result?.packetSent===true){
-        await safeReply(client,send,'🧪 VOX '+(mode==='10008'?'10008':'11009')+' 후보 패킷을 1회 송신했습니다.\n'+
+        await safeReply(client,send,'🧪 VOX '+(mode==='10008'?'10008 후보':'11009')+' 패킷을 1회 송신했습니다.\n'+
           '서버 종료 이벤트(vr_bye)는 확인되지 않았습니다.\n'+
           '※ 패킷 규격은 미검증이며 보이스룸이 그대로 열려 있을 수 있습니다.');
       }else if(result?.localReleased===true){
