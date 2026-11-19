@@ -1,0 +1,22 @@
+name: Railway cost optimization regression
+on:
+  push:
+    branches:
+      - optimize/railway-cost-20261119
+  pull_request:
+    branches:
+      - main
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Compile and test
+        run: npm run build && npm test
