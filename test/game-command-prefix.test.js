@@ -14,6 +14,7 @@ function load(relative,deps){
   setTimeout,clearTimeout,setInterval,clearInterval,
   require(name){
    if(Object.prototype.hasOwnProperty.call(deps,name))return deps[name];
+   if(name==='./game-rate-limit')return require('../shared/game-rate-limit');
    throw Error('Unexpected dependency in '+relative+': '+name);
   }
  },{filename:relative});
@@ -26,6 +27,7 @@ function createFixture(){
  const client={userId:'9999',onMessage(cb){listener=cb;},connected:true};
  const deps={
   './mining':{init:async()=>{},handle:async()=>false},
+  './typing':{handle:async()=>false},
   '../shared/db':{getPool:()=>pool,testConnection:async()=>{}},
   './wallet':{initWallet:async()=>{}},
   './members':{initMembers:async()=>{}},
