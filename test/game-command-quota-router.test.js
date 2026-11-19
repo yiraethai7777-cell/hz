@@ -17,6 +17,7 @@ test('live router enforces per-user quota before calling game while keeping bot 
   './help':{handleExtraMessage:async()=>false},
   '../game/command-aliases':require('../game/command-aliases'),
   './game-rate-limit':limiter,
+  './voice-room-permission':{isBotVoiceCommand:()=>false},
   './unicode-output':{install(){}},
   './reply-delete':{install(){},observe(){}},
   './room-subscriptions':{access:async()=>({allowed:true,subscription:null})},
