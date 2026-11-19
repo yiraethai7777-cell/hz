@@ -81,3 +81,9 @@ test('game quota gate is before game processing, with a bot-account exception',(
  assert.ok(quotaGate>0&&nextCall>quotaGate);
  assert.ok(source.includes('if(quota.notify)await chat.sendText(roomId,gameRateLimit.NOTICE)'));
 });
+
+test('game help includes the per-user limit without changing management help',()=>{
+ const {formatCommandHelp}=require('../shared/help');
+ assert.match(formatCommandHelp({game:true,manage:true},'게임'),/1분 5회까지, 6번째부터 5분간 제한/);
+ assert.doesNotMatch(formatCommandHelp({game:true,manage:true},'관리'),/1분 5회까지/);
+});
