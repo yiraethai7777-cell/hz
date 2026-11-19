@@ -41,10 +41,21 @@ function createWatcher(ctx,client,{now=Date.now}={}){
    if(!await require('../shared/bot-power').enabled(room,ctx.pool))return;
    try{
    const snapshot=await refresh(client,room,{force:true});
+   const priorSnapshot=observed.get(room);
+   // Keep the one-second poller and only skip DB work when all relevant fields
+   // are identical to the prior validated roster snapshot.
+   if(priorSnapshot && snapshot.members.length===priorSnapshot.size &&
+      snapshot.members.every(m=>{
+       const prior=priorSnapshot.get(m.id);
+       return prior && prior.name===m.name &&
+        prior.profileLinkId===m.profileLinkId && prior.profileType===m.profileType;
+      })){
+    roomRetryAt.delete(room);
+    return;
+   }
    const saved=await ctx.pool.query('SELECT user_id,name,last_profile_url,observed_open_profile_link FROM hz_members WHERE room_id=$1',[room]);
    const previous=new Map(saved.rows.map(m=>[String(m.user_id),m]));
    const observations=[];let lookups=0;
-   const priorSnapshot=observed.get(room);
    for(const m of snapshot.members){
     if(m.id===String(client.userId)||m.type===8||m.name==='이름 확인 불가')continue;
     const old=previous.get(m.id),key=room+':'+m.id;

@@ -2,7 +2,9 @@
 
 const { createClient } = require('./dist');
 const {id,original,safeError}=require('./shared/delete-message');
-const deleteDebug = process.env.KAKAO_DEBUG === '1' || process.env.DELETE_WATCH_DEBUG === '1';
+// Keep runtime quiet on Railway unless explicitly opted into verbose production logs.
+const quietRailway=!!process.env.RAILWAY_ENVIRONMENT_NAME && process.env.KAKAO_DEBUG_FORCE !== '1';
+const deleteDebug = process.env.DELETE_WATCH_DEBUG === '1' || (process.env.KAKAO_DEBUG === '1' && !quietRailway);
 
 const { attachRouter } = require('./shared/router');
 
@@ -19,7 +21,7 @@ function start() {
 
     authPath: process.env.KAKAO_AUTH_PATH || './auth.json',
 
-    debug: process.env.KAKAO_DEBUG === '1', autoConnect: true, autoReconnect: true
+    debug: process.env.KAKAO_DEBUG === '1' && !quietRailway, autoConnect: true, autoReconnect: true
 
   });
 
