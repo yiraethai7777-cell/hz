@@ -14,6 +14,7 @@ test('unchanged one-second profile snapshots avoid repeated database reads, rena
   pool:{query:async(sql)=>{
    if(sql.includes('FROM hz_rooms')){rosterQueries++;return {rows:[{room_id:room}]};}
    if(sql.includes('FROM hz_members')){memberQueries++;return {rows:[{user_id:user,name:'Alice',observed_open_profile_link:''}]};}
+   if(sql.startsWith('UPDATE hz_members'))return {rowCount:1,rows:[]};
    throw Error('Unexpected query '+sql);
   }},
   profileObserve:async()=>null,
