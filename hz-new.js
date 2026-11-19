@@ -2,6 +2,7 @@
 
 const { createClient } = require('./dist');
 const {id,original,safeError}=require('./shared/delete-message');
+const deleteDebug = process.env.KAKAO_DEBUG === '1' || process.env.DELETE_WATCH_DEBUG === '1';
 
 const { attachRouter } = require('./shared/router');
 
@@ -116,13 +117,15 @@ function start() {
     const msg = args.length === 1 ? args[0] : args[1];
     const record=original(msg);
     const {roomId,messageId,userId,text}=record;
-    console.log('[DELETE DIAG RECEIVE]',JSON.stringify({...record.comparison,valid:!!(roomId&&messageId&&userId),hasText:typeof text==='string'&&!!text}));
+    if(deleteDebug) console.log('[DELETE DIAG RECEIVE]',JSON.stringify({...record.comparison,valid:!!(roomId&&messageId&&userId),hasText:typeof text==='string'&&!!text}));
     if(!roomId||!messageId||!userId||typeof text!=='string'||!text||record.comparison.idLogMatch===false||record.comparison.idMatch===false||record.comparison.roomMatch===false)return;
     // Independent delete-cache listener must honor the full per-room bot OFF state.
     void ready.then(async()=>{
       if(!await require('./shared/bot-power').enabled(roomId))return;
       recentMessages.set(keyFor(roomId, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
-    if(recentMessages.size>5000){for(const [key,item] of recentMessages){if(Date.now()-item.at>86400000)recentMessages.delete(key);}if(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);}
+    const cutoff=Date.now()-86400000;
+    for(const [key,item] of recentMessages){if(item.at>=cutoff)break;recentMessages.delete(key);}
+    while(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);
 
       await manage.saveDeletedMessage({
         roomId, messageId, userId,
@@ -150,22 +153,22 @@ function start() {
       console.log('[DELETE V2] room metadata says non-open; checking configured room', 'configured room');
     }
     try {
-      console.log('[DELETE V2] callback entered', JSON.stringify({valid:true}));
+      if(deleteDebug) console.log('[DELETE V2] callback entered', JSON.stringify({valid:true}));
       await ready;
       if(!await require('./shared/bot-power').enabled(roomId))return;
-      console.log('[DELETE V2] received', JSON.stringify({valid:true,authorAvailable:!!userId}));
+      if(deleteDebug) console.log('[DELETE V2] received', JSON.stringify({valid:true,authorAvailable:!!userId}));
       const cached = recentMessages.get(keyFor(roomId,messageId));
-      console.log('[DELETE DIAG MATCH]', JSON.stringify({cacheHit:!!cached,roomCacheCount:[...recentMessages.keys()].filter(k=>k.startsWith(String(roomId)+':')).length}));
+      if(deleteDebug) console.log('[DELETE DIAG MATCH]', JSON.stringify({cacheHit:!!cached,roomCacheCount:[...recentMessages.keys()].filter(k=>k.startsWith(String(roomId)+':')).length}));
       const handled = await manage.deleted({
         cached,
         fetchOriginal: (room, log) => client.fetchMessage(room, log),
         roomId, userId, userName, messageId, botId: client.userId,
         send: async body => {
-          console.log('[DELETE V2] sending unified alert', JSON.stringify({chars:body.length}));
+          if(deleteDebug) console.log('[DELETE V2] sending unified alert', JSON.stringify({chars:body.length}));
           return client.chat.sendText(roomId, body);
         }
       });
-      console.log('[DELETE V2] result', JSON.stringify({handled:!!handled}));
+      if(deleteDebug) console.log('[DELETE V2] result', JSON.stringify({handled:!!handled}));
     } catch (error) {
       console.error('[DELETE V2] failed',safeError(error));
     }

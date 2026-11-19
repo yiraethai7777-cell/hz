@@ -6,6 +6,7 @@ const path=require('node:path');
 const ROOT=process.env.DELETE_LOG_DIR||path.join(process.cwd(),'message-logs');
 const fileFor=room=>path.join(ROOT,room+'.jsonl');
 const queues=new Map();
+const DEBUG_DELETE=process.env.KAKAO_DEBUG==='1'||process.env.DELETE_WATCH_DEBUG==='1';
 function writeRoom(room,line){
  const previous=queues.get(room)||Promise.resolve();
  const next=previous.catch(()=>{}).then(async()=>{
@@ -41,7 +42,7 @@ async function observe({roomId,messageId,userId,userName,text,botId}){
  try{
   const db=getPool();
   if(!await active(db,room,false)){
-   console.log('[DELETE WATCH STORE]',JSON.stringify({status:'skipped',reason:'room_disabled'}));return false;
+   if(DEBUG_DELETE) console.log('[DELETE WATCH STORE]',JSON.stringify({status:'skipped',reason:'room_disabled'}));return false;
   }
   // A local disk failure must not prevent durable PostgreSQL persistence.
   try{await writeRoom(room,{message_id:mid,user_id:uid,user_name:String(userName||uid),body:String(text).slice(0,10000),at:Date.now()});}
@@ -49,7 +50,7 @@ async function observe({roomId,messageId,userId,userName,text,botId}){
   stage='insert';
   const result=await db.query('INSERT INTO gl_manage_temp_messages(room_id,message_id,user_id,user_name,body) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id,message_id) DO NOTHING',
    [room,mid,uid,String(userName||uid),String(text).slice(0,10000)]);
-  console.log('[DELETE WATCH STORE]',JSON.stringify({status:result.rowCount?'inserted':'duplicate'}));
+  if(DEBUG_DELETE) console.log('[DELETE WATCH STORE]',JSON.stringify({status:result.rowCount?'inserted':'duplicate'}));
  }catch(error){
   console.error('[DELETE WATCH STORE]',JSON.stringify({status:'failed',stage,code:safeError(error)}));throw error;
  }
@@ -70,7 +71,7 @@ async function onDelete({roomId,messageId,userId,userName,botId,send,cached,fetc
   let saved=found.rows[0] || (cached && !isDeletionFeed(cached.text) ? {user_id:cached.userId,user_name:cached.userName,body:cached.text}:null);
   if(saved && isDeletionFeed(saved.body))saved=null;
   if(!saved)saved=await readRoom(room,mid);
-  console.log('[DELETE WATCH LOOKUP]',JSON.stringify({db:!!found.rows[0],cache:!!cached,found:!!saved,hasBody:!!saved?.body}));
+  if(DEBUG_DELETE) console.log('[DELETE WATCH LOOKUP]',JSON.stringify({db:!!found.rows[0],cache:!!cached,found:!!saved,hasBody:!!saved?.body}));
   if(!saved && typeof fetchOriginal==='function'){
     try {
       const msg=await fetchOriginal(room,mid);
@@ -81,7 +82,7 @@ async function onDelete({roomId,messageId,userId,userName,botId,send,cached,fetc
       console.warn('[DELETE WATCH] fetchMessage unavailable',safeError(error));
     }
   }
-  console.log('[DELETE WATCH] lookup',JSON.stringify({foundOriginal:!!saved?.body}));
+  if(DEBUG_DELETE) console.log('[DELETE WATCH] lookup',JSON.stringify({foundOriginal:!!saved?.body}));
   const uid=id(saved?.user_id)||id(userId);
   if(!uid||uid===id(botId)){await c.query('ROLLBACK');return false;}
   const name=String(saved?.user_name||userName||uid);
@@ -94,9 +95,36 @@ async function onDelete({roomId,messageId,userId,userName,botId,send,cached,fetc
  }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
  await send(alert);return true;
 }
+// Keep the original 24-hour JSONL fallback without unbounded disk growth.
+async function pruneRoomFile(room,cutoff){
+ const previous=queues.get(room)||Promise.resolve();
+ const next=previous.catch(()=>{}).then(async()=>{
+  const file=fileFor(room);
+  let contents;
+  try{contents=await fs.readFile(file,'utf8');}
+  catch(error){if(error.code==='ENOENT')return;throw error;}
+  const kept=contents.split('\n').filter(line=>{
+   if(!line)return false;
+   try{const item=JSON.parse(line);return Number(item.at)>cutoff&&Number(item.at)<=Date.now()+60000;}
+   catch{return false;}
+  });
+  if(kept.length)await fs.writeFile(file,kept.join('\n')+'\n',{encoding:'utf8',mode:0o600});
+  else await fs.unlink(file).catch(error=>{if(error.code!=='ENOENT')throw error;});
+ });
+ queues.set(room,next);
+ next.finally(()=>{if(queues.get(room)===next)queues.delete(room);}).catch(()=>{});
+ return next;
+}
 async function cleanup(){
  const db=getPool();
  await db.query("DELETE FROM gl_manage_temp_messages WHERE created_at < NOW()-INTERVAL '24 hours'");
  await db.query("DELETE FROM gl_manage_deleted_processed WHERE created_at < NOW()-INTERVAL '30 days'");
+ let entries;
+ try{entries=await fs.readdir(ROOT,{withFileTypes:true});}
+ catch(error){if(error.code==='ENOENT')return;throw error;}
+ const cutoff=Date.now()-86400000;
+ for(const entry of entries){
+  if(entry.isFile()&&/^\d+\.jsonl$/.test(entry.name))await pruneRoomFile(entry.name.slice(0,-6),cutoff);
+ }
 }
 module.exports={observe,onDelete,cleanup};
