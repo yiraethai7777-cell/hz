@@ -1,0 +1,23 @@
+name: Game command quota regression
+on:
+  push:
+    branches:
+      - feature/game-command-quota-20261119
+  pull_request:
+    branches:
+      - main
+jobs:
+  quota-and-routing:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Compile and verify quota and routing
+        run: npm run build && node --test test/game-command-quota.test.js test/game-command-quota-router.test.js test/room-subscriptions.test.js test/railway-cost-pool.test.js test/delete-watch.test.js
