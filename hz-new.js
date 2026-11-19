@@ -123,7 +123,9 @@ function start() {
     void ready.then(async()=>{
       if(!await require('./shared/bot-power').enabled(roomId))return;
       recentMessages.set(keyFor(roomId, messageId), {text, userId, userName:msg.sender?.name, at:Date.now()});
-    if(recentMessages.size>5000){for(const [key,item] of recentMessages){if(Date.now()-item.at>86400000)recentMessages.delete(key);}if(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);}
+    const cutoff=Date.now()-86400000;
+    for(const [key,item] of recentMessages){if(item.at>=cutoff)break;recentMessages.delete(key);}
+    while(recentMessages.size>5000)recentMessages.delete(recentMessages.keys().next().value);
 
       await manage.saveDeletedMessage({
         roomId, messageId, userId,
