@@ -49,7 +49,7 @@ test('PostgreSQL stores exact IDs, retrieves original once, and never warns on a
  await query('INSERT INTO gl_manage_rooms VALUES($1,true,true)',[ROOM]);
  const m={exports:{}};
  vm.runInNewContext(await fs.readFile(path.join(__dirname,'../manage/delete-watch.js'),'utf8'),{
-  module:m,exports:m.exports,process:{env:{DELETE_LOG_DIR:dir}},console:Object.fromEntries(['log','warn','error'].map(k=>[k,(...a)=>logs.push(a.join(' '))])),
+  module:m,exports:m.exports,process:{env:{DELETE_LOG_DIR:dir,DELETE_WATCH_DEBUG:'1'}},console:Object.fromEntries(['log','warn','error'].map(k=>[k,(...a)=>logs.push(a.join(' '))])),
   require:n=>n==='../shared/db'?{getPool:()=>pool}:n==='../shared/delete-message'?require('../shared/delete-message'):n==='node:fs/promises'?{...fs,appendFile:async(...args)=>{if(fileFail)throw Object.assign(new Error('private path'),{code:'EACCES'});return fs.appendFile(...args);}}:require(n)
  });
  const watcher=m.exports,sent=[];
@@ -77,4 +77,28 @@ test('PostgreSQL stores exact IDs, retrieves original once, and never warns on a
   assert.ok(logs.some(x=>x.includes('EACCES')));
   assert.doesNotMatch(logs.join('\n'),new RegExp(`${MID}|${ROOM}|테스트|private|unrelated`));
  }finally{await db.close();await fs.rm(dir,{recursive:true,force:true});}
+});
+
+test('fallback file pruning preserves only last 24 hours of messages',async()=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'delete-prune-'));
+ const now=Date.now(),room='18496234145974738';
+ const file=path.join(dir,room+'.jsonl');
+ const item=(message_id,at)=>JSON.stringify({message_id,user_id:'279125041',body:'fixture',at});
+ await fs.writeFile(file,[
+  item('old',now-26*60*60*1000),
+  item('fresh',now-60*1000)
+ ].join('\\n')+'\\n');
+ const queries=[],mock={query:async sql=>{queries.push(sql);return {rows:[],rowCount:0};}};
+ const m={exports:{}};
+ vm.runInNewContext(await fs.readFile(path.join(__dirname,'../manage/delete-watch.js'),'utf8'),{
+  module:m,exports:m.exports,process:{env:{DELETE_LOG_DIR:dir}},
+  console,require:n=>n==='../shared/db'?{getPool:()=>mock}:n==='../shared/delete-message'?require('../shared/delete-message'):require(n)
+ });
+ try{
+  await m.exports.cleanup();
+  const remaining=await fs.readFile(file,'utf8');
+  assert.doesNotMatch(remaining,/"message_id":"old"/);
+  assert.match(remaining,/"message_id":"fresh"/);
+  assert.equal(queries.length,2);
+ }finally{await fs.rm(dir,{recursive:true,force:true});}
 });
