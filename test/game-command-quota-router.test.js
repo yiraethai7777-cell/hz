@@ -67,7 +67,7 @@ test('live router enforces per-user quota before calling game while keeping bot 
  assert.match(sent.at(-1),/퐁/,'public ping remains usable');
  await emit('6666','!낚시','log-9');
  await emit('9999','!낚시','log-10');
- assert.deepEqual(games.slice(-2).map(x=>x.userId),['6666','9999']);
  assert.equal(errors.length,0,errors.join('\\n'));
+ assert.deepEqual(games.slice(-2).map(x=>x.userId),['6666','9999']);
  assert.ok(dbQueries>=5,'the fixture exercises real router authorization flow');
 });
