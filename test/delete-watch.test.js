@@ -87,7 +87,7 @@ test('fallback file pruning preserves only last 24 hours of messages',async()=>{
  await fs.writeFile(file,[
   item('old',now-26*60*60*1000),
   item('fresh',now-60*1000)
- ].join('\\n')+'\\n');
+ ].join('\n')+'\n');
  const queries=[],mock={query:async sql=>{queries.push(sql);return {rows:[],rowCount:0};}};
  const m={exports:{}};
  vm.runInNewContext(await fs.readFile(path.join(__dirname,'../manage/delete-watch.js'),'utf8'),{
