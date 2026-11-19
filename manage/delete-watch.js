@@ -6,7 +6,7 @@ const path=require('node:path');
 const ROOT=process.env.DELETE_LOG_DIR||path.join(process.cwd(),'message-logs');
 const fileFor=room=>path.join(ROOT,room+'.jsonl');
 const queues=new Map();
-const DEBUG_DELETE=process.env.KAKAO_DEBUG==='1'||process.env.DELETE_WATCH_DEBUG==='1';
+const DEBUG_DELETE=process.env.DELETE_WATCH_DEBUG==='1'||(process.env.KAKAO_DEBUG==='1'&&(!process.env.RAILWAY_ENVIRONMENT_NAME||process.env.KAKAO_DEBUG_FORCE==='1'))
 function writeRoom(room,line){
  const previous=queues.get(room)||Promise.resolve();
  const next=previous.catch(()=>{}).then(async()=>{
