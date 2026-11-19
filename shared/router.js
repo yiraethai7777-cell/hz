@@ -1,6 +1,7 @@
 'use strict';
 const { handleExtraMessage } = require('./help');
 const gameAliases=require('../game/command-aliases');
+const gameRateLimit=require('./game-rate-limit');
 const recentMessages=new Map();
 const observedOpenRooms=new Set();
 const MAX_ROOMS=100, MAX_MESSAGES=250;
@@ -222,6 +223,17 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         text,isBotAccount,isSuperAdmin,active:power.rows[0]?.arden_clan==='true',
         management,ready
       }))return;
+      // Count game commands in RAM before any game/inventory/quiz DB work.
+      // The bot account, management commands, and ordinary chat are excluded.
+      if(!isBotAccount&&senderId!=null&&gameRateLimit.isGameCommand(text)){
+        const messageId=msg?.message?.logId??msg?.raw?.chatLog?.logId??msg?.logId??msg?.id;
+        const quota=gameRateLimit.check(roomId,senderId,messageId);
+        if(!quota.allowed){
+          // At most one notice per five-minute restriction; never prolong it.
+          if(quota.notify)await chat.sendText(roomId,gameRateLimit.NOTICE);
+          return;
+        }
+      }
       // Bot-account-only, bounded repeated announcements. This is intercepted
       // before game and management handlers so it never runs twice.
       if(/^!도배(?:시작|중지)(?=\s|$)/.test(text)){
