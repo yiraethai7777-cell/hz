@@ -50,7 +50,7 @@ test('PostgreSQL stores exact IDs, retrieves original once, and never warns on a
  const m={exports:{}};
  vm.runInNewContext(await fs.readFile(path.join(__dirname,'../manage/delete-watch.js'),'utf8'),{
   module:m,exports:m.exports,process:{env:{DELETE_LOG_DIR:dir,DELETE_WATCH_DEBUG:'1'}},console:Object.fromEntries(['log','warn','error'].map(k=>[k,(...a)=>logs.push(a.join(' '))])),
-  require:n=>n==='../shared/db'?{getPool:()=>pool}:n==='../shared/delete-message'?require('../shared/delete-message'):n==='node:fs/promises'?{...fs,appendFile:async(...args)=>{if(fileFail)throw Object.assign(new Error('private path'),{code:'EACCES'});return fs.appendFile(...args);}}:require(n)
+  require:n=>n==='../shared/db'?{getPool:()=>pool}:n==='../shared/bot-power'?{enabled:async()=>true}:n==='../shared/delete-message'?require('../shared/delete-message'):n==='node:fs/promises'?{...fs,appendFile:async(...args)=>{if(fileFail)throw Object.assign(new Error('private path'),{code:'EACCES'});return fs.appendFile(...args);}}:require(n)
  });
  const watcher=m.exports,sent=[];
  try{
