@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {parseArgs,createWatcher}=require('../junggae-auto-start');
+const {parseArgs,createWatcher,createRoomDiscoverer}=require('../junggae-auto-start');
 const ROOM='18496234145974738', OTHER='18357439193628181';
 const payload=(room=ROOM,log='501',sender='999999999',text='@A @B 준개 신청',role=2)=>{
  const mentions=[
@@ -85,4 +85,25 @@ test('unknown sender role is validated before applying the original matcher',asy
   message:'준개 시작',send:async()=>{sends++;return {status:0}}});
  assert.equal(await watch({},payload(ROOM,'50','999999999','@A @B 준개 신청',0)),true);
  assert.equal(sends,1);
+});
+
+test('room ID discovery works without manager bot and never sends messages',()=>{
+ const found=[];
+ const inspect=createRoomDiscoverer({onRoom:entry=>found.push(entry)});
+ assert.equal(inspect(payload(ROOM,'first')),true);
+ assert.equal(inspect(payload(ROOM,'second')),false);
+ assert.equal(inspect(payload(OTHER,'third')),true);
+ assert.equal(inspect({...payload(OTHER),room:{id:'invalid',isOpenChat:true}}),false);
+ assert.deepEqual(found,[{id:ROOM,name:'방 이름 확인 불가'},{id:OTHER,name:'방 이름 확인 불가'}]);
+});
+test('discovery mode is separate from auto reply and configured rooms',()=>{
+ const args=parseArgs(['--discover']);
+ assert.equal(args.discover,true);
+ assert.equal(args.rooms.size,0);
+ assert.throws(()=>parseArgs(['--discover','--room',ROOM]),/함께 사용할 수 없습니다/);
+ assert.throws(()=>parseArgs(['--discover','--dry-run']),/함께 사용할 수 없습니다/);
+ const names=[];
+ const inspect=createRoomDiscoverer({onRoom:r=>names.push(r.name)});
+ inspect({...payload(),room:{id:ROOM,isOpenChat:true,name:'준개방'}});
+ assert.deepEqual(names,['준개방']);
 });
