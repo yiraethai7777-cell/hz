@@ -94,3 +94,10 @@ test('reply with only log ID requires exact original room and message ID',async(
  a.client.fetchMessage=async()=>({room:{id:'99999999999999'},message:{logId:'77777777'},sender:{id:member}});
  await assert.rejects(resolveTarget({msg:withReply,text:'!id',roomId:room,client:a.client}),/검증/);
 });
+
+test('unknown active member role is never treated as safe-to-kick',async()=>{
+ const a=setup({roster:[{id:bot,role:4},{id:member,role:null}]});
+ await a.commands.handleChat(msg('!k '+member));
+ assert.match(a.sent.at(-1).text,/일반 참여자인지 확인되지 않아/);
+ assert.equal(a.kicked.length,0);
+});
