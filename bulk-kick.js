@@ -2,6 +2,7 @@
 // Standalone Windows terminal runner: no PostgreSQL, no NEXI game/runtime.
 const readline = require('node:readline');
 const { createClient } = require('./dist');
+const { createPcCommands } = require('./pc-commands');
 
 const args = process.argv.slice(2);
 const roomArg = args.indexOf('--room');
@@ -48,7 +49,7 @@ async function roster() {
 }
 
 async function kickAll() {
-  if (running) return console.log('이미 실행 중입니다.');
+  if (running || pcCommands.isBusy()) return console.log('이미 다른 강퇴 작업이 실행 중입니다.');
   running = true;
   try {
     const members = await roster();
@@ -84,18 +85,18 @@ async function kickAll() {
   }
 }
 
+// Reuse original database-free roster logic. Staff and bot account are protected.
+const pcCommands = createPcCommands({
+  client, roomId, loadRoster: roster,
+  send: (room, body) => client.chat.sendText(room, body),
+  canKick: () => !running
+});
+
 client.onMessage(async (...received) => {
   const msg = received.length === 1 ? received[0] : received[1];
   const text = String(msg?.message?.text ?? msg?.text ?? '').trim();
   if (String(msg?.room?.id) !== roomId) return;
-  if (text === '!핑') {
-    try {
-      await client.chat.sendText(roomId, '🏓 퐁! PC 봇 연결 정상');
-    } catch (error) {
-      console.error('핑 응답 실패:', String(error?.message || error));
-    }
-    return;
-  }
+  if (await pcCommands.handleChat(msg)) return;
   if (text !== '!일괄강퇴') return;
   const senderId = msg?.sender?.id ?? msg?.senderId;
   if (senderId == null || String(senderId) !== String(client.userId)) {
@@ -109,7 +110,8 @@ client.onMessage(async (...received) => {
 client.onReady(() => {
   connected = true;
   console.log('✅ 카카오톡 연결 완료. 대상 방:', roomId);
-  console.log('PowerShell에서 !핑 / !일괄강퇴 / 종료 를 입력할 수 있습니다.');
+  console.log('채팅방: !핑 / !id / !k 사용자ID(멘션·답장) / !일괄강퇴');
+  console.log('PowerShell: !핑 / !id / !k 사용자ID / !일괄강퇴 / 종료');
 });
 client.on('error', error => console.error('연결 오류:', String(error?.message || error)));
 async function main() {
@@ -118,8 +120,18 @@ async function main() {
     const command = (await prompt('NEXI-PC> ')).trim();
     if (command === '종료' || command === 'exit') break;
     if (command === '!핑') console.log(client.connected ? '🏓 퐁! PC 연결 정상' : '❌ 연결되지 않음');
+    else if (command === '!id') console.log('PC 봇 계정 ID:', String(client.userId));
+    else if (/^!(?:k|kick)\s+/i.test(command)) {
+      const target = command.split(/\s+/)[1];
+      try {
+        const status = await pcCommands.kickOne(target);
+        console.log(status === 'accepted'
+          ? '강퇴 요청 서버 수락: '+target
+          : '강퇴 요청 전송 (실제 결과 미확인): '+target);
+      } catch (error) { console.error('강퇴 실패:', String(error?.message || error)); }
+    }
     else if (command === '!일괄강퇴') await kickAll();
-    else if (command) console.log('명령어: !핑 / !일괄강퇴 / 종료');
+    else if (command) console.log('명령어: !핑 / !id / !k 사용자ID / !일괄강퇴 / 종료');
   }
   rl.close();
   process.exit(0);
