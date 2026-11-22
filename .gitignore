@@ -1,6 +1,7 @@
 node_modules/
 dist/
 auth.json
+auth*.json
 decompiled/
 jadx/
 xapk_extracted/
