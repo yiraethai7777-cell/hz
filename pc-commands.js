@@ -55,8 +55,8 @@ function createPcCommands({client,roomId,loadRoster,send,canKick=()=>true,logger
    const me=members.find(m=>String(m.id)===String(client.userId));
    if(!me||!isRoomManager(me.role))throw Error('PC 로그인 계정의 방장·부방장 권한을 확인하지 못했습니다.');
    const target=members.find(m=>String(m.id)===id);
-   if(target&&!Number.isInteger(Number(target.role)))throw Error('대상 역할을 확인하지 못했습니다.');
    if(target&&isRoomManager(target.role))throw Error('방장·부방장은 강퇴할 수 없습니다.');
+   if(target&&Number(target.role)!==2)throw Error('대상이 일반 참여자인지 확인되지 않아 강퇴를 중단했습니다.');
    // An already-departed member may not appear in the live roster. In that case
    // only a verified numeric ID is sent; the Kakao server decides whether
    // KICKMEM can act on a departed member. Do not claim a persistent ban.
