@@ -24,7 +24,7 @@ const prompt = question => new Promise(resolve => rl.question(question, resolve)
 const isMember = role => Number(role) === 2;
 const isManager = role => [1, 4].includes(Number(role));
 
-async function roster() {
+async function roster({strict=true}={}) {
   if (!client.connected) throw new Error('카카오톡에 연결되어 있지 않습니다.');
   if (typeof client.refreshMemberProfiles !== 'function')
     throw new Error('현재 KakaoForge 버전에서 참여자 조회 기능을 찾을 수 없습니다.');
@@ -40,8 +40,11 @@ async function roster() {
     if (!/^\d{4,25}$/.test(id) || seen.has(id)) throw new Error('참여자 ID 중복 또는 불일치');
     seen.add(id);
     // Unknown roles must abort to avoid kicking owners/submanagers.
-    if (![1, 2, 4].includes(Number(m.type)))
-      throw new Error('참여자 역할을 확인할 수 없습니다: ' + id + ' (실행 중단)');
+    if (![1, 2, 4].includes(Number(m.type))) {
+      if(strict)throw new Error('참여자 역할을 확인할 수 없습니다: ' + id + ' (실행 중단)');
+      result.push({ id, name: String(m.name || id), role: null });
+      continue;
+    }
     result.push({ id, name: String(m.name || id), role: Number(m.type) });
   }
   if (!result.length) throw new Error('조회된 참여자가 없습니다.');
@@ -87,7 +90,7 @@ async function kickAll() {
 
 // Reuse original database-free roster logic. Staff and bot account are protected.
 const pcCommands = createPcCommands({
-  client, roomId, loadRoster: roster,
+  client, roomId, loadRoster: () => roster({strict:false}),
   send: (room, body) => client.chat.sendText(room, body),
   canKick: () => !running
 });
