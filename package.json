@@ -9,7 +9,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node --test test/valorant-manager.test.js",
     "build:watch": "tsc -p tsconfig.json --watch",
     "deploy": "npm run build && npm version patch && npm publish --access public",
     "test": "node --test --test-isolation=none test/*.test.js",

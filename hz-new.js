@@ -198,6 +198,8 @@ function start() {
       require('./shared/runtime').startProfileWatch(client);
 
       resolveReady();
+      void require('./valorant-manager').init().catch(error=>
+        console.warn('[MANAGER VALORANT INIT]',String(error?.message||error).slice(0,160)));
 
       console.log('[HZ NEW] 게임·관리 준비 완료');
 
@@ -212,6 +214,11 @@ function start() {
     console.error('[GL 관리] 정리 오류:', err)), 60 * 60 * 1000);
 
   timer.unref();
+  const valorantTimer=setInterval(()=>{
+    void require('./valorant-manager').tick(client).catch(error=>
+      console.warn('[MANAGER VALORANT TIMER]',String(error?.message||error).slice(0,160)));
+  },60000);
+  valorantTimer.unref();
 
   return client;
 

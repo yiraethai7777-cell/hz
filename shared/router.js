@@ -133,7 +133,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // before !봇재부팅 and all other command handlers. Only the bot account
       // can use !봇켜기 to reactivate this room.
       const power=await require('./db').getPool().query(
-        "SELECT data->>'botEnabled' AS enabled, data->>'ardenClan' AS arden_clan FROM hz_rooms WHERE room_id=$1",
+        "SELECT data->>'botEnabled' AS enabled, data->>'ardenClan' AS arden_clan, data->>'game' AS game FROM hz_rooms WHERE room_id=$1",
         [String(roomId)]);
       if(power.rows[0]?.enabled==='false'&&!(isBotAccount&&text==='!봇켜기'))return;
       // Global 30-second maintenance pause: no commands or passive handling.
@@ -454,6 +454,24 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       await ready;
+      // Use copied School Valorant modules without replacing Manager commands.
+      // License, bot power and prefix gates have already been enforced.
+      if(license?.plan!=='manage'&&(power.rows[0]?.game==='true'||isBotAccount)){
+        const valorant=require('../valorant-manager');
+        if(valorant.shouldHandle(text,msg)){
+          try{
+            if(await valorant.handle({
+              client,chat,msg,roomId,userId:senderId??'',userName:msg.sender?.name||'참가자',
+              text,isBotAccount,isSuperAdmin,
+              send:body=>chat.sendText(roomId,body)
+            }))return;
+          }catch(error){
+            console.warn('[MANAGER VALORANT DISPATCH]',String(error?.message||error).slice(0,160));
+            await chat.sendText(roomId,'❌ 발로란트 명령어를 처리하지 못했습니다.');
+            return;
+          }
+        }
+      }
       // Public ping. Prefix normalization already applied at the top of the router.
        if(text==='!핑'){
          const elapsed=Math.max(0,Date.now()-receivedAt);
