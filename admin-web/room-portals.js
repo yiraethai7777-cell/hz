@@ -1,6 +1,6 @@
 'use strict';
-const $=s=>document.querySelector(s);let csrf='',rooms=[],portals=[],roomSubscriptions={};
-const names={manage:'방 관리 ON/OFF',game:'게임 기능 ON/OFF',quiz:'퀴즈 기능 ON/OFF',fishing:'낚시 기능 ON/OFF',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'삭제 감지',spam:'도배 감지',templates:'입장·퇴장 문구 편집',warnings:'인원별 경고 및 내역',roles:'일반 관리자 지정 (최고관리자 제외)',prefixes:'명령어 접두사 변경',chatStats:'채팅순위·기록 관리',notes:'인원별 관리 메모',kick:'인원 개별 강퇴'};
+const $=s=>document.querySelector(s);let csrf='',rooms=[],portals=[],roomSubscriptions={},roomValorant={};
+const names={manage:'방 관리 ON/OFF',game:'게임 기능 ON/OFF',valorant:'🎯 발로란트 기능 ON/OFF',quiz:'퀴즈 기능 ON/OFF',fishing:'낚시 기능 ON/OFF',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'삭제 감지',spam:'도배 감지',templates:'입장·퇴장 문구 편집',warnings:'인원별 경고 및 내역',roles:'일반 관리자 지정 (최고관리자 제외)',prefixes:'명령어 접두사 변경',chatStats:'채팅순위·기록 관리',notes:'인원별 관리 메모',kick:'인원 개별 강퇴'};
 function notice(t){$('#message').textContent=t;}
 async function api(path,method='GET',body){const r=await fetch(path,{method,headers:{'Content-Type':'application/json',...(method==='GET'?{}:{'x-csrf-token':csrf})},...(method==='GET'?{}:{body:JSON.stringify(body)})});const x=await r.json();if(!r.ok)throw Error(x.error||'요청 실패');return x;}
 async function task(fn){try{await fn();}catch(e){notice('❌ '+e.message);}}
@@ -32,13 +32,13 @@ function updatePermitted(){
 }
 function fill(p){
  $('#savedPassword').hidden=true;
- $('#room').value=p.room_id;$('#label').value=p.label;$('#username').value=p.username;$('#password').value='';$('#enabled').checked=p.enabled;
+ $('#room').value=p.room_id;$('#label').value=p.label;$('#username').value=p.username;$('#password').value='';$('#enabled').checked=p.enabled;$('#valorantEnabled').checked=p.valorant_enabled===true;
  for(const input of $('#permissions').querySelectorAll('input'))input.checked=!!p.permissions[input.value];
  updatePlanForm(p);
  scrollTo({top:0,behavior:'smooth'});notice('선택한 고객의 설정을 편집 중입니다. 비밀번호를 비워두면 유지됩니다.');
 }
 async function load(){
- const b=await api('/api/admin/room-portals');rooms=(b.rooms||[]).map(r=>({room_id:r.id,name:r.name}));portals=b.portals;roomSubscriptions=b.roomSubscriptions||{};
+ const b=await api('/api/admin/room-portals');rooms=(b.rooms||[]).map(r=>({room_id:r.id,name:r.name}));portals=b.portals;roomSubscriptions=b.roomSubscriptions||{};roomValorant=b.roomValorant||{};
  const selected=$('#room').value;$('#room').replaceChildren();
  for(const r of rooms){const option=document.createElement('option');option.value=r.room_id;option.textContent=(r.name||'채팅방')+' · '+r.room_id;$('#room').append(option);}
  if(rooms.some(r=>r.room_id===selected))$('#room').value=selected;
@@ -46,7 +46,7 @@ async function load(){
  for(const [k,name] of Object.entries(names)){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=k;input.checked=!['roles','kick'].includes(k);label.append(input,' '+name);$('#permissions').append(label);}
  $('#list').replaceChildren();
  for(const p of portals){const box=document.createElement('div');box.className='card';const title=document.createElement('h3');title.textContent=p.label+' · '+p.room_name+' ('+p.room_id+')';
- const state=document.createElement('p');state.textContent=(p.enabled?'🟢 웹 사용 중':'⚫ 웹 중지됨')+' · 로그인 아이디: '+p.username;
+ const state=document.createElement('p');state.textContent=(p.enabled?'🟢 웹 사용 중':'⚫ 웹 중지됨')+' · 로그인 아이디: '+p.username+' · 🎯 발로란트 '+(p.valorant_enabled?'ON':'OFF');
  const period=document.createElement('p');period.className='period';period.textContent=p.subscription?
   ('📦 '+p.subscription.planLabel+' 요금제 · '+(p.subscription.active?'남은 '+formatLeft(p.subscription.remainingSeconds):'🔴 이용 만료')+' · 종료 '+new Date(p.subscription.expiresAt).toLocaleString('ko-KR')):
   '📦 기존 웹 · 요금제 미등록 (기존 기능 유지)';
@@ -110,14 +110,14 @@ async function load(){
 $('#plan').addEventListener('change',()=>{updatePermitted();});
 $('#activatePlan').addEventListener('change',()=>{updatePermitted();});
 $('#showPassword').addEventListener('change',()=>{$('#password').type=$('#showPassword').checked?'text':'password';});
-$('#room').addEventListener('change',()=>{const p=portals.find(x=>x.room_id===$('#room').value);if(p){fillFields(p);updatePlanForm(p);}else{$('#label').value='';$('#username').value='';$('#password').value='';$('#enabled').checked=true;for(const input of $('#permissions').querySelectorAll('input'))input.checked=true;updatePlanForm(null);}});
-function fillFields(p){$('#label').value=p.label;$('#username').value=p.username;$('#password').value='';$('#enabled').checked=p.enabled;for(const input of $('#permissions').querySelectorAll('input'))input.checked=!!p.permissions[input.value];}
+$('#room').addEventListener('change',()=>{const p=portals.find(x=>x.room_id===$('#room').value);if(p){fillFields(p);updatePlanForm(p);}else{$('#label').value='';$('#username').value='';$('#password').value='';$('#enabled').checked=true;$('#valorantEnabled').checked=roomValorant[$('#room').value]===true;for(const input of $('#permissions').querySelectorAll('input'))input.checked=true;updatePlanForm(null);}});
+function fillFields(p){$('#label').value=p.label;$('#username').value=p.username;$('#password').value='';$('#enabled').checked=p.enabled;$('#valorantEnabled').checked=p.valorant_enabled===true;for(const input of $('#permissions').querySelectorAll('input'))input.checked=!!p.permissions[input.value];}
 $('#create').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
  const roomId=$('#room').value,exists=portals.some(p=>p.room_id===roomId);
  if(!exists&&$('#password').value.length<10)throw Error('새 고객의 비밀번호를 10자 이상 입력하세요.');
  const newlySetPassword=$('#password').value;
  const permissions=Object.fromEntries([...$('#permissions').querySelectorAll('input')].map(i=>[i.value,i.checked]));
- const result=await api('/api/admin/room-portals','POST',{roomId,label:$('#label').value,username:$('#username').value,password:$('#password').value,permissions,enabled:$('#enabled').checked,revokeSessions:$('#revoke').checked,plan:$('#plan').value,days:Number($('#days').value),activatePlan:$('#activatePlan').checked});
+ const result=await api('/api/admin/room-portals','POST',{roomId,label:$('#label').value,username:$('#username').value,password:$('#password').value,permissions,valorantEnabled:$('#valorantEnabled').checked,enabled:$('#enabled').checked,revokeSessions:$('#revoke').checked,plan:$('#plan').value,days:Number($('#days').value),activatePlan:$('#activatePlan').checked});
  await load();notice('✅ 저장 완료. 고객 주소: '+location.origin+result.url);
  if(newlySetPassword){const out=$('#savedPassword');out.hidden=false;out.replaceChildren();out.append('방금 설정한 새 비밀번호: ');const value=document.createElement('strong');value.textContent=newlySetPassword;out.append(value,' (이 페이지에서만 임시 표시되며, 다시 조회할 수 없습니다.)');}else{$('#savedPassword').hidden=true;}
 });});

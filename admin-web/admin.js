@@ -132,7 +132,7 @@ function serviceLabel(room){
  const labels={active:'요금제 이용 중',legacy:'기존 이용 승인',expired:'이용 기간 만료',unlicensed:'이용권 미등록'};
  return labels[status]||'이용 상태 확인 불가';
 }
-async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,serviceLabel(room));cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,room.voice_enabled?'ON':'OFF');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
+async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,serviceLabel(room));cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,room.valorant_enabled?'ON':'OFF');cell(row,room.voice_enabled?'ON':'OFF');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
 function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;
  const banner=$('#room-access-status');
  if(banner){
@@ -142,7 +142,7 @@ function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').val
    ?'✅ '+service+' · 봇 전원 '+power+(room.service_plan?' · '+room.service_plan+' 요금제':'')
    :'⚠️ '+service+' · 기능 ON과 봇 ON만으로는 명령어를 사용할 수 없습니다. 아래의 방 관리자 웹 발급 메뉴에서 요금제를 시작하거나 이용 기간을 연장해 주세요.';
  }
- $('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;$('#flag-voice').checked=room.voice_enabled;}
+ $('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;$('#flag-valorant').checked=room.valorant_enabled;$('#flag-voice').checked=room.voice_enabled;}
 function selectPromo(){$('#promo-logs').textContent='채팅방을 선택하고 전송 기록을 조회해 주세요.';}
 async function loadRoomAdmins(){
  const room=$('#room-admin-room').value,list=$('#room-admin-list');list.replaceChildren();
@@ -217,7 +217,7 @@ $('#command-block-form').addEventListener('submit',e=>{e.preventDefault();task(a
  await loadCommandBlocks();feedback('봇 명령어 차단을 저장했습니다.');
 });});
 $('#user-room').addEventListener('change',()=>{selected=null;$('#selected-user').textContent='사용자를 다시 검색해 주세요.';$('#user-detail').textContent='';$('#user-rows').replaceChildren();});
-$('#room-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/admin/rooms','POST',{roomId:$('#room-select').value,flags:{game:$('#flag-game').checked,manage:$('#flag-manage').checked,quizEnabled:$('#flag-quiz').checked,fishEnabled:$('#flag-fish').checked,voiceRoomEnabled:$('#flag-voice').checked}});await loadRooms();feedback('방별 기능 설정을 저장했습니다.');});});
+$('#room-form').addEventListener('submit',e=>{e.preventDefault();task(async()=>{await api('/api/admin/rooms','POST',{roomId:$('#room-select').value,flags:{game:$('#flag-game').checked,manage:$('#flag-manage').checked,quizEnabled:$('#flag-quiz').checked,fishEnabled:$('#flag-fish').checked,valorantEnabled:$('#flag-valorant').checked,voiceRoomEnabled:$('#flag-voice').checked}});await loadRooms();feedback('방별 기능 설정을 저장했습니다.');});});
 $('#voice-status-check').addEventListener('click',()=>task(async()=>{
  const roomId=$('#room-select').value;
  if(!roomId)throw Error('채팅방을 선택해 주세요.');

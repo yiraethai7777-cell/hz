@@ -1,6 +1,6 @@
 'use strict';
 const $=s=>document.querySelector(s);const slug=new URLSearchParams(location.search).get('site')||'';let csrf='';
-const names={manage:'관리 기능',game:'게임 기능',quiz:'퀴즈 기능',fishing:'낚시 기능',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지'};
+const names={manage:'관리 기능',game:'게임 기능',valorant:'🎯 발로란트 기능',quiz:'퀴즈 기능',fishing:'낚시 기능',mention:'멘션 감지',profile:'프로필 변경 감지',deleted:'메시지 삭제 감지',spam:'도배 감지'};
 function note(s,error=false){$('#notice').textContent=s;$('#notice').className=error?'error':'';}
 async function api(path,method='GET',body){
  const scopedPath=path.startsWith('/api/room-portal/')?path+(path.includes('?')?'&':'?')+'site='+encodeURIComponent(slug):path;

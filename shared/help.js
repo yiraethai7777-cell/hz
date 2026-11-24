@@ -409,7 +409,7 @@ const bodies={
 const MANAGER_CONTACT='💬 카카오톡 매니저 문의방\nhttps://open.kakao.com/o/gK32HUUi';
 const MANAGER_SIGNOFF='\n\n━━━━━━━━━━━━━━\n✦ 카카오톡 매니저 · 게임 & 관리 도우미';
 const MANAGEMENT_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 관리'+FOLD+'\n🛡️ 카카오톡 관리 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+hidePrivateHelpCommands(bodies.관리)+MANAGER_SIGNOFF;
-const GAME_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 카카오톡 게임 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임+'\n\n🎯 발로란트: !발로명령어\n\n⏱️ 게임 명령어 제한: 1분 5회까지, 6번째부터 5분간 제한'+MANAGER_SIGNOFF;
+const GAME_MENU='📜 카카오톡 매니저 | 명령어 안내\n작동 중인 기능 · 게임'+FOLD+'\n🎮 카카오톡 게임 매니저\n━━━━━━━━━━━━━━\n'+MANAGER_CONTACT+'\n━━━━━━━━━━━━━━\n'+bodies.게임+'\n\n⏱️ 게임 명령어 제한: 1분 5회까지, 6번째부터 5분간 제한'+MANAGER_SIGNOFF;
 function formatCommandHelpBase(flags,requested='') {
  const groupName=requested==='기본'?'':requested;
  if(groupName==='관리')return flags.manage?MANAGEMENT_MENU:'⏹️ 이 방의 관리 기능은 중지되어 있습니다. !관리on';
@@ -429,14 +429,16 @@ async function getRoomHelpFlags(roomId,db=require('./db').getPool()){
  const result=await db.query(
   "SELECT COALESCE((SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS game,"+
   " COALESCE((SELECT enabled FROM gl_manage_rooms WHERE room_id=$1),"+
-  " (SELECT (data->>'manage')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS manage",
+  " (SELECT (data->>'manage')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS manage,"+
+   " COALESCE((SELECT (data->>'valorantEnabled')::boolean FROM hz_rooms WHERE room_id=$1),"+
+   " (SELECT (data->>'game')::boolean FROM hz_rooms WHERE room_id=$1),FALSE) AS valorant",
   [String(roomId)]
  );
- return {game:result.rows[0]?.game===true,manage:result.rows[0]?.manage===true};
+ return {game:result.rows[0]?.game===true,manage:result.rows[0]?.manage===true,valorant:result.rows[0]?.valorant===true};
 }
 // Returns individual chat bubbles; never concatenate the comprehensive menus.
 function commandMenuMessages(flags,requested='',prefix='!'){
- const active={game:flags?.game===true,manage:flags?.manage===true};
+ const active={game:flags?.game===true,manage:flags?.manage===true,valorant:flags?.valorant===true};
  let messages;
  if(requested==='게임')messages=[formatCommandHelpBase(active,'게임')];
  else if(requested==='관리')messages=[formatCommandHelpBase(active,'관리')];
@@ -444,6 +446,11 @@ function commandMenuMessages(flags,requested='',prefix='!'){
  else if(active.game)messages=[GAME_MENU];
  else if(active.manage)messages=[MANAGEMENT_MENU];
  else messages=['⏹️ 이 방에서는 게임과 관리 기능이 모두 꺼져 있습니다.'];
+ if(active.valorant){
+  const info='🎯 발로란트: !발로명령어 (전적·스킨·내전)';
+  if(!active.game&&!active.manage)messages=[info];
+  else messages[0]+='\n\n'+info;
+ }
  const normalizedPrefix=String(prefix||'!');
  return normalizedPrefix==='!'?messages:messages.map(body=>body.replace(/!([a-zA-Z0-9가-힣ㄱ-ㅎ]+)/g,(_,command)=>normalizedPrefix+command));
 }

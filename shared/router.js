@@ -133,7 +133,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       // before !봇재부팅 and all other command handlers. Only the bot account
       // can use !봇켜기 to reactivate this room.
       const power=await require('./db').getPool().query(
-        "SELECT data->>'botEnabled' AS enabled, data->>'ardenClan' AS arden_clan, data->>'game' AS game FROM hz_rooms WHERE room_id=$1",
+        "SELECT data->>'botEnabled' AS enabled, data->>'ardenClan' AS arden_clan, data->>'game' AS game, data->>'valorantEnabled' AS valorant_enabled FROM hz_rooms WHERE room_id=$1",
         [String(roomId)]);
       if(power.rows[0]?.enabled==='false'&&!(isBotAccount&&text==='!봇켜기'))return;
       // Global 30-second maintenance pause: no commands or passive handling.
@@ -456,7 +456,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       await ready;
       // Use copied School Valorant modules without replacing Manager commands.
       // License, bot power and prefix gates have already been enforced.
-      if(license?.plan!=='manage'&&(power.rows[0]?.game==='true'||isBotAccount)){
+      if(require('../valorant-manager').enabledFromRoom(power.rows[0])){
         const valorant=require('../valorant-manager');
         if(valorant.shouldHandle(text,msg)){
           try{

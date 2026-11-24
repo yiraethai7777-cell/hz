@@ -9,7 +9,7 @@ const bad=(message,status=400)=>{const e=Error(message);e.status=status;throw e;
 const hash=s=>crypto.createHash('sha256').update(String(s)).digest('hex');
 const passwordHash=(s,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+crypto.scryptSync(s,salt,64).toString('hex');
 const same=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);};
-const PERMISSIONS=['manage','mention','profile','deleted','spam','game','quiz','fishing','templates','warnings','roles','prefixes','chatStats','notes','kick'];
+const PERMISSIONS=['manage','mention','profile','deleted','spam','game','quiz','fishing','valorant','templates','warnings','roles','prefixes','chatStats','notes','kick'];
 const attempts=new Map();
 async function init(){
  const db=getPool();
@@ -59,12 +59,17 @@ async function master(req,url,body){
   const q=await getPool().query(
    "SELECT p.id,p.room_id,p.room_name,p.label,p.slug,p.username,p.permissions,p.enabled,"+
    " b.plan AS sub_plan,b.status AS sub_status,b.duration_days AS sub_duration_days,"+
-   " b.started_at AS sub_started_at,b.expires_at AS sub_expires_at"+
-   " FROM gl_room_portals p LEFT JOIN gl_room_subscriptions b USING(room_id) ORDER BY p.id DESC");
+   " b.started_at AS sub_started_at,b.expires_at AS sub_expires_at,"+
+   " COALESCE((h.data->>'valorantEnabled')::boolean,(h.data->>'game')::boolean,FALSE) AS valorant_enabled"+
+   " FROM gl_room_portals p LEFT JOIN gl_room_subscriptions b USING(room_id) LEFT JOIN hz_rooms h USING(room_id) ORDER BY p.id DESC");
   const activeRooms=await joinedRooms();
   const licensed=await getPool().query('SELECT * FROM gl_room_subscriptions WHERE room_id=ANY($1::text[])',[activeRooms.map(x=>x.id)]);
   const roomSubscriptions=Object.fromEntries(licensed.rows.map(row=>[row.room_id,subscriptions.view(row)]));
-  return {roomSubscriptions,portals:q.rows.map(row=>{
+  const valorantRows=await getPool().query(
+   "SELECT room_id,COALESCE((data->>'valorantEnabled')::boolean,(data->>'game')::boolean,FALSE) AS enabled FROM hz_rooms WHERE room_id=ANY($1::text[])",
+   [activeRooms.map(x=>x.id)]);
+  const roomValorant=Object.fromEntries(valorantRows.rows.map(row=>[row.room_id,row.enabled===true]));
+  return {roomSubscriptions,roomValorant,portals:q.rows.map(row=>{
    const subscription=row.sub_plan?subscriptions.view({
     room_id:row.room_id,plan:row.sub_plan,status:row.sub_status,
     duration_days:row.sub_duration_days,started_at:row.sub_started_at,expires_at:row.sub_expires_at
@@ -96,6 +101,10 @@ async function master(req,url,body){
  // the room administrator can see. Disallowed controls are not delegated.
  if(plan==='manage')for(const k of ['game','quiz','fishing'])perms[k]=false;
  if(plan==='game')for(const k of ['manage','mention','profile','deleted','spam','templates','warnings','roles','notes','kick'])perms[k]=false;
+ // Valorant is an independent add-on: the master controls service power, and
+ // the separate 'valorant' portal permission controls who may change it.
+ if(body.valorantEnabled!==undefined&&typeof body.valorantEnabled!=='boolean')
+  bad('발로란트 작동 설정을 확인해 주세요.');
  const portalEnabled=body.enabled!==false,slug=crypto.randomBytes(12).toString('hex');
  const pw=password?passwordHash(password):null;
  const c=await db.connect();let result,updatedLicense=null;
@@ -112,6 +121,11 @@ async function master(req,url,body){
   if(activate)updatedLicense=await subscriptions.grant(c,{roomId:room,plan,days,actor:'master:'+s.user});
   else if(license&&body.plan&&license.plan!==plan)
    updatedLicense=await subscriptions.changePlan(c,{roomId:room,plan,actor:'master:'+s.user});
+  if(typeof body.valorantEnabled==='boolean'){
+   await c.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('valorantEnabled',$2::boolean))"+
+    " ON CONFLICT(room_id) DO UPDATE SET data=jsonb_set(hz_rooms.data,'{valorantEnabled}',to_jsonb($2::boolean),true),updated_at=NOW()",
+    [room,body.valorantEnabled]);
+  }
   if(existing.rowCount&&(password||!portalEnabled||body.revokeSessions===true))
    await c.query('DELETE FROM gl_room_portal_sessions WHERE portal_id=$1',[result.id]);
   await c.query('COMMIT');
@@ -221,11 +235,11 @@ async function loginFromAdmin(req,res,body){
 async function settings(s){
  const room=s.room_id,db=getPool();
  const [r,mention,profile]=await Promise.all([
- db.query("SELECT m.enabled,m.deleted_enabled,m.spam_enabled,h.data->>'joinTemplate' AS join_template,h.data->>'leaveTemplate' AS leave_template,h.data->>'game' AS game_enabled,h.data->>'quizEnabled' AS quiz_enabled,h.data->>'fishEnabled' AS fish_enabled FROM gl_manage_rooms m FULL JOIN hz_rooms h ON h.room_id=m.room_id WHERE COALESCE(m.room_id,h.room_id)=$1",[room]),
+ db.query("SELECT m.enabled,m.deleted_enabled,m.spam_enabled,h.data->>'joinTemplate' AS join_template,h.data->>'leaveTemplate' AS leave_template,h.data->>'game' AS game_enabled,h.data->>'valorantEnabled' AS valorant_enabled,h.data->>'quizEnabled' AS quiz_enabled,h.data->>'fishEnabled' AS fish_enabled FROM gl_manage_rooms m FULL JOIN hz_rooms h ON h.room_id=m.room_id WHERE COALESCE(m.room_id,h.room_id)=$1",[room]),
  db.query("SELECT enabled FROM hz_mention_settings WHERE room_id=$1",[room]),
  db.query("SELECT data->'profileAlerts' AS enabled FROM hz_rooms WHERE room_id=$1",[room])]);
  const v=r.rows[0]||{};
- return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,subscription:await subscriptions.get(room),prefixes:await require('../shared/command-prefixes').get(room),flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false,game:v.game_enabled==='true',quiz:v.quiz_enabled!=='false',fishing:v.fish_enabled!=='false'},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
+ return {label:s.label,username:s.username,roomName:s.room_name,permissions:s.permissions,subscription:await subscriptions.get(room),prefixes:await require('../shared/command-prefixes').get(room),flags:{manage:v.enabled===true,deleted:v.deleted_enabled===true,spam:v.spam_enabled===true,mention:mention.rows[0]?.enabled!==false,profile:profile.rows[0]?.enabled!==false,game:v.game_enabled==='true',valorant:v.valorant_enabled==null?v.game_enabled==='true':v.valorant_enabled==='true',quiz:v.quiz_enabled!=='false',fishing:v.fish_enabled!=='false'},joinTemplate:v.join_template||'',leaveTemplate:v.leave_template||''};
 }
 async function warnings(room){
  const r=await getPool().query(`SELECT user_id,max(user_name) AS user_name,count(*)::int AS count,
@@ -402,18 +416,18 @@ async function routes(req,res,url,body){
  if(p==='/api/room-portal/settings'&&method==='GET')return settings(s);
  if(p==='/api/room-portal/warnings'&&method==='GET'){allowed(s,'warnings');return warnings(s.room_id);}
  if(p==='/api/room-portal/feature'&&method==='POST'){
-  const key=String(body.feature||'');if(!['manage','mention','profile','deleted','spam','game','quiz','fishing'].includes(key)||typeof body.enabled!=='boolean')bad('잘못된 기능 설정입니다.');
+  const key=String(body.feature||'');if(!['manage','mention','profile','deleted','spam','game','quiz','fishing','valorant'].includes(key)||typeof body.enabled!=='boolean')bad('잘못된 기능 설정입니다.');
   allowed(s,key);const db=getPool(),room=s.room_id,on=body.enabled;
   if(license?.plan==='manage'&&['game','quiz','fishing'].includes(key)||license?.plan==='game'&&['manage','mention','profile','deleted','spam'].includes(key))bad('현재 요금제에서 제공하지 않는 기능입니다.',403);
-  if(['game','quiz','fishing'].includes(key)){
-   const field={game:'game',quiz:'quizEnabled',fishing:'fishEnabled'}[key];
+  if(['game','quiz','fishing','valorant'].includes(key)){
+   const field={game:'game',quiz:'quizEnabled',fishing:'fishEnabled',valorant:'valorantEnabled'}[key];
    await db.query(`INSERT INTO hz_rooms(room_id,data)
      VALUES($1,jsonb_build_object($2::text,$3::boolean))
      ON CONFLICT(room_id) DO UPDATE SET
      data=jsonb_set(hz_rooms.data,ARRAY[$2::text],to_jsonb($3::boolean),true)
        || CASE WHEN $3::boolean=FALSE AND $2::text IN ('game','quizEnabled')
           THEN '{"quiz":null}'::jsonb ELSE '{}'::jsonb END,updated_at=NOW()`,[room,field,on]);
-   await require('../shared/runtime').syncQuizRoom(room);
+   if(key==='game'||key==='quiz')await require('../shared/runtime').syncQuizRoom(room);
   }
   else if(key==='mention')await require('../manage/mention-notify').setEnabled(db,room,on);
   else if(key==='profile')await require('../manage/profile-alerts').setEnabled(db,room,on);

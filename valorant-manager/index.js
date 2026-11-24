@@ -90,6 +90,12 @@ async function init(){
  }
  return initialization;
 }
+function enabledFromRoom(room){
+ // Old issued rooms previously ran Valorant under game ON.
+ // Once explicitly set, the separate Valorant switch takes precedence.
+ return room?.valorant_enabled==='true'||
+  (room?.valorant_enabled==null&&room?.game==='true');
+}
 function command(text){return String(text||'').trim().split(/\s+/,1)[0];}
 function isReply(msg){
  return [Number(msg?.message?.type),Number(msg?.type),Number(msg?.raw?.chatLog?.type)].includes(26)
@@ -155,7 +161,7 @@ async function tick(client){
   "LEFT JOIN gl_room_subscription_legacy l USING(room_id) "+
   "WHERE r.room_id=ANY($1::text[]) "+
   "AND COALESCE((r.data->>'botEnabled')::boolean,TRUE) "+
-  "AND COALESCE((r.data->>'game')::boolean,FALSE) "+
+  "AND COALESCE((r.data->>'valorantEnabled')::boolean,(r.data->>'game')::boolean,FALSE) "+
   "AND ( (s.room_id IS NOT NULL AND s.status='active' AND s.expires_at>NOW()) "+
   "OR (s.room_id IS NULL AND l.room_id IS NOT NULL))",
   [known]);
@@ -166,4 +172,4 @@ async function tick(client){
  await scrimPromo.processDue(db,senders);
  await store.cleanup(db);
 }
-module.exports={COMMANDS,SCHOOL_ONLY,HELP,formatAnswer,shouldHandle,handle,init,tick};
+module.exports={COMMANDS,SCHOOL_ONLY,HELP,formatAnswer,enabledFromRoom,shouldHandle,handle,init,tick};

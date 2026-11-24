@@ -15,6 +15,17 @@ test('Manager rebrands School output without changing account-list reply marker'
  assert(val.formatAnswer('🎯 저장한 발로란트 계정 (2/20)\n1. A#KR1','!발로전적확인').startsWith('🎯 저장한 발로란트 계정'));
  assert.equal(val.formatAnswer('제트','!랜덤요원'),'제트');
 });
+test('Independent Valorant switch works for management-only packages and preserves prior game rooms',()=>{
+ assert.equal(val.enabledFromRoom({valorant_enabled:'true',game:'false'}),true);
+ assert.equal(val.enabledFromRoom({valorant_enabled:'false',game:'true'}),false);
+ assert.equal(val.enabledFromRoom({valorant_enabled:null,game:'true'}),true);
+ assert.equal(val.enabledFromRoom({valorant_enabled:null,game:'false'}),false);
+ assert.equal(val.enabledFromRoom({}),false);
+});
+test('Room administrator permission catalogue includes an independent Valorant toggle',()=>{
+ const api=require('../api/room-portal');
+ assert(api.PERMISSIONS.includes('valorant'));
+});
 test('Bot reply number is dispatched only for reply messages',()=>{
  assert(!val.shouldHandle('1',{}));
  assert(val.shouldHandle('1',{message:{type:26}}));
