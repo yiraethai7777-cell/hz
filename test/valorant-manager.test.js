@@ -26,6 +26,31 @@ test('Room administrator permission catalogue includes an independent Valorant t
  const api=require('../api/room-portal');
  assert(api.PERMISSIONS.includes('valorant'));
 });
+test('Valorant help uses KakaoTalk read-more fold after a compact preview',()=>{
+ const prefix=val.HELP.split('\u200b')[0];
+ assert(prefix.includes('전체보기를 눌러'));
+ assert(prefix.length<160,'The visible preview must stay compact');
+ assert(val.HELP.includes('!내전예약'));
+ assert(val.HELP.includes('!발로전적'));
+ assert((val.HELP.match(/\u200b/g)||[]).length>=600);
+});
+test('Two-minute Valorant cooldown is shared across commands and rooms for one user',()=>{
+ let clock=10000;
+ const limiter=val.createCooldown({now:()=>clock});
+ assert.equal(val.VALORANT_COOLDOWN_MS,120000);
+ assert(limiter.check('userA').allowed);
+ assert.equal(limiter.check('userA').allowed,false);
+ clock+=119000;
+ assert.equal(limiter.check('userA').retryAfterMs,1000);
+ assert.equal(limiter.check('userB').allowed,true);
+ clock+=1000;
+ assert.equal(limiter.check('userA').allowed,true);
+ assert.equal(limiter.check('userA').allowed,false);
+});
+test('Cooldown notice reports the remaining time',()=>{
+ assert.match(val.cooldownNotice(89000),/1분 29초/);
+ assert.match(val.cooldownNotice(1500),/2초/);
+});
 test('Bot reply number is dispatched only for reply messages',()=>{
  assert(!val.shouldHandle('1',{}));
  assert(val.shouldHandle('1',{message:{type:26}}));

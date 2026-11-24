@@ -26,10 +26,43 @@ const COMMANDS=new Set([
  '!파티등록','!파티참가','!파티종료','!파티목록',
  '!스킨','!조준점','!챔스노래'
 ].filter(x=>!SCHOOL_ONLY.has(x)));
+// Every real Valorant command shares one two-minute cooldown per Kakao user,
+// across rooms and command names. Help and numeric selection replies are exempt.
+const VALORANT_COOLDOWN_MS=2*60*1000;
+function createCooldown({now=Date.now,durationMs=VALORANT_COOLDOWN_MS,maxUsers=10000}={}){
+ const expires=new Map();
+ function check(userId){
+  const id=String(userId??'').trim();
+  if(!id)return {allowed:true,retryAfterMs:0};
+  const time=now(),expiresAt=expires.get(id)||0;
+  if(expiresAt>time)return {allowed:false,retryAfterMs:expiresAt-time};
+  // Expired entries are only swept when the cache is full; no DB or timer work.
+  if(expires.size>=maxUsers){
+   for(const [key,until] of expires)if(until<=time)expires.delete(key);
+   if(expires.size>=maxUsers)expires.delete(expires.keys().next().value);
+  }
+  expires.delete(id);expires.set(id,time+durationMs);
+  return {allowed:true,retryAfterMs:0};
+ }
+ return {check,activeUsers:()=>expires.size};
+}
+const cooldown=createCooldown();
+function cooldownNotice(ms){
+ const seconds=Math.max(1,Math.ceil(ms/1000));
+ const minutes=Math.floor(seconds/60),remainder=seconds%60;
+ return '⏳ 카카오톡 매니저 | VALORANT 이용 제한\n'+
+  '발로란트 명령어는 1명당 2분에 1회 사용할 수 있습니다.\n'+
+  '남은 시간: '+(minutes?minutes+'분 ':'')+remainder+'초\n'+
+  '※ !발로명령어 안내는 언제든 확인할 수 있습니다.';
+}
 let initialization=null;
 const HELP=[
  '🎯 카카오톡 매니저 | VALORANT 명령어',
  '━━━━━━━━━━━━━━',
+ '📖 전적 · 스킨 · 요원 · 파티 · 내전',
+ '전체보기를 눌러 모든 명령어를 확인하세요.',
+ '\u200b'.repeat(1200),
+ '',
  '📊 전적 · 계정',
  '!발로전적 닉#태그 / !티어 닉#태그',
  '!전적 / !최근전적 / !승률 / !헤드샷',
@@ -58,7 +91,8 @@ const HELP=[
  '!불참 @대상 / !노쇼내역 / !불참취소 @대상',
  '',
  '━━━━━━━━━━━━━━',
- '※ 방별 게임 ON, 사용 기간, 관리자 권한에 따릅니다.',
+ '※ 방별 발로란트 ON, 사용 기간, 관리자 권한에 따릅니다.',
+ '⏳ 명령어 쿨타임: 1명당 2분 (안내·번호 답장 제외)',
  '※ 전적 조회는 외부 API 연결 상태에 따라 제한됩니다.'
 ].join('\n');
 function formatAnswer(value,command=''){
@@ -109,6 +143,13 @@ async function handle({text,client,chat,msg,roomId,userId,userName,isBotAccount=
  if(!shouldHandle(text,msg))return false;
  const raw=String(text??'').trim(),sourceCommand=command(raw);
  try{
+  // An informational menu must remain available even when commands are cooling
+  // down or the database has not finished initializing.
+  if(sourceCommand==='!발로명령어'){await send(HELP);return true;}
+  if(COMMANDS.has(sourceCommand)&&!isBotAccount){
+   const attempt=cooldown.check(userId);
+   if(!attempt.allowed){await send(cooldownNotice(attempt.retryAfterMs));return true;}
+  }
   await init();
   const quote=await replies.resolveReply({chat:chat||client,msg,roomId,botId:client?.userId}).catch(()=>null);
   const selected=quote?.type==='accounts'&&/^[1-9](?:\s*,\s*[1-9]){0,2}$/.test(raw)
@@ -116,7 +157,6 @@ async function handle({text,client,chat,msg,roomId,userId,userName,isBotAccount=
   const cmd=command(selected);
   const db=getPool();
   const deliver=async value=>send(formatAnswer(value,cmd));
-  if(cmd==='!발로명령어'){await send(HELP);return true;}
   const picture=async url=>images.sendRemotePhoto(client,roomId,url);
   const ctx={text:selected,roomId,userId,userName,db,client,chat,msg,
    isSelf:isBotAccount,isBotAccount,isSuperAdmin,send:deliver,
@@ -172,4 +212,4 @@ async function tick(client){
  await scrimPromo.processDue(db,senders);
  await store.cleanup(db);
 }
-module.exports={COMMANDS,SCHOOL_ONLY,HELP,formatAnswer,enabledFromRoom,shouldHandle,handle,init,tick};
+module.exports={COMMANDS,SCHOOL_ONLY,HELP,VALORANT_COOLDOWN_MS,createCooldown,cooldownNotice,formatAnswer,enabledFromRoom,shouldHandle,handle,init,tick};
