@@ -127,8 +127,22 @@ $('#bulk-kick-run').addEventListener('click',async()=>{
  }catch(error){feedback(error.message,true);$('#bulk-kick-output').textContent='실행 요청 실패: '+error.message;}
  finally{button.disabled=false;}
 });
-async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,room.voice_enabled?'ON':'OFF');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
-function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;$('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;$('#flag-voice').checked=room.voice_enabled;}
+function serviceLabel(room){
+ const status=String(room?.service_status||'');
+ const labels={active:'요금제 이용 중',legacy:'기존 이용 승인',expired:'이용 기간 만료',unlicensed:'이용권 미등록'};
+ return labels[status]||'이용 상태 확인 불가';
+}
+async function loadRooms(){const d=await api('/api/admin/rooms');rooms=d.rooms;for(const selector of ['#room-select','#user-room','#promo-room','#room-admin-room','#fishEventRoom','#block-room']){const select=$(selector),before=select.value;select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=room.room_id;option.textContent=(room.name||'채팅방')+' · '+room.room_id;select.append(option);}if(rooms.some(r=>r.room_id===before))select.value=before;}$('#room-rows').replaceChildren();for(const room of rooms){const row=document.createElement('tr');cell(row,(room.name||'채팅방')+' · '+room.room_id);cell(row,serviceLabel(room));cell(row,room.game?'작동':'중지');cell(row,room.manage?'작동':'중지');cell(row,room.voice_enabled?'ON':'OFF');cell(row,'').append(button('선택',()=>{ $('#room-select').value=room.room_id;selectRoom();}));$('#room-rows').append(row);}selectRoom();selectPromo();renderPromoRooms();await loadRoomAdmins();await loadSuperAdmins();await refreshFishEventMaster();}
+function selectRoom(){const room=rooms.find(r=>r.room_id===$('#room-select').value);if(!room)return;
+ const banner=$('#room-access-status');
+ if(banner){
+  const power=room.bot_enabled==='false'?'OFF':'ON';
+  const service=serviceLabel(room);
+  banner.textContent=room.service_allowed===true
+   ?'✅ '+service+' · 봇 전원 '+power+(room.service_plan?' · '+room.service_plan+' 요금제':'')
+   :'⚠️ '+service+' · 기능 ON과 봇 ON만으로는 명령어를 사용할 수 없습니다. 아래의 방 관리자 웹 발급 메뉴에서 요금제를 시작하거나 이용 기간을 연장해 주세요.';
+ }
+ $('#flag-game').checked=room.game;$('#flag-manage').checked=room.manage;$('#flag-quiz').checked=room.quiz_enabled;$('#flag-fish').checked=room.fish_enabled;$('#flag-voice').checked=room.voice_enabled;}
 function selectPromo(){$('#promo-logs').textContent='채팅방을 선택하고 전송 기록을 조회해 주세요.';}
 async function loadRoomAdmins(){
  const room=$('#room-admin-room').value,list=$('#room-admin-list');list.replaceChildren();
