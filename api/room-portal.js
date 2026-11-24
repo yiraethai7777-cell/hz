@@ -94,8 +94,9 @@ async function master(req,url,body){
  if(!existing.rowCount&&!activate&&!license)bad('새 방 관리자 웹 발급 시 요금제와 이용 일수를 설정해 주세요.');
  const plan=activate||license&&body.plan?subscriptions.validPlan(body.plan):license?.plan||null;
  const days=activate?subscriptions.validDays(body.days):null;
- if(activate&&license)bad('이미 발급한 요금제는 연장 메뉴에서 기간을 추가해 주세요.');
- if(license&&body.plan&&license.plan!==plan&&!license.active)
+ // A checked box starts a new plan only when unlicensed. For an already
+ // licensed room it means extending the expiry, never resetting its history.
+ if(license&&body.plan&&license.plan!==plan&&!license.active&&!activate)
   bad('만료된 요금제는 먼저 기간을 연장한 뒤 유형을 변경해 주세요.');
  // The package controls actual bot functions independently of which controls
  // the room administrator can see. Disallowed controls are not delegated.
@@ -118,8 +119,12 @@ async function master(req,url,body){
    " RETURNING id,room_id,room_name,label,slug,username,permissions,enabled",
    [room,active.name,label,slug,username,pw||passwordHash(crypto.randomBytes(32).toString('hex')),JSON.stringify(perms),portalEnabled,pw]);
   result=q.rows[0];
-  if(activate)updatedLicense=await subscriptions.grant(c,{roomId:room,plan,days,actor:'master:'+s.user});
-  else if(license&&body.plan&&license.plan!==plan)
+  if(activate)updatedLicense=license
+   ?await subscriptions.extend(c,{roomId:room,days,actor:'master:'+s.user})
+   :await subscriptions.grant(c,{roomId:room,plan,days,actor:'master:'+s.user});
+  // A change of plan after a renewal remains in the same transaction, so
+  // expiry extension and permissions cannot partially commit.
+  if(license&&body.plan&&license.plan!==plan)
    updatedLicense=await subscriptions.changePlan(c,{roomId:room,plan,actor:'master:'+s.user});
   if(typeof body.valorantEnabled==='boolean'){
    await c.query("INSERT INTO hz_rooms(room_id,data) VALUES($1,jsonb_build_object('valorantEnabled',$2::boolean))"+

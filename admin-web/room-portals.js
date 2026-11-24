@@ -9,12 +9,16 @@ function updatePlanForm(p){
  const license=p?.subscription||roomSubscriptions[$('#room').value]||null;
  $('#plan').value=license?.plan||'all';
  $('#activatePlan').checked=!p&&!license;
- $('#activatePlan').disabled=!!license;
- $('#days').disabled=!!license||!$('#activatePlan').checked;
- $('#days').value=license?.durationDays||7;
- $('#plan').disabled=!!license&&!license.active;
+ $('#activatePlan').disabled=false;
+ $('#planActionLabel').textContent=license
+  ?'기존 요금제 기간 연장 (체크하면 아래 일수를 추가)'
+  :'신규 요금제 시작 (방에 봇 작동 시작 알림 전송)';
+ $('#daysLabel').textContent=license?'추가 이용 일수':'최초 이용 일수';
+ $('#days').disabled=!$('#activatePlan').checked;
+ $('#days').value=7;
+ $('#plan').disabled=!!license&&!license.active&&!$('#activatePlan').checked;
  $('#planStatus').textContent=license
-  ?'현재 요금제: '+license.planLabel+' · '+(license.active?'작동 중 · 남은 '+formatLeft(license.remainingSeconds):'이용 기간 만료')+' · 만료 예정: '+new Date(license.expiresAt).toLocaleString('ko-KR')
+  ?'현재 요금제: '+license.planLabel+' · '+(license.active?'작동 중 · 남은 '+formatLeft(license.remainingSeconds):'이용 기간 만료')+' · 만료 예정: '+new Date(license.expiresAt).toLocaleString('ko-KR')+' · 기간을 추가하려면 위 연장 항목을 체크하세요.'
   :p?'기존 웹에는 요금제가 등록되어 있지 않습니다. 신규 요금제 시작을 체크하면 기간제를 적용합니다.':'신규 웹은 요금제와 이용 일수를 지정하여 발급합니다.';
  updatePermitted();
 }
@@ -29,6 +33,8 @@ function updatePermitted(){
   input.disabled=block;
  }
  $('#days').disabled=!$('#activatePlan').checked;
+ const license=portals.find(p=>p.room_id===$('#room').value)?.subscription||roomSubscriptions[$('#room').value]||null;
+ $('#plan').disabled=!!license&&!license.active&&!$('#activatePlan').checked;
 }
 function fill(p){
  $('#savedPassword').hidden=true;
@@ -117,6 +123,12 @@ $('#create').addEventListener('submit',e=>{e.preventDefault();task(async()=>{
  if(!exists&&$('#password').value.length<10)throw Error('새 고객의 비밀번호를 10자 이상 입력하세요.');
  const newlySetPassword=$('#password').value;
  const permissions=Object.fromEntries([...$('#permissions').querySelectorAll('input')].map(i=>[i.value,i.checked]));
+ const previousPlan=portals.find(p=>p.room_id===roomId)?.subscription||roomSubscriptions[roomId]||null;
+ if(previousPlan&&$('#activatePlan').checked){
+  const extra=Number($('#days').value);
+  if(!Number.isInteger(extra)||extra<1||extra>3650)throw Error('추가 이용 일수는 1~3650일로 입력해 주세요.');
+  if(!confirm('기존 '+previousPlan.planLabel+' 요금제에 '+extra+'일을 추가하고 웹 설정을 저장하시겠습니까?'))return;
+ }
  const result=await api('/api/admin/room-portals','POST',{roomId,label:$('#label').value,username:$('#username').value,password:$('#password').value,permissions,valorantEnabled:$('#valorantEnabled').checked,enabled:$('#enabled').checked,revokeSessions:$('#revoke').checked,plan:$('#plan').value,days:Number($('#days').value),activatePlan:$('#activatePlan').checked});
  await load();notice('✅ 저장 완료. 고객 주소: '+location.origin+result.url);
  if(newlySetPassword){const out=$('#savedPassword');out.hidden=false;out.replaceChildren();out.append('방금 설정한 새 비밀번호: ');const value=document.createElement('strong');value.textContent=newlySetPassword;out.append(value,' (이 페이지에서만 임시 표시되며, 다시 조회할 수 없습니다.)');}else{$('#savedPassword').hidden=true;}
