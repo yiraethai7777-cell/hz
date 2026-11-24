@@ -11,6 +11,8 @@ const passwordHash=(s,salt=crypto.randomBytes(16).toString('hex'))=>salt+':'+cry
 const same=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);};
 const PERMISSIONS=['manage','mention','profile','deleted','spam','game','quiz','fishing','valorant','templates','warnings','roles','prefixes','chatStats','notes','kick'];
 const attempts=new Map();
+// A checked form option extends an existing subscription without recreating it.
+function periodAction(activate,license){return !activate?'none':license?'extend':'grant';}
 async function init(){
  const db=getPool();
  await db.query(`CREATE TABLE IF NOT EXISTS gl_room_portals (
@@ -119,9 +121,9 @@ async function master(req,url,body){
    " RETURNING id,room_id,room_name,label,slug,username,permissions,enabled",
    [room,active.name,label,slug,username,pw||passwordHash(crypto.randomBytes(32).toString('hex')),JSON.stringify(perms),portalEnabled,pw]);
   result=q.rows[0];
-  if(activate)updatedLicense=license
-   ?await subscriptions.extend(c,{roomId:room,days,actor:'master:'+s.user})
-   :await subscriptions.grant(c,{roomId:room,plan,days,actor:'master:'+s.user});
+  const action=periodAction(activate,license);
+  if(action==='extend')updatedLicense=await subscriptions.extend(c,{roomId:room,days,actor:'master:'+s.user});
+  else if(action==='grant')updatedLicense=await subscriptions.grant(c,{roomId:room,plan,days,actor:'master:'+s.user});
   // A change of plan after a renewal remains in the same transaction, so
   // expiry extension and permissions cannot partially commit.
   if(license&&body.plan&&license.plan!==plan)
@@ -473,4 +475,4 @@ async function routes(req,res,url,body){
  }
  bad('존재하지 않는 기능입니다.',404);
 }
-module.exports={routes,init,PERMISSIONS,parseChatRankReset};
+module.exports={routes,init,PERMISSIONS,parseChatRankReset,periodAction};
