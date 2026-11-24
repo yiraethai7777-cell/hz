@@ -103,7 +103,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       senderId != null && String(client.userId) === String(senderId);
     try {
       // A bot-account-authored VOX create is independent of room web-portal
-      // issuance and room bot ON/OFF. It still requires a joined open chat,
+      // issuance, but the per-room bot OFF gate still applies.
       // VOX credentials and the server's actual privileges.
       // An EXPIRED paid subscription is never revived by this exception.
       const botUnlicensedVoiceCreate=isBotAccount &&
@@ -129,6 +129,13 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
       const managementCommand=String(text).split(/\s+/,1)[0];
       if(license?.plan==='game'&&managementCommand!=='!봇켜기'&&managementCommand!=='!봇끄기'&&
         require('../manage/commands-v2').ALL.has(managementCommand))return;
+      // Apply the per-room OFF gate to every sender, including the bot account,
+      // before !봇재부팅 and all other command handlers. Only the bot account
+      // can use !봇켜기 to reactivate this room.
+      const power=await require('./db').getPool().query(
+        "SELECT data->>'botEnabled' AS enabled, data->>'ardenClan' AS arden_clan FROM hz_rooms WHERE room_id=$1",
+        [String(roomId)]);
+      if(power.rows[0]?.enabled==='false'&&!(isBotAccount&&text==='!봇켜기'))return;
       // Global 30-second maintenance pause: no commands or passive handling.
       const maintenance={active:()=>Date.now()<(global.__nexiPauseUntil||0),start:ms=>{global.__nexiPauseUntil=Date.now()+ms;}};
       if(text==='!봇재부팅'){
@@ -151,12 +158,7 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         return;
       }
       if(maintenance.active())return;
-      // Global per-room kill switch. Skip every handler and cache while OFF;
-      // only !봇켜기 can revive the room (authorization checked below).
-      const power=await require('./db').getPool().query(
-        "SELECT data->>'botEnabled' AS enabled, data->>'ardenClan' AS arden_clan FROM hz_rooms WHERE room_id=$1",
-        [String(roomId)]);
-      if(!isBotAccount&&power.rows[0]?.enabled==='false'&&text!=='!봇켜기')return;
+      // The room OFF gate above also blocks bot-authored messages.
       rememberMessage(roomId,msg,text);
       // Normalize configured room prefix before ALL commands and event handlers.
       const prefixConfig=require('./command-prefixes');
@@ -379,8 +381,8 @@ function attachRouter(client, { game, management, ready = Promise.resolve() }) {
         try {
           const voicePermission = require('./voice-room-permission');
           // The exact Kakao account logged in as the bot may create a
-          // VoiceRoom even if room voice settings or !봇끄기 are OFF.
-          // Do not extend this bypass to ordinary members or other commands.
+          // VoiceRoom even if room VOX settings are OFF, but the global bot
+          // OFF gate above blocks all commands except bot-authored !봇켜기.
           const botOwnVoiceCreate=isBotAccount && voicePermission.isBotVoiceCommand(text);
           if (voicePermission.isActionCommand(text) && !botOwnVoiceCreate &&
               !(await voicePermission.enabled(roomId))) {
