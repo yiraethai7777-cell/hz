@@ -67,4 +67,53 @@ async function resolve({msg,text,roomId,client,db}){
  }
  return target;
 }
-module.exports={exact,roots,reference,mentions,resolve};
+
+// Resolve an !내풀 reply to the original author, not the latest replier.
+// A destructive command must never fall back to a middle reply's src_userId.
+async function resolveRoot({msg,roomId,client,db,maxDepth=12}){
+ const first=reference(msg);
+ if(!first?.logId)return null;
+ const room=String(roomId),bot=exact(client?.userId);
+ const noticeTarget=async log=>{
+  if(!bot||typeof db?.query!=='function')return null;
+  const result=await db.query(
+   'SELECT target_id,target_name FROM gl_leave_replies WHERE room_id=$1 AND log_id=$2 AND bot_id=$3',
+   [room,log,bot]);
+  const r=result.rows?.[0],id=exact(r?.target_id);
+  return id?{id,name:String(r.target_name||id)}:null;
+ };
+ // Reply directly to a registered bot leave notice: the DB identifies its
+ // original subject even when the chat message has fallen out of history.
+ const directNotice=await noticeTarget(first.logId);
+ if(directNotice)return directNotice;
+ if(typeof client?.fetchMessage!=='function')return null;
+ const seen=new Set();
+ let log=first.logId;
+ for(let depth=0;depth<maxDepth;depth++){
+  if(seen.has(log))return null;
+  seen.add(log);
+  let item;
+  try{item=await client.fetchMessage(roomId,log);}
+  catch{return null;}
+  if(!item)return null;
+  const actualRoom=exact(item.room?.id??item.roomId??item.chatId);
+  const actualLog=exact(item.message?.logId??item.logId??item.raw?.chatLog?.logId??item.raw?.chatlog?.logId);
+  if((actualRoom&&actualRoom!==room)||actualLog!==log)return null;
+  const next=reference(item);
+  if(next?.logId){
+   if(seen.has(next.logId))return null;
+   log=next.logId;continue;
+  }
+  // The source is another reply but its quoted log ID is missing.
+  // In that case, the original author is unverifiable: refuse the kick.
+  if(next?.userId||[Number(item.message?.type),Number(item.type),
+    Number(item.raw?.chatLog?.type),Number(item.raw?.chatlog?.type)].includes(26))
+   return null;
+  const mapped=await noticeTarget(log);
+  if(mapped)return mapped;
+  const id=exact(item.sender?.id??item.senderId??item.userId);
+  return id?{id,name:String(item.sender?.name??item.sender?.nickname??id)}:null;
+ }
+ return null; // Excessive or malformed reply chains must never kick anyone.
+}
+module.exports={exact,roots,reference,mentions,resolve,resolveRoot};

@@ -68,13 +68,15 @@ async function setEnabled(db,room,on){
   await c.query('COMMIT');
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }
-async function targetOf(db,room,msg,tail,client,allowMention=true){
+async function targetOf(db,room,msg,tail,client,allowMention=true,followOriginal=false){
  const first=String(tail||'').trim().split(/\s+/)[0];
  if(/^\d{4,}$/.test(first))return {id:first,name:first};
  const tagged=mentions(msg);
  if(allowMention&&tagged.length===1)return tagged[0];
  if(!allowMention&&tagged.length)return null;
- const r=await resolveReply({msg,text:'#대상 '+String(tail||'').trim(),roomId:room,client,db});
+ const r=followOriginal
+  ?await require('./targets').resolveRoot({msg,roomId:room,client,db})
+  :await resolveReply({msg,text:'#대상 '+String(tail||'').trim(),roomId:room,client,db});
  return r?.id?r:null;
 }
 const goodTarget=(t,user,bot)=>!!t&&/^\d{4,}$/.test(String(t.id))&&String(t.id)!==String(user)&&String(t.id)!==String(bot);
@@ -414,8 +416,13 @@ async function handle(ctx){
   await send('✅ '+t.id+' 경고 초기화 완료');return true;
  }
  if(['!kick','!k','!내풀','!벤해제'].includes(cmd)){
-  const t=await targetOf(db,room,ctx.msg,tail,ctx.client,cmd!=='!벤해제');
-  if(!t){await send('사용법: '+cmd+' (대상 ID·답장'+(cmd==='!벤해제'?'':'·멘션')+')');return true;}
+  const t=await targetOf(db,room,ctx.msg,tail,ctx.client,cmd!=='!벤해제',cmd==='!내풀');
+  if(!t){
+   await send(cmd==='!내풀'
+    ?'❌ 원문 작성자를 확인하지 못했습니다. 원문 메시지에 직접 답장하거나 대상 ID를 입력해 주세요. 강퇴는 실행하지 않았습니다.'
+    :'사용법: '+cmd+' (대상 ID·답장'+(cmd==='!벤해제'?'':'·멘션')+')');
+   return true;
+  }
   if(!goodTarget(t,user,ctx.botId)){await send('⛔ 올바른 대상이 아니거나 본인·봇입니다.');return true;}
   if(cmd==='!kick'||cmd==='!k'){
    if(typeof ctx.kick!=='function'){await send('❌ 강퇴 API가 없습니다.');return true;}
@@ -446,4 +453,4 @@ async function handle(ctx){
  }
  return false;
 }
-module.exports={handle,ALL,owner,isStaff,pages,noticeRegistrationErrorMessage};
+module.exports={handle,ALL,owner,isStaff,pages,noticeRegistrationErrorMessage,targetOf};
