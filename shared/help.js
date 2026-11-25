@@ -439,13 +439,15 @@ async function getRoomHelpFlags(roomId,db=require('./db').getPool()){
 // Returns individual chat bubbles; never concatenate the comprehensive menus.
 function commandMenuMessages(flags,requested='',prefix='!'){
  const active={game:flags?.game===true,manage:flags?.manage===true,valorant:flags?.valorant===true};
+ // Rooms with no active modules consume help commands silently.
+ if(!active.game&&!active.manage&&!active.valorant)return [];
  let messages;
  if(requested==='게임')messages=[formatCommandHelpBase(active,'게임')];
  else if(requested==='관리')messages=[formatCommandHelpBase(active,'관리')];
  else if(active.game&&active.manage)messages=[GAME_MENU,MANAGEMENT_MENU];
  else if(active.game)messages=[GAME_MENU];
  else if(active.manage)messages=[MANAGEMENT_MENU];
- else messages=['⏹️ 이 방에서는 게임과 관리 기능이 모두 꺼져 있습니다.'];
+ else messages=[];
  if(active.valorant){
   const info='🎯 발로란트: !발로명령어 (전적·스킨·내전)';
   if(!active.game&&!active.manage)messages=[info];
