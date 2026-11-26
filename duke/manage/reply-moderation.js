@@ -14,7 +14,7 @@ function replyReference(msg,bot){
  }
  return '';
 }
-function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,onPersist=()=>{},now=Date.now,logger=console}={}){
+function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,onAction=()=>{},onPersist=()=>{},now=Date.now,logger=console}={}){
  const file=dir?path.join(dir,'reply-moderation.json'):null;
  let state={admins:{},notices:{}};
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const v=JSON.parse(fs.readFileSync(file,'utf8'));if(!v.admins||!v.notices)throw Error('invalid moderation state');state=v;}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -56,16 +56,18 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
    kicked=true;
    if(release){
     if(!releaseOK(await unban(r,uid)))throw Error('unban unverified');
+    onAction(r,uid,'release');
     record(r,actor,msg,uid,name,'-내풀','강퇴 후 벤 해제 완료');logged=true;
     for(const [k,n] of Object.entries(state.notices))if(n.roomId===r&&n.userId===uid&&n.kind==='ban')delete state.notices[k];save();
     return name+'님을 내보낸 후 벤을 해제하였습니다.';
    }
+   onAction(r,uid,'kick');
    record(r,actor,msg,uid,name,'-벤','강퇴 요청 성공');logged=true;
    await sendBan(r,uid,name);return null;
   }catch(err){
    logger.error('[DUKE] direct moderation failed',release?'release':'ban',err?.name||'Error');
    if(!logged)record(r,actor,msg,uid,name,release?'-내풀':'-벤',kicked?'강퇴 성공 / 벤 해제 미확인':'요청 실패 또는 결과 미확인');
-   if(kicked&&release){try{await sendBan(r,uid,name);}catch{}return format('ADMIN','강퇴 요청은 성공했으나 벤 해제를 확인하지 못했습니다. 재입장이 제한될 수 있습니다.');}
+   if(kicked&&release&&!logged){onAction(r,uid,'kick');try{await sendBan(r,uid,name);}catch{}return format('ADMIN','강퇴 요청은 성공했으나 벤 해제를 확인하지 못했습니다. 재입장이 제한될 수 있습니다.');}
    return format('ADMIN',kicked?'강퇴 요청 성공, 완료 알림 전송 실패':'강퇴 요청 실패 또는 결과 미확인');
   }finally{locked.delete(key);}
  }
@@ -94,6 +96,7 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
    if(n.used)return true;
    const res=await (cmd==='k'?kick:unban)(r,n.userId);
    if(cmd==='k'?(res?.status!==0||res?.success===false||res?.ok===false):(res?.success!==true||res?.verified!==true))throw Error('API unverified');
+   if(cmd==='k')onAction(r,n.userId,'kick');
    record(r,actor,msg,n.userId,n.name,cmd==='k'?'k (퇴장자 강퇴)':'u (벤 해제)',cmd==='k'?'강퇴 요청 성공':'벤 해제 완료');logged=true;
    n.used=true;save();
    if(cmd==='k'){

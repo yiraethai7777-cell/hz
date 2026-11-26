@@ -9,6 +9,7 @@ const {createWarnings}=require('./manage/warnings');
 const {createProfilePhoto}=require('./utility/profile-photo');
 const {createOpenProfileLink}=require('./utility/open-profile-link');
 const {createUserInfo}=require('./manage/user-info');
+const {createActivity}=require('./manage/activity');
 function id(value){if(typeof value==='number'&&!Number.isSafeInteger(value))return null;const s=String(value??'');return /^[1-9]\d*$/.test(s)?s:null;}
 function normalize(msg,receivedAt=performance.now()){const raw=msg?.raw?.chatLog??msg?.raw??{};return {roomId:id(raw.chatRoomId??raw.chatId??msg?.raw?.chatId)??id(msg?.room?.id??msg?.chatId),userId:id(raw.userId??raw.authorId??raw.senderId??msg?.sender?.id??msg?.senderId),text:raw.message??raw.msg??raw.text??msg?.message?.text??msg?.text,receivedAt:Number.isFinite(msg?.receivedAt)?msg.receivedAt:receivedAt};}
 async function startKakao({authPath,dataDir,website,roomList,database}){
@@ -20,7 +21,9 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  const send=async(roomId,body)=>{const r=await client.chat.sendText(roomId,body);if(r?.status!=null&&r.status!==0)throw Error('send failed');return r;};
  const onPersist=key=>database?.mark(key);
  const audit=createManagementLog({dir:dataDir,onPersist});
- const moderation=createReplyModeration({dir:dataDir,audit,onPersist,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
+ const activity=createActivity({dir:dataDir,onPersist,allowedRooms:rooms,botId:()=>id(client.userId)});
+ process.once('exit',()=>activity.close());
+ const moderation=createReplyModeration({dir:dataDir,audit,onPersist,onAction:activity.moderation,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
  const warnings=createWarnings({dir:dataDir,onPersist,audit,canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,botId:()=>id(client.userId),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
  const membership=createMembership({dir:dataDir,audit,onPersist,allowedRooms:rooms,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:(roomId,userId)=>{const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
  const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir,onPersist}),website,getStatus:()=>({...(database?.status()??{database:'미연결'}),kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 · 경고 지원',manageRooms:membership.activeCount()}),send});
@@ -35,7 +38,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   const m=Array.isArray(list)?list.find(v=>id(v.userId??v.id??v.memberId??v.user_id)===u):null;
   if(!m)return null;
   client._cacheMembers(room,[m]);
-  const profile={name:client.getUserProfileSnapshot(room,u)?.name,imageUrl:m.opi||m.originalProfileImageUrl||m.fpi||m.fullProfileImageUrl||m.pi||m.profileImageUrl||'',memberType:m.mt??m.ut??m.userType??m.memberType??m.linkMemberType,url:''};
+  const profile={name:client.getUserProfileSnapshot(room,u)?.name,imageUrl:m.opi||m.originalProfileImageUrl||m.fpi||m.fullProfileImageUrl||m.pi||m.profileImageUrl||'',memberType:m.mt??m.ut??m.userType??m.memberType??m.linkMemberType,profileType:m.ptp??m.profileType,profileLinkId:id(m.pli),url:''};
   const profileId=id(m.pli),type=Number(m.ptp??m.profileType);
   if(!profileId||[1,2,4].includes(type))return profile;
   try{
@@ -45,13 +48,13 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   return profile;
  };
  createOpenProfileLink({noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile}).register(core);
- createUserInfo({canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile,role:moderation.role,getHistory:warnings.getHistory}).register(core);
- client.onJoin(event=>{if(ready)void membership.handle('join',event);});
- client.onLeave(event=>{if(ready)void membership.handle('leave',event);});
+ createUserInfo({canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile,role:moderation.role,getHistory:warnings.getHistory,getActivity:activity.get}).register(core);
+ client.onJoin(event=>{if(ready){activity.member('join',event);void membership.handle('join',event);}});
+ client.onLeave(event=>{if(ready){activity.member('leave',event);void membership.handle('leave',event);}});
  client.on('error',()=>{ready=false;console.error('[DUKE] connection error');});
  client.on('disconnect',()=>{ready=false;});
  client.onReady(()=>{ready=true;console.log('[DUKE] ready');});
- client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|정보|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
+ client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(ready)activity.chat(msg,e);if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|정보|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
  await client.connect();return {client,core};
 }
 module.exports={startKakao,normalize,id};
