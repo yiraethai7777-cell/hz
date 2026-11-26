@@ -16,7 +16,7 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
  const onoff=v=>v?'ON':'OFF';
  function register(core){
   for(const [name,kind,label] of [['입장알림','join','입장'],['퇴장알림','leave','퇴장']]){
-   core.register({name,section:'MANAGEMENT',description:label+' 알림 설정 (on/off)',execute:e=>{
+   core.register({name,section:'BOT',description:label+' 알림 설정 (on/off)',execute:e=>{
     if(!authorized(e))return format('ADMIN','봇 계정만 설정할 수 있습니다.');
     const value=e.args[0]?.toLowerCase();
     if(e.args.length!==1||!['on','off'].includes(value))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+onoff(get(e.roomId)[kind]));

@@ -47,3 +47,26 @@ test('wallet, room ranking and atomic transfer with replay protection, validatio
   await cmd('-게임가입','3000',{},'2000');assert.equal(g.get('2000','3000').coins,10000);assert.equal(g.get('2000','4000'),null);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('bot-only coin adjustments and expandable inventory with exact durable balances',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-admin-coins-')),out=[],send=async(r,t)=>out.push(t);
+ try{
+  const opts={dir,botId:()=> '9000',getName:(r,u)=>u==='3000'?'회원':'봇',fetchMessage:async(r,l)=>({room:{id:r},message:{logId:l,type:1},sender:{id:'3000',name:'회원'}})};
+  let g=createGameAccounts(opts),core=createCore({send});g.register(core);let log=10000;
+  const cmd=(text,u='9000',extra={},r='1000')=>core.handle({roomId:r,userId:u,text,msg:{room:{id:r,isOpenChat:true},sender:{name:opts.getName(r,u)},message:{logId:String(++log),type:1},...extra}});
+  await cmd('-인벤','3000');assert.match(out.at(-1),/-게임가입/);
+  await cmd('-게임가입','3000');await cmd('-인벤','3000');assert.match(out.at(-1),/보유 아이템 종류 : 0개/);assert.match(out.at(-1),/\[ 곡괭이 \]/);assert.match(out.at(-1),/\u200b{1200}/);
+  await cmd('-코인지급 3000 1000','3000');assert.match(out.at(-1),/봇 계정만/);
+  await cmd('-코인회수 3000 1000','3000');assert.match(out.at(-1),/봇 계정만/);assert.equal(g.get('1000','3000').coins,10000);
+  const req={message:{logId:'12345678901234567',type:1}};
+  await cmd('-코인지급 3000 5000','9000',req);assert.match(out.at(-1),/현재 잔액 : 15,000/);assert.equal(g.get('1000','3000').coins,15000);
+  await cmd('-코인지급 3000 5000','9000',req);assert.equal(g.get('1000','3000').coins,15000);
+  await cmd('-코인회수 @회원 3000','9000',{mentions:[{userId:'3000',name:'회원'}]});assert.equal(g.get('1000','3000').coins,12000);
+  await cmd('-코인회수 3000 12001');await cmd('-코인지급 3000 -5');await cmd('-코인지급 3000 9007199254740991');await cmd('-코인지급 4000 10');assert.equal(g.get('1000','3000').coins,12000);assert.equal(g.get('1000','4000'),null);
+  await cmd('-코인회수 2000','9000',{message:{logId:'87654321',type:26,attachment:{src_userId:'3000',src_logId:'6000'}}});assert.equal(g.get('1000','3000').coins,10000);
+  g=createGameAccounts(opts);core=createCore({send});g.register(core);await cmd('-코인지급 3000 5000','9000',req);assert.equal(g.get('1000','3000').coins,10000);
+  const file=path.join(dir,'game-accounts','1000.json'),data=JSON.parse(fs.readFileSync(file));data.users['3000'].inventory={rod:{name:'나무 낚시대',category:'낚시대',quantity:1},fish:{name:'붕어',category:'물고기',quantity:3}};fs.writeFileSync(file,JSON.stringify(data));
+  g=createGameAccounts(opts);core=createCore({send});g.register(core);await cmd('-인벤','3000');assert.match(out.at(-1),/나무 낚시대 × 1/);assert.match(out.at(-1),/붕어 × 3/);
+  await cmd('-도움말','3000');assert.match(out.at(-1),/\[ 봇계정 전용 명령어 \][\s\S]*-코인지급[\s\S]*-코인회수[\s\S]*\[ 게임 명령어 \][\s\S]*-인벤/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

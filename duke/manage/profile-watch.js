@@ -24,7 +24,7 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>tr
   versions.set(r,(versions.get(r)||0)+1);baseline.delete(r);due.delete(r);joined=null;
  }
  function register(core){
-  for(const [name,kind,label] of [['닉변감지','nick','닉네임 변경 감지'],['프로필감지','profile','프로필 변경 감지']])core.register({name,section:'MANAGEMENT',description:label+' (on/off)',execute:e=>{
+  for(const [name,kind,label] of [['닉변감지','nick','닉네임 변경 감지'],['프로필감지','profile','프로필 변경 감지']])core.register({name,section:'BOT',description:label+' (on/off)',execute:e=>{
    if(e.msg?.room?.isOpenChat!==true||!id(botId())||e.userId!==id(botId()))return format('ADMIN','봇 계정만 오픈채팅방에서 설정할 수 있습니다.');
    const value=e.args[0]?.toLowerCase(),state=get(e.roomId)[kind]?'ON':'OFF';
    if(e.args.length!==1||!['on','off'].includes(value))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+state);

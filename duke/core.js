@@ -17,7 +17,19 @@ function formatRecognition(receivedAt,recognizedAt){
 function createCore({send,logger=console,allowedRooms=null,canHandle=()=>true,now=Date.now,clock=()=>performance.now(),metrics=createMetrics(),counter=createCounter({now}),getStatus=()=>({}),website='제작 예정'}={}){
  if(typeof send!=='function')throw new TypeError('send required');const commands=new Map(),started=now();let lastAck=null;
  function register({name,section='SYSTEM',description='',execute}){if(!/^[\p{L}\p{N}]+$/u.test(name)||typeof execute!=='function'||commands.has(name))throw Error('Invalid or duplicate command');commands.set(name,{name,section,description,execute});}
- register({name:'도움말',description:'명령어 안내',execute:()=>fold(format('COMMAND','명령어 안내\n등록 명령어 : '+commands.size+'개'),LINE+'\n[ 기본 명령어 ]\n\n'+[...commands.values()].filter(c=>c.section!=='MANAGEMENT').map(c=>PREFIX+c.name+' : '+c.description).join('\n')+([...commands.values()].some(c=>c.section==='MANAGEMENT')?'\n\n'+LINE+'\n[ 관리 명령어 ]\n\n'+[...commands.values()].filter(c=>c.section==='MANAGEMENT').map(c=>PREFIX+c.name+' : '+c.description).join('\n'):'')+'\n\n'+LINE+'\nDUKE SYSTEM v'+VERSION)});
+ register({name:'도움말',description:'전체 명령어 안내',execute:()=>{
+  const all=[...commands.values()],groups=[['SYSTEM','기본 명령어'],['BOT','봇계정 전용 명령어'],['GAME','게임 명령어'],['MANAGEMENT','관리 명령어']];
+  const detail=groups.map(([section,label])=>{
+   const lines=all.filter(v=>section==='SYSTEM'?!['BOT','GAME','MANAGEMENT'].includes(v.section):v.section===section).map(v=>PREFIX+v.name+' : '+v.description);
+   if(section==='MANAGEMENT'){
+    if(commands.has('벤'))lines.push('u : 벤 알림에 답장하여 벤 해제');
+    if(commands.has('내풀'))lines.push('k : 퇴장 알림에 답장하여 강퇴');
+    if(commands.has('삭제감지')||commands.has('수정감지'))lines.push('l : 삭제·수정 알림에 답장하여 내용 조회');
+   }
+   return lines.length?LINE+'\n[ '+label+' ]\n\n'+lines.join('\n'):'';
+  }).filter(Boolean).join('\n\n');
+  return fold(format('COMMAND','명령어 안내\n등록 명령어 : '+commands.size+'개'),detail+'\n\n'+LINE+'\nDUKE SYSTEM v'+VERSION);
+ }});
  register({name:'핑',description:'봇 응답 확인',execute:({recognitionDelay})=>format('SYSTEM','상태 : ONLINE\n응답 : '+recognitionDelay+'\n'+LINE)});
  register({name:'봇정보',description:'봇 정보 확인',execute:()=>fold(format('INFORMATION','봇 이름 : 듀크봇 (DUKE)\n버전 : v'+VERSION),LINE+'\n접두사 : -\n개발 언어 : Node.js\n개발 상태 : 개발 중\n\n'+LINE+'\n[ 공식 링크 ]\n\n제작자 : 듀크\n제작자 오픈프로필 :\nhttps://open.kakao.com/o/sUBJvGYi\n\n공식 웹사이트 : '+website+'\n\n'+LINE+'\nDUKE © SYSTEM')});
  register({name:'봇상태',description:'시스템 및 서버 상태 확인',execute:async()=>{const s=await getStatus(),m=metrics.sample(),c=counter.get(),p=m.limit?100*m.used/m.limit:null;const conn=s.kakaoConnected===true?'정상':s.kakaoConnected===false?'미연결':'미확인';const summary=format('STATUS','서버 상태 : ONLINE\n시스템 상태 : '+(s.kakaoConnected===true?'정상':'연결 미확인')+'\n버전 : v'+VERSION);return fold(summary,LINE+'\n[ 시스템 상태 ]\n\n서버 상태 : ONLINE\n데이터베이스 : '+(s.database??'미연결')+'\n카카오톡 연결 : '+conn+'\n관리 시스템 : '+(s.manage??'개발 예정')+'\n게임 시스템 : '+(s.game??'개발 예정')+'\n\n'+LINE+'\n[ 서버 성능 ]\n\nCPU　'+(m.cpu===null?'측정 대기':m.cpu.toFixed(1)+'%')+'\n'+bar(m.cpu)+'\n\nRAM　'+mb(m.used)+' / '+(m.limit?mb(m.limit)+' MB':'한도 미확인 (MB)')+'\n'+bar(p)+'\n\n응답 속도 : '+(lastAck===null?'측정 대기':lastAck+'ms (최근 전송)')+'\nDB 응답 속도 : '+(Number.isFinite(s.dbMs)?s.dbMs+'ms':'미연결')+'\n가동 시간 : '+uptime(Math.max(0,Math.floor((now()-started)/1000)))+'\n\n'+LINE+'\n[ 운영 현황 ]\n\n전체 채팅방 : '+(s.rooms??'미연동')+'\n관리 활성화 : '+(s.manageRooms??'미연동')+'\n게임 활성화 : '+(s.gameRooms??'미연동')+'\n오늘 명령어 : '+count(c.today)+'\n전체 명령어 : '+count(c.total)+(c.persistent?'':' (현재 실행 기준)')+'\n진행 중인 보이스룸 : '+(s.voiceRooms??'미연동')+'\n\n'+LINE+'\nDUKE SYSTEM v'+VERSION);}});

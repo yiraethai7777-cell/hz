@@ -75,7 +75,7 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
   core.register({name:'관리로그',section:'MANAGEMENT',description:'최근 관리 명령어 기록 15건',execute:e=>{const r=id(e.roomId),actor=id(e.userId),bot=id(botId());if(!r||!actor||!bot||e.msg?.room?.isOpenChat!==true||(allowedRooms&&!allowedRooms.has(r))||!allowed(e.msg,r,actor,bot))return format('ADMIN','관리 권한이 없습니다.');return audit?audit.render(r):format('LOG','관리 기록 미연동');}});
   core.register({name:'벤',section:'MANAGEMENT',description:'강퇴 및 재입장 제한 (멘션 / 아이디 / 답장)',execute:e=>direct(e,false)});
   core.register({name:'내풀',section:'MANAGEMENT',description:'강퇴 후 벤 해제 (멘션 / 아이디 / 답장)',execute:e=>direct(e,true)});
-  for(const [name,add] of [['관리자추가',true],['관리자삭제',false]])core.register({name,section:'MANAGEMENT',description:'방별 추가 관리자 '+(add?'등록':'삭제')+' (사용자 ID)',execute:e=>{
+  for(const [name,add] of [['관리자추가',true],['관리자삭제',false]])core.register({name,section:'BOT',description:'방별 추가 관리자 '+(add?'등록':'삭제')+' (사용자 ID)',execute:e=>{
    if(e.userId!==id(botId()))return format('ADMIN','봇 계정만 설정할 수 있습니다.');
    const target=id(e.args[0]);if(e.args.length!==1||!target||target===id(botId()))return format('ADMIN','사용법 : -'+name+' (사용자 ID)');
    const list=new Set(state.admins[e.roomId]||[]);if(add)list.add(target);else list.delete(target);state.admins[e.roomId]=[...list];save();record(e.roomId,e.userId,e.msg,target,getName(e.roomId,target),'-'+name,add?'관리자 등록 완료':'관리자 삭제 완료');return format('ADMIN','관리자 '+(add?'추가':'삭제')+' 완료\n아이디 : '+target);
