@@ -31,6 +31,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  const membership=createMembership({dir:dataDir,audit,onPersist,allowedRooms:rooms,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:(roomId,userId)=>{const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
  const watcher=createProfileWatch({dir:dataDir,onPersist,audit,allowedRooms:rooms,botId:()=>id(client.userId),ready:()=>ready&&client.connected!==false,send,
   listRooms:async()=>{await client.getChatRooms();return client.getKnownChatRooms().filter(r=>client._buildRoomPayload(r.id).isOpenChat===true).map(r=>r.id);},
+  lookupLinks:async ids=>{const urls=new Map();for(let i=0;i<ids.length;i+=10){const batch=ids.slice(i,i+10),res=await client._carriage.infoLink(batch);if(res?.status!==0)continue;for(const item of res.body?.ols||[]){const key=id(item.li);if(batch.includes(key)&&typeof item.lu==='string')urls.set(key,item.lu);}}return urls;},
   fetchRoster:async r=>{const res=await client._carriage.chatOnRoom({chatId:r,token:0,opt:0});if(!res||res.status!=null&&Number(res.status)!==0||res.body?.status!=null&&Number(res.body.status)!==0)throw Error('roster unavailable');const list=res.body?.m??res.body?.members??res.body?.memberList??res.body?.memList;if(!Array.isArray(list)||!list.length)throw Error('invalid roster');client._cacheMembers(r,list);return list;}
  });
  process.once('exit',()=>watcher.stop());

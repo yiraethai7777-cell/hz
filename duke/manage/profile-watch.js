@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
-const {format,fold}=require('../core'),{validImageUrl}=require('../utility/profile-photo');
+const {format,fold}=require('../core'),{validLink}=require('../utility/open-profile-link');
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 const clean=v=>[...String(v??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('');
 function readMember(m){
@@ -9,12 +9,9 @@ function readMember(m){
  const rawType=m.ptp??m.profileType,profileType=rawType!=null&&String(rawType).trim()&&Number.isInteger(Number(rawType))?Number(rawType):null;
  const rawLink=m.pli??m.profileLinkId;
  const profileId=[1,2,4].includes(profileType)?'':rawLink!=null?id(rawLink):null;
- const rawPhoto=m.opi??m.originalProfileImageUrl??m.fpi??m.fullProfileImageUrl??m.pi??m.profileImageUrl;
- const url=validImageUrl(rawPhoto);let photo=null;
- if(url){const u=new URL(url);photo=u.origin+u.pathname;}else if(rawPhoto==='')photo='';
- return {id:user,name:clean(m.nickName??m.nickname??m.name??m.profileName),profileType,profileId,photo};
+ return {id:user,name:clean(m.nickName??m.nickname??m.name??m.profileName),profileType,profileId};
 }
-function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,listRooms,fetchRoster,send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=5000,roomIntervalMs=15000}={}){
+function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,listRooms,fetchRoster,lookupLinks=async()=>new Map(),send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=5000,roomIntervalMs=15000}={}){
  const file=dir?path.join(dir,'profile-watch-settings.json'):null,settings=new Map(),baseline=new Map(),due=new Map(),versions=new Map();
  let busy=false,timer=null,joined=null,roomsAt=0,cursor=0,generation=0;
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data))if(id(r)&&(s?.nick===true||s?.profile===true))settings.set(r,{nick:s.nick===true,profile:s.profile===true});}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -63,27 +60,36 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
     const latest=new Map();
     for(const item of raw){const m=readMember(item);if(m&&m.id!==id(botId()))latest.set(m.id,m);}
     if(!latest.size){baseline.delete(room);return;}
-    const prev=baseline.get(room),s=get(room),notices=[];
+    const prev=baseline.get(room),s=get(room),notices=[],profileChanges=[];
     if(prev)for(const [u,m] of latest){
      const old=prev.get(u);if(!old)continue;
      const name=m.name||old.name||'이름 확인 불가';
      if(s.nick&&old.name&&m.name&&old.name!==m.name)notices.push({title:'닉네임 변경',body:old.name+' → '+m.name});
      const types=old.profileType!==null&&m.profileType!==null&&old.profileType!==m.profileType;
      const links=old.profileId!==null&&m.profileId!==null&&old.profileId!==m.profileId;
-     const photos=old.photo!==null&&m.photo!==null&&old.photo!==m.photo;
-     if(s.profile&&(types||links||photos)){
-      const labels=[];if(types)labels.push('프로필 유형');if(links)labels.push('오픈프로필');if(photos)labels.push('프로필 사진');
-      notices.push({title:'프로필 변경',body:name+'님 · '+labels.join(', ')+' 변경'});
-     }
+     if(s.profile&&(types||links))profileChanges.push({old:{...old},current:{...m,name},types,links});
      // Missing fields are not evidence of a change.
      if(!m.name)m.name=old.name;
-     for(const key of ['profileType','profileId','photo'])if(m[key]===null)m[key]=old[key];
+     for(const key of ['profileType','profileId'])if(m[key]===null)m[key]=old[key];
     }
     baseline.set(room,latest);
+    // Resolve only profile IDs involved in changes; never use the current user's
+    // link as a substitute for their old profile's URL.
+    const selected=profileChanges.slice(0,20),ids=[...new Set(selected.flatMap(c=>[c.old.profileId,c.current.profileId]).filter(Boolean))];
+    let urls=new Map();
+    if(ids.length&&enabled())try{urls=await lookupLinks(ids);}catch{}
+    const link=m=>m.profileId===null?'확인 불가':m.profileId===''?'없음':validLink(urls?.get?.(m.profileId))||'확인 불가';
+    const type=m=>m.profileId?'오픈프로필':[1,2,4].includes(m.profileType)?'일반/기본 프로필 (유형 '+m.profileType+')':m.profileType===null?'확인 불가':'프로필 유형 '+m.profileType;
+    for(const c of selected){
+     const old=c.old,current=c.current;
+     const title=c.links?'오픈프로필 변경':'프로필 유형 변경';
+     notices.push({title,body:'전닉 : '+(old.name||'확인 불가')+'\n이전 오픈프로필 : '+link(old)+'\n\n현닉 : '+(current.name||'확인 불가')+'\n현재 오픈프로필 : '+link(current)+(c.types?'\n프로필 유형 : '+type(old)+' → '+type(current):'')});
+    }
     if(!enabled()||!notices.length)return;
     const lines=notices.slice(0,20).map(n=>'['+n.title+']\n'+n.body);
-    const body=lines.join('\n\n')+(notices.length>20?'\n\n외 '+(notices.length-20)+'건':'');
-    await send(room,notices.length===1?format('PROFILE',body):fold(format('PROFILE','프로필 변경 알림 · '+notices.length+'건'),body));
+    const omitted=Math.max(0,notices.length-20)+Math.max(0,profileChanges.length-selected.length);
+    const body=lines.join('\n\n')+(omitted?'\n\n외 '+omitted+'건':'');
+    await send(room,body);
    }catch(e){due.set(room,now()+60000);logger.error('[DUKE] profile watch room failed',e?.name||'Error');}
   }catch(e){joined=null;logger.error('[DUKE] profile watch failed',e?.name||'Error');}finally{busy=false;}
  }
