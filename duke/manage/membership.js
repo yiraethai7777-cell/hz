@@ -41,7 +41,7 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
    const key=logId?roomId+':'+kind+':'+logId+':'+uid:null;
    if(key&&seen.has(key))continue;
    if(key){seen.set(key,at);while(seen.size>2048)seen.delete(seen.keys().next().value);}
-   const profile=await resolveProfile(lookupProfile,roomId,uid,profileTimeoutMs,kind,event),profileLink=profile.url;
+   const profile=kind==='join'||!clean(member?.name,'')?await resolveProfile(lookupProfile,roomId,uid,profileTimeoutMs,kind,event):profileResult(null),profileLink=profile.url;
    const name=clean(member?.name||profile.name,'알 수 없는 사용자');
    const needsOpen=kind==='join'&&[1,2,4].includes(profile.type)&&!profileLink;
    const summary='@'+name+'님이 '+label+'하셨습니다.'+(needsOpen?'\n오픈프로필로 변경해 주세요.':'');
@@ -49,7 +49,7 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
    if(!isEnabled(roomId)||!get(roomId)[kind])continue;
    if(kind==='join'&&profileLink)onProfileObserved(roomId,uid,name,profileLink);
    const profileType=[1,2,4].includes(profile.type)?'일반/기본 프로필':profileLink?'오픈프로필':'확인 불가';
-   const detail='[ '+label+' 기록 ]\n\n'+name+'\n'+joinDate.format(at)+' KST\n\n아이디 : '+uid+'\n프로필 : '+profileType+'\n오픈프로필 : '+(profileLink?'\n'+profileLink:[1,2,4].includes(profile.type)?'없음':'확인 불가')+'\n\n채팅방 : '+clean(event.room?.name,'현재 채팅방')+(kind==='leave'?'\n\n관리자 · 답장 k로 강퇴':'');
+   const detail=kind==='leave'?'아이디 : '+uid+'\n퇴장 시각 : '+joinDate.format(at)+' KST\n\n관리자 · 답장 k로 강퇴':'[ '+label+' 기록 ]\n\n'+name+'\n'+joinDate.format(at)+' KST\n\n아이디 : '+uid+'\n프로필 : '+profileType+'\n오픈프로필 : '+(profileLink?'\n'+profileLink:[1,2,4].includes(profile.type)?'없음':'확인 불가')+'\n\n채팅방 : '+clean(event.room?.name,'현재 채팅방');
    try{let result;try{result=await send(roomId,fold(summary,detail),options);}catch(err){if(kind!=='leave')throw err;result=await send(roomId,fold(name+'님이 퇴장하셨습니다.',detail));}sent++;if(kind==='leave')onLeaveNotice({roomId,userId:uid,name,result});}catch(e){if(key)seen.delete(key);logger.error('[DUKE] membership notice failed',kind,e?.name||'Error');}
   }
   return sent;

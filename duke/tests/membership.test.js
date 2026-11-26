@@ -26,11 +26,11 @@ test('membership opt-in, room isolation, owner authorization, fold, dedup and pe
 });
 test('ignore non-open rooms, unknown rooms, invalid IDs and self',async()=>{const m=createMembership({botId:()=> '10',allowedRooms:new Set(['1']),send:async()=>{throw Error('unexpected')}});const core=createCore({send:async()=>{}});m.register(core);await core.handle({text:'-입장알림 on',roomId:'1',userId:'10',msg:{room:{isOpenChat:true}}});assert.equal(await m.handle('join',{...event(),room:{id:'1',isOpenChat:false}}),0);assert.equal(await m.handle('join',{...event(),members:[{id:'10',name:'봇'},{id:9007199254740992}]}),0);});
 
-test('join detail includes exact user ID and verified public profile; leave also looks it up',async()=>{
+test('join retains full profile detail; leave contains only ID, timestamp and reply instruction without profile lookup',async()=>{
  const messages=[],calls=[],send=async(r,t)=>messages.push(t);const m=createMembership({botId:()=> '10',send,lookupProfile:async(r,u)=>{calls.push([r,u]);return 'https://open.kakao.com/o/sExample';}});const core=createCore({send});m.register(core);
  await core.handle({text:'-입장알림 on',roomId:'1',userId:'10',msg:{room:{isOpenChat:true}}});await core.handle({text:'-퇴장알림 on',roomId:'1',userId:'10',msg:{room:{isOpenChat:true}}});
  const e={...event(),members:[{id:'18500479612113742',name:'회원'}]};await m.handle('join',e);const [summary,detail]=messages.at(-1).split('\u200b'.repeat(1200));assert.ok(!summary.includes('18500479612113742'));assert.match(detail,/아이디 : 18500479612113742/);assert.match(detail,/\[ 입장 기록 \]/);assert.match(detail,/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} KST/);assert.doesNotMatch(detail,/━|닉네임 :/);assert.ok(detail.includes('https://open.kakao.com/o/sExample'));
- await m.handle('leave',e);assert.ok(messages.at(-1).includes('오픈프로필'));assert.ok(messages.at(-1).includes('아이디 : 18500479612113742'));assert.deepEqual(calls,[['1','18500479612113742'],['1','18500479612113742']]);
+ await m.handle('leave',e);const [leaveSummary,leaveDetail]=messages.at(-1).split('\u200b'.repeat(1200));assert.equal(leaveSummary,'@회원님이 퇴장하셨습니다.');assert.match(leaveDetail,/^\n\n아이디 : 18500479612113742\n퇴장 시각 : \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} KST\n\n관리자 · 답장 k로 강퇴$/);assert.deepEqual(calls,[['1','18500479612113742']]);
 });
 test('join survives missing, invalid or failed profile lookup and timeout',async()=>{
  for(const lookupProfile of [async()=>'',async()=> 'https://example.com/o/sFake',async()=>{throw Error('no profile')},()=>new Promise(()=>{})]){
@@ -66,4 +66,13 @@ test('membership timeout preserves already confirmed profile type and name, no s
  await m.handle('join',{...event(),members:[{id:'20',name:''}]});
  assert.match(out.at(-1),/@확인된 회원님이 입장하셨습니다.\n오픈프로필로 변경해 주세요./);
  assert.match(out.at(-1),/프로필 : 일반\/기본 프로필/);assert.match(out.at(-1),/오픈프로필 : 없음/);
+});
+
+test('leave notice with known name never waits on profile lookup; missing name still has fallback',async()=>{
+ const out=[],notices=[];let calls=0;
+ const send=async(r,t,o)=>{out.push({t,o});return {body:{logId:'1234'}};};
+ const m=createMembership({botId:()=> '10',send,lookupProfile:async()=>{calls++;return {name:'캐시 이름',url:'https://open.kakao.com/o/Example'};},onLeaveNotice:n=>notices.push(n)});
+ const core=createCore({send});m.register(core);await core.handle({text:'-퇴장알림 on',roomId:'1',userId:'10',msg:{room:{isOpenChat:true}}});
+ await m.handle('leave',event());assert.equal(calls,0);assert.equal(notices[0].userId,'20');assert.doesNotMatch(out.at(-1).t,/오픈프로필|채팅방 :|퇴장 기록/);
+ await m.handle('leave',{...event(),message:{logId:'101'},members:[{id:'30',name:''}]});assert.equal(calls,1);assert.match(out.at(-1).t,/@캐시 이름님이 퇴장하셨습니다/);assert.doesNotMatch(out.at(-1).t,/open.kakao.com/);assert.equal(notices.at(-1).userId,'30');
 });
