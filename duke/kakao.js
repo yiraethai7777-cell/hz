@@ -13,6 +13,7 @@ const {createActivity}=require('./manage/activity');
 const {createChatRanking}=require('./utility/chat-ranking');
 const {createProfileWatch}=require('./manage/profile-watch');
 const {createDeleteWatch}=require('./manage/delete-watch');
+const {createGameAccounts}=require('./game/accounts');
 function id(value){if(typeof value==='number'&&!Number.isSafeInteger(value))return null;const s=String(value??'');return /^[1-9]\d*$/.test(s)?s:null;}
 function normalize(msg,receivedAt=performance.now()){const raw=msg?.raw?.chatLog??msg?.raw??{};return {roomId:id(raw.chatRoomId??raw.chatId??msg?.raw?.chatId)??id(msg?.room?.id??msg?.chatId),userId:id(raw.userId??raw.authorId??raw.senderId??msg?.sender?.id??msg?.senderId),text:raw.message??raw.msg??raw.text??msg?.message?.text??msg?.text,receivedAt:Number.isFinite(msg?.receivedAt)?msg.receivedAt:receivedAt};}
 async function startKakao({authPath,dataDir,website,roomList,database}){
@@ -38,8 +39,9 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   fetchRoster:async r=>{const res=await client._carriage.chatOnRoom({chatId:r,token:0,opt:0});if(!res||res.status!=null&&Number(res.status)!==0||res.body?.status!=null&&Number(res.body.status)!==0)throw Error('roster unavailable');const list=res.body?.m??res.body?.members??res.body?.memberList??res.body?.memList;if(!Array.isArray(list)||!list.length)throw Error('invalid roster');client._cacheMembers(r,list);return list;}
  });
  process.once('exit',()=>watcher.stop());
- const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir,onPersist}),website,getStatus:()=>({...(database?.status()??{database:'미연결'}),kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 · 경고 · 프로필 감지 지원',manageRooms:membership.activeCount()}),send});
+ const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir,onPersist}),website,getStatus:()=>({...(database?.status()??{database:'미연결'}),kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 · 경고 · 프로필 감지 지원',manageRooms:membership.activeCount(),game:'게임 가입 지원'}),send});
  createChatRanking({list:activity.list,getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''}).register(core);
+ createGameAccounts({dir:dataDir,onPersist,botId:()=>id(client.userId)}).register(core);
  deletion.register(core);
  watcher.register(core);
  membership.register(core);
@@ -71,7 +73,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  client.on('error',()=>{ready=false;watcher.reset();console.error('[DUKE] connection error');});
  client.on('disconnect',()=>{ready=false;watcher.reset();});
  client.onReady(()=>{ready=true;watcher.start();console.log('[DUKE] ready');});
- client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(ready){activity.chat(msg,e);if(deletion.observe(msg,e)===true)return;}if(ready&&/^l$/i.test(String(e.text??'').trim())){void deletion.handle(msg,e).catch(err=>console.error('[DUKE] delete view failed',err?.name||'Error'));return;}if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|정보|채팅순위|채팅순위전체|내채팅|닉변감지|프로필감지|삭제감지|수정감지|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
+ client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(ready){activity.chat(msg,e);if(deletion.observe(msg,e)===true)return;}if(ready&&/^l$/i.test(String(e.text??'').trim())){void deletion.handle(msg,e).catch(err=>console.error('[DUKE] delete view failed',err?.name||'Error'));return;}if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|정보|채팅순위|채팅순위전체|내채팅|닉변감지|프로필감지|삭제감지|수정감지|게임가입|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
  await client.connect();return {client,core};
 }
 module.exports={startKakao,normalize,id};
