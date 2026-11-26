@@ -12,7 +12,6 @@ function createGameAccounts({dir,botId=()=>'',now=Date.now,onPersist=()=>{}}={})
  function register(core){core.register({name:'게임가입',section:'GAME',description:'게임 계정 생성',execute:e=>{
   const r=id(e.roomId),u=id(e.userId),name=clean(e.msg?.sender?.name);
   if(!r||!u||e.msg?.room?.isOpenChat!==true)return format('GAME','오픈채팅방에서만 가입할 수 있습니다.');
-  if(u===id(botId()))return format('GAME','봇 계정은 게임에 가입할 수 없습니다.');
   if(e.args.length)return format('GAME','사용법 : -게임가입');
   const data=read(r);
   if(Object.hasOwn(data.users,u))return format('GAME',name+'님은 이미 게임에 가입하셨습니다.');
