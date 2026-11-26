@@ -18,7 +18,7 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
  function register(core){
   for(const [name,kind,label] of [['입장알림','join','입장'],['퇴장알림','leave','퇴장']]){
    core.register({name,section:'OWNER',description:label+' 알림 설정 (on/off)',execute:e=>{
-    if(!authorized(e))return format('ADMIN','방장과 봇 계정만 설정할 수 있습니다.');
+    if(!authorized(e))return format('ADMIN','방장, 부방장 및 봇 계정만 설정할 수 있습니다.');
     const value=e.args[0]?.toLowerCase();
     if(e.args.length!==1||!['on','off'].includes(value))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+onoff(get(e.roomId)[kind]));
     set(e.roomId,kind,value==='on');audit?.record({roomId:e.roomId,actorId:e.userId,actorName:e.msg?.sender?.name,targetName:'현재 채팅방',command:'-'+name+' '+value,result:label+' 알림 '+onoff(get(e.roomId)[kind])});return format('ADMIN',label+' 알림 : '+onoff(get(e.roomId)[kind]));

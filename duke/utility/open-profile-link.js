@@ -1,13 +1,15 @@
 'use strict';
+const {canConfigure}=require('../manage/owner-permission');
 const {resolveTarget,mentions,reference}=require('../manage/targets');
 function validLink(value){
  if(typeof value!=='string'||/[\r\n]/.test(value))return '';
  try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='open.kakao.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/^\/o\/[A-Za-z0-9_-]+\/?$/.test(u.pathname)?u.href:'';}catch{return '';}
 }
-function createOpenProfileLink({lookup,fetchMessage,noticeTarget=()=>null,logger=console,now=Date.now}={}){
+function createOpenProfileLink({botId=()=>'',lookup,fetchMessage,noticeTarget=()=>null,logger=console,now=Date.now}={}){
  const active=new Set(),last=new Map();
  async function execute(e){
   if(e.msg?.room?.isOpenChat!==true)return '오픈채팅방에서만 사용할 수 있습니다.';
+  if(!canConfigure(e,botId))return '봇 계정, 방장, 부방장만 사용할 수 있습니다.';
   const key=e.roomId+':'+e.userId,at=now();
   if(active.has(key)||active.size>=4)return '오픈프로필 조회 중입니다. 잠시 후 다시 시도해 주세요.';
   if(last.has(key)&&at-last.get(key)<3000)return '옾링 명령어는 3초 후 다시 사용해 주세요.';
@@ -25,6 +27,6 @@ function createOpenProfileLink({lookup,fetchMessage,noticeTarget=()=>null,logger
   }catch(err){logger.error('[DUKE] open profile lookup failed',err?.name||'Error');return '오픈프로필 링크를 조회하지 못했습니다.';}
   finally{active.delete(key);}
  }
- return {register(core){core.register({name:'옾링',description:'현재 오픈프로필 링크 조회 (본인 / 멘션 / 아이디 / 답장)',execute});}};
+ return {register(core){core.register({name:'옾링',section:'OWNER',description:'현재 오픈프로필 링크 조회 (본인 / 멘션 / 아이디 / 답장)',execute});}};
 }
 module.exports={createOpenProfileLink,validLink};

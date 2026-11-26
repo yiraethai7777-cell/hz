@@ -1,4 +1,5 @@
 'use strict';
+const {canConfigure}=require('../manage/owner-permission');
 const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
 const {resolveTarget,mentions,reference}=require('../manage/targets');
 const {format}=require('../core');
@@ -29,10 +30,11 @@ async function downloadImage(url,{fetcher=fetch}={}){
  }
  throw Error('too many redirects');
 }
-function createProfilePhoto({lookup,fetchMessage,noticeTarget=()=>null,sendPhoto,download=downloadImage,now=Date.now,logger=console}={}){
+function createProfilePhoto({botId=()=>'',lookup,fetchMessage,noticeTarget=()=>null,sendPhoto,download=downloadImage,now=Date.now,logger=console}={}){
  let active=0;const last=new Map();
  async function execute(e){
   if(e.msg?.room?.isOpenChat!==true)return format('SYSTEM','오픈채팅방에서만 사용할 수 있습니다.');
+  if(!canConfigure(e,botId))return format('ADMIN','봇 계정, 방장, 부방장만 사용할 수 있습니다.');
   const tags=mentions(e.msg),ref=reference(e.msg);
   const target=!e.args.length&&!tags.length&&!ref?{id:e.userId,name:e.msg?.sender?.name}:await resolveTarget({msg:e.msg,args:e.args,roomId:e.roomId,noticeTarget:l=>noticeTarget(e.roomId,l),fetchMessage});
   if(!target?.id)return format('SYSTEM','사용법 : -프사 / -프사 @대상 / -프사 아이디 / 답장');
@@ -58,6 +60,6 @@ function createProfilePhoto({lookup,fetchMessage,noticeTarget=()=>null,sendPhoto
   }catch(err){logger.error('[DUKE] profile photo failed',err?.name||'Error');return '프로필 사진을 전송하지 못했습니다.';}
   finally{if(dir)await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});active--;}
  }
- return {register(core){core.register({name:'프사',description:'프로필 사진 전송 및 원본 링크 (본인 / 멘션 / 아이디 / 답장)',execute});}};
+ return {register(core){core.register({name:'프사',section:'OWNER',description:'프로필 사진 전송 및 원본 링크 (본인 / 멘션 / 아이디 / 답장)',execute});}};
 }
 module.exports={createProfilePhoto,validImageUrl,imageType,downloadImage};

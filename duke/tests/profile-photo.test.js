@@ -5,7 +5,7 @@ test('profile photo: actual file first, then original link; target, temp cleanup
  const actions=[];let at=10000,uploadedFile;
  const url='https://k.kakaocdn.net/dn/example/profile.jpg',data=Buffer.from([255,216,255,224,1,2,3,4]);
  const core=createCore({send:async(r,t)=>actions.push(['text',t])});
- createProfilePhoto({now:()=>at,lookup:async(r,u)=>{actions.push(['lookup',r,u]);return {name:'회원',imageUrl:url};},download:async()=>({data}),sendPhoto:async(r,f,opts)=>{uploadedFile=f;assert.deepEqual(await fs.readFile(f),data);assert.equal(opts.mime,'image/jpeg');actions.push(['photo',r]);return {complete:{status:0}};}}).register(core);
+ createProfilePhoto({botId:()=> '2000',now:()=>at,lookup:async(r,u)=>{actions.push(['lookup',r,u]);return {name:'회원',imageUrl:url};},download:async()=>({data}),sendPhoto:async(r,f,opts)=>{uploadedFile=f;assert.deepEqual(await fs.readFile(f),data);assert.equal(opts.mime,'image/jpeg');actions.push(['photo',r]);return {complete:{status:0}};}}).register(core);
  const run=(text,extra={})=>core.handle({text,userId:'2000',roomId:'1000',msg:{room:{isOpenChat:true},...extra}});
  await run('-프사');assert.deepEqual(actions,[['lookup','1000','2000'],['photo','1000'],['text','회원님의 프사 링크\n'+url]]);
  await assert.rejects(fs.stat(uploadedFile),{code:'ENOENT'});

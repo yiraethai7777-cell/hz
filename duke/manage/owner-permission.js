@@ -7,6 +7,6 @@ function canConfigure(e,botId){
  if(actor===bot)return true;
  const sender=id(e.msg.sender?.id);
  if(sender&&sender!==actor)return false;
- return Number(e.msg.sender?.type)===1;
+ return [1,4].includes(Number(e.msg.sender?.type));
 }
 module.exports={canConfigure};

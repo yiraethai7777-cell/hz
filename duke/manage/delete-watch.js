@@ -40,7 +40,7 @@ function createDeleteWatch({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>'
   if(!on){for(const [k,n] of notices)if(k.startsWith(r+':')&&(n.kind||'delete')===kind)notices.delete(k);if(!active(r)&&!editing(r))for(const m of [cache,seen])for(const k of m.keys())if(k.startsWith(r+':'))m.delete(k);}
  }
  function register(core){for(const [name,kind,label,isOn] of [['삭제감지','delete','삭제',active],['수정감지','edit','수정',editing]])core.register({name,section:'OWNER',description:label+' 감지 설정 (on/off), 관리자 답장 l 조회',execute:e=>{
-  if(!canConfigure(e,botId))return format('ADMIN','방장과 봇 계정만 오픈채팅방에서 설정할 수 있습니다.');
+  if(!canConfigure(e,botId))return format('ADMIN','방장, 부방장 및 봇 계정만 오픈채팅방에서 설정할 수 있습니다.');
   const v=e.args[0]?.toLowerCase();if(e.args.length!==1||!['on','off'].includes(v))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+(isOn(e.roomId)?'ON':'OFF'));
   set(e.roomId,v==='on',kind);return format('ADMIN',label+' 감지 : '+v.toUpperCase()+(v==='on'?'\n최근 10분간 수신 메시지를 메모리에 보관합니다. 관리자는 '+label+' 알림에 답장 l로 조회할 수 있습니다.':''));
  }});}
