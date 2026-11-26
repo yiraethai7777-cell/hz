@@ -9,7 +9,7 @@ function createRoomModes({dir,botId=()=>'',onPersist=()=>{},onManage=()=>{},onGa
  const manage=r=>id(r)&&get(r).manage,game=r=>id(r)&&get(r).game;
  function save(r,kind,on){const next=new Map(states);next.set(r,{...get(r),[kind]:on});if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries(next)),{mode:0o600});fs.renameSync(tmp,file);onPersist('room-modes.json');}states.set(r,next.get(r));}
  function allow(e,cmd){
-  if(cmd.name==='관리'||cmd.name==='게임'||cmd.section==='BOT')return true;
+  if(cmd.name==='관리'||cmd.name==='게임'||cmd.name==='게임쿨타임'||cmd.section==='BOT')return true;
   if(cmd.section==='GAME')return game(e.roomId);
   if(cmd.section==='MANAGEMENT'||cmd.section==='OWNER')return manage(e.roomId);
   return true;

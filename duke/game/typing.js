@@ -1,5 +1,6 @@
 'use strict';
 const {randomInt}=require('node:crypto'),{performance}=require('node:perf_hooks'),{format}=require('../core'),{sentences,LEVELS}=require('./typing-bank');
+const {createCooldownTracker}=require('./cooldowns');
 const TIMEOUT=120000,MAX_ACTIVE=128,NBSP='\u00a0';
 // Korean two-set keyboard estimation: each jamo is one key, compound vowels
 // and final consonant clusters require two; shifted double consonants one.
@@ -13,9 +14,9 @@ const protect=s=>s.replace(/ /g,NBSP);
 // Only the final full stop is optional. Do not fold special spaces or internal punctuation.
 const withoutPeriod=s=>s.endsWith('.')?s.slice(0,-1):s;
 const BANK=Object.freeze(Object.fromEntries(LEVELS.map(level=>[level,sentences[level].map(text=>Object.freeze({text,short:withoutPeriod(text),shown:protect(text),keys:countKeys(text),shortKeys:countKeys(withoutPeriod(text))}))])));
-function createTyping({send,canHandle=()=>true,isEnabled=()=>true,getName=()=>'',clock=()=>performance.now(),pick=randomInt,delay=setTimeout,clear=clearTimeout,logger=console}={}){
+function createTyping({send,canHandle=()=>true,isEnabled=()=>true,getCooldown=()=>0,getName=()=>'',clock=()=>performance.now(),pick=randomInt,delay=setTimeout,clear=clearTimeout,logger=console}={}){
  if(typeof send!=='function')throw Error('typing send required');
- const active=new Map(),last=new Map();
+ const active=new Map(),last=new Map(),cooldowns=createCooldownTracker({clock,duration:getCooldown});
  const eligible=e=>!!(id(e?.roomId)&&id(e?.userId)&&e.msg?.room?.isOpenChat===true&&canHandle(e)&&isEnabled(e.roomId));
  function cancel(r){const s=active.get(r);if(s?.timer)clear(s.timer);active.delete(r);}
  function reset(){for(const r of active.keys())cancel(r);}
@@ -47,13 +48,14 @@ function createTyping({send,canHandle=()=>true,isEnabled=()=>true,getName=()=>''
   if(!logId(e.msg))return '타자게임 요청을 확인할 수 없습니다.';
   if(e.args.length>1||(e.args.length===1&&!LEVELS.includes(e.args[0])))return '사용법 : -타자게임 [쉬움/보통/어려움]';
   if(active.has(r))return '이미 진행 중인 타자게임이 있습니다.';
+  const remaining=cooldowns.remaining(r);if(remaining>0)return '타자게임은 '+Math.ceil(remaining/1000)+'초 후 다시 사용할 수 있습니다.';
   if(active.size>=MAX_ACTIVE)return '진행 중인 게임이 많습니다. 잠시 후 다시 시도해 주세요.';
   const level=e.args[0]||LEVELS[pick(LEVELS.length)],item=choose(r,level),s={level,item,createdAt:clock(),startAt:Infinity,phase:'pending',candidates:[],log:'',timer:null};
   active.set(r,s);
   try{
    const res=await send(r,format('TYPING',item.shown+'\n\n난이도 : '+level+'\n문장을 직접 입력하세요. (끝 마침표 생략 가능)'));
    if(active.get(r)!==s)return null;
-   s.log=sentLog(res);s.startAt=clock();s.phase='open';
+   s.log=sentLog(res);s.startAt=clock();s.phase='open';cooldowns.record(r);
    // Do not score a message received before acknowledged prompt delivery.
    // Very early input can be tried again; avoids zero/negative elapsed times.
    s.candidates=[];

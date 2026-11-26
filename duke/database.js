@@ -8,7 +8,8 @@ const FIXED={
  'delete-watch-settings.json':'duke_delete_watch_settings',
  'edit-watch-settings.json':'duke_edit_watch_settings',
  'bot-power.json':'duke_bot_power',
- 'room-modes.json':'duke_room_modes'
+ 'room-modes.json':'duke_room_modes',
+ 'game-cooldowns.json':'duke_game_cooldowns'
 };
 const TABLES=[...Object.values(FIXED),'duke_management_logs','duke_warnings','duke_activity','duke_game_accounts','duke_quiz_history'];
 function tableFor(key){return Object.hasOwn(FIXED,key)?FIXED[key]:/^management-logs\/[1-9]\d*\.json$/.test(key)?'duke_management_logs':/^warnings\/[1-9]\d*\.json$/.test(key)?'duke_warnings':/^activity\/[1-9]\d*\.json$/.test(key)?'duke_activity':/^game-accounts\/[1-9]\d*\.json$/.test(key)?'duke_game_accounts':/^quiz-history\/[1-9]\d*\.json$/.test(key)?'duke_quiz_history':null;}
