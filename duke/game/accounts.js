@@ -33,7 +33,7 @@ function createGameAccounts({dir,now=Date.now,onPersist=()=>{},getName=()=>'',fe
   const r=e.roomId,u=e.userId,entry=read(r),a=entry.data.users[u];
   if(!a)return error('먼저 -게임가입을 해주세요.');if(!validCoins(a.coins))return error('잔액을 확인할 수 없습니다.');
   const rank=ranks(entry).find(v=>v.id===u)?.rank;
-  return format('WALLET',nameOf(r,u,a,e.msg?.sender?.name)+'님의 지갑\n\n보유 코인 : '+num(a.coins)+' 코인\n재산 순위 : '+rank+'위\n'+LINE);
+  return fold(format('WALLET',nameOf(r,u,a,e.msg?.sender?.name)+'님의 지갑'),LINE+'\n[ 지갑 정보 ]\n\n보유 코인 : '+num(a.coins)+' 코인\n재산 순위 : '+rank+'위\n'+LINE);
  }
  function ranking(e){
   if(e.args.length)return error('사용법 : -코인순위');
@@ -41,7 +41,7 @@ function createGameAccounts({dir,now=Date.now,onPersist=()=>{},getName=()=>'',fe
   if(!rows.length)return format('RANKING','아직 게임 가입자가 없습니다.');
   const top=rows.slice(0,10),max=top[0].coins;
   const graph=v=>{const n=max?Math.min(10,Math.max(v.coins?1:0,Math.round(v.coins/max*10))):0;return '▰'.repeat(n)+'▱'.repeat(10-n);};
-  return fold(format('RANKING','코인 순위 TOP 10\n가입 인원 : '+num(rows.length)+'명'),LINE+'\n[ TOP 10 ]\n\n'+top.map(v=>v.rank+'위 | '+nameOf(r,v.id,v)+' : '+num(v.coins)+' 코인\n'+graph(v)).join('\n\n')+'\n'+LINE);
+  return fold(format('RANKING','코인 순위 TOP 10'),LINE+'\n가입 인원 : '+num(rows.length)+'명\n\n[ TOP 10 ]\n\n'+top.map(v=>v.rank+'위 | '+nameOf(r,v.id,v)+' : '+num(v.coins)+' 코인\n'+graph(v)).join('\n\n')+'\n'+LINE);
  }
  async function transfer(e){
   const r=e.roomId,u=e.userId;
@@ -75,7 +75,7 @@ function createGameAccounts({dir,now=Date.now,onPersist=()=>{},getName=()=>'',fe
   const receipts={...receipt,[log]:{from:u,to:target,amount,at:now()}};
   const keys=Object.keys(receipts);for(const key of keys.slice(0,Math.max(0,keys.length-MAX_RECEIPTS)))delete receipts[key];
   save(r,{...data,users:{...data.users,[u]:{...from,coins:remaining,name:fromName},[target]:{...to,coins:to.coins+amount,name:toName}},transfers:receipts});
-  return format('TRANSFER','송금이 완료되었습니다.\n\n보낸 사람 : '+fromName+'\n받는 사람 : '+toName+'\n송금 금액 : '+num(amount)+' 코인\n남은 잔액 : '+num(remaining)+' 코인\n'+LINE);
+  return fold(format('TRANSFER','송금이 완료되었습니다.'),LINE+'\n[ 송금 정보 ]\n\n보낸 사람 : '+fromName+'\n받는 사람 : '+toName+'\n송금 금액 : '+num(amount)+' 코인\n남은 잔액 : '+num(remaining)+' 코인\n'+LINE);
  }
  function register(core){for(const [name,description,fn] of [['게임가입','게임 계정 생성',join],['지갑','보유 코인 및 재산 순위',wallet],['송금','코인 송금 (멘션 / 답장)',transfer],['코인순위','현재 방 코인 순위 TOP 10',ranking]])core.register({name,section:'GAME',description,execute:e=>scope(e)?fn(e):error('오픈채팅방에서만 사용할 수 있습니다.')});}
  return {register,get};

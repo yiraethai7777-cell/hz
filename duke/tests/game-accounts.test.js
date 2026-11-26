@@ -29,15 +29,15 @@ test('wallet, room ranking and atomic transfer with replay protection, validatio
   let log=8000;
   const cmd=(text,u='3000',extra={},r='1000')=>core.handle({roomId:r,userId:u,text,msg:{room:{id:r,isOpenChat:true},sender:{name:opts.getName(r,u)},message:{logId:String(++log),type:1},...extra}});
   await cmd('-지갑');assert.match(out.at(-1),/-게임가입/);
-  await cmd('-게임가입');await cmd('-게임가입','4000');await cmd('-지갑');assert.match(out.at(-1),/10,000 코인/);assert.match(out.at(-1),/재산 순위 : 1위/);
+  await cmd('-게임가입');await cmd('-게임가입','4000');await cmd('-지갑');assert.match(out.at(-1),/10,000 코인/);assert.match(out.at(-1),/재산 순위 : 1위/);assert.match(out.at(-1),/\u200b{1200}/);assert.doesNotMatch(out.at(-1).split('\u200b'.repeat(1200))[0],/보유 코인|재산 순위/);
   const mention={mentions:[{userId:'4000',name:'받는사람'}]},request={...mention,message:{logId:'12345678901234567',type:1}};
-  await cmd('-송금 @받는사람 5000','3000',request);assert.match(out.at(-1),/남은 잔액 : 5,000 코인/);
+  await cmd('-송금 @받는사람 5000','3000',request);assert.match(out.at(-1),/남은 잔액 : 5,000 코인/);assert.match(out.at(-1),/\u200b{1200}/);assert.doesNotMatch(out.at(-1).split('\u200b'.repeat(1200))[0],/보낸 사람|받는 사람|송금 금액|남은 잔액/);
   assert.equal(g.get('1000','3000').coins,5000);assert.equal(g.get('1000','4000').coins,15000);
   await cmd('-송금 @받는사람 5000','3000',request);assert.equal(g.get('1000','3000').coins,5000);
   for(const value of ['0','-1','1.5','1e3','9007199254740992','6000'])await cmd('-송금 @받는사람 '+value,'3000',mention);
   await cmd('-송금 @가짜 100','3000');await cmd('-송금 @본인 100','3000',{mentions:[{userId:'3000'}]});await cmd('-송금 @미가입 100','3000',{mentions:[{userId:'5000'}]});
   assert.equal(g.get('1000','3000').coins,5000);
-  await cmd('-코인순위');assert.match(out.at(-1),/1위 \| 받는사람 : 15,000 코인/);assert.match(out.at(-1),/2위 \| 보낸사람 : 5,000 코인/);assert.match(out.at(-1),/\u200b{1200}/);
+  await cmd('-코인순위');assert.match(out.at(-1),/1위 \| 받는사람 : 15,000 코인/);assert.match(out.at(-1),/2위 \| 보낸사람 : 5,000 코인/);assert.doesNotMatch(out.at(-1).split('\u200b'.repeat(1200))[0],/가입 인원|15,000|5,000/);assert.match(out.at(-1),/\u200b{1200}/);
   await cmd('-송금 1000','3000',{message:{logId:'87654321',type:26,attachment:{src_userId:'4000',src_logId:'6000'}}});
   assert.equal(g.get('1000','3000').coins,4000);
   await Promise.all([cmd('-송금 @받는사람 3000','3000',mention),cmd('-송금 @받는사람 3000','3000',mention)]);
