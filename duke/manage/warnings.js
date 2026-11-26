@@ -66,6 +66,6 @@ function createWarnings({dir,onPersist=()=>{},audit,canManage,noticeTarget=()=>n
   return fold(format('WARNING',t.name+'님의 경고 내역\n누적 경고 : '+active.length+'회\n삭제된 경고 : '+(rows.length-active.length)+'회'),LINE+'\n[ 경고 상세 · '+page+'/'+pages+' 페이지 ]\n\n'+(details||'등록된 경고가 없습니다.')+'\n\n'+LINE+'\n아이디 : '+t.id+'\n시간 기준 : 한국 시간'+(pages>1?'\n다른 페이지 : -경고내역 '+t.id+' [페이지]':''));
  }
  function register(core){for(const [cmd,desc] of [['경고','경고 부여 (사유 생략 가능)'],['경고삭제','최근 1건 / 번호 / all 삭제'],['경고내역','삭제된 경고 포함 내역 확인']])core.register({name:cmd,section:'MANAGEMENT',description:desc+' (멘션 / 아이디 / 답장)',execute:e=>execute(e,cmd)});}
- return {register};
+ return {register,getHistory:(r,u)=>{const rows=load(r).users[u]?.rows||[];return rows.map(row=>({...row}));}};
 }
 module.exports={createWarnings};

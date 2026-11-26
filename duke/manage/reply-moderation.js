@@ -102,6 +102,6 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
    return true;
   }catch(err){if(!logged)record(r,actor,msg,n.userId,n.name,cmd==='k'?'k (퇴장자 강퇴)':'u (벤 해제)','요청 실패 또는 결과 미확인');logger.error('[DUKE] moderation action failed',cmd,err?.name||'Error');await send(r,format('ADMIN',n.used?'처리 완료 후 알림 기록에 문제가 발생했습니다.':(cmd==='k'?'강퇴':'벤 해제')+' 요청 실패 또는 결과 미확인'));return true;}finally{locked.delete(targetKey);}
  }
- return {register,handle,canManage:e=>{const r=id(e.roomId),a=id(e.userId),b=id(botId());return !!(r&&a&&b&&e.msg?.room?.isOpenChat===true&&(!allowedRooms||allowedRooms.has(r))&&allowed(e.msg,r,a,b));},noticeTarget:(r,log)=>{const n=state.notices[r+':'+log];return n?.bot===id(botId())&&n.roomId===r?{id:n.userId,name:n.name}:null;},recordLeave:data=>index({...data,kind:'leave'})};
+ return {register,handle,role:(r,u,type)=>{if(u===id(botId()))return '봇 계정';if(Number(type)===1)return '방장';if(Number(type)===4)return '부방장';if((state.admins[r]||[]).includes(u))return '추가 관리자';return type!=null&&Number(type)===2?'일반':'확인 불가';},canManage:e=>{const r=id(e.roomId),a=id(e.userId),b=id(botId());return !!(r&&a&&b&&e.msg?.room?.isOpenChat===true&&(!allowedRooms||allowedRooms.has(r))&&allowed(e.msg,r,a,b));},noticeTarget:(r,log)=>{const n=state.notices[r+':'+log];return n?.bot===id(botId())&&n.roomId===r?{id:n.userId,name:n.name}:null;},recordLeave:data=>index({...data,kind:'leave'})};
 }
 module.exports={createReplyModeration,replyReference};
