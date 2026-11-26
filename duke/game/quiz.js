@@ -1,14 +1,14 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{randomInt}=require('node:crypto'),{performance}=require('node:perf_hooks');
 const {format}=require('../core'),{BANK,CATEGORIES,normalizeAnswer}=require('./quiz-bank');
-const LINE='━━━━━━━━━━━━━━',TIMEOUT=60000,CAP=128;
+const LINE='━━━━━━━━━━━━━━',TIMEOUT=60000,COOLDOWN=30000,HINT_AT=15000,CAP=128;
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 const clean=v=>[...String(v??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('');
 const logId=v=>id(v?.message?.logId??v?.logId??v?.raw?.chatLog?.logId??v?.raw?.logId);
 function sentLog(v){return id(v?.body?.logId??v?.body?.chatLog?.logId??v?.body?.chatlog?.logId??v?.logId??v?.chatLog?.logId);}
 function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({status:'unregistered'}),onPersist=()=>{},canHandle=()=>true,isEnabled=()=>true,now=Date.now,clock=()=>performance.now(),pick=randomInt,delay=setTimeout,clear=clearTimeout,logger=console}={}){
  if(typeof send!=='function')throw Error('quiz send required');
- const folder=dir?path.join(dir,'quiz-history'):null,history=new Map(),active=new Map(),timing=new Map();
+ const folder=dir?path.join(dir,'quiz-history'):null,history=new Map(),active=new Map(),timing=new Map(),cooldowns=new Map();
  if(folder)fs.mkdirSync(folder,{recursive:true,mode:0o700});
  function load(r){
   if(history.has(r)){const v=history.get(r);history.delete(r);history.set(r,v);return v;}
@@ -26,7 +26,7 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({statu
   h.used.add(q.id);h.counts[ci]++;return q;
  }
  function eligible(e){return !!(id(e?.roomId)&&id(e?.userId)&&e.msg?.room?.isOpenChat===true&&canHandle(e)&&isEnabled(e.roomId));}
- function cancel(r){const st=active.get(r);if(st?.timer)clear(st.timer);active.delete(r);}
+ function cancel(r){const st=active.get(r);if(st?.timer)clear(st.timer);if(st?.hintTimer)clear(st.hintTimer);active.delete(r);}
  function reset(){for(const r of active.keys())cancel(r);}
  function logTiming(kind,receiveAt,at,ackAt){
   const prev=timing.get(kind)??-Infinity;if(now()-prev<30000)return;timing.set(kind,now());
@@ -64,23 +64,27 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({statu
   if(e.args.length)return '사용법 : -퀴즈';
   if(!logId(e.msg))return '퀴즈 요청을 확인할 수 없습니다.';
   if(active.has(r))return '이미 진행 중인 퀴즈가 있습니다.';
+  const remaining=(cooldowns.get(r)??0)-now();if(remaining>0)return '퀴즈는 '+Math.ceil(remaining/1000)+'초 후 다시 사용할 수 있습니다.';
   if(active.size>=CAP)return '퀴즈가 많이 진행 중입니다. 잠시 후 다시 시도해 주세요.';
   const receiveAt=e.receivedAt??clock(),q=next(r);if(!q)return '이 채팅방의 퀴즈 1,600문제를 모두 출제했습니다. 중복 방지를 위해 출제를 종료합니다.';
-  const st={q,phase:'pending',startedAt:clock(),candidates:[],timer:null,log:'',expiresAt:Infinity,ackAt:Infinity};
+  const st={q,phase:'pending',startedAt:clock(),candidates:[],timer:null,hintTimer:null,log:'',expiresAt:Infinity,ackAt:Infinity};
   active.set(r,st);
   try{
    const result=await send(r,format('QUIZ',q.question+'\n\n분야 : '+q.category+'\n난이도 : '+q.difficulty+'\n'+LINE));
    if(active.get(r)!==st)return null;
    st.log=sentLog(result);st.ackAt=clock();st.phase='open';st.expiresAt=now()+TIMEOUT;
+   const at=now();for(const [room,until] of cooldowns)if(until<=at)cooldowns.delete(room);cooldowns.set(r,at+COOLDOWN);
    logTiming('question',receiveAt,st.startedAt,st.ackAt);
    if(st.log){const candidate=st.candidates.find(x=>BigInt(x.log)>BigInt(st.log));if(candidate&&announce(r,st,candidate.e))return null;}
    st.candidates=[];
+   st.hintTimer=delay(()=>{if(active.get(r)!==st||!isEnabled(r)||now()>=st.expiresAt)return;void Promise.resolve().then(()=>{if(active.get(r)===st&&isEnabled(r)&&now()<st.expiresAt)return send(r,'힌트 : '+q.hint);}).catch(err=>logger.error('[DUKE] quiz hint send failed',err?.name||'Error'));},HINT_AT);
+   st.hintTimer?.unref?.();
    st.timer=delay(()=>{if(active.get(r)!==st)return;cancel(r);if(isEnabled(r))void Promise.resolve().then(()=>send(r,'시간 초과! 정답 : '+q.answers[0])).catch(err=>logger.error('[DUKE] quiz timeout send failed',err?.name||'Error'));},TIMEOUT);
    st.timer?.unref?.();
   }catch(err){if(active.get(r)===st)cancel(r);logger.error('[DUKE] quiz question send failed',err?.name||'Error');}
   return null;
  }
- function register(core){core.register({name:'퀴즈',section:'GAME',description:'랜덤 퀴즈 출제 (정답만 채팅, 60초, 가입자 정답 보상 1,000코인)',execute:start});}
+ function register(core){core.register({name:'퀴즈',section:'GAME',description:'랜덤 퀴즈 출제 (정답만 채팅, 30초 쿨타임, 15초 힌트, 60초 제한, 가입자 정답 보상 1,000코인)',execute:start});}
  return {register,start,answer,has:r=>active.has(r),cancel,reset};
 }
-module.exports={createQuiz,TIMEOUT};
+module.exports={createQuiz,TIMEOUT,COOLDOWN,HINT_AT};
