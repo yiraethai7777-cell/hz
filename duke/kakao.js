@@ -17,6 +17,7 @@ const {createDeleteWatch}=require('./manage/delete-watch');
 const {createGameAccounts}=require('./game/accounts');
 const {createQuiz}=require('./game/quiz');
 const {createTyping}=require('./game/typing');
+const {createAttendance}=require('./utility/attendance');
 const {createGameCooldowns}=require('./game/cooldowns');
 const {createBotPower}=require('./manage/bot-power');
 const {createRoomModes}=require('./manage/room-modes');
@@ -56,6 +57,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  const typing=createTyping({getCooldown:r=>gameCooldowns.get(r,'타자게임')*1000,send,getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',canHandle:e=>power.canHandle(e)&&(!rooms||rooms.has(e.roomId)),isEnabled:gameEnabled});
  const core=createCore({allowedRooms:rooms,canHandle:power.canHandle,canExecute:modes.allow,counter,website,getStatus:()=>({...(database?.status()??{database:'미연결'}),kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 · 경고 · 프로필 감지 지원',manageRooms:modes.count('manage',client.getKnownChatRooms().filter(r=>power.enabled(r.id)&&client._buildRoomPayload(r.id).isOpenChat===true).map(r=>r.id)),gameRooms:modes.count('game',client.getKnownChatRooms().filter(r=>power.enabled(r.id)&&client._buildRoomPayload(r.id).isOpenChat===true).map(r=>r.id)),game:'게임 가입 · 지갑 · 송금 · 코인 순위 · 인벤토리 · 퀴즈 · 타자게임 지원'}),send});
  createChatRanking({list:activity.list,getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''}).register(core);
+ createAttendance({dir:dataDir,onPersist,getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''}).register(core);
  accounts.register(core);
  quiz.register(core);
  typing.register(core);
@@ -127,7 +129,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   if(!ready||!data||typeof data!=='object')return;
   const r=id(roomId),raw=data.chatLog??data;
   if(!r||Number(raw.type??raw.msgType??1)!==1)return;
-  const text=raw.message??raw.msg??raw.text??'',isCommand=typeof text==='string'&&/^-(?:퀴즈|타자게임)(?:\s|$)/u.test(text);
+  const text=raw.message??raw.msg??raw.text??'',isCommand=typeof text==='string'&&(/^-(?:퀴즈|타자게임|출석|ㅊㅅ)(?:\s|$)/u.test(text)||text.trim()==='ㅊㅅ');
   if(!livePush){quizChecked.add(data);if(isCommand)earlyQuiz.add(data);return;}
   const log=id(raw.logId??raw.id??raw.msgId),key=log?r+':'+log:null;
   if(!key){quizChecked.add(data);if(isCommand)earlyQuiz.add(data);return;}
