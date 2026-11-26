@@ -69,15 +69,16 @@ function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=(
    kicked=true;
    if(release){
     const outcome=await releaseWithRetry(r,uid);if(!outcome)throw Error('unban unverified');
+    const completion=name+'님을 내보낸 후 벤 해제 요청을 완료하였습니다.';
     if(outcome==='acknowledged'){
      onAction(r,uid,'kick');record(r,actor,msg,uid,name,'-내풀','강퇴 성공 / 벤 해제 요청 성공 / 목록 미확인');logged=true;
-     const result=await send(r,name+'님을 내보냈습니다.\n벤 해제 요청 완료');
+     const result=await send(r,completion);
      index({roomId:r,userId:uid,name,result,kind:'ban'});return null;
     }
     onAction(r,uid,'release');
     record(r,actor,msg,uid,name,'-내풀','강퇴 후 벤 해제 완료');logged=true;
     for(const [k,n] of Object.entries(state.notices))if(n.roomId===r&&n.userId===uid&&n.kind==='ban')delete state.notices[k];save();
-    return name+'님을 내보낸 후 벤을 해제하였습니다.';
+    return completion;
    }
    onAction(r,uid,'kick');
    record(r,actor,msg,uid,name,'-벤','강퇴 요청 성공');logged=true;
@@ -85,7 +86,8 @@ function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=(
   }catch(err){
    logger.error('[DUKE] direct moderation failed',release?'release':'ban',err?.name||'Error');
    if(!logged)record(r,actor,msg,uid,name,release?'-내풀':'-벤',kicked?'강퇴 성공 / 벤 해제 미확인':'요청 실패 또는 결과 미확인');
-   if(kicked&&release&&!logged){onAction(r,uid,'kick');try{await sendBan(r,uid,name);}catch{}return format('ADMIN','강퇴 요청은 성공했으나 벤 해제를 확인하지 못했습니다. 재입장이 제한될 수 있습니다.');}
+   // Keep actual failures in the server/management logs; no public -내풀 failure notice.
+   if(release){if(kicked&&!logged)onAction(r,uid,'kick');return null;}
    return format('ADMIN',kicked?'강퇴 요청 성공, 완료 알림 전송 실패':'강퇴 요청 실패 또는 결과 미확인');
   }finally{locked.delete(key);}
  }
