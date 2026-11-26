@@ -12,7 +12,7 @@ function readMember(m){
  const profileId=[1,2,4].includes(profileType)?'':rawLink!=null?id(rawLink):null;
  return {id:user,name:clean(m.nickName??m.nickname??m.name??m.profileName),profileType,profileId};
 }
-function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>true,ready=()=>true,listRooms,fetchRoster,lookupLinks=async()=>new Map(),send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=3000,roomIntervalMs=3000}={}){
+function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>true,ready=()=>true,listRooms,fetchRoster,lookupLinks=async()=>new Map(),onProfileObserved=()=>{},send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=3000,roomIntervalMs=3000}={}){
  const file=dir?path.join(dir,'profile-watch-settings.json'):null,settings=new Map(),baseline=new Map(),due=new Map(),versions=new Map();
  let busy=false,timer=null,joined=null,roomsAt=0,generation=0;
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data))if(id(r)&&(s?.nick===true||s?.profile===true))settings.set(r,{nick:s.nick===true,profile:s.profile===true});}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -84,6 +84,7 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>tr
     const type=m=>m.profileId?'오픈프로필':[1,2,4].includes(m.profileType)?'일반/기본 프로필 (유형 '+m.profileType+')':m.profileType===null?'확인 불가':'프로필 유형 '+m.profileType;
     for(const c of selected){
      const old=c.old,current=c.current;
+     if(enabled())onProfileObserved(room,current.id,current.name,[link(old),link(current)]);
      const title=c.links?'오픈프로필 변경':'프로필 유형 변경';
      notices.push({target:current,title,body:(c.renamed?'[닉네임 변경]\n'+old.name+' → '+current.name+'\n\n':'')+ '['+title+']\n'+'전닉 : '+(old.name||'확인 불가')+'\n이전 오픈프로필 : '+link(old)+'\n\n현닉 : '+(current.name||'확인 불가')+'\n현재 오픈프로필 : '+link(current)+(c.types?'\n프로필 유형 : '+type(old)+' → '+type(current):'')});
     }

@@ -5,7 +5,7 @@ function validLink(value){
  if(typeof value!=='string'||/[\r\n]/.test(value))return '';
  try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='open.kakao.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/^\/o\/[A-Za-z0-9_-]+\/?$/.test(u.pathname)?u.href:'';}catch{return '';}
 }
-function createOpenProfileLink({botId=()=>'',lookup,fetchMessage,noticeTarget=()=>null,logger=console,now=Date.now}={}){
+function createOpenProfileLink({botId=()=>'',lookup,fetchMessage,noticeTarget=()=>null,onProfileObserved=()=>{},logger=console,now=Date.now}={}){
  const active=new Set(),last=new Map();
  async function execute(e){
   if(e.msg?.room?.isOpenChat!==true)return '오픈채팅방에서만 사용할 수 있습니다.';
@@ -23,6 +23,7 @@ function createOpenProfileLink({botId=()=>'',lookup,fetchMessage,noticeTarget=()
    const name=[...String(profile.name||t.name||t.id).replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('')||t.id;
    const url=validLink(profile.url);
    if(!url)return name+'님은 현재 확인 가능한 오픈프로필 링크가 없습니다.';
+   onProfileObserved(e.roomId,t.id,name,url);
    return name+'님의 오픈프로필 링크\n'+url;
   }catch(err){logger.error('[DUKE] open profile lookup failed',err?.name||'Error');return '오픈프로필 링크를 조회하지 못했습니다.';}
   finally{active.delete(key);}

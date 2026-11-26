@@ -9,6 +9,7 @@ const {createWarnings}=require('./manage/warnings');
 const {createProfilePhoto}=require('./utility/profile-photo');
 const {createUserId}=require('./utility/user-id');
 const {createOpenProfileLink}=require('./utility/open-profile-link');
+const {createProfileHistory}=require('./utility/profile-history');
 const {createUserInfo}=require('./manage/user-info');
 const {createActivity}=require('./manage/activity');
 const {createChatRanking}=require('./utility/chat-ranking');
@@ -42,8 +43,9 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  const deletion=createDeleteWatch({dir:dataDir,onPersist,allowedRooms:rooms,botId:()=>id(client.userId),canManage:moderation.canManage,isEnabled:manageEnabled,send,fetchCurrent:(r,l)=>client.fetchMessage(r,l),edit:(r,l,t)=>client.editMessage(r,l,t,{type:1,extra:'{}'}),remove:(r,l)=>client.deleteMessage(r,l)});
  process.once('exit',()=>deletion.close());
  const warnings=createWarnings({dir:dataDir,onPersist,audit,canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,botId:()=>id(client.userId),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
- const membership=createMembership({dir:dataDir,audit,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:lookupMembershipProfile});
- const watcher=createProfileWatch({dir:dataDir,onPersist,audit,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),ready:()=>ready&&client.connected!==false,send,
+ const profileHistory=createProfileHistory({dir:dataDir,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l)});
+ const membership=createMembership({onProfileObserved:profileHistory.observe,dir:dataDir,audit,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:lookupMembershipProfile});
+ const watcher=createProfileWatch({onProfileObserved:profileHistory.observe,dir:dataDir,onPersist,audit,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),ready:()=>ready&&client.connected!==false,send,
   listRooms:async()=>{await client.getChatRooms();return client.getKnownChatRooms().filter(r=>client._buildRoomPayload(r.id).isOpenChat===true).map(r=>r.id);},
   lookupLinks:async ids=>{const urls=new Map();for(let i=0;i<ids.length;i+=10){const batch=ids.slice(i,i+10),res=await client._carriage.infoLink(batch);if(res?.status!==0)continue;for(const item of res.body?.ols||[]){const key=id(item.li);if(batch.includes(key)&&typeof item.lu==='string')urls.set(key,item.lu);}}return urls;},
   fetchRoster:async r=>{const res=await client._carriage.chatOnRoom({chatId:r,token:0,opt:0});if(!res||res.status!=null&&Number(res.status)!==0||res.body?.status!=null&&Number(res.body.status)!==0)throw Error('roster unavailable');const list=res.body?.m??res.body?.members??res.body?.memberList??res.body?.memList;if(!Array.isArray(list)||!list.length)throw Error('invalid roster');client._cacheMembers(r,list);return list;}
@@ -114,7 +116,8 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   }catch{}
   return profile;
  };
- createOpenProfileLink({botId:()=>id(client.userId),noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile}).register(core);
+ profileHistory.register(core);
+ createOpenProfileLink({onProfileObserved:profileHistory.observe,botId:()=>id(client.userId),noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile}).register(core);
  createUserId({botId:()=>id(client.userId),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l)}).register(core);
  createUserInfo({canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile,role:moderation.role,getHistory:warnings.getHistory,getActivity:activity.get}).register(core);
  for(const method of ['SYNCREWR','SYNCMODMSG'])client.onPush(method,packet=>{if(ready)void deletion.onRewrite(packet).catch(err=>console.error('[DUKE] rewrite event failed',err?.name||'Error'));});
@@ -144,7 +147,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   if(isCommand){earlyQuiz.add(data);void core.handle(e);return;}
   if(typing.answer(e)||quiz.answer(e))earlyQuiz.add(data);
  });
- client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(!ready||!power.canHandle(e))return;if(power.enabled(e.roomId)){activity.chat(msg,e);if(deletion.observe(msg,e)===true)return;}if(msg?.raw&&earlyQuiz.has(msg.raw))return;e.msg=msg;if(!(msg?.raw&&quizChecked.has(msg.raw))&&(typing.answer(e)||quiz.answer(e)))return;if(ready&&modes.manage(e.roomId)&&/^l$/i.test(String(e.text??'').trim())){void deletion.handle(msg,e).catch(err=>console.error('[DUKE] delete view failed',err?.name||'Error'));return;}if(ready&&modes.manage(e.roomId)&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|id|정보|채팅순위|채팅순위전체|내채팅|닉변감지|프로필감지|삭제감지|수정감지|게임가입|지갑|송금|코인순위|코인지급|코인회수|인벤|퀴즈|타자게임|게임쿨타임|관리|게임|봇켜기|봇끄기|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
+ client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(!ready||!power.canHandle(e))return;if(power.enabled(e.roomId)){activity.chat(msg,e);if(deletion.observe(msg,e)===true)return;}if(msg?.raw&&earlyQuiz.has(msg.raw))return;e.msg=msg;if(!(msg?.raw&&quizChecked.has(msg.raw))&&(typing.answer(e)||quiz.answer(e)))return;if(ready&&modes.manage(e.roomId)&&/^l$/i.test(String(e.text??'').trim())){void deletion.handle(msg,e).catch(err=>console.error('[DUKE] delete view failed',err?.name||'Error'));return;}if(ready&&modes.manage(e.roomId)&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|프로필로그|id|정보|채팅순위|채팅순위전체|내채팅|닉변감지|프로필감지|삭제감지|수정감지|게임가입|지갑|송금|코인순위|코인지급|코인회수|인벤|퀴즈|타자게임|게임쿨타임|관리|게임|봇켜기|봇끄기|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
  await client.connect();return {client,core};
 }
 module.exports={startKakao,normalize,id};

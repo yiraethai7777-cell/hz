@@ -8,7 +8,7 @@ function clean(v,fallback){const s=String(v??'').replace(/[\r\n\t\u200b-\u200f\u
 function validProfileLink(value){if(typeof value!=='string')return '';try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='open.kakao.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/^\/o\/[A-Za-z0-9_-]+\/?$/.test(u.pathname)?u.href:'';}catch{return '';}}
 function profileResult(p){return {url:validProfileLink(typeof p==='string'?p:p?.url),type:p?.profileType!=null?Number(p.profileType):null,name:typeof p?.name==='string'?p.name:''};}
 async function resolveProfile(lookup,roomId,uid,timeoutMs,kind,event){let timer,partial=null;try{const p=await Promise.race([Promise.resolve().then(()=>lookup(roomId,uid,kind,event,p=>{partial=profileResult(p);})),new Promise(resolve=>{timer=setTimeout(()=>resolve(null),timeoutMs);})]);return p==null?(partial??profileResult(null)):profileResult(p);}catch{return partial??profileResult(null);}finally{clearTimeout(timer);}}
-function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>null,send,now=Date.now,logger=console,lookupProfile=async()=>'',profileTimeoutMs=600,onLeaveNotice=()=>{},audit=null,onPersist=()=>{}}={}){
+function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>null,send,now=Date.now,logger=console,lookupProfile=async()=>'',profileTimeoutMs=600,onLeaveNotice=()=>{},onProfileObserved=()=>{},audit=null,onPersist=()=>{}}={}){
  if(typeof send!=='function')throw TypeError('send required');
  const file=dir?path.join(dir,'membership-settings.json'):null,settings=new Map(),seen=new Map();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data)){if(id(r)&&typeof s?.join==='boolean'&&typeof s?.leave==='boolean'&&(s.join||s.leave))settings.set(r,{join:s.join,leave:s.leave});}}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -47,6 +47,7 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
    const summary='@'+name+'님이 '+label+'하셨습니다.'+(needsOpen?'\n오픈프로필로 변경해 주세요.':'');
    const options={mentions:[{userId:uid,at:[1],len:name.length}]};
    if(!isEnabled(roomId)||!get(roomId)[kind])continue;
+   if(kind==='join'&&profileLink)onProfileObserved(roomId,uid,name,profileLink);
    const profileType=[1,2,4].includes(profile.type)?'일반/기본 프로필':profileLink?'오픈프로필':'확인 불가';
    const detail='[ '+label+' 기록 ]\n\n'+name+'\n'+joinDate.format(at)+' KST\n\n아이디 : '+uid+'\n프로필 : '+profileType+'\n오픈프로필 : '+(profileLink?'\n'+profileLink:[1,2,4].includes(profile.type)?'없음':'확인 불가')+'\n\n채팅방 : '+clean(event.room?.name,'현재 채팅방')+(kind==='leave'?'\n\n관리자 · 답장 k로 강퇴':'');
    try{let result;try{result=await send(roomId,fold(summary,detail),options);}catch(err){if(kind!=='leave')throw err;result=await send(roomId,fold(name+'님이 퇴장하셨습니다.',detail));}sent++;if(kind==='leave')onLeaveNotice({roomId,userId:uid,name,result});}catch(e){if(key)seen.delete(key);logger.error('[DUKE] membership notice failed',kind,e?.name||'Error');}
