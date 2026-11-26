@@ -51,11 +51,11 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
    if(cmd==='k'?(res?.status!==0||res?.success===false||res?.ok===false):(res?.success!==true||res?.verified!==true))throw Error('API unverified');
    n.used=true;save();
    if(cmd==='k'){
-    const summary=format('ADMIN',n.name+'님을 강퇴하였습니다.');
+    const summary=n.name+'님을 강퇴하였습니다.';
     const body=fold(summary,'━━━━━━━━━━━━━━\n[ 벤 해제 방법 ]\n\n이 메시지에 답장으로 u 입력 시 벤이 해제됩니다.\n(방장·부방장·추가 관리자)\n\n아이디 : '+n.userId+'\n━━━━━━━━━━━━━━');
     const result=await send(r,body);
     if(!index({roomId:r,userId:n.userId,name:n.name,result,kind:'ban'}))logger.error('[DUKE] missing ban notice log ID');
-   }else{await send(r,format('ADMIN',n.name+'님의 벤을 해제하였습니다.'));delete state.notices[r+':'+log];save();}
+   }else{await send(r,n.name+'님의 벤을 해제하였습니다.');delete state.notices[r+':'+log];save();}
    return true;
   }catch(err){logger.error('[DUKE] moderation action failed',cmd,err?.name||'Error');await send(r,format('ADMIN',n.used?'처리 완료 후 알림 기록에 문제가 발생했습니다.':(cmd==='k'?'강퇴':'벤 해제')+' 요청 실패 또는 결과 미확인'));return true;}finally{locked.delete(targetKey);}
  }
