@@ -35,3 +35,14 @@ test('final period is optional, measured keys exclude omitted period, and copied
  assert.ok(out.at(-1).includes('타수 : '+Math.round((q.keys-1)*6).toLocaleString('ko-KR')+'타/분'));assert.match(out.at(-1),/정확도 : 100%/);
  assert.equal(g.has('1000'),false);
 });
+
+test('all three typing difficulties select only matching sentence pool via core commands',async()=>{
+ let at=100;const out=[],send=async(r,t)=>{out.push(t);return {body:{logId:'9000'}};};
+ const g=createTyping({send,clock:()=>at,pick:n=>0,delay:()=>({}),clear:()=>{},logger:{log(){},error(){}}}),core=createCore({send});g.register(core);
+ for(const level of ['쉬움','보통','어려움']){
+  await core.handle(ev('-타자게임 '+level,'8000',at));
+  assert.ok(out.at(-1).includes(BANK[level][0].shown));assert.ok(out.at(-1).includes('난이도 : '+level));
+  g.cancel('1000');at+=100;
+ }
+ await core.handle(ev('-타자게임 상급','8000',at));assert.match(out.at(-1),/사용법/);g.reset();
+});

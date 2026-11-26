@@ -2,6 +2,8 @@
 const fs=require('node:fs'),path=require('node:path'),{randomInt}=require('node:crypto'),{performance}=require('node:perf_hooks');
 const {format}=require('../core'),{BANK,CATEGORIES,normalizeAnswer}=require('./quiz-bank');
 const LINE='━━━━━━━━━━━━━━',TIMEOUT=60000,COOLDOWN=30000,HINT_AT=15000,CAP=128;
+const LEVELS=Object.freeze(['쉬움','보통','어려움']);
+const POOLS=new Map(LEVELS.map(level=>[level,BANK.map(rows=>rows.filter(q=>q.difficulty===level))]));
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 const clean=v=>[...String(v??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('');
 const logId=v=>id(v?.message?.logId??v?.logId??v?.raw?.chatLog?.logId??v?.raw?.logId);
@@ -16,10 +18,14 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({statu
   const used=new Set(ids),counts=Array(8).fill(0);for(const i of used)counts[Math.floor(i/200)]++;
   const v={used,counts};history.set(r,v);while(history.size>CAP)history.delete(history.keys().next().value);return v;
  }
- function next(r){
+ function next(r,level){
   const h=load(r);if(h.used.size===1600)return null;
-  const min=Math.min(...h.counts),cats=h.counts.flatMap((count,i)=>count===min&&count<200?[i]:[]);
-  const ci=cats[pick(cats.length)],available=BANK[ci].filter(q=>!h.used.has(q.id)),q=available[pick(available.length)];
+  // A chosen difficulty is a strict filter; use the same persistent IDs as random mode.
+  const pools=(level?POOLS.get(level):BANK).map(rows=>rows.filter(q=>!h.used.has(q.id)));
+  const min=Math.min(...h.counts.filter((_,i)=>pools[i].length>0));
+  const cats=h.counts.flatMap((count,i)=>count===min&&pools[i].length>0?[i]:[]);
+  if(!cats.length)return null;
+  const ci=cats[pick(cats.length)],available=pools[ci],q=available[pick(available.length)];
   // Save the reserved question before attempting send. A failed or uncertain send
   // consumes this question rather than risking repeat after process restart.
   if(folder){const file=path.join(folder,r+'.json'),tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify({version:1,used:[...h.used,q.id]}),{mode:0o600});fs.renameSync(tmp,file);onPersist('quiz-history/'+r+'.json');}
@@ -38,9 +44,10 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({statu
   const at=clock(),name=clean(e.msg?.sender?.name||getName(r,e.userId))||'이름 미확인';
   let result;
   try{result=rewardQuiz(r,e.userId,st.q.id,logId(e.msg),name);}catch(err){logger.error('[DUKE] quiz reward failed',err?.name||'Error');result={status:'failed'};}
-  const body=name+'님 정답을 맞췄습니다!\n'+(result?.status==='paid'?'+1000코인':result?.status==='unregistered'?'게임 가입 후 코인 보상을 받을 수 있습니다.':result?.status==='duplicate'?'이미 지급된 퀴즈 보상입니다.':'코인 보상 지급에 실패했습니다.');
+  const body='@'+name+'님이 정답을 맞췄습니다!\n정답 : '+st.q.answers[0]+'\n'+(result?.status==='paid'?'+1000코인':result?.status==='unregistered'?'게임 가입 후 코인 보상을 받을 수 있습니다.':result?.status==='duplicate'?'이미 지급된 퀴즈 보상입니다.':'코인 보상 지급에 실패했습니다.');
+  const options={mentions:[{userId:e.userId,at:[1],len:name.length}]};
   const sendAt=clock();
-  void Promise.resolve().then(()=>send(r,body)).then(()=>logTiming('answer',e.receivedAt??at,sendAt,clock())).catch(err=>logger.error('[DUKE] quiz answer send failed',err?.name||'Error'));
+  void Promise.resolve().then(()=>send(r,body,options)).then(()=>logTiming('answer',e.receivedAt??at,sendAt,clock())).catch(err=>logger.error('[DUKE] quiz answer send failed',err?.name||'Error'));
   return true;
  }
  function answer(e){
@@ -61,12 +68,13 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({statu
  }
  async function start(e){
   const r=e.roomId;if(!eligible(e))return '활성화된 오픈채팅방에서만 퀴즈를 사용할 수 있습니다.';
-  if(e.args.length)return '사용법 : -퀴즈';
+  if(e.args.length>1||(e.args.length===1&&!LEVELS.includes(e.args[0])))return '사용법 : -퀴즈 [쉬움/보통/어려움]';
+  const level=e.args[0];
   if(!logId(e.msg))return '퀴즈 요청을 확인할 수 없습니다.';
   if(active.has(r))return '이미 진행 중인 퀴즈가 있습니다.';
   const remaining=(cooldowns.get(r)??0)-now();if(remaining>0)return '퀴즈는 '+Math.ceil(remaining/1000)+'초 후 다시 사용할 수 있습니다.';
   if(active.size>=CAP)return '퀴즈가 많이 진행 중입니다. 잠시 후 다시 시도해 주세요.';
-  const receiveAt=e.receivedAt??clock(),q=next(r);if(!q)return '이 채팅방의 퀴즈 1,600문제를 모두 출제했습니다. 중복 방지를 위해 출제를 종료합니다.';
+  const receiveAt=e.receivedAt??clock(),q=next(r,level);if(!q)return level?'이 채팅방의 '+level+' 난이도 미출제 문제가 없습니다. 다른 난이도 또는 -퀴즈를 사용해 주세요.':'이 채팅방의 퀴즈 1,600문제를 모두 출제했습니다. 중복 방지를 위해 출제를 종료합니다.';
   const st={q,phase:'pending',startedAt:clock(),candidates:[],timer:null,hintTimer:null,log:'',expiresAt:Infinity,ackAt:Infinity};
   active.set(r,st);
   try{
@@ -84,7 +92,7 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({statu
   }catch(err){if(active.get(r)===st)cancel(r);logger.error('[DUKE] quiz question send failed',err?.name||'Error');}
   return null;
  }
- function register(core){core.register({name:'퀴즈',section:'GAME',description:'랜덤 퀴즈 출제 (정답만 채팅, 30초 쿨타임, 15초 힌트, 60초 제한, 가입자 정답 보상 1,000코인)',execute:start});}
+ function register(core){core.register({name:'퀴즈',section:'GAME',description:'퀴즈 출제 (쉬움/보통/어려움, 생략 시 랜덤, 정답만 채팅, 30초 쿨타임, 15초 힌트, 60초 제한, 가입자 정답 보상 1,000코인)',execute:start});}
  return {register,start,answer,has:r=>active.has(r),cancel,reset};
 }
 module.exports={createQuiz,TIMEOUT,COOLDOWN,HINT_AT};

@@ -19,13 +19,13 @@ test('first answer claims synchronously, raw answers, wrong room, stale log, tim
  try{
   quiz=createQuiz(opts);const core=createCore({send:opts.send});quiz.register(core);await core.handle(msg('-퀴즈','8000'));assert.match(out.at(-1),/7 \+ 3 = \?/);assert.equal(timers[0].ms,HINT_AT);assert.equal(timers[1].ms,TIMEOUT);
   assert.equal(quiz.answer(msg('10','8999')),false);assert.equal(quiz.answer(msg('10','9001','3000','2000')),false);assert.equal(quiz.answer(msg('11','9001')),false);
-  assert.equal(quiz.answer(msg('１０!','9001')),true);assert.equal(quiz.answer(msg('10','9002','4000')),false);await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');
+  assert.equal(quiz.answer(msg('１０!','9001')),true);assert.equal(quiz.answer(msg('10','9002','4000')),false);await Promise.resolve();assert.equal(out.at(-1),'@회원님이 정답을 맞췄습니다!\n정답 : 10\n+1000코인');
   quiz=createQuiz(opts);await quiz.start(msg('-퀴즈','9002'));assert.ok(out.at(-1).includes('분야 : 일반'));assert.equal(tableFor('quiz-history/1000.json'),'duke_quiz_history');
   await timers.at(-1).fn();await Promise.resolve();assert.match(out.at(-1),/시간 초과/);
   at+=COOLDOWN;await quiz.start(msg('-퀴즈'));enabled=false;assert.equal(quiz.answer(msg('10','9003')),false);quiz.cancel('1000');enabled=true;
   let ack;const pending=createQuiz({...opts,dir:null,send:(r,t)=>{out.push(t);return t.includes('QUIZ')?new Promise(resolve=>ack=resolve):Promise.resolve({});}});const started=pending.start(msg('-퀴즈','8000','3000','1000',at));
   assert.equal(pending.answer(msg('10','9001','3000','1000',at-1)),false);
-  assert.equal(pending.answer(msg('10','8999','3000','1000',at)),true);assert.equal(pending.answer(msg('10','9001','3000','1000',at)),true);ack({body:{logId:'9000'}});await started;await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');assert.equal(pending.has('1000'),false);
+  assert.equal(pending.answer(msg('10','8999','3000','1000',at)),true);assert.equal(pending.answer(msg('10','9001','3000','1000',at)),true);ack({body:{logId:'9000'}});await started;await Promise.resolve();assert.equal(out.at(-1),'@회원님이 정답을 맞췄습니다!\n정답 : 10\n+1000코인');assert.equal(pending.has('1000'),false);
  }finally{quiz?.reset();fs.rmSync(dir,{recursive:true,force:true});}
 });
 
@@ -38,7 +38,7 @@ test('quiz reward updates existing wallet exactly once and persists across reloa
   await core.handle(msg('-게임가입','8000'));
   const quiz=createQuiz({dir,send,rewardQuiz:accounts.rewardQuiz,pick:n=>0,logger:{log(){},error(){}}});quiz.register(core);
   await core.handle(msg('-퀴즈','8001'));assert.equal(quiz.answer({...msg('10','9001'),receivedAt:undefined}),true);assert.equal(quiz.answer({...msg('10','9002'),receivedAt:undefined}),false);
-  await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');
+  await Promise.resolve();assert.equal(out.at(-1),'@회원님이 정답을 맞췄습니다!\n정답 : 10\n+1000코인');
   assert.equal(accounts.get('1000','3000').coins,11000);
   const restored=createGameAccounts(opts);assert.equal(restored.get('1000','3000').coins,11000);
   assert.equal(restored.rewardQuiz('1000','3000',0,'9001','회원').status,'duplicate');
@@ -57,10 +57,37 @@ test('15 second hint only for unsolved quiz, room cooldown from successful quest
  const e=()=>msg('-퀴즈','8000','3000','1000',at);
  await quiz.start(e());const [hint,timeout]=timers;assert.equal(hint.ms,15000);assert.equal(timeout.ms,60000);
  at+=15000;hint.fn();await Promise.resolve();assert.match(out.at(-1)[1],/^힌트 : /);
- assert.equal(quiz.answer(msg('10','9001','3000','1000',at)),true);await Promise.resolve();assert.equal(out.at(-1)[1],'회원님 정답을 맞췄습니다!\n+1000코인');assert.ok(cleared.has(hint)&&cleared.has(timeout));
+ assert.equal(quiz.answer(msg('10','9001','3000','1000',at)),true);await Promise.resolve();assert.equal(out.at(-1)[1],'@회원님이 정답을 맞췄습니다!\n정답 : 10\n+1000코인');assert.ok(cleared.has(hint)&&cleared.has(timeout));
  const n=out.length;hint.fn();timeout.fn();await Promise.resolve();assert.equal(out.length,n);
  assert.match(await quiz.start(e()),/15초 후/);
  await quiz.start(msg('-퀴즈','8001','3000','2000',at));assert.ok(quiz.has('2000'));
  at+=14999;assert.match(await quiz.start(e()),/1초 후/);at++;await quiz.start(e());assert.ok(quiz.has('1000'));
  const pendingHint=timers.at(-2);enabled=false;quiz.cancel('1000');const count=out.length;pendingHint.fn();await Promise.resolve();assert.equal(out.length,count);quiz.reset();
+});
+
+test('explicit quiz difficulty is strict, all levels share persistent history, and winner is a real mention with answer',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-quiz-level-'));let at=100;const out=[],seen=new Set(),levels=['쉬움','보통','어려움'];
+ const opts={dir,now:()=>at,clock:()=>at,pick:n=>0,delay:()=>({}),clear:()=>{},rewardQuiz:()=>({status:'paid'}),send:async(r,text,options)=>{out.push({r,text,options});return {body:{logId:'9000'}};},logger:{log(){},error(){}}};
+ let quiz=createQuiz(opts);const core=createCore({send:opts.send});quiz.register(core);
+ try{
+  const command=(level)=>msg('-퀴즈'+(level?' '+level:''),'8000','3000','1000',at);
+  await core.handle(command('어려움'));assert.match(out.at(-1).text,/난이도 : 어려움/);
+  const chosen=BANK.flat().find(q=>out.at(-1).text.includes(q.question+'\n\n'));assert.ok(chosen);
+  assert.equal(quiz.answer(msg(chosen.answers[0],'9001','3000','1000',at)),true);await Promise.resolve();
+  assert.equal(out.at(-1).text,'@회원님이 정답을 맞췄습니다!\n정답 : '+chosen.answers[0]+'\n+1000코인');
+  assert.deepEqual(out.at(-1).options,{mentions:[{userId:'3000',at:[1],len:2}]});seen.add(chosen.id);at+=COOLDOWN;
+  assert.match(await quiz.start({...command('상급'),args:['상급']}),/사용법/);
+  quiz=createQuiz(opts); // persisted history survives restart
+  const all=BANK.flat();
+  for(const level of levels){
+   const count=all.filter(q=>q.difficulty===level&&!seen.has(q.id)).length;
+   for(let i=0;i<count;i++){
+    await quiz.start({...command(level),args:[level]});assert.match(out.at(-1).text,new RegExp('난이도 : '+level));
+    const selected=all.find(q=>out.at(-1).text.includes(q.question+'\n\n'));assert.ok(selected);assert.ok(!seen.has(selected.id));seen.add(selected.id);
+    quiz.cancel('1000');at+=COOLDOWN;
+   }
+   assert.match(await quiz.start({...command(level),args:[level]}),/미출제 문제가 없습니다/);
+  }
+  assert.equal(seen.size,1600);assert.match(await quiz.start(command()),/1,600문제/);
+ }finally{quiz.reset();fs.rmSync(dir,{recursive:true,force:true});}
 });
