@@ -45,10 +45,11 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  process.once('exit',()=>watcher.stop());
  const counter=createCounter({dir:dataDir,onPersist,deferMs:1000});
  process.once('exit',()=>{try{counter.flush();}catch(err){console.error('[DUKE] counter exit flush failed',err?.name||'Error');}});
- const quiz=createQuiz({dir:dataDir,onPersist,send,botId:()=>id(client.userId),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',canHandle:e=>power.canHandle(e)&&(!rooms||rooms.has(e.roomId)),isEnabled:power.enabled});
+ const accounts=createGameAccounts({dir:dataDir,onPersist,botId:()=>id(client.userId),canHandle:power.canHandle,getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',fetchMessage:(r,l)=>client.fetchMessage(r,l)});
+ const quiz=createQuiz({rewardQuiz:accounts.rewardQuiz,dir:dataDir,onPersist,send,botId:()=>id(client.userId),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',canHandle:e=>power.canHandle(e)&&(!rooms||rooms.has(e.roomId)),isEnabled:power.enabled});
  const core=createCore({allowedRooms:rooms,canHandle:power.canHandle,counter,website,getStatus:()=>({...(database?.status()??{database:'미연결'}),kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 · 경고 · 프로필 감지 지원',manageRooms:membership.activeCount(),game:'게임 가입 · 지갑 · 송금 · 코인 순위 · 인벤토리 · 퀴즈 지원'}),send});
  createChatRanking({list:activity.list,getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''}).register(core);
- createGameAccounts({dir:dataDir,onPersist,botId:()=>id(client.userId),canHandle:power.canHandle,getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',fetchMessage:(r,l)=>client.fetchMessage(r,l)}).register(core);
+ accounts.register(core);
  quiz.register(core);
  power.register(core);
  deletion.register(core);

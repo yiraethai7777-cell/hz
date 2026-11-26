@@ -6,7 +6,7 @@ const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(S
 const clean=v=>[...String(v??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('');
 const logId=v=>id(v?.message?.logId??v?.logId??v?.raw?.chatLog?.logId??v?.raw?.logId);
 function sentLog(v){return id(v?.body?.logId??v?.body?.chatLog?.logId??v?.body?.chatlog?.logId??v?.logId??v?.chatLog?.logId);}
-function createQuiz({dir,send,botId=()=>'',getName=()=>'',onPersist=()=>{},canHandle=()=>true,isEnabled=()=>true,now=Date.now,clock=()=>performance.now(),pick=randomInt,delay=setTimeout,clear=clearTimeout,logger=console}={}){
+function createQuiz({dir,send,botId=()=>'',getName=()=>'',rewardQuiz=()=>({status:'unregistered'}),onPersist=()=>{},canHandle=()=>true,isEnabled=()=>true,now=Date.now,clock=()=>performance.now(),pick=randomInt,delay=setTimeout,clear=clearTimeout,logger=console}={}){
  if(typeof send!=='function')throw Error('quiz send required');
  const folder=dir?path.join(dir,'quiz-history'):null,history=new Map(),active=new Map(),timing=new Map();
  if(folder)fs.mkdirSync(folder,{recursive:true,mode:0o700});
@@ -36,7 +36,11 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',onPersist=()=>{},canHa
   if(active.get(r)!==st||!eligible(e))return false;
   cancel(r); // Synchronous first-answer claim BEFORE any network await.
   const at=clock(),name=clean(e.msg?.sender?.name||getName(r,e.userId))||'이름 미확인';
-  void Promise.resolve().then(()=>send(r,name+'님 정답입니다!')).then(()=>logTiming('answer',e.receivedAt??at,at,clock())).catch(err=>logger.error('[DUKE] quiz answer send failed',err?.name||'Error'));
+  let result;
+  try{result=rewardQuiz(r,e.userId,st.q.id,logId(e.msg),name);}catch(err){logger.error('[DUKE] quiz reward failed',err?.name||'Error');result={status:'failed'};}
+  const body=name+'님 정답을 맞췄습니다!\n'+(result?.status==='paid'?'+1000코인':result?.status==='unregistered'?'게임 가입 후 코인 보상을 받을 수 있습니다.':result?.status==='duplicate'?'이미 지급된 퀴즈 보상입니다.':'코인 보상 지급에 실패했습니다.');
+  const sendAt=clock();
+  void Promise.resolve().then(()=>send(r,body)).then(()=>logTiming('answer',e.receivedAt??at,sendAt,clock())).catch(err=>logger.error('[DUKE] quiz answer send failed',err?.name||'Error'));
   return true;
  }
  function answer(e){
@@ -76,7 +80,7 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',onPersist=()=>{},canHa
   }catch(err){if(active.get(r)===st)cancel(r);logger.error('[DUKE] quiz question send failed',err?.name||'Error');}
   return null;
  }
- function register(core){core.register({name:'퀴즈',section:'GAME',description:'랜덤 퀴즈 출제 (정답만 채팅, 60초 제한)',execute:start});}
+ function register(core){core.register({name:'퀴즈',section:'GAME',description:'랜덤 퀴즈 출제 (정답만 채팅, 60초, 가입자 정답 보상 1,000코인)',execute:start});}
  return {register,start,answer,has:r=>active.has(r),cancel,reset};
 }
 module.exports={createQuiz,TIMEOUT};

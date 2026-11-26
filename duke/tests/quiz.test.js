@@ -15,15 +15,36 @@ test('balanced no-repeat draw for all 1600 questions, no implicit reset, room is
 });
 test('first answer claims synchronously, raw answers, wrong room, stale log, timeout, disabled, durable history and pending ACK',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-quiz-')),out=[],timers=[];let at=100,enabled=true;let quiz;
- const opts={dir,send:async(r,t)=>{out.push(t);return {body:{logId:'9000'}};},pick:n=>0,now:()=>at,clock:()=>at,delay:(fn,ms)=>{timers.push({fn,ms});return timers.at(-1);},clear:()=>{},isEnabled:()=>enabled,logger:{log(){},error(){}}};
+ const opts={dir,rewardQuiz:()=>({status:'paid',amount:1000}),send:async(r,t)=>{out.push(t);return {body:{logId:'9000'}};},pick:n=>0,now:()=>at,clock:()=>at,delay:(fn,ms)=>{timers.push({fn,ms});return timers.at(-1);},clear:()=>{},isEnabled:()=>enabled,logger:{log(){},error(){}}};
  try{
   quiz=createQuiz(opts);const core=createCore({send:opts.send});quiz.register(core);await core.handle(msg('-퀴즈','8000'));assert.match(out.at(-1),/7 \+ 3 = \?/);assert.equal(timers[0].ms,TIMEOUT);
   assert.equal(quiz.answer(msg('10','8999')),false);assert.equal(quiz.answer(msg('10','9001','3000','2000')),false);assert.equal(quiz.answer(msg('11','9001')),false);
-  assert.equal(quiz.answer(msg('１０!','9001')),true);assert.equal(quiz.answer(msg('10','9002','4000')),false);await Promise.resolve();assert.equal(out.at(-1),'회원님 정답입니다!');
+  assert.equal(quiz.answer(msg('１０!','9001')),true);assert.equal(quiz.answer(msg('10','9002','4000')),false);await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');
   quiz=createQuiz(opts);await quiz.start(msg('-퀴즈','9002'));assert.ok(out.at(-1).includes('분야 : 일반'));assert.equal(tableFor('quiz-history/1000.json'),'duke_quiz_history');
   await timers.at(-1).fn();await Promise.resolve();assert.match(out.at(-1),/시간 초과/);
   await quiz.start(msg('-퀴즈'));enabled=false;assert.equal(quiz.answer(msg('10','9003')),false);quiz.cancel('1000');enabled=true;
   let ack;const pending=createQuiz({...opts,dir:null,send:(r,t)=>{out.push(t);return t.includes('QUIZ')?new Promise(resolve=>ack=resolve):Promise.resolve({});}});const started=pending.start(msg('-퀴즈','8000'));
-  assert.equal(pending.answer(msg('10','8999')),true);assert.equal(pending.answer(msg('10','9001')),true);ack({body:{logId:'9000'}});await started;await Promise.resolve();assert.equal(out.at(-1),'회원님 정답입니다!');assert.equal(pending.has('1000'),false);
+  assert.equal(pending.answer(msg('10','8999')),true);assert.equal(pending.answer(msg('10','9001')),true);ack({body:{logId:'9000'}});await started;await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');assert.equal(pending.has('1000'),false);
  }finally{quiz?.reset();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('quiz reward updates existing wallet exactly once and persists across reload; no automatic account creation',async()=>{
+ const {createGameAccounts}=require('../game/accounts');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-quiz-reward-')),out=[],dirty=[];
+ try{
+  const send=async(r,t)=>{out.push(t);return {body:{logId:'9000'}};};
+  const opts={dir,onPersist:k=>dirty.push(k)},accounts=createGameAccounts(opts),core=createCore({send});accounts.register(core);
+  await core.handle(msg('-게임가입','8000'));
+  const quiz=createQuiz({dir,send,rewardQuiz:accounts.rewardQuiz,pick:n=>0,logger:{log(){},error(){}}});quiz.register(core);
+  await core.handle(msg('-퀴즈','8001'));assert.equal(quiz.answer({...msg('10','9001'),receivedAt:undefined}),true);assert.equal(quiz.answer({...msg('10','9002'),receivedAt:undefined}),false);
+  await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');
+  assert.equal(accounts.get('1000','3000').coins,11000);
+  const restored=createGameAccounts(opts);assert.equal(restored.get('1000','3000').coins,11000);
+  assert.equal(restored.rewardQuiz('1000','3000',0,'9001','회원').status,'duplicate');
+  assert.equal(restored.rewardQuiz('1000','4000',1,'9003','미가입').status,'unregistered');
+  assert.equal(restored.get('1000','4000'),null);
+  assert.equal(restored.get('1000','3000').coins,11000);
+  assert.ok(dirty.includes('game-accounts/1000.json'));
+  quiz.reset();
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });

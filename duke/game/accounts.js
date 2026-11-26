@@ -124,9 +124,21 @@ function createGameAccounts({dir,botId=()=>'',now=Date.now,onPersist=()=>{},getN
   save(r,{...data,users:{...data.users,[target]:{...a,coins:balance,name:targetName}},transfers:next});
   return fold(format('ADMIN','코인 '+label+'가 완료되었습니다.'),LINE+'\n대상 : '+targetName+'\n'+label+' 금액 : '+num(amount)+' 코인\n기존 잔액 : '+num(a.coins)+' 코인\n현재 잔액 : '+num(balance)+' 코인\n'+LINE);
  }
+ // Internal quiz-only reward. Balance and permanent per-question receipt are
+ // committed together; there are at most 1600 questions per room.
+ function rewardQuiz(r,u,questionId,log,name){
+  if(!id(r)||!id(u)||!id(log)||!Number.isInteger(questionId)||questionId<0||questionId>=1600)return {status:'invalid'};
+  const data=read(r).data,receipts=data.quizRewards??{},key=String(questionId);
+  if(Object.hasOwn(receipts,key))return {status:'duplicate'};
+  const a=data.users[u];if(!a)return {status:'unregistered'};
+  const amount=1000,balance=a.coins+amount;
+  if(!validCoins(a.coins)||!validCoins(balance))return {status:'invalid'};
+  save(r,{...data,users:{...data.users,[u]:{...a,coins:balance,name:nameOf(r,u,a,name)}},quizRewards:{...receipts,[key]:{userId:u,logId:log,amount,at:now()}}});
+  return {status:'paid',amount,balance};
+ }
  function register(core){
   for(const [name,description,fn,section='GAME'] of [['게임가입','게임 계정 생성',join],['지갑','보유 코인 및 재산 순위',wallet],['송금','코인 송금 (멘션 / 답장)',transfer],['코인순위','현재 방 코인 순위 TOP 10',ranking],['인벤','보유 아이템 확인',inventory],['코인지급','코인 지급 (멘션 / ID / 답장)',e=>adjust(e,true),'BOT'],['코인회수','코인 회수 (멘션 / ID / 답장)',e=>adjust(e,false),'BOT']])core.register({name,section,description,execute:e=>scope(e)?fn(e):error('오픈채팅방에서만 사용할 수 있습니다.')});
  }
- return {register,get};
+ return {register,get,rewardQuiz};
 }
 module.exports={createGameAccounts};
