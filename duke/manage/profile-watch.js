@@ -11,9 +11,9 @@ function readMember(m){
  const profileId=[1,2,4].includes(profileType)?'':rawLink!=null?id(rawLink):null;
  return {id:user,name:clean(m.nickName??m.nickname??m.name??m.profileName),profileType,profileId};
 }
-function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,listRooms,fetchRoster,lookupLinks=async()=>new Map(),send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=5000,roomIntervalMs=15000}={}){
+function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,listRooms,fetchRoster,lookupLinks=async()=>new Map(),send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=3000,roomIntervalMs=3000}={}){
  const file=dir?path.join(dir,'profile-watch-settings.json'):null,settings=new Map(),baseline=new Map(),due=new Map(),versions=new Map();
- let busy=false,timer=null,joined=null,roomsAt=0,cursor=0,generation=0;
+ let busy=false,timer=null,joined=null,roomsAt=0,generation=0;
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data))if(id(r)&&(s?.nick===true||s?.profile===true))settings.set(r,{nick:s.nick===true,profile:s.profile===true});}catch(e){if(e.code!=='ENOENT')throw e;}}
  const get=r=>settings.get(r)||{nick:false,profile:false};
  function set(r,kind,on){
@@ -40,7 +40,7 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
   const gen=generation;
   try{
    const at=now();
-   if(!joined||at-roomsAt>=60000){
+   if(!joined||at-roomsAt>=3000){
     const list=await listRooms();if(gen!==generation||!ready())return;
     if(!Array.isArray(list))throw Error('invalid rooms');
     joined=new Set(list.map(id).filter(Boolean));roomsAt=at;
@@ -48,18 +48,18 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
    }
    const rooms=[...settings.keys()].filter(r=>joined.has(r)&&(!allowedRooms||allowedRooms.has(r)));
    if(!rooms.length)return;
-   let room;
-   for(let i=0;i<rooms.length;i++){const r=rooms[cursor++%rooms.length];if(at>=(due.get(r)||0)){room=r;break;}}
-   if(!room)return;
+   for(const room of rooms){
+   if(gen!==generation||!ready())break;
+   if(!settings.has(room)||now()<(due.get(room)||0))continue;
    const ver=versions.get(room)||0,enabled=()=>gen===generation&&ready()&&ver===(versions.get(room)||0)&&settings.has(room);
-   due.set(room,at+roomIntervalMs);
+   due.set(room,now()+roomIntervalMs);
    try{
     const raw=await fetchRoster(room);
-    if(!enabled())return;
+    if(!enabled())continue;
     if(!Array.isArray(raw)||!raw.length)throw Error('invalid roster');
     const latest=new Map();
     for(const item of raw){const m=readMember(item);if(m&&m.id!==id(botId()))latest.set(m.id,m);}
-    if(!latest.size){baseline.delete(room);return;}
+    if(!latest.size){baseline.delete(room);continue;}
     const prev=baseline.get(room),s=get(room),notices=[],profileChanges=[];
     if(prev)for(const [u,m] of latest){
      const old=prev.get(u);if(!old)continue;
@@ -85,12 +85,13 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
      const title=c.links?'오픈프로필 변경':'프로필 유형 변경';
      notices.push({title,body:'전닉 : '+(old.name||'확인 불가')+'\n이전 오픈프로필 : '+link(old)+'\n\n현닉 : '+(current.name||'확인 불가')+'\n현재 오픈프로필 : '+link(current)+(c.types?'\n프로필 유형 : '+type(old)+' → '+type(current):'')});
     }
-    if(!enabled()||!notices.length)return;
+    if(!enabled()||!notices.length)continue;
     const lines=notices.slice(0,20).map(n=>'['+n.title+']\n'+n.body);
     const omitted=Math.max(0,notices.length-20)+Math.max(0,profileChanges.length-selected.length);
     const body=lines.join('\n\n')+(omitted?'\n\n외 '+omitted+'건':'');
     await send(room,body);
-   }catch(e){due.set(room,now()+60000);logger.error('[DUKE] profile watch room failed',e?.name||'Error');}
+   }catch(e){due.set(room,now()+(/(?:-401|429|rate.?limit)/i.test(String(e?.message||''))?60000:3000));logger.error('[DUKE] profile watch room failed',e?.name||'Error');}
+   }
   }catch(e){joined=null;logger.error('[DUKE] profile watch failed',e?.name||'Error');}finally{busy=false;}
  }
  function start(){if(!timer){timer=setInterval(()=>void tick(),intervalMs);timer.unref?.();}}

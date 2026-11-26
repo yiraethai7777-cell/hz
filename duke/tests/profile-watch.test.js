@@ -7,7 +7,7 @@ test('profile watch: opt in, baseline, rename, profile switch, photo, missing fi
   const opts={dir,now:()=>at,botId:()=> '9000',listRooms:async()=>['1000'],fetchRoster:async()=>{calls++;return rows;},lookupLinks:async ids=>new Map(ids.map(i=>[i,'https://open.kakao.com/o/P'+i])),send:async(r,t)=>out.push(t),onPersist:k=>keys.push(k)};
   const core=createCore({send:opts.send});w=createProfileWatch(opts);w.register(core);
   const cmd=(text,u='9000')=>core.handle({roomId:'1000',userId:u,text,msg:{room:{isOpenChat:true},sender:{name:'봇'}}});
-  const tick=async()=>{at+=16000;await w.tick();};
+  const tick=async()=>{at+=3000;await w.tick();};
   await tick();assert.equal(calls,0);await cmd('-닉변감지 on','5000');assert.match(out.at(-1),/봇 계정/);
   await cmd('-닉변감지 on');await cmd('-프로필감지 on');const before=out.length;await tick();assert.equal(out.length,before);
   rows=[{...rows[0],nickName:'새이름'}];await tick();assert.equal(out.at(-1),'[닉네임 변경]\n이전 → 새이름');
@@ -18,4 +18,16 @@ test('profile watch: opt in, baseline, rename, profile switch, photo, missing fi
   await cmd('-닉변감지 off');await cmd('-프로필감지 off');const c=calls;await tick();assert.equal(calls,c);
   await cmd('-닉변감지 on');w.stop();w=createProfileWatch(opts);const next=createCore({send:opts.send});w.register(next);await tick();assert.equal(calls,c+1);assert.equal(tableFor(keys[0]),'duke_profile_watch_settings');
  }finally{w?.stop();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('all enabled joined rooms are checked every 3 seconds without overlapping requests',async()=>{
+ let at=0,roomLists=0,active=0,max=0;const calls=[];
+ const core=createCore({send:async()=>{}});
+ const watcher=createProfileWatch({now:()=>at,botId:()=> '9000',listRooms:async()=>{roomLists++;return ['1000','2000','3000'];},fetchRoster:async r=>{active++;max=Math.max(max,active);calls.push(r);await Promise.resolve();active--;return [{id:'4000',nickName:'회원',ptp:3,pli:'5000'}];},send:async()=>{}});
+ watcher.register(core);
+ for(const roomId of ['1000','2000'])await core.handle({roomId,userId:'9000',text:'-닉변감지 on',msg:{room:{isOpenChat:true}}});
+ await watcher.tick();assert.deepEqual(calls,['1000','2000']);
+ at=2999;await watcher.tick();assert.equal(calls.length,2);
+ at=3000;await Promise.all([watcher.tick(),watcher.tick()]);assert.deepEqual(calls,['1000','2000','1000','2000']);assert.equal(roomLists,2);assert.equal(max,1);
+ watcher.stop();
 });
