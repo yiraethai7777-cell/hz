@@ -1,9 +1,9 @@
 'use strict';
 const {createCore}=require('./core');
+const {performance}=require('node:perf_hooks');
 const {createCounter}=require('./metrics');
 function id(value){if(typeof value==='number'&&!Number.isSafeInteger(value))return null;const s=String(value??'');return /^[1-9]\d*$/.test(s)?s:null;}
-function parseSentAt(value){if(value==null)return null;const s=String(value);if(!/^\d+$/.test(s))return null;const n=Number(s);if(!Number.isSafeInteger(n))return null;if(n>=1000000000&&n<10000000000)return {ms:n*1000,precision:1000};if(n>=1000000000000&&n<10000000000000)return {ms:n,precision:1};return null;}
-function normalize(msg){const raw=msg?.raw?.chatLog??msg?.raw??{};return {roomId:id(raw.chatRoomId??raw.chatId??msg?.raw?.chatId)??id(msg?.room?.id??msg?.chatId),userId:id(raw.userId??raw.authorId??raw.senderId??msg?.sender?.id??msg?.senderId),text:raw.message??raw.msg??raw.text??msg?.message?.text??msg?.text,sentAt:parseSentAt(raw.sendAt??raw.createdAt??raw.s)};}
+function normalize(msg,receivedAt=performance.now()){const raw=msg?.raw?.chatLog??msg?.raw??{};return {roomId:id(raw.chatRoomId??raw.chatId??msg?.raw?.chatId)??id(msg?.room?.id??msg?.chatId),userId:id(raw.userId??raw.authorId??raw.senderId??msg?.sender?.id??msg?.senderId),text:raw.message??raw.msg??raw.text??msg?.message?.text??msg?.text,receivedAt:Number.isFinite(msg?.receivedAt)?msg.receivedAt:receivedAt};}
 async function startKakao({authPath,dataDir,website,roomList}){
  const rooms=roomList?new Set(roomList.split(',').map(x=>x.trim()).filter(x=>id(x))):null;
  if(rooms&&!rooms.size)throw Error('Invalid test rooms');
@@ -14,7 +14,7 @@ async function startKakao({authPath,dataDir,website,roomList}){
  client.on('error',()=>{ready=false;console.error('[DUKE] connection error');});
  client.on('disconnect',()=>{ready=false;});
  client.onReady(()=>{ready=true;console.log('[DUKE] ready');});
- client.on('message',(...args)=>{void core.handle(normalize(args.length===1?args[0]:args[1]));});
+ client.on('message',(...args)=>{const receivedAt=performance.now();void core.handle(normalize(args.length===1?args[0]:args[1],receivedAt));});
  await client.connect();return {client,core};
 }
-module.exports={startKakao,normalize,id,parseSentAt};
+module.exports={startKakao,normalize,id};

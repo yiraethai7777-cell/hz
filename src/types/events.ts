@@ -3,6 +3,8 @@ import { type MemberTypeValue } from './member-type';
 export type TransportMode = 'loco' | null;
 
 export type MessageEvent = {
+  /** Monotonic local SDK receive time in milliseconds; live messages only. */
+  receivedAt?: number;
   message: {
     id: number | string;
     text: string;

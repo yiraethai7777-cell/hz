@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks';
 import { EventEmitter } from 'events';
 import * as LosslessJSON from 'lossless-json';
 import { Long } from 'bson';
@@ -1032,6 +1033,7 @@ export class KakaoForgeClient extends EventEmitter {
   }
 
   _emitMessage(data: any) {
+    const receivedAt = performance.now();
     const chatLog = data.chatLog || data;
     const roomIdValue = normalizeIdValue(
       data.chatId || data.c || chatLog.chatId || chatLog.chatRoomId || chatLog.roomId || chatLog.c || 0
@@ -1043,7 +1045,7 @@ export class KakaoForgeClient extends EventEmitter {
     const prev = this._messageChains.get(key) || Promise.resolve();
     const next = prev
       .catch(() => {})
-      .then(() => this._emitMessageInternal(data))
+      .then(() => this._emitMessageInternal(data, receivedAt))
       .catch((err) => {
         if (this.debug) {
           console.error('[DBG] emit message failed:', err.message);
@@ -1057,9 +1059,10 @@ export class KakaoForgeClient extends EventEmitter {
     this._messageChains.set(key, next);
   }
 
-  async _emitMessageInternal(data: any) {
+  async _emitMessageInternal(data: any, receivedAt = performance.now()) {
     const msg = await this._buildMessageEvent(data);
     if (!msg) return;
+    msg.receivedAt = receivedAt;
 
     this._activeChatId = msg.room.id;
 
