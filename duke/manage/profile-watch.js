@@ -1,4 +1,5 @@
 'use strict';
+const {canConfigure}=require('./owner-permission');
 const fs=require('node:fs'),path=require('node:path');
 const {format,fold}=require('../core'),{validLink}=require('../utility/open-profile-link');
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
@@ -24,8 +25,8 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>tr
   versions.set(r,(versions.get(r)||0)+1);baseline.delete(r);due.delete(r);joined=null;
  }
  function register(core){
-  for(const [name,kind,label] of [['닉변감지','nick','닉네임 변경 감지'],['프로필감지','profile','프로필 변경 감지']])core.register({name,section:'BOT',description:label+' (on/off)',execute:e=>{
-   if(e.msg?.room?.isOpenChat!==true||!id(botId())||e.userId!==id(botId()))return format('ADMIN','봇 계정만 오픈채팅방에서 설정할 수 있습니다.');
+  for(const [name,kind,label] of [['닉변감지','nick','닉네임 변경 감지'],['프로필감지','profile','프로필 변경 감지']])core.register({name,section:'OWNER',description:label+' (on/off)',execute:e=>{
+   if(!canConfigure(e,botId))return format('ADMIN','방장과 봇 계정만 오픈채팅방에서 설정할 수 있습니다.');
    const value=e.args[0]?.toLowerCase(),state=get(e.roomId)[kind]?'ON':'OFF';
    if(e.args.length!==1||!['on','off'].includes(value))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+state);
    if(get(e.roomId)[kind]!== (value==='on'))set(e.roomId,kind,value==='on');

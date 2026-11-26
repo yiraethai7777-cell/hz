@@ -67,6 +67,6 @@ test('bot-only coin adjustments and expandable inventory with exact durable bala
   g=createGameAccounts(opts);core=createCore({send});g.register(core);await cmd('-코인지급 3000 5000','9000',req);assert.equal(g.get('1000','3000').coins,10000);
   const file=path.join(dir,'game-accounts','1000.json'),data=JSON.parse(fs.readFileSync(file));data.users['3000'].inventory={rod:{name:'나무 낚시대',category:'낚시대',quantity:1},fish:{name:'붕어',category:'물고기',quantity:3}};fs.writeFileSync(file,JSON.stringify(data));
   g=createGameAccounts(opts);core=createCore({send});g.register(core);await cmd('-인벤','3000');assert.match(out.at(-1),/나무 낚시대 × 1/);assert.match(out.at(-1),/붕어 × 3/);
-  await cmd('-도움말','3000');assert.match(out.at(-1),/\[ 봇계정 전용 명령어 \][\s\S]*-코인지급[\s\S]*-코인회수[\s\S]*\[ 게임 명령어 \][\s\S]*-인벤/);
+  await cmd('-도움말','3000');assert.match(out.at(-1),/\[ 게임명령어 \][\s\S]*-인벤[\s\S]*\[ 봇계정명령어 \][\s\S]*-코인지급[\s\S]*-코인회수/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });

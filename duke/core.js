@@ -18,9 +18,9 @@ function createCore({send,logger=console,allowedRooms=null,canHandle=()=>true,no
  if(typeof send!=='function')throw new TypeError('send required');const commands=new Map(),started=now();let lastAck=null;
  function register({name,section='SYSTEM',description='',execute}){if(!/^[\p{L}\p{N}]+$/u.test(name)||typeof execute!=='function'||commands.has(name))throw Error('Invalid or duplicate command');commands.set(name,{name,section,description,execute});}
  register({name:'도움말',description:'전체 명령어 안내',execute:()=>{
-  const all=[...commands.values()],groups=[['SYSTEM','기본 명령어'],['BOT','봇계정 전용 명령어'],['GAME','게임 명령어'],['MANAGEMENT','관리 명령어']];
+  const all=[...commands.values()],groups=[['SYSTEM','기본 명령어'],['GAME','게임명령어'],['MANAGEMENT','관리명령어'],['OWNER','관리자명령어'],['BOT','봇계정명령어']];
   const detail=groups.map(([section,label])=>{
-   const lines=all.filter(v=>section==='SYSTEM'?!['BOT','GAME','MANAGEMENT'].includes(v.section):v.section===section).map(v=>PREFIX+v.name+' : '+v.description);
+   const lines=all.filter(v=>section==='SYSTEM'?!['BOT','GAME','MANAGEMENT','OWNER'].includes(v.section):v.section===section).map(v=>PREFIX+v.name+' : '+v.description);
    if(section==='MANAGEMENT'){
     if(commands.has('벤'))lines.push('u : 벤 알림에 답장하여 벤 해제');
     if(commands.has('내풀'))lines.push('k : 퇴장 알림에 답장하여 강퇴');

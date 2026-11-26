@@ -1,4 +1,5 @@
 'use strict';
+const {canConfigure}=require('./owner-permission');
 const fs=require('node:fs'),path=require('node:path');
 const {format,fold}=require('../core');
 const LINE='━━━━━━━━━━━━━━';
@@ -12,12 +13,12 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data)){if(id(r)&&typeof s?.join==='boolean'&&typeof s?.leave==='boolean'&&(s.join||s.leave))settings.set(r,{join:s.join,leave:s.leave});}}catch(e){if(e.code!=='ENOENT')throw e;}}
  const get=r=>settings.get(r)||{join:false,leave:false};
  function set(r,k,enabled){const next=new Map(settings),s={...get(r),[k]:enabled};if(s.join||s.leave)next.set(r,s);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries(next)),{mode:0o600});fs.renameSync(tmp,file);onPersist('membership-settings.json');}settings.clear();for(const [key,value] of next)settings.set(key,value);}
- function authorized(e){const b=botId();return !!b&&e.userId===b;}
+ function authorized(e){return canConfigure(e,botId);}
  const onoff=v=>v?'ON':'OFF';
  function register(core){
   for(const [name,kind,label] of [['입장알림','join','입장'],['퇴장알림','leave','퇴장']]){
-   core.register({name,section:'BOT',description:label+' 알림 설정 (on/off)',execute:e=>{
-    if(!authorized(e))return format('ADMIN','봇 계정만 설정할 수 있습니다.');
+   core.register({name,section:'OWNER',description:label+' 알림 설정 (on/off)',execute:e=>{
+    if(!authorized(e))return format('ADMIN','방장과 봇 계정만 설정할 수 있습니다.');
     const value=e.args[0]?.toLowerCase();
     if(e.args.length!==1||!['on','off'].includes(value))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+onoff(get(e.roomId)[kind]));
     set(e.roomId,kind,value==='on');audit?.record({roomId:e.roomId,actorId:e.userId,actorName:e.msg?.sender?.name,targetName:'현재 채팅방',command:'-'+name+' '+value,result:label+' 알림 '+onoff(get(e.roomId)[kind])});return format('ADMIN',label+' 알림 : '+onoff(get(e.roomId)[kind]));
