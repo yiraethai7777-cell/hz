@@ -49,7 +49,7 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
    if(!isEnabled(roomId)||!get(roomId)[kind])continue;
    if(kind==='join'&&profileLink)onProfileObserved(roomId,uid,name,profileLink);
    const profileType=[1,2,4].includes(profile.type)?'일반/기본 프로필':profileLink?'오픈프로필':'확인 불가';
-   const detail=kind==='leave'?'아이디 : '+uid+'\n퇴장 시각 : '+joinDate.format(at)+' KST\n\n관리자 · 답장 k로 강퇴':'[ '+label+' 기록 ]\n\n'+name+'\n'+joinDate.format(at)+' KST\n\n아이디 : '+uid+'\n프로필 : '+profileType+'\n오픈프로필 : '+(profileLink?'\n'+profileLink:[1,2,4].includes(profile.type)?'없음':'확인 불가')+'\n\n채팅방 : '+clean(event.room?.name,'현재 채팅방');
+   const detail=kind==='leave'?'아이디 : '+uid+'\n퇴장 시각 : '+joinDate.format(at)+' KST\n\n관리자 · 답장 k로 강퇴':'[ '+label+' 기록 ]\n\n'+name+'\n'+joinDate.format(at)+' KST\n\n아이디 : '+uid+'\n프로필 : '+profileType+'\n오픈프로필 : '+(profileLink?'\n'+profileLink:[1,2,4].includes(profile.type)?'없음':'확인 불가');
    try{let result;try{result=await send(roomId,fold(summary,detail),options);}catch(err){if(kind!=='leave')throw err;result=await send(roomId,fold(name+'님이 퇴장하셨습니다.',detail));}sent++;if(kind==='leave')onLeaveNotice({roomId,userId:uid,name,result});}catch(e){if(key)seen.delete(key);logger.error('[DUKE] membership notice failed',kind,e?.name||'Error');}
   }
   return sent;
