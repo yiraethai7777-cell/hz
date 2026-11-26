@@ -20,7 +20,7 @@ function createActivity({dir,onPersist=()=>{},allowedRooms=null,botId=()=>'',now
   const r=id(e.roomId),u=id(e.userId),type=Number(msg?.message?.type??msg?.type);
   if(msg?.room?.isOpenChat!==true||!Number.isFinite(type)||type<=0||!permitted(r,u))return;
   const log=id(msg?.message?.logId??msg?.logId);if(!log||duplicate(r+':chat:'+log))return;
-  update(r,u,row=>{row.chats++;});
+  update(r,u,row=>{row.chats++;const name=[...String(msg?.sender?.name??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('');if(name)row.name=name;});
  }
  function member(kind,event){
   const r=id(event?.room?.id??event?.chatId);
@@ -42,6 +42,6 @@ function createActivity({dir,onPersist=()=>{},allowedRooms=null,botId=()=>'',now
   while(rooms.size>128){const r=[...rooms.keys()].find(k=>!dirty.has(k));if(!r)break;rooms.delete(r);}
  }
  const timer=folder?setInterval(flush,intervalMs):null;timer?.unref();
- return {chat,member,moderation,get:(r,u)=>({...empty(),...getRoom(r).users[u]}),flush,close(){if(timer)clearInterval(timer);flush();}};
+ return {chat,member,moderation,list:r=>Object.entries(getRoom(r).users).filter(([u,row])=>permitted(r,u)&&Number.isSafeInteger(row.chats)&&row.chats>0).map(([id,row])=>({id,name:row.name||'',chats:row.chats})),get:(r,u)=>({...empty(),...getRoom(r).users[u]}),flush,close(){if(timer)clearInterval(timer);flush();}};
 }
 module.exports={createActivity};
