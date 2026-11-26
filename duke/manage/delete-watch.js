@@ -1,11 +1,22 @@
 'use strict';
-const fs=require('node:fs'),path=require('node:path');
+const fs=require('node:fs'),path=require('node:path'),LosslessJSON=require('lossless-json');
 const {format,fold}=require('../core'),{replyReference}=require('./reply-moderation');
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 const safe=v=>[...String(v??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('');
 const ttl=600000,cap=2000;
 function parseRewrite(packet){
- const b=packet?.body??{},l=b.chatLog??b.chatlog??b.rewrite??b;
+ const b=packet?.body??{};
+ if(packet?.method==='SYNCMODMSG'){
+  const feed=b.chatLog??b.chatlog,changed=b.modifiedChatLog;
+  if(!feed||!changed||Number(feed.type)!==0)return null;
+  let info;try{info=typeof feed.message==='string'?LosslessJSON.parse(feed.message):feed.message;}catch{return null;}
+  const room=id(b.chatId??feed.chatId??feed.chatRoomId),log=id(info?.logId),user=id(changed.authorId??changed.userId),rev=id(info?.targetRevision);
+  if(Number(info?.feedType)!==25||!room||!log||!user||!rev||rev!==id(changed.revision)||id(changed.logId)!==log||!id(feed.logId)||BigInt(id(feed.logId))<=BigInt(log)||id(feed.authorId)!==user||![1,26].includes(Number(changed.type)))return null;
+  if((feed.chatId!=null&&id(feed.chatId)!==room)||(changed.chatId!=null&&id(changed.chatId)!==room)||(changed.chatRoomId!=null&&id(changed.chatRoomId)!==room))return null;
+  const raw=changed.message??changed.msg??changed.text;
+  return {room,log,user,text:typeof raw==='string'&&raw.trim()?raw:null,revision:rev};
+ }
+ const l=b.chatLog??b.chatlog??b.rewrite??b;
  const room=id(b.chatId??b.chatRoomId??b.roomId??b.c??l.chatId??l.chatRoomId??l.roomId??l.c),log=id(l.logId??l.messageId??l.l??b.logId??b.messageId??b.l),user=id(l.authorId??l.userId??b.authorId??b.userId??b.actorId);
  const raw=l.message??l.msg??l.text??b.message??b.msg??b.text;
  const type=l.type??b.type;
@@ -21,7 +32,7 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
  if(editFile){try{for(const r of JSON.parse(fs.readFileSync(editFile,'utf8')))if(id(r))editEnabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
  const permitted=r=>!allowedRooms||allowedRooms.has(r),active=r=>enabled.has(r)&&permitted(r),editing=r=>editEnabled.has(r)&&permitted(r);
  function prune(){for(const m of [cache,notices,seen,cooldown]){for(const [k,v] of m)if(now()-v.at>=ttl)m.delete(k);while(m.size>cap)m.delete(m.keys().next().value);}}
- let lastDiagnostic=-Infinity;function diagnostic(reason,packet){if(now()-lastDiagnostic<1000)return;lastDiagnostic=now();const body=packet?.body??{};logger.log?.('[DUKE REWRITE]',JSON.stringify({reason,method:packet?.method,fields:Object.keys(body).slice(0,25),nestedFields:Object.keys(body.chatLog??body.chatlog??body.rewrite??{}).slice(0,25)}));}
+ let lastDiagnostic=-Infinity;function diagnostic(reason,packet){if(now()-lastDiagnostic<1000)return;lastDiagnostic=now();const body=packet?.body??{};logger.log?.('[DUKE REWRITE]',JSON.stringify({reason,method:packet?.method,fields:Object.keys(body).slice(0,25),nestedFields:Object.keys(body.chatLog??body.chatlog??body.rewrite??{}).slice(0,25),modifiedFields:Object.keys(body.modifiedChatLog??{}).slice(0,25)}));}
  const timer=setInterval(prune,30000);timer.unref?.();
  function set(r,on,kind='delete'){const target=kind==='edit'?editEnabled:enabled,store=kind==='edit'?editFile:file;const next=new Set(target);if(on)next.add(r);else next.delete(r);
   if(store){const tmp=store+'.tmp';fs.writeFileSync(tmp,JSON.stringify([...next]),{mode:0o600});fs.renameSync(tmp,store);onPersist(kind==='edit'?'edit-watch-settings.json':'delete-watch-settings.json');}
@@ -74,7 +85,7 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
   try{const res=await send(r,body,{mentions:[{userId:u,at:[1],len:name.length}]});const notice=id(res?.body?.logId??res?.logId);if(notice)notices.set(r+':'+notice,{at:now(),item});prune();}catch(e){logger.error('[DUKE] delete notice failed',e?.name||'Error');}
  }
  async function onRewrite(packet){
-  if(packet?.method!=='SYNCREWR')return false;
+  if(!['SYNCREWR','SYNCMODMSG'].includes(packet?.method))return false;
   const e=parseRewrite(packet);if(!e){diagnostic('missing room or log ID',packet);return false;}if(!editing(e.room)&&!active(e.room)){diagnostic('room disabled',packet);return false;}
   prune();const key=e.room+':'+e.log,old=cache.get(key);
   if(!old||old.uid===id(botId())||(e.user&&e.user!==old.uid)||seen.has(key)){diagnostic(!old?'original not cached':'author mismatch or deleted',packet);return false;}
@@ -82,7 +93,8 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
   if(value===null)try{const msg=await fetchCurrent(e.room,e.log);if(id(msg?.room?.id??msg?.chatId)===e.room&&id(msg?.message?.logId??msg?.logId)===e.log&&id(msg?.sender?.id??msg?.senderId)===old.uid&&[1,26].includes(Number(msg?.message?.type??msg?.type)))value=msg?.message?.text??msg?.text;}catch{}
   if(typeof value!=='string'||!value.trim()||cache.get(key)!==old||seen.has(key)){diagnostic('updated text unavailable or stale',packet);return false;}
   const after=[...value].slice(0,1000).join('');if(after===old.text){diagnostic('unchanged text',packet);return false;}
-  cache.set(key,{...old,text:after,at:now()});diagnostic('change detected',packet);
+  if(e.revision&&old.revision&&BigInt(e.revision)<=BigInt(old.revision))return false;
+  cache.set(key,{...old,text:after,at:now(),revision:e.revision??old.revision});diagnostic('change detected',packet);
   if(!editing(e.room))return true;
   const name=old.name||'이름 확인 불가',summary='@'+name+'님이 메세지를 수정하셨습니다.';
   const body=fold(summary,'[ 수정 정보 ]\n닉네임 : '+name+'\n수정 시각 : '+new Date(now()).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+'\n내용 확인 : 이 알림에 답장으로 l (관리자 전용, 10분 이내)');

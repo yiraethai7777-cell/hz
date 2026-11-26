@@ -61,3 +61,18 @@ test('edit diagnostics are room scoped, time limited, and omit message values',a
   time+=91000;w.tracePush({method:'MSG',body:{chatId:'1000'}});assert.equal(logs.length,2);
  }finally{w.close();}
 });
+
+test('SYNCMODMSG edit feed targets modifiedChatLog and ignores non-edit feeds',async()=>{
+ const room={id:'1000',isOpenChat:true},out=[];
+ const send=async(r,t,o)=>{out.push({r,t,o});return {status:0,body:{logId:'8888'}};};
+ const w=createDeleteWatch({botId:()=> '9000',send,canManage:()=>true});
+ try{
+  const core=createCore({send});w.register(core);
+  await core.handle({text:'-수정감지 on',roomId:'1000',userId:'9000',msg:{room}});
+  w.observe({room,sender:{name:'회원'},message:{logId:'5000',type:1}},{roomId:'1000',userId:'3000',text:'이전'});
+  const push={method:'SYNCMODMSG',body:{chatId:'1000',chatLog:{logId:'6000',authorId:'3000',type:0,message:'{"feedType":25,"logId":5000,"targetRevision":1}'},modifiedChatLog:{logId:'5000',authorId:'3000',type:1,revision:1,message:'현재'}}};
+  assert.equal(await w.onRewrite({...push,body:{...push.body,chatLog:{...push.body.chatLog,message:'{"feedType":14,"logId":5000,"targetRevision":1}'}}}),false);
+  assert.equal(await w.onRewrite({...push,body:{...push.body,modifiedChatLog:{...push.body.modifiedChatLog,logId:'5001'}}}),false);
+  assert.equal(await w.onRewrite(push),true);assert.match(out.at(-1).t,/@회원님이 메세지를 수정하셨습니다/);assert.equal(await w.onRewrite(push),false);
+ }finally{w.close();}
+});

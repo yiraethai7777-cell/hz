@@ -65,7 +65,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  createOpenProfileLink({noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile}).register(core);
  createUserInfo({canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile,role:moderation.role,getHistory:warnings.getHistory,getActivity:activity.get}).register(core);
  client.on('rawPush',packet=>{if(ready)deletion.tracePush(packet);});
- client.onPush('SYNCREWR',packet=>{if(ready)void deletion.onRewrite(packet).catch(err=>console.error('[DUKE] rewrite event failed',err?.name||'Error'));});
+ for(const method of ['SYNCREWR','SYNCMODMSG'])client.onPush(method,packet=>{if(ready)void deletion.onRewrite(packet).catch(err=>console.error('[DUKE] rewrite event failed',err?.name||'Error'));});
  client.onDelete(event=>{if(ready)void deletion.onDelete(event).catch(err=>console.error('[DUKE] delete event failed',err?.name||'Error'));});
  client.onJoin(event=>{if(ready){activity.member('join',event);void membership.handle('join',event);}});
  client.onLeave(event=>{if(ready){activity.member('leave',event);void membership.handle('leave',event);}});
