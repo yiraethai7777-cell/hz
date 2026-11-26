@@ -20,7 +20,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  const {createClient}=require('../dist');
  const client=createClient({authPath,autoConnect:false,autoReconnect:true,debug:false});
  let ready=false;
- const send=async(roomId,body)=>{const r=await client.chat.sendText(roomId,body);if(r?.status!=null&&r.status!==0)throw Error('send failed');recordBotSend(roomId,r);return r;};
+ const send=async(roomId,body,opts)=>{const r=await client.chat.sendText(roomId,body,opts);if(r?.status!=null&&r.status!==0)throw Error('send failed');recordBotSend(roomId,r);return r;};
  const onPersist=key=>database?.mark(key);
  const audit=createManagementLog({dir:dataDir,onPersist});
  const activity=createActivity({dir:dataDir,onPersist,allowedRooms:rooms,botId:()=>id(client.userId)});

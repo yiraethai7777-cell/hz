@@ -64,10 +64,11 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
     if(prev)for(const [u,m] of latest){
      const old=prev.get(u);if(!old)continue;
      const name=m.name||old.name||'이름 확인 불가';
-     if(s.nick&&old.name&&m.name&&old.name!==m.name)notices.push({title:'닉네임 변경',body:old.name+' → '+m.name});
+     const renamed=s.nick&&old.name&&m.name&&old.name!==m.name;
      const types=old.profileType!==null&&m.profileType!==null&&old.profileType!==m.profileType;
      const links=old.profileId!==null&&m.profileId!==null&&old.profileId!==m.profileId;
-     if(s.profile&&(types||links))profileChanges.push({old:{...old},current:{...m,name},types,links});
+     if(s.profile&&(types||links))profileChanges.push({old:{...old},current:{...m,name},types,links,renamed});
+     else if(renamed)notices.push({title:'닉네임 변경',body:old.name+' → '+m.name});
      // Missing fields are not evidence of a change.
      if(!m.name)m.name=old.name;
      for(const key of ['profileType','profileId'])if(m[key]===null)m[key]=old[key];
@@ -83,13 +84,18 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
     for(const c of selected){
      const old=c.old,current=c.current;
      const title=c.links?'오픈프로필 변경':'프로필 유형 변경';
-     notices.push({title,body:'전닉 : '+(old.name||'확인 불가')+'\n이전 오픈프로필 : '+link(old)+'\n\n현닉 : '+(current.name||'확인 불가')+'\n현재 오픈프로필 : '+link(current)+(c.types?'\n프로필 유형 : '+type(old)+' → '+type(current):'')});
+     notices.push({target:current,title,body:(c.renamed?'[닉네임 변경]\n'+old.name+' → '+current.name+'\n\n':'')+ '['+title+']\n'+'전닉 : '+(old.name||'확인 불가')+'\n이전 오픈프로필 : '+link(old)+'\n\n현닉 : '+(current.name||'확인 불가')+'\n현재 오픈프로필 : '+link(current)+(c.types?'\n프로필 유형 : '+type(old)+' → '+type(current):'')});
     }
     if(!enabled()||!notices.length)continue;
-    const lines=notices.slice(0,20).map(n=>'['+n.title+']\n'+n.body);
-    const omitted=Math.max(0,notices.length-20)+Math.max(0,profileChanges.length-selected.length);
-    const body=lines.join('\n\n')+(omitted?'\n\n외 '+omitted+'건':'');
-    await send(room,body);
+    const plain=notices.filter(n=>!n.target);
+    if(plain.length&&enabled())await send(room,plain.slice(0,20).map(n=>'['+n.title+']\n'+n.body).join('\n\n')+(plain.length>20?'\n\n외 '+(plain.length-20)+'건':''));
+    for(const n of notices.filter(n=>n.target)){
+     if(!enabled())break;
+     const name=n.target.name||'이름 확인 불가';
+     const summary='@'+name+'님이 프로필을 변경했습니다.';
+     await send(room,fold(summary,n.body),{mentions:[{userId:n.target.id,at:[1],len:name.length}]});
+    }
+    if(profileChanges.length>selected.length&&enabled())await send(room,'추가 프로필 변경 '+(profileChanges.length-selected.length)+'건 (이번 검사 알림 한도 초과)');
    }catch(e){due.set(room,now()+(/(?:-401|429|rate.?limit)/i.test(String(e?.message||''))?60000:3000));logger.error('[DUKE] profile watch room failed',e?.name||'Error');}
    }
   }catch(e){joined=null;logger.error('[DUKE] profile watch failed',e?.name||'Error');}finally{busy=false;}
