@@ -9,10 +9,23 @@ test('chat rankings use shared room counts, top ten, folded pages, own rank and 
  chat('1000','3000','새이름');chat('1000','3001','회원1');chat('2000','3000','다른방');chat('1000','9000','봇');
  createChatRanking({list:a.list,now:()=>at}).register(core);
  const run=async(text)=>{at+=4000;await core.handle({text,roomId:'1000',userId:'3000',msg:{room:{isOpenChat:true},sender:{name:'새이름'}}});return out.at(-1);};
- const top=await run('-채팅순위');assert.match(top,/집계 인원 : 102명/);assert.match(top,/1위 \| 새이름 : 2회/);assert.match(top,/1위 \| 회원1 : 2회/);assert.equal(top.match(/위 \|/g).length,10);assert.match(top,/\u200b{1200}/);assert.doesNotMatch(top,/전체 순위 : -채팅순위전체/);assert.match(top,/▰{10}/);assert.doesNotMatch(top.split('\u200b'.repeat(1200))[0],/새이름/);
+ const top=await run('-채팅순위');assert.match(top,/집계 인원 : 103명/);assert.match(top,/1위 \| 새이름 : 2회/);assert.match(top,/1위 \| 회원1 : 2회/);assert.equal(top.match(/위 \|/g).length,10);assert.match(top,/\u200b{1200}/);assert.doesNotMatch(top,/전체 순위 : -채팅순위전체/);assert.match(top,/▰{10}/);assert.doesNotMatch(top.split('\u200b'.repeat(1200))[0],/새이름/);
  const all=await run('-채팅순위전체');assert.match(all,/\u200b{1200}/);assert.equal(all.split('\n').filter(l=>/^\d+\. /.test(l)).length,100);
- assert.equal((await run('-채팅순위전체 2')).split('\n').filter(l=>/^\d+\. /.test(l)).length,2);
- assert.match(await run('-내채팅'),/현재 순위 : 1위 \/ 52명/);assert.match(out.at(-1),/전체 채팅량 : 2회/);
+ assert.equal((await run('-채팅순위전체 2')).split('\n').filter(l=>/^\d+\. /.test(l)).length,3);
+ assert.match(await run('-내채팅'),/현재 순위 : 1위 \/ 103명/);assert.match(out.at(-1),/전체 채팅량 : 2회/);
  assert.equal(a.list('2000').length,1);
+ assert.equal(a.list('1000').find(x=>x.id==='9000').chats,1);
  a.close();
+});
+
+test('bot successful outgoing messages and echoes count once',()=>{
+ const a=createActivity({botId:()=> '9000'}),room={id:'1000',isOpenChat:true};
+ a.sent(room,{status:0,body:{logId:'5000'}},'듀크봇');
+ a.chat({room,message:{type:1,logId:'5000'},sender:{name:'듀크봇'}},{roomId:'1000',userId:'9000'});
+ a.sent(room,{complete:{status:0,chatLog:{logId:'5001'}}},'듀크봇');
+ a.sent(room,{status:-1,body:{logId:'5002'}},'듀크봇');
+ a.sent({id:'2000',isOpenChat:false},{status:0,body:{logId:'5003'}},'듀크봇');
+ assert.equal(a.get('1000','9000').chats,2);
+ assert.equal(a.list('1000')[0].name,'듀크봇');
+ assert.equal(a.list('2000').length,0);a.close();
 });
