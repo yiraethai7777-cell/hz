@@ -7,17 +7,18 @@ const {createReplyModeration}=require('./manage/reply-moderation');
 const {createManagementLog}=require('./manage/audit-log');
 function id(value){if(typeof value==='number'&&!Number.isSafeInteger(value))return null;const s=String(value??'');return /^[1-9]\d*$/.test(s)?s:null;}
 function normalize(msg,receivedAt=performance.now()){const raw=msg?.raw?.chatLog??msg?.raw??{};return {roomId:id(raw.chatRoomId??raw.chatId??msg?.raw?.chatId)??id(msg?.room?.id??msg?.chatId),userId:id(raw.userId??raw.authorId??raw.senderId??msg?.sender?.id??msg?.senderId),text:raw.message??raw.msg??raw.text??msg?.message?.text??msg?.text,receivedAt:Number.isFinite(msg?.receivedAt)?msg.receivedAt:receivedAt};}
-async function startKakao({authPath,dataDir,website,roomList}){
+async function startKakao({authPath,dataDir,website,roomList,database}){
  const rooms=roomList?new Set(roomList.split(',').map(x=>x.trim()).filter(x=>id(x))):null;
  if(rooms&&!rooms.size)throw Error('Invalid test rooms');
  const {createClient}=require('../dist');
  const client=createClient({authPath,autoConnect:false,autoReconnect:true,debug:false});
  let ready=false;
  const send=async(roomId,body)=>{const r=await client.chat.sendText(roomId,body);if(r?.status!=null&&r.status!==0)throw Error('send failed');return r;};
- const audit=createManagementLog({dir:dataDir});
- const moderation=createReplyModeration({dir:dataDir,audit,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
- const membership=createMembership({dir:dataDir,audit,allowedRooms:rooms,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:(roomId,userId)=>{const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
- const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir}),website,getStatus:()=>({kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 지원',manageRooms:membership.activeCount()}),send});
+ const onPersist=key=>database?.mark(key);
+ const audit=createManagementLog({dir:dataDir,onPersist});
+ const moderation=createReplyModeration({dir:dataDir,audit,onPersist,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
+ const membership=createMembership({dir:dataDir,audit,onPersist,allowedRooms:rooms,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:(roomId,userId)=>{const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
+ const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir,onPersist}),website,getStatus:()=>({...(database?.status()??{database:'미연결'}),kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 지원',manageRooms:membership.activeCount()}),send});
  membership.register(core);
  moderation.register(core);
  client.onJoin(event=>{if(ready)void membership.handle('join',event);});

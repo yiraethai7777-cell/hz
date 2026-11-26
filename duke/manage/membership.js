@@ -6,12 +6,12 @@ function id(v){if(typeof v==='number'&&!Number.isSafeInteger(v))return null;cons
 function clean(v,fallback){const s=String(v??'').replace(/[\r\n\t\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim();return [...s].slice(0,80).join('')||fallback;}
 function validProfileLink(value){if(typeof value!=='string')return '';try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='open.kakao.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/^\/o\/[A-Za-z0-9_-]+\/?$/.test(u.pathname)?u.href:'';}catch{return '';}}
 async function resolveLink(lookup,roomId,uid,timeoutMs){let timer;try{return validProfileLink(await Promise.race([Promise.resolve().then(()=>lookup(roomId,uid)),new Promise(resolve=>{timer=setTimeout(()=>resolve(''),timeoutMs);})]));}catch{return '';}finally{clearTimeout(timer);}}
-function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.now,logger=console,lookupProfile=async()=>'',profileTimeoutMs=1500,onLeaveNotice=()=>{},audit=null}={}){
+function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.now,logger=console,lookupProfile=async()=>'',profileTimeoutMs=1500,onLeaveNotice=()=>{},audit=null,onPersist=()=>{}}={}){
  if(typeof send!=='function')throw TypeError('send required');
  const file=dir?path.join(dir,'membership-settings.json'):null,settings=new Map(),seen=new Map();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data)){if(id(r)&&typeof s?.join==='boolean'&&typeof s?.leave==='boolean'&&(s.join||s.leave))settings.set(r,{join:s.join,leave:s.leave});}}catch(e){if(e.code!=='ENOENT')throw e;}}
  const get=r=>settings.get(r)||{join:false,leave:false};
- function set(r,k,enabled){const next=new Map(settings),s={...get(r),[k]:enabled};if(s.join||s.leave)next.set(r,s);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries(next)),{mode:0o600});fs.renameSync(tmp,file);}settings.clear();for(const [key,value] of next)settings.set(key,value);}
+ function set(r,k,enabled){const next=new Map(settings),s={...get(r),[k]:enabled};if(s.join||s.leave)next.set(r,s);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries(next)),{mode:0o600});fs.renameSync(tmp,file);onPersist('membership-settings.json');}settings.clear();for(const [key,value] of next)settings.set(key,value);}
  function authorized(e){const b=botId();return !!b&&e.userId===b;}
  const onoff=v=>v?'ON':'OFF';
  function register(core){

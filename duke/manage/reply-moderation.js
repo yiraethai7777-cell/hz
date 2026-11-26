@@ -14,12 +14,12 @@ function replyReference(msg,bot){
  }
  return '';
 }
-function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,now=Date.now,logger=console}={}){
+function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,onPersist=()=>{},now=Date.now,logger=console}={}){
  const file=dir?path.join(dir,'reply-moderation.json'):null;
  let state={admins:{},notices:{}};
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const v=JSON.parse(fs.readFileSync(file,'utf8'));if(!v.admins||!v.notices)throw Error('invalid moderation state');state=v;}catch(e){if(e.code!=='ENOENT')throw e;}}
  const locked=new Set();
- function save(){if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(state),{mode:0o600});fs.renameSync(tmp,file);}}
+ function save(){if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(state),{mode:0o600});fs.renameSync(tmp,file);onPersist('reply-moderation.json');}}
  function index({roomId,userId,name,result,kind}){
   const bot=id(botId()),r=id(roomId),u=id(userId);if(!bot||!r||!u||u===bot)return false;
   let indexed=false;for(const res of Array.isArray(result)?result:[result]){

@@ -4,7 +4,7 @@ const {format,fold}=require('../core');
 const LIMIT=15,LINE='━━━━━━━━━━━━━━';
 const validId=v=>typeof v==='string'&&/^[1-9]\d*$/.test(v);
 const clean=v=>[...String(v??'').replace(/[\r\n\t\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('');
-function createManagementLog({dir,now=Date.now,logger=console}={}){
+function createManagementLog({dir,now=Date.now,logger=console,onPersist=()=>{}}={}){
  const folder=dir?path.join(dir,'management-logs'):null,cache=new Map();
  if(folder)fs.mkdirSync(folder,{recursive:true,mode:0o700});
  function remember(room,rows){cache.delete(room);cache.set(room,rows);if(folder&&cache.size>256)cache.delete(cache.keys().next().value);}
@@ -19,7 +19,7 @@ function createManagementLog({dir,now=Date.now,logger=console}={}){
   try{
    const row={at:now(),actorId,actorName:clean(actorName)||actorId,targetId:targetId||null,targetName:clean(targetName)||targetId||'현재 채팅방',command:clean(command),result:clean(result)};
    const rows=[row,...load(roomId)].slice(0,LIMIT);
-   if(folder){const file=path.join(folder,roomId+'.json'),tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(rows),{mode:0o600});fs.renameSync(tmp,file);}
+   if(folder){const file=path.join(folder,roomId+'.json'),tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(rows),{mode:0o600});fs.renameSync(tmp,file);onPersist('management-logs/'+roomId+'.json');}
    remember(roomId,rows);return true;
   }catch(e){logger.error('[DUKE] management log write failed',e?.name||'Error');return false;}
  }
