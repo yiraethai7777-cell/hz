@@ -159,8 +159,14 @@ async function openChatUnkick(this: KakaoForgeClient, chatId: number | string, u
   const removed = await this._carriage.request('KLDELITEM', { li, c, kid });
   if (removed.status !== 0) throw new Error('KLDELITEM failed: status=' + removed.status);
   for (let attempt = 0; attempt < 3; attempt++) {
-    const list = await this._carriage.request('KLSYNC', { li });
-    if (list.status !== 0 || !Array.isArray(list.body?.kickMembers)) throw new Error('내보내기 목록 확인 실패');
+    let list: any;
+    try { list = await this._carriage.request('KLSYNC', { li }); }
+    catch { return { success: true, acknowledged: true, verified: false, reason: 'list_unavailable', userId: id }; }
+    if (list.status !== 0 || !Array.isArray(list.body?.kickMembers)) {
+      // KLDELITEM was acknowledged. Missing or unsupported list response
+      // does not establish that the target remains banned.
+      return { success: true, acknowledged: true, verified: false, reason: 'list_unavailable', userId: id };
+    }
     const stillBlocked = list.body.kickMembers.some((v: any) => String(v.userId) === id && (v.c == null || String(v.c) === String(roomId)));
     if (!stillBlocked) return { success: true, verified: true, userId: id };
     if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 200));

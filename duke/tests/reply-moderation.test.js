@@ -45,3 +45,14 @@ test('kick-release retries only same unban after transient failure and never rep
  await cmd('3000');assert.deepEqual(actions,[['kick','1000','3000'],['unban','1000','3000'],['unban','1000','3000'],['unban','1000','3000']]);assert.deepEqual(waits,[300,700]);assert.match(out.at(-1),/내보낸 후 벤을 해제/);
  fail=true;actions.length=0;waits.length=0;await cmd('4000');assert.equal(actions.filter(a=>a[0]==='kick').length,1);assert.equal(actions.filter(a=>a[0]==='unban').length,4);assert.ok(actions.every(a=>a[2]==='4000'));assert.match(out.at(-1),/벤 해제를 확인하지 못했습니다/);assert.match(out.at(-2),/답장으로 u/);
 });
+
+test('acknowledged unban with unavailable list is not falsely announced as a ban or retried; verified audit remains distinct',async()=>{
+ const out=[],actions=[],logs=[],counts=[];let seq=9000;const send=async(r,t)=>{out.push(t);return {status:0,body:{logId:String(++seq)}};};
+ const m=createReplyModeration({botId:()=> '9000',send,kick:async(r,u)=>{actions.push('kick');return {status:0};},unban:async(r,u)=>{actions.push('unban');return {success:true,acknowledged:true,verified:false,reason:'list_unavailable'};},sleep:async()=>{throw Error('unexpected retry');},audit:{record:e=>logs.push(e)},onAction:(...a)=>counts.push(a),logger:{log(){},error(){}}});
+ const core=createCore({send});m.register(core);
+ await core.handle({roomId:'1000',userId:'5000',text:'-내풀 3000',msg:{room:{isOpenChat:true},sender:{type:4}}});
+ assert.deepEqual(actions,['kick','unban']);assert.equal(out.length,1);assert.match(out[0],/벤 해제 요청 완료$/);assert.doesNotMatch(out[0],/강퇴하였습니다|재입장이 제한/);
+ assert.match(logs[0].result,/목록 미확인/);assert.equal(counts[0][2],'kick');
+ const reply={room:{isOpenChat:true},sender:{type:4},message:{type:26},attachmentsRaw:[{src_userId:'9000',src_logId:'9001'}]};
+ await m.handle(reply,{roomId:'1000',userId:'5000',text:'u'});assert.match(out.at(-1),/벤 해제 요청이 완료/);assert.deepEqual(actions,['kick','unban','unban']);
+});

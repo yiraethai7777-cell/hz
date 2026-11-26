@@ -41,13 +41,14 @@ function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=(
  }
  function kickOK(res){return res?.status===0&&res?.success!==false&&res?.ok!==false;}
  function releaseOK(res){return res?.success===true&&res?.verified===true;}
+ function releaseAcknowledged(res){return res?.success===true&&res?.acknowledged===true&&res?.verified===false&&res?.reason==='list_unavailable';}
  // A kick ACK may precede propagation to the blocked-member list. Retry only
  // the same authorized unban, never the kick; do not bypass verification.
  async function releaseWithRetry(r,u){
   const waits=[0,300,700,1200];
   for(let i=0;i<waits.length;i++){
    if(waits[i])await sleep(waits[i]);
-   try{if(releaseOK(await unban(r,u)))return true;logger.error('[DUKE] unban unverified',i+1);}
+   try{const result=await unban(r,u);if(releaseOK(result))return 'verified';if(releaseAcknowledged(result)){logger.log?.('[DUKE] unban acknowledged; list unavailable');return 'acknowledged';}logger.error('[DUKE] unban unverified',i+1);}
    catch(err){const message=String(err?.message??''),status=/^KLDELITEM failed: status=(-?\d+)$/.exec(message);const reason=status?'KLDELITEM status='+status[1]:message==='내보내기 목록 확인 실패'?'list unavailable':message==='해제 후에도 내보내기 목록에 남아 있습니다.'?'still blocked':message==='LOCO not connected'?'disconnected':'unban error';logger.error('[DUKE] unban attempt',i+1,reason);if(reason==='disconnected')break;}
   }
   return false;
@@ -67,7 +68,12 @@ function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=(
    if(!kickOK(await kick(r,uid)))throw Error('kick unverified');
    kicked=true;
    if(release){
-    if(!await releaseWithRetry(r,uid))throw Error('unban unverified');
+    const outcome=await releaseWithRetry(r,uid);if(!outcome)throw Error('unban unverified');
+    if(outcome==='acknowledged'){
+     onAction(r,uid,'kick');record(r,actor,msg,uid,name,'-내풀','강퇴 성공 / 벤 해제 요청 성공 / 목록 미확인');logged=true;
+     const result=await send(r,name+'님을 내보냈습니다.\n벤 해제 요청 완료');
+     index({roomId:r,userId:uid,name,result,kind:'ban'});return null;
+    }
     onAction(r,uid,'release');
     record(r,actor,msg,uid,name,'-내풀','강퇴 후 벤 해제 완료');logged=true;
     for(const [k,n] of Object.entries(state.notices))if(n.roomId===r&&n.userId===uid&&n.kind==='ban')delete state.notices[k];save();
@@ -107,7 +113,11 @@ function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=(
   try{
    if(n.used)return true;
    const res=await (cmd==='k'?kick:unban)(r,n.userId);
-   if(cmd==='k'?(res?.status!==0||res?.success===false||res?.ok===false):(res?.success!==true||res?.verified!==true))throw Error('API unverified');
+   if(cmd==='u'&&releaseAcknowledged(res)){
+    record(r,actor,msg,n.userId,n.name,'u (벤 해제)','벤 해제 요청 성공 / 목록 미확인');logged=true;
+    await send(r,n.name+'님의 벤 해제 요청이 완료되었습니다.');return true;
+   }
+   if(cmd==='k'?(res?.status!==0||res?.success===false||res?.ok===false):!releaseOK(res))throw Error('API unverified');
    if(cmd==='k')onAction(r,n.userId,'kick');
    record(r,actor,msg,n.userId,n.name,cmd==='k'?'k (퇴장자 강퇴)':'u (벤 해제)',cmd==='k'?'강퇴 요청 성공':'벤 해제 완료');logged=true;
    n.used=true;save();
