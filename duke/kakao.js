@@ -86,7 +86,13 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   if([1,2,4].includes(type))return profile;
   const entry=client._profileLinkUrls?.get(link);
   if(entry&&Date.now()-entry.checkedAt<300000)return {...profile,url:entry.url};
-  return {...profile,url:await client.getUserOpenProfileLink(r,u)};
+  const res=await client._carriage.infoLink([link]);
+  if(res?.status!==0)return profile;
+  const links=res.body?.ols,current=Array.isArray(links)?links.find(v=>id(v.li)===link):null,url=current?.lu;
+  if(typeof url==='string'&&/^https:\/\/open\.kakao\.com\/o\/[A-Za-z0-9_-]+\/?$/.test(url)){
+   client._profileLinkUrls?.set(link,{url,checkedAt:Date.now()});return {...profile,url};
+  }
+  return profile;
  }
  const lookupCurrentProfile=async(r,u,partial)=>{
   const room=client._resolveChatId(r),res=await client._carriage?.member(room,[u]);
