@@ -72,7 +72,7 @@ test('explicit quiz difficulty is strict, all levels share persistent history, a
  try{
   const command=(level)=>msg('-퀴즈'+(level?' '+level:''),'8000','3000','1000',at);
   await core.handle(command('어려움'));assert.match(out.at(-1).text,/난이도 : 어려움/);
-  const chosen=BANK.flat().find(q=>out.at(-1).text.includes(q.question+'\n\n'));assert.ok(chosen);
+  const chosen=BANK.flat().find(q=>out.at(-1).text==='♛ 𝗗𝗨𝗞𝗘 | QUIZ\n━━━━━━━━━━━━━━\n'+q.question+'\n\n분야 : '+q.category+'\n난이도 : '+q.difficulty+'\n━━━━━━━━━━━━━━');assert.ok(chosen);
   assert.equal(quiz.answer(msg(chosen.answers[0],'9001','3000','1000',at)),true);await Promise.resolve();
   assert.equal(out.at(-1).text,'@회원님이 정답을 맞췄습니다!\n정답 : '+chosen.answers[0]+'\n+1000코인');
   assert.deepEqual(out.at(-1).options,{mentions:[{userId:'3000',at:[1],len:2}]});seen.add(chosen.id);at+=COOLDOWN;
@@ -83,7 +83,7 @@ test('explicit quiz difficulty is strict, all levels share persistent history, a
    const count=all.filter(q=>q.difficulty===level&&!seen.has(q.id)).length;
    for(let i=0;i<count;i++){
     await quiz.start({...command(level),args:[level]});assert.match(out.at(-1).text,new RegExp('난이도 : '+level));
-    const selected=all.find(q=>out.at(-1).text.includes(q.question+'\n\n'));assert.ok(selected);assert.ok(!seen.has(selected.id));seen.add(selected.id);
+    const selected=all.find(q=>out.at(-1).text==='♛ 𝗗𝗨𝗞𝗘 | QUIZ\n━━━━━━━━━━━━━━\n'+q.question+'\n\n분야 : '+q.category+'\n난이도 : '+q.difficulty+'\n━━━━━━━━━━━━━━');assert.ok(selected);assert.ok(!seen.has(selected.id));seen.add(selected.id);
     quiz.cancel('1000');at+=COOLDOWN;
    }
    assert.match(await quiz.start({...command(level),args:[level]}),/미출제 문제가 없습니다/);
