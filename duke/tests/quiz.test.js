@@ -23,8 +23,9 @@ test('first answer claims synchronously, raw answers, wrong room, stale log, tim
   quiz=createQuiz(opts);await quiz.start(msg('-퀴즈','9002'));assert.ok(out.at(-1).includes('분야 : 일반'));assert.equal(tableFor('quiz-history/1000.json'),'duke_quiz_history');
   await timers.at(-1).fn();await Promise.resolve();assert.match(out.at(-1),/시간 초과/);
   at+=COOLDOWN;await quiz.start(msg('-퀴즈'));enabled=false;assert.equal(quiz.answer(msg('10','9003')),false);quiz.cancel('1000');enabled=true;
-  let ack;const pending=createQuiz({...opts,dir:null,send:(r,t)=>{out.push(t);return t.includes('QUIZ')?new Promise(resolve=>ack=resolve):Promise.resolve({});}});const started=pending.start(msg('-퀴즈','8000'));
-  assert.equal(pending.answer(msg('10','8999')),true);assert.equal(pending.answer(msg('10','9001')),true);ack({body:{logId:'9000'}});await started;await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');assert.equal(pending.has('1000'),false);
+  let ack;const pending=createQuiz({...opts,dir:null,send:(r,t)=>{out.push(t);return t.includes('QUIZ')?new Promise(resolve=>ack=resolve):Promise.resolve({});}});const started=pending.start(msg('-퀴즈','8000','3000','1000',at));
+  assert.equal(pending.answer(msg('10','9001','3000','1000',at-1)),false);
+  assert.equal(pending.answer(msg('10','8999','3000','1000',at)),true);assert.equal(pending.answer(msg('10','9001','3000','1000',at)),true);ack({body:{logId:'9000'}});await started;await Promise.resolve();assert.equal(out.at(-1),'회원님 정답을 맞췄습니다!\n+1000코인');assert.equal(pending.has('1000'),false);
  }finally{quiz?.reset();fs.rmSync(dir,{recursive:true,force:true});}
 });
 
