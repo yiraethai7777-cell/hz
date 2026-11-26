@@ -1,6 +1,6 @@
 'use strict';
 const {format,fold}=require('../core');
-const LINE='━━━━━━━━━━━━━━',PAGE=50;
+const LINE='━━━━━━━━━━━━━━',PAGE=100;
 const clean=v=>[...String(v??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,50).join('');
 const num=v=>v.toLocaleString('ko-KR');
 function createChatRanking({list,getName=()=>'',now=Date.now}={}){
@@ -22,11 +22,15 @@ function createChatRanking({list,getName=()=>'',now=Date.now}={}){
   }
   if(!rows.length)return format('RANKING','아직 집계된 채팅이 없습니다.');
   const summary=format('RANKING','채팅순위'+(cmd==='채팅순위전체'?' 전체':' TOP 10')+'\n집계 인원 : '+num(rows.length)+'명\n전체 채팅량 : '+num(total)+'회');
-  if(cmd==='채팅순위')return summary+'\n\n'+rows.slice(0,10).map(line).join('\n')+'\n'+LINE+'\n전체 순위 : -채팅순위전체';
+  if(cmd==='채팅순위'){
+   const graph=r=>{const n=Math.max(1,Math.min(10,Math.round(10*r.chats/rows[0].chats)));return '▰'.repeat(n)+'▱'.repeat(10-n);};
+   return fold(summary,LINE+'\n[ TOP 10 ]\n\n'+rows.slice(0,10).map(r=>line(r)+'\n'+graph(r)).join('\n\n')+'\n'+LINE+'\n그래프 기준 : 1위 채팅량');
+  }
   const pages=Math.ceil(rows.length/PAGE),page=Number(e.args[0]||1);
   if(page>pages)return '존재하지 않는 페이지입니다. (1~'+pages+')';
-  return fold(summary,LINE+'\n[ 전체 순위 · '+page+'/'+pages+' 페이지 ]\n\n'+rows.slice((page-1)*PAGE,page*PAGE).map(line).join('\n')+'\n'+LINE+(pages>1?'\n다른 페이지 : -채팅순위전체 [페이지]':''));
+  const compact=r=>r.rank+'. '+name(r).slice(0,24)+' '+num(r.chats);
+  return fold(summary,LINE+'\n[ '+page+'/'+pages+' 페이지 · 단위: 회 ]\n'+rows.slice((page-1)*PAGE,page*PAGE).map(compact).join('\n')+'\n'+LINE+(page<pages?'\n다음 : -채팅순위전체 '+(page+1):''));
  }
- return {register(core){for(const [name,description] of [['채팅순위','누적 채팅 순위 상위 10명'],['채팅순위전체','누적 채팅 전체 순위 (페이지)'],['내채팅','내 누적 채팅량과 순위']])core.register({name,description,execute:e=>execute(e,name)});}};
+ return {register(core){for(const [name,description] of [['채팅순위','누적 채팅 순위 상위 10명'],['채팅순위전체','누적 채팅 전체 순위 (100명/페이지)'],['내채팅','내 누적 채팅량과 순위']])core.register({name,description,execute:e=>execute(e,name)});}};
 }
 module.exports={createChatRanking};
