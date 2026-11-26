@@ -1060,7 +1060,12 @@ export class KakaoForgeClient extends EventEmitter {
   }
 
   async _emitMessageInternal(data: any, receivedAt = performance.now()) {
-    const msg = await this._buildMessageEvent(data);
+    // Public context-free text commands need no remote member or room metadata.
+    // Privileged, game, and reply commands retain the full context path.
+    const log = data.chatLog || data;
+    const text = log.message || log.msg || log.text || '';
+    const fastText = safeNumber(log.type || log.msgType || 1, 1) === 1 && typeof text === 'string' && /^-(도움말|핑)\s*$/u.test(text);
+    const msg = await this._buildMessageEvent(data, fastText);
     if (!msg) return;
     msg.receivedAt = receivedAt;
 
@@ -1745,7 +1750,7 @@ export class KakaoForgeClient extends EventEmitter {
     return null;
   }
 
-  async _buildMessageEvent(data: any): Promise<MessageEvent | null> {
+  async _buildMessageEvent(data: any, skipContextWait = false): Promise<MessageEvent | null> {
     const chatLog = data.chatLog || data;
     const roomIdValue = normalizeIdValue(
       data.chatId || data.c || chatLog.chatId || chatLog.chatRoomId || chatLog.roomId || chatLog.c || 0
@@ -1810,12 +1815,15 @@ export class KakaoForgeClient extends EventEmitter {
       }
     }
 
-    if (roomIdValue && flags.isOpenChat) {
+    if (skipContextWait && roomIdValue && senderIdValue && !senderName) {
+      senderName = this._getCachedMemberName(roomIdValue, senderIdValue) || '';
+    }
+    if (!skipContextWait && roomIdValue && flags.isOpenChat) {
       await this._ensureMemberType(roomIdValue, senderIdValue);
       await this._ensureMemberType(roomIdValue, this.userId);
     }
 
-    if (roomIdValue && (!senderName || !roomName)) {
+    if (!skipContextWait && roomIdValue && (!senderName || !roomName)) {
       if (flags.isOpenChat) {
         await this._ensureOpenChatInfo(roomIdValue, senderIdValue);
       } else {
