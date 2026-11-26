@@ -34,3 +34,15 @@ test('rewrite push uses shared cache, independent settings, exact room and actor
   const view=String(8000+out.length);assert.equal(timers[0].ms,2000);await timers[0].fn();assert.deepEqual(edits,[['1000',view,'수정 메세지 확인 종료']]);
  }finally{w.close();}
 });
+
+test('same-log changed message delivery detects edits without treating it as a new command',async()=>{
+ const out=[],room={id:'1000',isOpenChat:true},send=async(r,t)=>{out.push(t);return {status:0,body:{logId:'8100'}};};
+ const w=createDeleteWatch({botId:()=> '9000',send,logger:{log(){},error(){}}});
+ try{const core=createCore({send});w.register(core);
+ await core.handle({text:'-수정감지 on',roomId:'1000',userId:'9000',msg:{room}});
+ const msg={room,sender:{name:'회원'},message:{logId:'5000',type:1}},e={roomId:'1000',userId:'3000',text:'처음'};
+ w.observe(msg,e);assert.equal(w.observe(msg,{...e,text:'변경'}),true);
+ await new Promise(resolve=>setImmediate(resolve));assert.match(out.at(-1),/@회원님이 메세지를 수정하셨습니다/);
+ const n=out.length;assert.equal(w.observe(msg,{...e,text:'변경'}),true);assert.equal(out.length,n);
+ }finally{w.close();}
+});
