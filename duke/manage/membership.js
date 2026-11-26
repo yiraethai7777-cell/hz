@@ -4,7 +4,9 @@ const {format,fold}=require('../core');
 const LINE='━━━━━━━━━━━━━━';
 function id(v){if(typeof v==='number'&&!Number.isSafeInteger(v))return null;const s=String(v??'');return /^[1-9]\d*$/.test(s)?s:null;}
 function clean(v,fallback){const s=String(v??'').replace(/[\r\n\t\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim();return [...s].slice(0,80).join('')||fallback;}
-function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.now,logger=console}={}){
+function validProfileLink(value){if(typeof value!=='string')return '';try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='open.kakao.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/^\/o\/[A-Za-z0-9_-]+\/?$/.test(u.pathname)?u.href:'';}catch{return '';}}
+async function resolveLink(lookup,roomId,uid,timeoutMs){let timer;try{return validProfileLink(await Promise.race([Promise.resolve().then(()=>lookup(roomId,uid)),new Promise(resolve=>{timer=setTimeout(()=>resolve(''),timeoutMs);})]));}catch{return '';}finally{clearTimeout(timer);}}
+function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.now,logger=console,lookupProfile=async()=>'',profileTimeoutMs=1500}={}){
  if(typeof send!=='function')throw TypeError('send required');
  const file=dir?path.join(dir,'membership-settings.json'):null,settings=new Map(),seen=new Map();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data)){if(id(r)&&typeof s?.join==='boolean'&&typeof s?.leave==='boolean'&&(s.join||s.leave))settings.set(r,{join:s.join,leave:s.leave});}}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -39,7 +41,10 @@ function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.no
    if(key){seen.set(key,at);while(seen.size>2048)seen.delete(seen.keys().next().value);}
    const name=clean(member?.name,'알 수 없는 사용자');
    const summary=format('MEMBER',name+'님이 '+label+'하셨습니다.');
-   const detail=LINE+'\n[ '+label+' 정보 ]\n\n닉네임 : '+name+'\n채팅방 : '+clean(event.room?.name,'현재 채팅방')+'\n'+label+' 시각 : '+new Date(at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' (한국 시간)\n\n'+LINE+'\nDUKE SYSTEM';
+   const profileLink=kind==='join'?await resolveLink(lookupProfile,roomId,uid,profileTimeoutMs):'';
+   if(!get(roomId)[kind])continue;
+   const profileDetails=kind==='join'?'\n아이디 : '+uid+'\n오픈프로필 : '+(profileLink?'\n'+profileLink:'확인 불가'):'';
+   const detail=LINE+'\n[ '+label+' 정보 ]\n\n닉네임 : '+name+profileDetails+'\n채팅방 : '+clean(event.room?.name,'현재 채팅방')+'\n'+label+' 시각 : '+new Date(at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' (한국 시간)\n\n'+LINE+'\nDUKE SYSTEM';
    try{await send(roomId,fold(summary,detail));sent++;}catch(e){if(key)seen.delete(key);logger.error('[DUKE] membership notice failed',kind,e?.name||'Error');}
   }
   return sent;

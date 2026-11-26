@@ -12,7 +12,7 @@ async function startKakao({authPath,dataDir,website,roomList}){
  const client=createClient({authPath,autoConnect:false,autoReconnect:true,debug:false});
  let ready=false;
  const send=async(roomId,body)=>{const r=await client.chat.sendText(roomId,body);if(r?.status!=null&&r.status!==0)throw Error('send failed');return r;};
- const membership=createMembership({dir:dataDir,allowedRooms:rooms,botId:()=>id(client.userId),send});
+ const membership=createMembership({dir:dataDir,allowedRooms:rooms,botId:()=>id(client.userId),send,lookupProfile:(roomId,userId)=>{const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
  const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir}),website,getStatus:()=>({kakaoConnected:ready,manage:'입퇴장 알림 지원',manageRooms:membership.activeCount()}),send});
  membership.register(core);
  client.onJoin(event=>{if(ready)void membership.handle('join',event);});
