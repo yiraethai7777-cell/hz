@@ -47,21 +47,6 @@ test('same-log changed message delivery detects edits without treating it as a n
  }finally{w.close();}
 });
 
-test('edit diagnostics are room scoped, time limited, and omit message values',async()=>{
- const room={id:'1000',isOpenChat:true},logs=[];let time=1000;
- const send=async()=>({status:0});
- const w=createDeleteWatch({botId:()=> '9000',send,now:()=>time,logger:{log:(...args)=>logs.push(args.join(' ')),error:()=>{}}});
- try{
-  const core=createCore({send});w.register(core);
-  const cmd=text=>core.handle({text,roomId:'1000',userId:'9000',msg:{room}});
-  await cmd('-수정감지 on');await cmd('-수정진단');
-  w.tracePush({method:'MSG',body:{chatId:'2000',msg:'private test'}});assert.equal(logs.length,1);
-  w.tracePush({method:'SYNCREWR',body:{chatId:'1000',msg:'private test',logId:'5000'}});assert.equal(logs.length,2);
-  assert.match(logs[1],/SYNCREWR/);assert.doesNotMatch(logs[1],/private test|5000/);
-  time+=91000;w.tracePush({method:'MSG',body:{chatId:'1000'}});assert.equal(logs.length,2);
- }finally{w.close();}
-});
-
 test('SYNCMODMSG edit feed targets modifiedChatLog and ignores non-edit feeds',async()=>{
  const room={id:'1000',isOpenChat:true},out=[];
  const send=async(r,t,o)=>{out.push({r,t,o});return {status:0,body:{logId:'8888'}};};

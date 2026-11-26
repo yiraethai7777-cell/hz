@@ -936,7 +936,6 @@ export class KakaoForgeClient extends EventEmitter {
   }
 
   async _onPush(packet) {
-    this.emit('rawPush', packet);
     // Emit to specific push handlers
     const handler = this._pushHandlers.get(packet.method);
     if (handler) {

@@ -26,7 +26,6 @@ function parseRewrite(packet){
 function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>false,send,edit,remove,fetchCurrent=async()=>null,now=Date.now,delay=(fn,ms)=>setTimeout(fn,ms),onPersist=()=>{},logger=console}={}){
  const file=dir?path.join(dir,'delete-watch-settings.json'):null;
  const editFile=dir?path.join(dir,'edit-watch-settings.json'):null,editEnabled=new Set();
- const diagnostics=new Map();
  const enabled=new Set(),cache=new Map(),notices=new Map(),seen=new Map(),pending=new Set(),cooldown=new Map();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{for(const r of JSON.parse(fs.readFileSync(file,'utf8')))if(id(r))enabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
  if(editFile){try{for(const r of JSON.parse(fs.readFileSync(editFile,'utf8')))if(id(r))editEnabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -39,28 +38,11 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
   target.clear();for(const k of next)target.add(k);
   if(!on){for(const [k,n] of notices)if(k.startsWith(r+':')&&(n.kind||'delete')===kind)notices.delete(k);if(!active(r)&&!editing(r))for(const m of [cache,seen])for(const k of m.keys())if(k.startsWith(r+':'))m.delete(k);}
  }
- function register(core){core.register({name:'수정진단',section:'MANAGEMENT',description:'수정 이벤트 수신 90초 진단 (봇 계정)',execute:e=>{
-  if(e.msg?.room?.isOpenChat!==true||e.userId!==id(botId())||!editing(e.roomId))return '봇 계정으로 -수정감지 on 이후 사용하세요.';
-  diagnostics.clear();diagnostics.set(e.roomId,{until:now()+90000,count:0});logger.log?.('[DUKE EDIT TRACE] started');return '수정 감지 진단 시작 (90초)\n일반 계정으로 새 메시지를 보내고 수정해주세요. 원문은 진단 로그에 저장하지 않습니다.';
- }});for(const [name,kind,label,isOn] of [['삭제감지','delete','삭제',active],['수정감지','edit','수정',editing]])core.register({name,section:'MANAGEMENT',description:label+' 감지 설정 (on/off), 관리자 답장 l 조회',execute:e=>{
+ function register(core){for(const [name,kind,label,isOn] of [['삭제감지','delete','삭제',active],['수정감지','edit','수정',editing]])core.register({name,section:'MANAGEMENT',description:label+' 감지 설정 (on/off), 관리자 답장 l 조회',execute:e=>{
   if(e.msg?.room?.isOpenChat!==true||e.userId!==id(botId()))return format('ADMIN','봇 계정만 오픈채팅방에서 설정할 수 있습니다.');
   const v=e.args[0]?.toLowerCase();if(e.args.length!==1||!['on','off'].includes(v))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+(isOn(e.roomId)?'ON':'OFF'));
   set(e.roomId,v==='on',kind);return format('ADMIN',label+' 감지 : '+v.toUpperCase()+(v==='on'?'\n최근 10분간 수신 메시지를 메모리에 보관합니다. 관리자는 '+label+' 알림에 답장 l로 조회할 수 있습니다.':''));
  }});}
- function tracePush(packet){
-  if(!diagnostics.size)return;
-  const b=packet?.body??{},l=b.chatLog??b.chatlog??b.rewrite??b;
-  const room=id(b.chatId??b.chatRoomId??b.roomId??b.c??l.chatId??l.chatRoomId??l.roomId??l.c);
-  const method=String(packet?.method??'').toUpperCase();
-  // Only report protocol method and schema keys for the explicitly selected room.
-  // Unknown-room rewrite candidates are reported as metadata without payload.
-  for(const [r,s] of diagnostics){
-   if(now()>=s.until||s.count>=40){diagnostics.delete(r);continue;}
-   if(room!==r&&(room||!/(REWR|EDIT|MODIFY|MODMSG)/.test(method)))continue;
-   s.count++;
-   logger.log?.('[DUKE EDIT TRACE]',JSON.stringify({method:method.slice(0,24),roomMatched:room===r,fields:Object.keys(b).slice(0,25),nestedFields:Object.keys(l===b?{}:l).slice(0,25)}));
-  }
- }
  function observe(msg,e){
   const r=id(e.roomId),u=id(e.userId),log=id(msg?.message?.logId??msg?.logId),type=Number(msg?.message?.type??msg?.type);
   if(!r||!u||u===id(botId())||!log||(!active(r)&&!editing(r))||msg?.room?.isOpenChat!==true||![1,26].includes(type)||typeof e.text!=='string'||!e.text.trim())return;
@@ -123,6 +105,6 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
   }catch(e){pending.delete(r);logger.error('[DUKE] delete view send failed',e?.name||'Error');}
   return true;
  }
- return {register,observe,onDelete,onRewrite,tracePush,handle,close(){clearInterval(timer);cache.clear();notices.clear();seen.clear();}};
+ return {register,observe,onDelete,onRewrite,handle,close(){clearInterval(timer);cache.clear();notices.clear();seen.clear();}};
 }
 module.exports={createDeleteWatch};
