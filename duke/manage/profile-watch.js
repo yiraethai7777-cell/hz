@@ -11,7 +11,7 @@ function readMember(m){
  const profileId=[1,2,4].includes(profileType)?'':rawLink!=null?id(rawLink):null;
  return {id:user,name:clean(m.nickName??m.nickname??m.name??m.profileName),profileType,profileId};
 }
-function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,listRooms,fetchRoster,lookupLinks=async()=>new Map(),send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=3000,roomIntervalMs=3000}={}){
+function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>true,ready=()=>true,listRooms,fetchRoster,lookupLinks=async()=>new Map(),send,audit,onPersist=()=>{},now=Date.now,logger=console,intervalMs=3000,roomIntervalMs=3000}={}){
  const file=dir?path.join(dir,'profile-watch-settings.json'):null,settings=new Map(),baseline=new Map(),due=new Map(),versions=new Map();
  let busy=false,timer=null,joined=null,roomsAt=0,generation=0;
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data))if(id(r)&&(s?.nick===true||s?.profile===true))settings.set(r,{nick:s.nick===true,profile:s.profile===true});}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -36,7 +36,7 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
  }
  function reset(){generation++;baseline.clear();due.clear();joined=null;roomsAt=0;}
  async function tick(){
-  if(busy||!ready()||!settings.size)return;busy=true;
+  if(busy||!ready()||![...settings.keys()].some(isEnabled))return;busy=true;
   const gen=generation;
   try{
    const at=now();
@@ -46,12 +46,12 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
     joined=new Set(list.map(id).filter(Boolean));roomsAt=at;
     for(const r of baseline.keys())if(!joined.has(r))baseline.delete(r);
    }
-   const rooms=[...settings.keys()].filter(r=>joined.has(r)&&(!allowedRooms||allowedRooms.has(r)));
+   const rooms=[...settings.keys()].filter(r=>joined.has(r)&&isEnabled(r)&&(!allowedRooms||allowedRooms.has(r)));
    if(!rooms.length)return;
    for(const room of rooms){
    if(gen!==generation||!ready())break;
-   if(!settings.has(room)||now()<(due.get(room)||0))continue;
-   const ver=versions.get(room)||0,enabled=()=>gen===generation&&ready()&&ver===(versions.get(room)||0)&&settings.has(room);
+   if(!isEnabled(room)||!settings.has(room)||now()<(due.get(room)||0))continue;
+   const ver=versions.get(room)||0,enabled=()=>gen===generation&&ready()&&isEnabled(room)&&ver===(versions.get(room)||0)&&settings.has(room);
    due.set(room,now()+roomIntervalMs);
    try{
     const raw=await fetchRoster(room);
@@ -102,6 +102,7 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,ready=()=>true,l
  }
  function start(){if(!timer){timer=setInterval(()=>void tick(),intervalMs);timer.unref?.();}}
  function stop(){if(timer)clearInterval(timer);timer=null;reset();}
- return {register,tick,start,stop,reset};
+ function resetRoom(r){versions.set(r,(versions.get(r)||0)+1);baseline.delete(r);due.delete(r);}
+ return {register,tick,start,stop,reset,resetRoom};
 }
 module.exports={createProfileWatch,readMember};

@@ -23,13 +23,13 @@ function parseRewrite(packet){
  if(!room||!log)return null;
  return {room,log,user,text:typeof raw==='string'&&raw.trim()&&(type==null||[1,26].includes(Number(type)))?raw:null};
 }
-function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>false,send,edit,remove,fetchCurrent=async()=>null,now=Date.now,delay=(fn,ms)=>setTimeout(fn,ms),onPersist=()=>{},logger=console}={}){
+function createDeleteWatch({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>'',canManage=()=>false,send,edit,remove,fetchCurrent=async()=>null,now=Date.now,delay=(fn,ms)=>setTimeout(fn,ms),onPersist=()=>{},logger=console}={}){
  const file=dir?path.join(dir,'delete-watch-settings.json'):null;
  const editFile=dir?path.join(dir,'edit-watch-settings.json'):null,editEnabled=new Set();
  const enabled=new Set(),cache=new Map(),notices=new Map(),seen=new Map(),pending=new Set(),cooldown=new Map();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{for(const r of JSON.parse(fs.readFileSync(file,'utf8')))if(id(r))enabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
  if(editFile){try{for(const r of JSON.parse(fs.readFileSync(editFile,'utf8')))if(id(r))editEnabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
- const permitted=r=>!allowedRooms||allowedRooms.has(r),active=r=>enabled.has(r)&&permitted(r),editing=r=>editEnabled.has(r)&&permitted(r);
+ const permitted=r=>isEnabled(r)&&(!allowedRooms||allowedRooms.has(r)),active=r=>enabled.has(r)&&permitted(r),editing=r=>editEnabled.has(r)&&permitted(r);
  function prune(){for(const m of [cache,notices,seen,cooldown]){for(const [k,v] of m)if(now()-v.at>=ttl)m.delete(k);while(m.size>cap)m.delete(m.keys().next().value);}}
  let lastDiagnostic=-Infinity;function diagnostic(reason,packet){if(now()-lastDiagnostic<1000)return;lastDiagnostic=now();const body=packet?.body??{};logger.log?.('[DUKE REWRITE]',JSON.stringify({reason,method:packet?.method,fields:Object.keys(body).slice(0,25),nestedFields:Object.keys(body.chatLog??body.chatlog??body.rewrite??{}).slice(0,25),modifiedFields:Object.keys(body.modifiedChatLog??{}).slice(0,25)}));}
  const timer=setInterval(prune,30000);timer.unref?.();
@@ -64,7 +64,7 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
   seen.set(key,{at:now()});cache.delete(key);
   const summary='@'+name+'님이 메세지를 삭제하셨습니다.';
   const body=fold(summary,'[ 삭제 정보 ]\n닉네임 : '+name+'\n삭제 시각 : '+new Date(now()).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+'\n내용 확인 : 이 알림에 답장으로 l (관리자 전용, 10분 이내)');
-  try{const res=await send(r,body,{mentions:[{userId:u,at:[1],len:name.length}]});const notice=id(res?.body?.logId??res?.logId);if(notice)notices.set(r+':'+notice,{at:now(),item});prune();}catch(e){logger.error('[DUKE] delete notice failed',e?.name||'Error');}
+  try{const res=await send(r,body,{mentions:[{userId:u,at:[1],len:name.length}]});const notice=id(res?.body?.logId??res?.logId);if(notice&&active(r))notices.set(r+':'+notice,{at:now(),item});prune();}catch(e){logger.error('[DUKE] delete notice failed',e?.name||'Error');}
  }
  async function onRewrite(packet){
   if(!['SYNCREWR','SYNCMODMSG'].includes(packet?.method))return false;
@@ -105,6 +105,7 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
   }catch(e){pending.delete(r);logger.error('[DUKE] delete view send failed',e?.name||'Error');}
   return true;
  }
- return {register,observe,onDelete,onRewrite,handle,close(){clearInterval(timer);cache.clear();notices.clear();seen.clear();}};
+ function resetRoom(r){for(const map of [cache,notices,seen,cooldown])for(const key of map.keys())if(key===r||key.startsWith(r+':'))map.delete(key);}
+ return {register,observe,onDelete,onRewrite,handle,resetRoom,close(){clearInterval(timer);cache.clear();notices.clear();seen.clear();}};
 }
 module.exports={createDeleteWatch};
