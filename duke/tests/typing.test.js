@@ -22,3 +22,16 @@ test('typing timeout and no score before acknowledgement',async()=>{
  let at=100,ack;const out=[],timers=[];const g=createTyping({send:(r,t)=>{out.push(t);return t.includes('TYPING')?new Promise(resolve=>ack=resolve):Promise.resolve({});},clock:()=>at,pick:n=>0,delay:(fn,ms)=>{timers.push(fn);return {}},clear:()=>{},logger:{log(){},error(){}}});
  const start=g.start(ev('-타자게임'));assert.equal(g.answer(ev(BANK.쉬움[0].text,'9001',at+1)),true);at+=100;ack({body:{logId:'9000'}});await start;assert.ok(g.has('1000'));at+=TIMEOUT;assert.equal(g.answer(ev(BANK.쉬움[0].text,'9002',at)),false);timers[0]();await Promise.resolve();assert.match(out.at(-1),/시간이 초과/);assert.equal(g.has('1000'),false);
 });
+
+test('final period is optional, measured keys exclude omitted period, and copied spaces remain rejected',async()=>{
+ let at=100;const out=[],send=async(r,t)=>{out.push(t);return {body:{logId:'9000'}};};
+ const g=createTyping({send,clock:()=>at,pick:n=>0,delay:()=>({}),clear:()=>{},logger:{log(){},error(){}}});
+ await g.start(ev('-타자게임'));const q=BANK.쉬움[0];assert.ok(out[0].includes('끝 마침표 생략 가능'));
+ at=10100;
+ assert.equal(g.answer(ev(q.shown.slice(0,-1),'9001',at)),true);assert.ok(g.has('1000'));
+ assert.equal(g.answer(ev(q.short.replace(' ','  '),'9002',at)),false);
+ assert.equal(g.answer(ev(q.short+'!','9003',at)),false);
+ assert.equal(g.answer(ev(q.short,'9004',at)),true);await Promise.resolve();
+ assert.ok(out.at(-1).includes('타수 : '+Math.round((q.keys-1)*6).toLocaleString('ko-KR')+'타/분'));assert.match(out.at(-1),/정확도 : 100%/);
+ assert.equal(g.has('1000'),false);
+});

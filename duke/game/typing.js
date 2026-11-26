@@ -10,7 +10,9 @@ const logId=m=>id(m?.message?.logId??m?.logId??m?.raw?.chatLog?.logId);
 const sentLog=v=>id(v?.body?.logId??v?.body?.chatLog?.logId??v?.body?.chatlog?.logId??v?.logId??v?.chatLog?.logId);
 const clean=v=>[...String(v??'').replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/gu,' ').trim()].slice(0,80).join('');
 const protect=s=>s.replace(/ /g,NBSP);
-const BANK=Object.freeze(Object.fromEntries(LEVELS.map(level=>[level,sentences[level].map(text=>Object.freeze({text,shown:protect(text),keys:countKeys(text)}))])));
+// Only the final full stop is optional. Do not fold special spaces or internal punctuation.
+const withoutPeriod=s=>s.endsWith('.')?s.slice(0,-1):s;
+const BANK=Object.freeze(Object.fromEntries(LEVELS.map(level=>[level,sentences[level].map(text=>Object.freeze({text,short:withoutPeriod(text),shown:protect(text),keys:countKeys(text),shortKeys:countKeys(withoutPeriod(text))}))])));
 function createTyping({send,canHandle=()=>true,isEnabled=()=>true,getName=()=>'',clock=()=>performance.now(),pick=randomInt,delay=setTimeout,clear=clearTimeout,logger=console}={}){
  if(typeof send!=='function')throw Error('typing send required');
  const active=new Map(),last=new Map();
@@ -22,7 +24,7 @@ function createTyping({send,canHandle=()=>true,isEnabled=()=>true,getName=()=>''
   if(active.get(r)!==s||!eligible(e)||!Number.isFinite(at)||at<=s.startAt||at-s.startAt>=TIMEOUT)return false;
   const log=logId(e.msg);if(!log||(s.log&&BigInt(log)<=BigInt(s.log)))return false;
   cancel(r);
-  const elapsed=at-s.startAt,speed=Math.round(s.item.keys*60000/elapsed),name=clean(e.msg?.sender?.name||getName(r,e.userId))||'이름 미확인';
+  const elapsed=at-s.startAt,keys=e.text.normalize('NFC')===s.item.text?s.item.keys:s.item.shortKeys,speed=Math.round(keys*60000/elapsed),name=clean(e.msg?.sender?.name||getName(r,e.userId))||'이름 미확인';
   const body=format('TYPING',name+'님 타자 성공!\n\n타수 : '+speed.toLocaleString('ko-KR')+'타/분\n정확도 : 100%\n소요 시간 : '+(elapsed/1000).toFixed(3)+'초\n난이도 : '+s.level);
   const handledAt=clock();void Promise.resolve().then(()=>send(r,body)).then(()=>logger.log?.('[DUKE TYPING TIMING]',JSON.stringify({recognitionMs:Math.max(0,Math.round((handledAt-at)*1000)/1000),elapsedMs:Math.round(elapsed)}))).catch(err=>logger.error('[DUKE] typing result send failed',err?.name||'Error'));
   return true;
@@ -33,8 +35,8 @@ function createTyping({send,canHandle=()=>true,isEnabled=()=>true,getName=()=>''
   // Do NOT apply NFKC, trim or whitespace folding: copied NBSP is different
   // from an ordinary keyboard space. NFC only composes Korean jamo.
   const text=e.text.normalize('NFC');
-  if(text!==s.item.text){
-   if(text.includes(NBSP)&&text.replace(/\u00a0/g,' ')===s.item.text)return true;
+  if(text!==s.item.text&&text!==s.item.short){
+   if(text.includes(NBSP)&&withoutPeriod(text.replace(/\u00a0/g,' '))===s.item.short)return true;
    return false;
   }
   if(s.phase==='pending'){if(s.candidates.length<16&&!s.candidates.some(v=>v.log===log))s.candidates.push({e,at,log});return true;}
@@ -49,7 +51,7 @@ function createTyping({send,canHandle=()=>true,isEnabled=()=>true,getName=()=>''
   const level=e.args[0]||LEVELS[pick(LEVELS.length)],item=choose(r,level),s={level,item,createdAt:clock(),startAt:Infinity,phase:'pending',candidates:[],log:'',timer:null};
   active.set(r,s);
   try{
-   const res=await send(r,format('TYPING',item.shown+'\n\n난이도 : '+level+'\n문장을 직접 입력하세요.'));
+   const res=await send(r,format('TYPING',item.shown+'\n\n난이도 : '+level+'\n문장을 직접 입력하세요. (끝 마침표 생략 가능)'));
    if(active.get(r)!==s)return null;
    s.log=sentLog(res);s.startAt=clock();s.phase='open';
    // Do not score a message received before acknowledged prompt delivery.
