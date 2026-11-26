@@ -63,4 +63,4 @@ async function resolveTarget({msg,args,roomId,noticeTarget,fetchMessage,maxDepth
  }
  return null;
 }
-module.exports={resolveTarget};
+module.exports={resolveTarget,mentions,reference};
