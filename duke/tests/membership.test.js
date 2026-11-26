@@ -13,7 +13,7 @@ test('membership opt-in, room isolation, owner authorization, fold, dedup and pe
  assert.equal(await m.handle('join',event('2')),0);
  assert.equal(await m.handle('leave',event()),0);
  assert.equal(await m.handle('join',event()),1);
- assert.match(messages.at(-1)[1],/테스트 사용자님이 입장하셨습니다\./);
+ assert.equal(messages.at(-1)[1].split('\u200b'.repeat(1200))[0],'@테스트 사용자님이 입장하셨습니다.');assert.doesNotMatch(messages.at(-1)[1],/DUKE/);
  assert.match(messages.at(-1)[1],/\u200b{1200}/);
  assert.equal(await m.handle('join',event()),0);
  m=createMembership(opts);assert.equal(m.activeCount(),1);
@@ -44,7 +44,17 @@ test('non-open profile join is a real mention with folded details; open or unkno
  for(const text of ['-입장알림 on','-퇴장알림 on'])await core.handle({text,roomId:'1',userId:'10'});
  let log=100;const run=async(kind)=>m.handle(kind,{...event(),message:{logId:String(++log)}});
  for(const type of [1,2,4]){profile={profileType:type,url:''};await run('join');const x=out.at(-1);assert.equal(x.t.split('\u200b'.repeat(1200))[0],'@테스트 사용자님 옾프로 변경해주세요');assert.deepEqual(x.o,{mentions:[{userId:'20',at:[1],len:'테스트 사용자'.length}]});assert.match(x.t,/오픈프로필 : 없음/);assert.match(x.t,/아이디 : 20/);}
- profile={profileType:3,url:'https://open.kakao.com/o/Example'};await run('join');assert.match(out.at(-1).t,/테스트 사용자님이 입장하셨습니다/);assert.equal(out.at(-1).o,undefined);
+ profile={profileType:3,url:'https://open.kakao.com/o/Example'};await run('join');assert.match(out.at(-1).t,/테스트 사용자님이 입장하셨습니다/);assert.deepEqual(out.at(-1).o,{mentions:[{userId:'20',at:[1],len:'테스트 사용자'.length}]});
  profile=null;await run('join');assert.match(out.at(-1).t,/테스트 사용자님이 입장하셨습니다/);
- profile={profileType:2,url:''};await run('leave');assert.match(out.at(-1).t,/테스트 사용자님이 퇴장하셨습니다/);assert.equal(out.at(-1).o,undefined);
+ profile={profileType:2,url:''};await run('leave');assert.match(out.at(-1).t,/테스트 사용자님이 퇴장하셨습니다/);assert.deepEqual(out.at(-1).o,{mentions:[{userId:'20',at:[1],len:'테스트 사용자'.length}]});
+});
+
+test('leave mention rejection falls back to plain name and retains reply target',async()=>{
+ const out=[],notices=[];
+ const send=async(r,t,o)=>{if(o?.mentions)throw Error('mention rejected');out.push(t);return {body:{logId:'1234'}};};
+ const core=createCore({send}),m=createMembership({botId:()=> '10',send,onLeaveNotice:n=>notices.push(n)});
+ m.register(core);await core.handle({text:'-퇴장알림 on',roomId:'1',userId:'10'});
+ assert.equal(await m.handle('leave',event()),1);
+ assert.equal(out.at(-1).split('\u200b'.repeat(1200))[0],'테스트 사용자님이 퇴장하셨습니다.');
+ assert.doesNotMatch(out.at(-1),/DUKE/);assert.equal(notices[0].userId,'20');
 });

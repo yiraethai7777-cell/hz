@@ -42,12 +42,12 @@ function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.no
    const name=clean(member?.name,'알 수 없는 사용자');
    const profile=await resolveProfile(lookupProfile,roomId,uid,profileTimeoutMs,kind),profileLink=profile.url;
    const needsOpen=kind==='join'&&[1,2,4].includes(profile.type)&&!profileLink;
-   const summary=needsOpen?'@'+name+'님 옾프로 변경해주세요':format('MEMBER',name+'님이 '+label+'하셨습니다.');
-   const options=needsOpen?{mentions:[{userId:uid,at:[1],len:name.length}]}:undefined;
+   const summary=needsOpen?'@'+name+'님 옾프로 변경해주세요':'@'+name+'님이 '+label+'하셨습니다.';
+   const options={mentions:[{userId:uid,at:[1],len:name.length}]};
    if(!get(roomId)[kind])continue;
    const profileDetails='\n아이디 : '+uid+'\n오픈프로필 : '+(profileLink?'\n'+profileLink:needsOpen?'없음':'확인 불가')+(needsOpen?'\n프로필 유형 : 일반/기본 프로필':'');
-   const detail=LINE+'\n[ '+label+' 정보 ]\n\n닉네임 : '+name+profileDetails+'\n채팅방 : '+clean(event.room?.name,'현재 채팅방')+'\n'+label+' 시각 : '+new Date(at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' (한국 시간)'+(kind==='leave'?'\n\n관리자 : 이 알림에 답장으로 k 입력 시 강퇴':'')+'\n\n'+LINE+'\nDUKE SYSTEM';
-   try{const result=await send(roomId,fold(summary,detail),options);sent++;if(kind==='leave')onLeaveNotice({roomId,userId:uid,name,result});}catch(e){if(key)seen.delete(key);logger.error('[DUKE] membership notice failed',kind,e?.name||'Error');}
+   const detail=LINE+'\n[ '+label+' 정보 ]\n\n닉네임 : '+name+profileDetails+'\n채팅방 : '+clean(event.room?.name,'현재 채팅방')+'\n'+label+' 시각 : '+new Date(at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' (한국 시간)'+(kind==='leave'?'\n\n관리자 : 이 알림에 답장으로 k 입력 시 강퇴':'')+'\n\n'+LINE;
+   try{let result;try{result=await send(roomId,fold(summary,detail),options);}catch(err){if(kind!=='leave')throw err;result=await send(roomId,fold(name+'님이 퇴장하셨습니다.',detail));}sent++;if(kind==='leave')onLeaveNotice({roomId,userId:uid,name,result});}catch(e){if(key)seen.delete(key);logger.error('[DUKE] membership notice failed',kind,e?.name||'Error');}
   }
   return sent;
  }
