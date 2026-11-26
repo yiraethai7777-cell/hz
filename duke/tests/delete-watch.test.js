@@ -16,3 +16,21 @@ test('delete watch is opt-in, room scoped, admin reply only and edits same log a
  const view=String(8000+out.length);await timers[0].fn();assert.deepEqual(edits,[['1000',view,'삭제 메세지 확인 종료']]);
  const n=out.length;await w.onDelete(del);assert.equal(out.length,n);w.close();
 });
+
+test('rewrite push uses shared cache, independent settings, exact room and actor, suppresses duplicates and edits after 2 seconds',async()=>{
+ const out=[],edits=[],timers=[],room={id:'1000',isOpenChat:true};
+ const send=async(r,t,o)=>{out.push({r,t,o});return {status:0,body:{logId:String(8000+out.length)}};};
+ const w=createDeleteWatch({botId:()=> '9000',send,edit:async(...a)=>{edits.push(a);return {status:0};},canManage:e=>e.userId==='9000',delay:(fn,ms)=>timers.push({fn,ms})});
+ try{
+  const core=createCore({send});w.register(core);
+  await core.handle({text:'-수정감지 on',roomId:'1000',userId:'9000',msg:{room}});
+  w.observe({room,sender:{name:'회원'},message:{logId:'5000',type:1}},{roomId:'1000',userId:'3000',text:'이전'});
+  const push={method:'SYNCREWR',body:{chatId:'1000',logId:'5000',authorId:'3000',msg:'현재',type:1}};
+  assert.equal(await w.onRewrite({...push,body:{...push.body,authorId:'5000'}}),false);
+  assert.equal(await w.onRewrite(push),true);assert.match(out.at(-1).t,/@회원님이 메세지를 수정하셨습니다/);assert.doesNotMatch(out.at(-1).t,/이전|현재/);
+  assert.equal(await w.onRewrite(push),false);const notice=String(8000+out.length);
+  const reply={room,message:{type:26,attachment:{src_userId:'9000',src_logId:notice}}};
+  await w.handle(reply,{roomId:'1000',userId:'9000',text:'l'});assert.match(out.at(-1).t,/수정 전 : 이전\n수정 후 : 현재/);
+  const view=String(8000+out.length);assert.equal(timers[0].ms,2000);await timers[0].fn();assert.deepEqual(edits,[['1000',view,'수정 메세지 확인 종료']]);
+ }finally{w.close();}
+});
