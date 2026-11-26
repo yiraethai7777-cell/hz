@@ -6,7 +6,7 @@ function id(v){if(typeof v==='number'&&!Number.isSafeInteger(v))return null;cons
 function clean(v,fallback){const s=String(v??'').replace(/[\r\n\t\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim();return [...s].slice(0,80).join('')||fallback;}
 function validProfileLink(value){if(typeof value!=='string')return '';try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='open.kakao.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/^\/o\/[A-Za-z0-9_-]+\/?$/.test(u.pathname)?u.href:'';}catch{return '';}}
 async function resolveLink(lookup,roomId,uid,timeoutMs){let timer;try{return validProfileLink(await Promise.race([Promise.resolve().then(()=>lookup(roomId,uid)),new Promise(resolve=>{timer=setTimeout(()=>resolve(''),timeoutMs);})]));}catch{return '';}finally{clearTimeout(timer);}}
-function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.now,logger=console,lookupProfile=async()=>'',profileTimeoutMs=1500,onLeaveNotice=()=>{}}={}){
+function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.now,logger=console,lookupProfile=async()=>'',profileTimeoutMs=1500,onLeaveNotice=()=>{},audit=null}={}){
  if(typeof send!=='function')throw TypeError('send required');
  const file=dir?path.join(dir,'membership-settings.json'):null,settings=new Map(),seen=new Map();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data)){if(id(r)&&typeof s?.join==='boolean'&&typeof s?.leave==='boolean'&&(s.join||s.leave))settings.set(r,{join:s.join,leave:s.leave});}}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -20,7 +20,7 @@ function createMembership({dir,allowedRooms=null,botId=()=>null,send,now=Date.no
     if(!authorized(e))return format('ADMIN','봇 계정만 설정할 수 있습니다.');
     const value=e.args[0]?.toLowerCase();
     if(e.args.length!==1||!['on','off'].includes(value))return format('ADMIN','사용법 : -'+name+' on/off\n현재 상태 : '+onoff(get(e.roomId)[kind]));
-    set(e.roomId,kind,value==='on');return format('ADMIN',label+' 알림 : '+onoff(get(e.roomId)[kind]));
+    set(e.roomId,kind,value==='on');audit?.record({roomId:e.roomId,actorId:e.userId,actorName:e.msg?.sender?.name,targetName:'현재 채팅방',command:'-'+name+' '+value,result:label+' 알림 '+onoff(get(e.roomId)[kind])});return format('ADMIN',label+' 알림 : '+onoff(get(e.roomId)[kind]));
    }});
   }
   core.register({name:'입퇴장설정',section:'MANAGEMENT',description:'현재 방 입퇴장 알림 상태',execute:e=>{const s=get(e.roomId);return format('ADMIN','입장 알림 : '+onoff(s.join)+'\n퇴장 알림 : '+onoff(s.leave));}});

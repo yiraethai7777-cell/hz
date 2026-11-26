@@ -14,7 +14,7 @@ function replyReference(msg,bot){
  }
  return '';
 }
-function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',now=Date.now,logger=console}={}){
+function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,now=Date.now,logger=console}={}){
  const file=dir?path.join(dir,'reply-moderation.json'):null;
  let state={admins:{},notices:{}};
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const v=JSON.parse(fs.readFileSync(file,'utf8'));if(!v.admins||!v.notices)throw Error('invalid moderation state');state=v;}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -36,6 +36,9 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
   const result=await send(r,body);
   if(!index({roomId:r,userId:uid,name,result,kind:'ban'}))logger.error('[DUKE] missing ban notice log ID');
  }
+ function record(r,actor,msg,uid,name,command,result){
+  audit?.record({roomId:r,actorId:actor,actorName:msg?.sender?.name||getName(r,actor),targetId:uid,targetName:name,command,result});
+ }
  function kickOK(res){return res?.status===0&&res?.success!==false&&res?.ok!==false;}
  function releaseOK(res){return res?.success===true&&res?.verified===true;}
  async function direct(e,release){
@@ -46,30 +49,34 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
   if(!target)return format('ADMIN','사용법 : -'+(release?'내풀':'벤')+' (멘션 / 아이디 / 답장)\n원문 대상이 확인되지 않으면 실행하지 않습니다.');
   const uid=id(target.id);if(!uid||uid===actor||uid===bot)return format('ADMIN','본인 또는 봇은 대상으로 지정할 수 없습니다.');
   const key=r+':'+uid;if(locked.has(key))return format('ADMIN','해당 사용자를 처리 중입니다.');
-  locked.add(key);let kicked=false;
+  locked.add(key);let kicked=false,logged=false;
   const name=safeName(target.name||getName(r,uid),uid);
   try{
    if(!kickOK(await kick(r,uid)))throw Error('kick unverified');
    kicked=true;
    if(release){
     if(!releaseOK(await unban(r,uid)))throw Error('unban unverified');
+    record(r,actor,msg,uid,name,'-내풀','강퇴 후 벤 해제 완료');logged=true;
     for(const [k,n] of Object.entries(state.notices))if(n.roomId===r&&n.userId===uid&&n.kind==='ban')delete state.notices[k];save();
     return name+'님을 내보낸 후 벤을 해제하였습니다.';
    }
+   record(r,actor,msg,uid,name,'-벤','강퇴 요청 성공');logged=true;
    await sendBan(r,uid,name);return null;
   }catch(err){
    logger.error('[DUKE] direct moderation failed',release?'release':'ban',err?.name||'Error');
+   if(!logged)record(r,actor,msg,uid,name,release?'-내풀':'-벤',kicked?'강퇴 성공 / 벤 해제 미확인':'요청 실패 또는 결과 미확인');
    if(kicked&&release){try{await sendBan(r,uid,name);}catch{}return format('ADMIN','강퇴 요청은 성공했으나 벤 해제를 확인하지 못했습니다. 재입장이 제한될 수 있습니다.');}
    return format('ADMIN',kicked?'강퇴 요청 성공, 완료 알림 전송 실패':'강퇴 요청 실패 또는 결과 미확인');
   }finally{locked.delete(key);}
  }
  function register(core){
+  core.register({name:'관리로그',section:'MANAGEMENT',description:'최근 관리 명령어 기록 15건',execute:e=>{const r=id(e.roomId),actor=id(e.userId),bot=id(botId());if(!r||!actor||!bot||e.msg?.room?.isOpenChat!==true||(allowedRooms&&!allowedRooms.has(r))||!allowed(e.msg,r,actor,bot))return format('ADMIN','관리 권한이 없습니다.');return audit?audit.render(r):format('LOG','관리 기록 미연동');}});
   core.register({name:'벤',section:'MANAGEMENT',description:'강퇴 및 재입장 제한 (멘션 / 아이디 / 답장)',execute:e=>direct(e,false)});
   core.register({name:'내풀',section:'MANAGEMENT',description:'강퇴 후 벤 해제 (멘션 / 아이디 / 답장)',execute:e=>direct(e,true)});
   for(const [name,add] of [['관리자추가',true],['관리자삭제',false]])core.register({name,section:'MANAGEMENT',description:'방별 추가 관리자 '+(add?'등록':'삭제')+' (사용자 ID)',execute:e=>{
    if(e.userId!==id(botId()))return format('ADMIN','봇 계정만 설정할 수 있습니다.');
    const target=id(e.args[0]);if(e.args.length!==1||!target||target===id(botId()))return format('ADMIN','사용법 : -'+name+' (사용자 ID)');
-   const list=new Set(state.admins[e.roomId]||[]);if(add)list.add(target);else list.delete(target);state.admins[e.roomId]=[...list];save();return format('ADMIN','관리자 '+(add?'추가':'삭제')+' 완료\n아이디 : '+target);
+   const list=new Set(state.admins[e.roomId]||[]);if(add)list.add(target);else list.delete(target);state.admins[e.roomId]=[...list];save();record(e.roomId,e.userId,e.msg,target,getName(e.roomId,target),'-'+name,add?'관리자 등록 완료':'관리자 삭제 완료');return format('ADMIN','관리자 '+(add?'추가':'삭제')+' 완료\n아이디 : '+target);
   }});
  }
  async function handle(msg,e){
@@ -82,17 +89,18 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
   if(n.userId===actor||n.userId===bot)return false;
   const targetKey=r+':'+n.userId;
   if(locked.has(targetKey))return true;
-  locked.add(targetKey);
+  locked.add(targetKey);let logged=false;
   try{
    if(n.used)return true;
    const res=await (cmd==='k'?kick:unban)(r,n.userId);
    if(cmd==='k'?(res?.status!==0||res?.success===false||res?.ok===false):(res?.success!==true||res?.verified!==true))throw Error('API unverified');
+   record(r,actor,msg,n.userId,n.name,cmd==='k'?'k (퇴장자 강퇴)':'u (벤 해제)',cmd==='k'?'강퇴 요청 성공':'벤 해제 완료');logged=true;
    n.used=true;save();
    if(cmd==='k'){
     await sendBan(r,n.userId,n.name);
    }else{await send(r,n.name+'님의 벤을 해제하였습니다.');delete state.notices[r+':'+log];save();}
    return true;
-  }catch(err){logger.error('[DUKE] moderation action failed',cmd,err?.name||'Error');await send(r,format('ADMIN',n.used?'처리 완료 후 알림 기록에 문제가 발생했습니다.':(cmd==='k'?'강퇴':'벤 해제')+' 요청 실패 또는 결과 미확인'));return true;}finally{locked.delete(targetKey);}
+  }catch(err){if(!logged)record(r,actor,msg,n.userId,n.name,cmd==='k'?'k (퇴장자 강퇴)':'u (벤 해제)','요청 실패 또는 결과 미확인');logger.error('[DUKE] moderation action failed',cmd,err?.name||'Error');await send(r,format('ADMIN',n.used?'처리 완료 후 알림 기록에 문제가 발생했습니다.':(cmd==='k'?'강퇴':'벤 해제')+' 요청 실패 또는 결과 미확인'));return true;}finally{locked.delete(targetKey);}
  }
  return {register,handle,recordLeave:data=>index({...data,kind:'leave'})};
 }

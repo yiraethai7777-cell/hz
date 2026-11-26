@@ -4,6 +4,7 @@ const {performance}=require('node:perf_hooks');
 const {createCounter}=require('./metrics');
 const {createMembership}=require('./manage/membership');
 const {createReplyModeration}=require('./manage/reply-moderation');
+const {createManagementLog}=require('./manage/audit-log');
 function id(value){if(typeof value==='number'&&!Number.isSafeInteger(value))return null;const s=String(value??'');return /^[1-9]\d*$/.test(s)?s:null;}
 function normalize(msg,receivedAt=performance.now()){const raw=msg?.raw?.chatLog??msg?.raw??{};return {roomId:id(raw.chatRoomId??raw.chatId??msg?.raw?.chatId)??id(msg?.room?.id??msg?.chatId),userId:id(raw.userId??raw.authorId??raw.senderId??msg?.sender?.id??msg?.senderId),text:raw.message??raw.msg??raw.text??msg?.message?.text??msg?.text,receivedAt:Number.isFinite(msg?.receivedAt)?msg.receivedAt:receivedAt};}
 async function startKakao({authPath,dataDir,website,roomList}){
@@ -13,9 +14,10 @@ async function startKakao({authPath,dataDir,website,roomList}){
  const client=createClient({authPath,autoConnect:false,autoReconnect:true,debug:false});
  let ready=false;
  const send=async(roomId,body)=>{const r=await client.chat.sendText(roomId,body);if(r?.status!=null&&r.status!==0)throw Error('send failed');return r;};
- const moderation=createReplyModeration({dir:dataDir,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
- const membership=createMembership({dir:dataDir,allowedRooms:rooms,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:(roomId,userId)=>{const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
- const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir}),website,getStatus:()=>({kakaoConnected:ready,manage:'입퇴장 알림 지원',manageRooms:membership.activeCount()}),send});
+ const audit=createManagementLog({dir:dataDir});
+ const moderation=createReplyModeration({dir:dataDir,audit,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
+ const membership=createMembership({dir:dataDir,audit,allowedRooms:rooms,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:(roomId,userId)=>{const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
+ const core=createCore({allowedRooms:rooms,counter:createCounter({dir:dataDir}),website,getStatus:()=>({kakaoConnected:ready,manage:'입퇴장 · 강퇴 · 관리로그 지원',manageRooms:membership.activeCount()}),send});
  membership.register(core);
  moderation.register(core);
  client.onJoin(event=>{if(ready)void membership.handle('join',event);});
@@ -23,7 +25,7 @@ async function startKakao({authPath,dataDir,website,roomList}){
  client.on('error',()=>{ready=false;console.error('[DUKE] connection error');});
  client.on('disconnect',()=>{ready=false;});
  client.onReady(()=>{ready=true;console.log('[DUKE] ready');});
- client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
+ client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
  await client.connect();return {client,core};
 }
 module.exports={startKakao,normalize,id};
