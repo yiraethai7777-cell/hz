@@ -7,7 +7,7 @@ test('profile photo: actual file first, then original link; target, temp cleanup
  const core=createCore({send:async(r,t)=>actions.push(['text',t])});
  createProfilePhoto({now:()=>at,lookup:async(r,u)=>{actions.push(['lookup',r,u]);return {name:'회원',imageUrl:url};},download:async()=>({data}),sendPhoto:async(r,f,opts)=>{uploadedFile=f;assert.deepEqual(await fs.readFile(f),data);assert.equal(opts.mime,'image/jpeg');actions.push(['photo',r]);return {complete:{status:0}};}}).register(core);
  const run=(text,extra={})=>core.handle({text,userId:'2000',roomId:'1000',msg:{room:{isOpenChat:true},...extra}});
- await run('-프사');assert.deepEqual(actions,[['lookup','1000','2000'],['photo','1000'],['text','회원님의 프사 전체보기\n'+url]]);
+ await run('-프사');assert.deepEqual(actions,[['lookup','1000','2000'],['photo','1000'],['text','회원님의 프사 링크\n'+url]]);
  await assert.rejects(fs.stat(uploadedFile),{code:'ENOENT'});
  at+=6000;await run('-프사 @회원',{attachmentsRaw:[{mentions:[{userId:'3000'}]}]});assert.deepEqual(actions.at(-3),['lookup','1000','3000']);
  at+=6000;await run('-프사 4000');assert.deepEqual(actions.at(-3),['lookup','1000','4000']);

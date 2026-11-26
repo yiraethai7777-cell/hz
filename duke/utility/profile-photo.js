@@ -54,7 +54,7 @@ function createProfilePhoto({lookup,fetchMessage,noticeTarget=()=>null,sendPhoto
    const result=await sendPhoto(e.roomId,file,{filename,mime:type.mime,timeoutMs:12000});
    if(!result?.complete||(typeof result.complete.status==='number'&&result.complete.status!==0))throw Error('photo not confirmed');
    const name=[...String(profile.name||target.name||target.id).replace(/[\u0000-\u001f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g,' ').trim()].slice(0,80).join('')||target.id;
-   return name+'님의 프사 전체보기\n'+url;
+   return name+'님의 프사 링크\n'+url;
   }catch(err){logger.error('[DUKE] profile photo failed',err?.name||'Error');return '프로필 사진을 전송하지 못했습니다.';}
   finally{if(dir)await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});active--;}
  }
