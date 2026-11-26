@@ -4,16 +4,11 @@
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && node --test test/valorant-manager.test.js test/room-portal-renew.test.js test/manager-reply-root.test.js && node --check api/room-portal.js && node --check admin-web/room-portals.js && node --check room-panel/app.js && node --check shared/router.js && node --check shared/help.js && node --check admin-web/admin.js",
-    "build:watch": "tsc -p tsconfig.json --watch",
-    "deploy": "npm run build && npm version patch && npm publish --access public",
-    "test": "node --test --test-isolation=none test/*.test.js",
-    "start": "npm run build && node start.js"
+    "build": "tsc -p tsconfig.json && node --test duke/tests/*.test.js",
+    "test": "node --test duke/tests/*.test.js",
+    "start": "node start.js",
+    "login": "node login.js"
   },
   "keywords": [],
   "author": "",
@@ -43,5 +38,6 @@
     "@types/node": "^22.13.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
-  }
+  },
+  "private": true
 }
