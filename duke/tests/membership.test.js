@@ -37,3 +37,14 @@ test('join survives missing, invalid or failed profile lookup and timeout',async
   let out;const send=async(r,t)=>{out=t;};const m=createMembership({botId:()=> '10',send,lookupProfile,profileTimeoutMs:10});const core=createCore({send});m.register(core);await core.handle({text:'-입장알림 on',roomId:'1',userId:'10'});assert.equal(await m.handle('join',event()),1);assert.ok(out.includes('오픈프로필 : 확인 불가'));assert.ok(out.includes('아이디 : 20'));
  }
 });
+
+test('non-open profile join is a real mention with folded details; open or unknown profile and leave stay normal',async()=>{
+ const out=[],send=async(r,t,o)=>out.push({t,o});let profile={profileType:2,url:''};
+ const m=createMembership({botId:()=> '10',send,lookupProfile:async()=>profile});const core=createCore({send});m.register(core);
+ for(const text of ['-입장알림 on','-퇴장알림 on'])await core.handle({text,roomId:'1',userId:'10'});
+ let log=100;const run=async(kind)=>m.handle(kind,{...event(),message:{logId:String(++log)}});
+ for(const type of [1,2,4]){profile={profileType:type,url:''};await run('join');const x=out.at(-1);assert.equal(x.t.split('\u200b'.repeat(1200))[0],'@테스트 사용자님 옾프로 변경해주세요');assert.deepEqual(x.o,{mentions:[{userId:'20',at:[1],len:'테스트 사용자'.length}]});assert.match(x.t,/오픈프로필 : 없음/);assert.match(x.t,/아이디 : 20/);}
+ profile={profileType:3,url:'https://open.kakao.com/o/Example'};await run('join');assert.match(out.at(-1).t,/테스트 사용자님이 입장하셨습니다/);assert.equal(out.at(-1).o,undefined);
+ profile=null;await run('join');assert.match(out.at(-1).t,/테스트 사용자님이 입장하셨습니다/);
+ profile={profileType:2,url:''};await run('leave');assert.match(out.at(-1).t,/테스트 사용자님이 퇴장하셨습니다/);assert.equal(out.at(-1).o,undefined);
+});
