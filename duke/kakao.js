@@ -41,7 +41,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  const deletion=createDeleteWatch({dir:dataDir,onPersist,allowedRooms:rooms,botId:()=>id(client.userId),canManage:moderation.canManage,isEnabled:manageEnabled,send,fetchCurrent:(r,l)=>client.fetchMessage(r,l),edit:(r,l,t)=>client.editMessage(r,l,t,{type:1,extra:'{}'}),remove:(r,l)=>client.deleteMessage(r,l)});
  process.once('exit',()=>deletion.close());
  const warnings=createWarnings({dir:dataDir,onPersist,audit,canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,botId:()=>id(client.userId),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
- const membership=createMembership({dir:dataDir,audit,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:(roomId,userId,kind)=>{if(kind==='join')return lookupCurrentProfile(roomId,userId);const type=client.getUserOpenProfileType(roomId,userId);if([1,2,4].includes(type))return '';return client.getUserOpenProfileLink(roomId,userId);}});
+ const membership=createMembership({dir:dataDir,audit,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),send,onLeaveNotice:moderation.recordLeave,lookupProfile:lookupMembershipProfile});
  const watcher=createProfileWatch({dir:dataDir,onPersist,audit,allowedRooms:rooms,isEnabled:manageEnabled,botId:()=>id(client.userId),ready:()=>ready&&client.connected!==false,send,
   listRooms:async()=>{await client.getChatRooms();return client.getKnownChatRooms().filter(r=>client._buildRoomPayload(r.id).isOpenChat===true).map(r=>r.id);},
   lookupLinks:async ids=>{const urls=new Map();for(let i=0;i<ids.length;i+=10){const batch=ids.slice(i,i+10),res=await client._carriage.infoLink(batch);if(res?.status!==0)continue;for(const item of res.body?.ols||[]){const key=id(item.li);if(batch.includes(key)&&typeof item.lu==='string')urls.set(key,item.lu);}}return urls;},
@@ -68,7 +68,27 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  moderation.register(core);
  warnings.register(core);
  createProfilePhoto({botId:()=>id(client.userId),noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),sendPhoto:async(r,f,opts)=>{const res=await client.sendPhoto(r,f,opts);if(res?.complete&&power.enabled(r))recordBotSend(r,res);return res;},lookup:async(r,u)=>{const res=await client._carriage?.member(r,[u]);if(!res||res.status!==0)return null;const members=res.body?.members??res.body?.memberList??res.body?.memList;if(!Array.isArray(members))return null;const m=members.find(v=>id(v.userId??v.id??v.memberId??v.user_id)===u);if(!m)return null;client._cacheMembers(r,[m]);return {name:client.getUserProfileSnapshot(r,u)?.name,imageUrl:m.opi||m.originalProfileImageUrl||m.fpi||m.fullProfileImageUrl||m.pi||m.profileImageUrl||''};}}).register(core);
- const lookupCurrentProfile=async(r,u)=>{
+ async function lookupMembershipProfile(r,u,kind,event,partial){
+  const cached=client.getUserProfileSnapshot(r,u);
+  const raw=event?.raw,feed=raw?.feed;
+  const list=[...(Array.isArray(feed?.members)?feed.members:[]),feed?.member,...(Array.isArray(raw?.members)?raw.members:[]),raw?.member].filter(Boolean);
+  const match=list.find(m=>id(m.userId??m.id??m.memberId??m.user_id)===u);
+  const type=Number(match?.ptp??match?.profileType),link=id(match?.pli??match?.profileLinkId);
+  const fresh=Number.isFinite(type)&&type>0&&([1,2,4].includes(type)||!!link);
+  if(kind==='leave'){
+   const profileType=fresh?type:cached?.profileType;
+   const profileId=fresh?link:id(cached?.profileLinkId);
+   const entry=profileId?client._profileLinkUrls?.get(profileId):null;
+   return {name:cached?.name,profileType,url:![1,2,4].includes(profileType)&&entry&&Date.now()-entry.checkedAt<300000?entry.url:''};
+  }
+  if(!fresh)return lookupCurrentProfile(r,u,partial);
+  const profile={name:cached?.name,profileType:type,url:''};partial?.(profile);
+  if([1,2,4].includes(type))return profile;
+  const entry=client._profileLinkUrls?.get(link);
+  if(entry&&Date.now()-entry.checkedAt<300000)return {...profile,url:entry.url};
+  return {...profile,url:await client.getUserOpenProfileLink(r,u)};
+ }
+ const lookupCurrentProfile=async(r,u,partial)=>{
   const room=client._resolveChatId(r),res=await client._carriage?.member(room,[u]);
   if(!res||res.status!==0)return null;
   const list=res.body?.members??res.body?.memberList??res.body?.memList;
@@ -76,11 +96,13 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
   if(!m)return null;
   client._cacheMembers(room,[m]);
   const profile={name:client.getUserProfileSnapshot(room,u)?.name,imageUrl:m.opi||m.originalProfileImageUrl||m.fpi||m.fullProfileImageUrl||m.pi||m.profileImageUrl||'',memberType:m.mt??m.ut??m.userType??m.memberType??m.linkMemberType,profileType:m.ptp??m.profileType,profileLinkId:id(m.pli),url:''};
+  if(typeof partial==='function')partial(profile);
   const profileId=id(m.pli),type=Number(m.ptp??m.profileType);
   if(!profileId||[1,2,4].includes(type))return profile;
+  if(typeof partial==='function'){const entry=client._profileLinkUrls?.get(profileId);if(entry&&Date.now()-entry.checkedAt<300000)return {...profile,url:entry.url};}
   try{
    const info=await client._carriage.infoLink([profileId]);
-   if(info?.status===0){const links=info.body?.ols;const current=Array.isArray(links)?links.find(v=>id(v.li)===profileId):null;profile.url=current?.lu||'';}
+   if(info?.status===0){const links=info.body?.ols;const current=Array.isArray(links)?links.find(v=>id(v.li)===profileId):null;profile.url=current?.lu||'';if(typeof partial==='function'&&/^https:\/\/open\.kakao\.com\/o\/[A-Za-z0-9_-]+\/?$/.test(profile.url))client._profileLinkUrls?.set(profileId,{url:profile.url,checkedAt:Date.now()});}
   }catch{}
   return profile;
  };
