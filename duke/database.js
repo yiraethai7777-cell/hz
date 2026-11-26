@@ -4,7 +4,8 @@ const FIXED={
  'command-counts.json':'duke_command_counts',
  'membership-settings.json':'duke_membership_settings',
  'reply-moderation.json':'duke_reply_moderation',
- 'profile-watch-settings.json':'duke_profile_watch_settings'
+ 'profile-watch-settings.json':'duke_profile_watch_settings',
+ 'delete-watch-settings.json':'duke_delete_watch_settings'
 };
 const TABLES=[...Object.values(FIXED),'duke_management_logs','duke_warnings','duke_activity'];
 function tableFor(key){return Object.hasOwn(FIXED,key)?FIXED[key]:/^management-logs\/[1-9]\d*\.json$/.test(key)?'duke_management_logs':/^warnings\/[1-9]\d*\.json$/.test(key)?'duke_warnings':/^activity\/[1-9]\d*\.json$/.test(key)?'duke_activity':null;}
