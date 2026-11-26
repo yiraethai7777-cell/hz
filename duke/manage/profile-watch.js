@@ -18,7 +18,7 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>tr
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data))if(id(r)&&(s?.nick===true||s?.profile===true))settings.set(r,{nick:s.nick===true,profile:s.profile===true});}catch(e){if(e.code!=='ENOENT')throw e;}}
  const get=r=>settings.get(r)||{nick:false,profile:false};
  function set(r,kind,on){
-  const next=new Map(settings),s={...get(r),[kind]:on};
+  const next=new Map(settings),s=kind==='all'?{nick:on,profile:on}:{...get(r),[kind]:on};
   if(s.nick||s.profile)next.set(r,s);else next.delete(r);
   if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries(next)),{mode:0o600});fs.renameSync(tmp,file);onPersist('profile-watch-settings.json');}
   settings.clear();for(const [key,val] of next)settings.set(key,val);
@@ -104,6 +104,6 @@ function createProfileWatch({dir,botId=()=>'',allowedRooms=null,isEnabled=()=>tr
  function start(){if(!timer){timer=setInterval(()=>void tick(),intervalMs);timer.unref?.();}}
  function stop(){if(timer)clearInterval(timer);timer=null;reset();}
  function resetRoom(r){versions.set(r,(versions.get(r)||0)+1);baseline.delete(r);due.delete(r);}
- return {register,tick,start,stop,reset,resetRoom};
+ return {register,tick,start,stop,reset,resetRoom,setAll:(r,on)=>set(r,'all',on)};
 }
 module.exports={createProfileWatch,readMember};

@@ -14,7 +14,7 @@ function replyReference(msg,bot){
  }
  return '';
 }
-function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,onAction=()=>{},onPersist=()=>{},now=Date.now,logger=console}={}){
+function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,onAction=()=>{},onPersist=()=>{},now=Date.now,logger=console}={}){
  const file=dir?path.join(dir,'reply-moderation.json'):null;
  let state={admins:{},notices:{}};
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const v=JSON.parse(fs.readFileSync(file,'utf8'));if(!v.admins||!v.notices)throw Error('invalid moderation state');state=v;}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -46,6 +46,7 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
   if(!r||!actor||!bot||msg?.room?.isOpenChat!==true||(allowedRooms&&!allowedRooms.has(r)))return format('ADMIN','오픈채팅방에서만 사용할 수 있습니다.');
   if(!allowed(msg,r,actor,bot))return format('ADMIN','관리 권한이 없습니다.');
   const target=await resolveTarget({msg,args:e.args,roomId:r,fetchMessage,noticeTarget:log=>{const n=state.notices[r+':'+log];return n?.bot===bot&&n.roomId===r?{id:n.userId,name:n.name}:null;}});
+  if(!isEnabled(r))return null;
   if(!target)return format('ADMIN','사용법 : -'+(release?'내풀':'벤')+' (멘션 / 아이디 / 답장)\n원문 대상이 확인되지 않으면 실행하지 않습니다.');
   const uid=id(target.id);if(!uid||uid===actor||uid===bot)return format('ADMIN','본인 또는 봇은 대상으로 지정할 수 없습니다.');
   const key=r+':'+uid;if(locked.has(key))return format('ADMIN','해당 사용자를 처리 중입니다.');
@@ -83,7 +84,7 @@ function createReplyModeration({dir,allowedRooms=null,botId=()=>'',send,kick,unb
  }
  async function handle(msg,e){
   const r=id(e.roomId),actor=id(e.userId),bot=id(botId()),cmd=String(e.text??'').trim().toLowerCase();
-  if(!r||!actor||!bot||!['k','u'].includes(cmd)||msg?.room?.isOpenChat!==true||(allowedRooms&&!allowedRooms.has(r)))return false;
+  if(!r||!actor||!bot||!isEnabled(r)||!['k','u'].includes(cmd)||msg?.room?.isOpenChat!==true||(allowedRooms&&!allowedRooms.has(r)))return false;
   const log=replyReference(msg,bot),n=log?state.notices[r+':'+log]:null;
   if(!n||n.bot!==bot||n.roomId!==r||n.kind!==(cmd==='k'?'leave':'ban')||n.used)return false;
   if(n.kind==='leave'&&now()-n.at>7*86400000)return false;

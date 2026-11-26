@@ -107,6 +107,6 @@ function createDeleteWatch({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>'
   return true;
  }
  function resetRoom(r){for(const map of [cache,notices,seen,cooldown])for(const key of map.keys())if(key===r||key.startsWith(r+':'))map.delete(key);}
- return {register,observe,onDelete,onRewrite,handle,resetRoom,close(){clearInterval(timer);cache.clear();notices.clear();seen.clear();}};
+ return {register,observe,onDelete,onRewrite,handle,resetRoom,setAll:(r,on)=>{set(r,on,'delete');set(r,on,'edit');resetRoom(r);},close(){clearInterval(timer);cache.clear();notices.clear();seen.clear();}};
 }
 module.exports={createDeleteWatch};

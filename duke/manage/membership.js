@@ -12,7 +12,7 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
  const file=dir?path.join(dir,'membership-settings.json'):null,settings=new Map(),seen=new Map();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const [r,s] of Object.entries(data)){if(id(r)&&typeof s?.join==='boolean'&&typeof s?.leave==='boolean'&&(s.join||s.leave))settings.set(r,{join:s.join,leave:s.leave});}}catch(e){if(e.code!=='ENOENT')throw e;}}
  const get=r=>settings.get(r)||{join:false,leave:false};
- function set(r,k,enabled){const next=new Map(settings),s={...get(r),[k]:enabled};if(s.join||s.leave)next.set(r,s);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries(next)),{mode:0o600});fs.renameSync(tmp,file);onPersist('membership-settings.json');}settings.clear();for(const [key,value] of next)settings.set(key,value);}
+ function set(r,k,enabled){const next=new Map(settings),s=k==='all'?{join:enabled,leave:enabled}:{...get(r),[k]:enabled};if(s.join||s.leave)next.set(r,s);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries(next)),{mode:0o600});fs.renameSync(tmp,file);onPersist('membership-settings.json');}settings.clear();for(const [key,value] of next)settings.set(key,value);}
  function authorized(e){return canConfigure(e,botId);}
  const onoff=v=>v?'ON':'OFF';
  function register(core){
@@ -52,6 +52,6 @@ function createMembership({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>nu
   }
   return sent;
  }
- return {register,handle,activeCount:()=>settings.size};
+ return {register,handle,setAll:(r,on)=>set(r,'all',on),activeCount:()=>[...settings.keys()].filter(isEnabled).length};
 }
 module.exports={createMembership};
