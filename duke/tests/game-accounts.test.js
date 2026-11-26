@@ -11,8 +11,8 @@ test('game enrollment is room scoped, persistent, exact ID, duplicate safe and o
   await cmd('1000',userId,false);assert.equal(g.get('1000',userId),null);
   await cmd('1000','9000');assert.equal(g.get('1000','9000'),null);
   await cmd('1000',userId,true,'-게임가입 추가');assert.equal(g.get('1000',userId),null);
-  await Promise.all([cmd(),cmd()]);assert.match(out.at(-2),/가입이 완료/);assert.match(out.at(-1),/이미 게임에 가입/);
-  assert.deepEqual(g.get('1000',userId),{joinedAt:1700000000000,coins:0,inventory:{}});
+  await Promise.all([cmd(),cmd()]);assert.match(out.at(-2),/가입이 완료/);assert.match(out.at(-2),/보유 코인 : 10,000 코인/);assert.match(out.at(-1),/이미 게임에 가입/);
+  assert.deepEqual(g.get('1000',userId),{joinedAt:1700000000000,coins:10000,inventory:{}});
   assert.deepEqual(dirty,['game-accounts/1000.json']);
   g=createGameAccounts(opts);core=createCore({send});g.register(core);await cmd();assert.match(out.at(-1),/이미 게임에 가입/);
   await cmd('2000');assert.ok(g.get('2000',userId));assert.equal(dirty.length,2);
