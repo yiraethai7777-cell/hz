@@ -35,3 +35,13 @@ test('direct ban and kick-release with IDs, mention, original reply chain; permi
  await run('-벤 9000');await run('-내풀 5000');assert.equal(actions.length,4);
  await run('-내풀',msg(4,{message:{type:26},attachmentsRaw:[{src_logId:'9999',src_userId:'3000'}]}));assert.equal(actions.length,4);
 });
+
+test('kick-release retries only same unban after transient failure and never repeats kick; final failure remains explicit',async()=>{
+ const out=[],actions=[],waits=[];let attempts=0,fail=false;
+ const send=async(r,t)=>{out.push(t);return {status:0,body:{logId:'1234'}};};
+ const m=createReplyModeration({botId:()=> '9000',send,kick:async(r,u)=>{actions.push(['kick',r,u]);return {status:0};},unban:async(r,u)=>{actions.push(['unban',r,u]);attempts++;if(fail||attempts===1)throw Error('KLDELITEM failed: status=-1');if(attempts===2)return {success:true,verified:false};return {success:true,verified:true};},sleep:async ms=>waits.push(ms),logger:{error(){}}});
+ const core=createCore({send});m.register(core);
+ const cmd=(u)=>core.handle({roomId:'1000',userId:'5000',text:'-내풀 '+u,msg:{room:{isOpenChat:true},sender:{type:4}}});
+ await cmd('3000');assert.deepEqual(actions,[['kick','1000','3000'],['unban','1000','3000'],['unban','1000','3000'],['unban','1000','3000']]);assert.deepEqual(waits,[300,700]);assert.match(out.at(-1),/내보낸 후 벤을 해제/);
+ fail=true;actions.length=0;waits.length=0;await cmd('4000');assert.equal(actions.filter(a=>a[0]==='kick').length,1);assert.equal(actions.filter(a=>a[0]==='unban').length,4);assert.ok(actions.every(a=>a[2]==='4000'));assert.match(out.at(-1),/벤 해제를 확인하지 못했습니다/);assert.match(out.at(-2),/답장으로 u/);
+});

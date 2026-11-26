@@ -14,7 +14,7 @@ function replyReference(msg,bot){
  }
  return '';
 }
-function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,onAction=()=>{},onPersist=()=>{},now=Date.now,logger=console}={}){
+function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=()=>'',send,kick,unban,fetchMessage,getName=()=>'',audit=null,onAction=()=>{},onPersist=()=>{},now=Date.now,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),logger=console}={}){
  const file=dir?path.join(dir,'reply-moderation.json'):null;
  let state={admins:{},notices:{}};
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const v=JSON.parse(fs.readFileSync(file,'utf8'));if(!v.admins||!v.notices)throw Error('invalid moderation state');state=v;}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -41,6 +41,17 @@ function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=(
  }
  function kickOK(res){return res?.status===0&&res?.success!==false&&res?.ok!==false;}
  function releaseOK(res){return res?.success===true&&res?.verified===true;}
+ // A kick ACK may precede propagation to the blocked-member list. Retry only
+ // the same authorized unban, never the kick; do not bypass verification.
+ async function releaseWithRetry(r,u){
+  const waits=[0,300,700,1200];
+  for(let i=0;i<waits.length;i++){
+   if(waits[i])await sleep(waits[i]);
+   try{if(releaseOK(await unban(r,u)))return true;logger.error('[DUKE] unban unverified',i+1);}
+   catch(err){const message=String(err?.message??''),status=/^KLDELITEM failed: status=(-?\d+)$/.exec(message);const reason=status?'KLDELITEM status='+status[1]:message==='내보내기 목록 확인 실패'?'list unavailable':message==='해제 후에도 내보내기 목록에 남아 있습니다.'?'still blocked':message==='LOCO not connected'?'disconnected':'unban error';logger.error('[DUKE] unban attempt',i+1,reason);if(reason==='disconnected')break;}
+  }
+  return false;
+ }
  async function direct(e,release){
   const r=id(e.roomId),actor=id(e.userId),bot=id(botId()),msg=e.msg;
   if(!r||!actor||!bot||msg?.room?.isOpenChat!==true||(allowedRooms&&!allowedRooms.has(r)))return format('ADMIN','오픈채팅방에서만 사용할 수 있습니다.');
@@ -56,7 +67,7 @@ function createReplyModeration({dir,allowedRooms=null,isEnabled=()=>true,botId=(
    if(!kickOK(await kick(r,uid)))throw Error('kick unverified');
    kicked=true;
    if(release){
-    if(!releaseOK(await unban(r,uid)))throw Error('unban unverified');
+    if(!await releaseWithRetry(r,uid))throw Error('unban unverified');
     onAction(r,uid,'release');
     record(r,actor,msg,uid,name,'-내풀','강퇴 후 벤 해제 완료');logged=true;
     for(const [k,n] of Object.entries(state.notices))if(n.roomId===r&&n.userId===uid&&n.kind==='ban')delete state.notices[k];save();
