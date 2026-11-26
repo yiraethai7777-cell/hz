@@ -33,35 +33,39 @@ function createWarnings({dir,onPersist=()=>{},audit,canManage,noticeTarget=()=>n
   if(!t||!valid(t.id))return null;
   return {target:{id:t.id,name:name(e.roomId,t.id,t.name)},tail:tail.join(' ').trim()};
  }
- function usage(cmd){return format('ADMIN',cmd==='경고'?'사용법 : -경고 @대상 사유 / -경고 아이디 사유\n답장 : -경고 사유\n닉네임에 공백이 있을 경우 멘션 뒤에 | 로 사유 구분':cmd==='경고삭제'?'사용법 : -경고삭제 @대상 [경고번호]\n아이디 또는 답장도 가능 (번호 생략 시 최근 경고 1건 삭제)':'사용법 : -경고내역 @대상 [페이지]\n아이디 또는 답장도 가능');}
+ function usage(cmd){return format('ADMIN',cmd==='경고'?'사용법 : -경고 @대상 [사유] / -경고 아이디 [사유]\n답장 : -경고 [사유]\n사유 생략 가능\n닉네임에 공백이 있을 경우 멘션 뒤에 | 로 사유 구분':cmd==='경고삭제'?'사용법 : -경고삭제 @대상 [경고번호 / all]\nall : 전체 경고 삭제\n아이디 또는 답장도 가능 (번호 생략 시 최근 경고 1건 삭제)':'사용법 : -경고내역 @대상 [페이지]\n아이디 또는 답장도 가능');}
  async function execute(e,cmd){
   if(!canManage?.(e))return format('ADMIN','관리 권한이 없습니다.');
   const parsed=await parse(e);if(!parsed)return usage(cmd);
   const {target:t,tail}=parsed,r=e.roomId;
   if(cmd!=='경고내역'&&(t.id===String(botId())||t.id===e.userId))return format('ADMIN','본인 또는 봇은 대상으로 지정할 수 없습니다.');
-  const state=load(r),prior=state.users[t.id]||{next:1,rows:[]},rows=prior.rows;
+  const state=load(r),prior=state.users[t.id]||{next:1,rows:[]},rows=prior.rows,active=rows.filter(row=>!row.deleted);
   if(cmd==='경고'){
-   const reason=clean(tail,200);if(!reason||[...tail].length>200)return format('ADMIN','경고 사유를 1~200자로 입력해 주세요.');
+   const reason=clean(tail,200)||'사유 없음';if([...tail].length>200)return format('ADMIN','경고 사유는 최대 200자입니다.');
    const row={number:prior.next,reason,actorId:e.userId,actorName:name(r,e.userId,e.msg?.sender?.name),at:now()};
    save(r,{users:{...state.users,[t.id]:{next:prior.next+1,rows:[...rows,row]}}});
-   auditAction(e,t,'-경고','경고 #'+row.number+' 부여 · 누적 '+(rows.length+1)+'회 · '+reason);
-   return format('WARNING',t.name+'님에게 경고를 부여하였습니다.\n사유 : '+reason+'\n누적 경고 : '+(rows.length+1)+'회');
+   auditAction(e,t,'-경고','경고 #'+row.number+' 부여 · 누적 '+(active.length+1)+'회 · '+reason);
+   return format('WARNING',t.name+'님에게 경고를 부여하였습니다.\n사유 : '+reason+'\n누적 경고 : '+(active.length+1)+'회');
   }
-  if(tail&&!/^[1-9]\d{0,8}$/.test(tail))return usage(cmd);
+  if(tail&&!/^[1-9]\d{0,8}$/.test(tail)&&!(cmd==='경고삭제'&&tail.toLowerCase()==='all'))return usage(cmd);
   if(cmd==='경고삭제'){
-   if(!rows.length)return format('WARNING',t.name+'님의 경고 내역이 없습니다.');
-   const number=tail?Number(tail):rows.at(-1).number,row=rows.find(x=>x.number===number);
-   if(!row)return format('WARNING','해당 경고 번호가 없습니다.');
-   const remaining=rows.filter(x=>x.number!==number);
-   save(r,{users:{...state.users,[t.id]:{next:prior.next,rows:remaining}}});
-   auditAction(e,t,'-경고삭제','경고 #'+number+' 삭제 · 남은 '+remaining.length+'회 · '+row.reason);
-   return format('WARNING',t.name+'님의 경고를 삭제하였습니다.\n삭제 사유 : '+row.reason+'\n남은 경고 : '+remaining.length+'회');
+   if(!active.length)return format('WARNING',t.name+'님의 유효한 경고가 없습니다.');
+   const all=tail.toLowerCase()==='all';
+   const number=all?null:tail?Number(tail):active.at(-1).number;
+   const selected=all?active:active.filter(x=>x.number===number);
+   if(!selected.length)return format('WARNING','해당 경고 번호가 없거나 이미 삭제되었습니다.');
+   const numbers=new Set(selected.map(x=>x.number)),deletedAt=now(),deletedByName=name(r,e.userId,e.msg?.sender?.name);
+   const history=rows.map(x=>numbers.has(x.number)?{...x,deleted:true,deletedAt,deletedById:e.userId,deletedByName}:x);
+   const remaining=active.length-selected.length;
+   save(r,{users:{...state.users,[t.id]:{next:prior.next,rows:history}}});
+   auditAction(e,t,'-경고삭제',all?'전체 경고 '+selected.length+'건 삭제 · 남은 0회':'경고 #'+number+' 삭제 · 남은 '+remaining+'회 · '+selected[0].reason);
+   return format('WARNING',t.name+(all?'님의 모든 경고를 삭제하였습니다.\n삭제 경고 : '+selected.length+'회':'님의 경고를 삭제하였습니다.\n삭제 사유 : '+selected[0].reason)+'\n남은 경고 : '+remaining+'회');
   }
   const pages=Math.max(1,Math.ceil(rows.length/PAGE)),page=tail?Number(tail):1;if(page>pages)return format('WARNING','존재하지 않는 페이지입니다. (1~'+pages+')');
-  const details=rows.slice().reverse().slice((page-1)*PAGE,page*PAGE).map(row=>'경고 번호 : '+row.number+'\n사유 : '+row.reason+'\n부여 관리자 : '+row.actorName+'\n부여 시각 : '+time(row.at)).join('\n\n'+LINE+'\n\n');
-  return fold(format('WARNING',t.name+'님의 경고 내역\n누적 경고 : '+rows.length+'회'),LINE+'\n[ 경고 상세 · '+page+'/'+pages+' 페이지 ]\n\n'+(details||'등록된 경고가 없습니다.')+'\n\n'+LINE+'\n아이디 : '+t.id+'\n시간 기준 : 한국 시간'+(pages>1?'\n다른 페이지 : -경고내역 '+t.id+' [페이지]':''));
+  const details=rows.slice().reverse().slice((page-1)*PAGE,page*PAGE).map(row=>'경고 번호 : '+row.number+'\n사유 : '+row.reason+(row.deleted?' (삭제)':'')+'\n부여 관리자 : '+row.actorName+'\n부여 시각 : '+time(row.at)+(row.deleted?'\n삭제 관리자 : '+row.deletedByName+'\n삭제 시각 : '+time(row.deletedAt):'')).join('\n\n'+LINE+'\n\n');
+  return fold(format('WARNING',t.name+'님의 경고 내역\n누적 경고 : '+active.length+'회\n삭제된 경고 : '+(rows.length-active.length)+'회'),LINE+'\n[ 경고 상세 · '+page+'/'+pages+' 페이지 ]\n\n'+(details||'등록된 경고가 없습니다.')+'\n\n'+LINE+'\n아이디 : '+t.id+'\n시간 기준 : 한국 시간'+(pages>1?'\n다른 페이지 : -경고내역 '+t.id+' [페이지]':''));
  }
- function register(core){for(const [cmd,desc] of [['경고','사유와 함께 경고 부여'],['경고삭제','경고 번호 또는 최근 1건 삭제'],['경고내역','대상 경고 내역 확인']])core.register({name:cmd,section:'MANAGEMENT',description:desc+' (멘션 / 아이디 / 답장)',execute:e=>execute(e,cmd)});}
+ function register(core){for(const [cmd,desc] of [['경고','경고 부여 (사유 생략 가능)'],['경고삭제','최근 1건 / 번호 / all 삭제'],['경고내역','삭제된 경고 포함 내역 확인']])core.register({name:cmd,section:'MANAGEMENT',description:desc+' (멘션 / 아이디 / 답장)',execute:e=>execute(e,cmd)});}
  return {register};
 }
 module.exports={createWarnings};
