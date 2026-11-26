@@ -101,7 +101,7 @@ function createDeleteWatch({dir,allowedRooms=null,botId=()=>'',canManage=()=>fal
    delay(async()=>{try{
     const result=await edit(r,log,end);if(result?.status!==0)throw Error('edit unverified');
    }catch(e){logger.error('[DUKE] delete view edit failed',e?.name||'Error');if(remove)try{await remove(r,log);}catch{logger.error('[DUKE] delete view cleanup failed');}}
-   finally{pending.delete(r);}},2000);
+   finally{pending.delete(r);}},10000);
   }catch(e){pending.delete(r);logger.error('[DUKE] delete view send failed',e?.name||'Error');}
   return true;
  }
