@@ -58,6 +58,7 @@ function createQuiz({dir,send,botId=()=>'',getName=()=>'',onPersist=()=>{},canHa
  async function start(e){
   const r=e.roomId;if(!eligible(e))return '활성화된 오픈채팅방에서만 퀴즈를 사용할 수 있습니다.';
   if(e.args.length)return '사용법 : -퀴즈';
+  if(!logId(e.msg))return '퀴즈 요청을 확인할 수 없습니다.';
   if(active.has(r))return '이미 진행 중인 퀴즈가 있습니다.';
   if(active.size>=CAP)return '퀴즈가 많이 진행 중입니다. 잠시 후 다시 시도해 주세요.';
   const receiveAt=e.receivedAt??clock(),q=next(r);if(!q)return '이 채팅방의 퀴즈 1,600문제를 모두 출제했습니다. 중복 방지를 위해 출제를 종료합니다.';

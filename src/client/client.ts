@@ -976,7 +976,7 @@ export class KakaoForgeClient extends EventEmitter {
     if (packet.method === 'MSG' || packet.method === 'SYNCM') {
       const { chatId, chatLog } = packet.body || {};
       if (chatLog) {
-        this._emitMessage({ ...packet.body, chatId, chatLog });
+        this._emitMessage({ ...packet.body, chatId, chatLog }, true);
       }
     } else if (packet.method === 'CHATINFO' || packet.method === 'UPDATECHAT') {
       const info = packet.body?.chatInfo || packet.body?.chat || packet.body?.chatData || packet.body?.chatRoom;
@@ -1032,7 +1032,7 @@ export class KakaoForgeClient extends EventEmitter {
     this._pushHandlers.set(method, handler);
   }
 
-  _emitMessage(data: any) {
+  _emitMessage(data: any, livePush = false) {
     const receivedAt = performance.now();
     const chatLog = data.chatLog || data;
     const roomIdValue = normalizeIdValue(
@@ -1044,7 +1044,7 @@ export class KakaoForgeClient extends EventEmitter {
     // DUKE's opt-in quiz listener uses raw text only, avoiding metadata waits.
     // The ordinary event still runs for activity, monitoring and other commands.
     if (roomIdValue && safeNumber(chatLog.type || chatLog.msgType || 1, 1) === 1) {
-      try { this.emit('dukeQuizRaw', { data, roomId: roomIdValue, receivedAt }); } catch (err) {
+      try { this.emit('dukeQuizRaw', { data, roomId: roomIdValue, receivedAt, livePush }); } catch (err) {
         if (this.debug) console.error('[DBG] quiz raw listener failed', err);
       }
     }

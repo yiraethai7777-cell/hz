@@ -83,18 +83,27 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  client.on('error',()=>{ready=false;watcher.reset();quiz.reset();console.error('[DUKE] connection error');});
  client.on('disconnect',()=>{ready=false;watcher.reset();quiz.reset();});
  client.onReady(()=>{ready=true;watcher.start();console.log('[DUKE] ready');});
- const earlyQuiz=new WeakSet();
- client.on('dukeQuizRaw',({data,roomId,receivedAt})=>{
+ const earlyQuiz=new WeakSet(),quizChecked=new WeakSet(),quizSeen=new Map();
+ client.on('dukeQuizRaw',({data,roomId,receivedAt,livePush})=>{
   if(!ready||!data||typeof data!=='object')return;
-  const r=id(roomId);if(!r||(!quiz.has(r)&&!/^\s*-퀴즈(?:\s|$)/u.test(String(data.chatLog?.message??data.chatLog?.msg??data.chatLog?.text??data.message??data.msg??data.text??''))))return;
-  const raw=data.chatLog??data,room=client._buildRoomPayload(r);if(room.isOpenChat!==true)return;
-  const e=normalize({raw:data,chatId:r,receivedAt},receivedAt);if(!e.userId||!power.canHandle(e)||(rooms&&!rooms.has(r)))return;
+  const r=id(roomId),raw=data.chatLog??data;
+  if(!r||Number(raw.type??raw.msgType??1)!==1)return;
+  const text=raw.message??raw.msg??raw.text??'',isCommand=typeof text==='string'&&/^-퀴즈(?:\s|$)/u.test(text);
+  if(!livePush){quizChecked.add(data);if(isCommand)earlyQuiz.add(data);return;}
+  const log=id(raw.logId??raw.id??raw.msgId),key=log?r+':'+log:null;
+  if(!key){quizChecked.add(data);if(isCommand)earlyQuiz.add(data);return;}
+  if(quizSeen.has(key)){quizChecked.add(data);if(isCommand)earlyQuiz.add(data);return;}
+  quizSeen.set(key,1);while(quizSeen.size>20000)quizSeen.delete(quizSeen.keys().next().value);
+  if(!quiz.has(r)&&!isCommand){quizChecked.add(data);return;}
+  const room=client._buildRoomPayload(r);if(room.isOpenChat!==true)return;
+  const e=normalize({raw:data,chatId:r,receivedAt},receivedAt);if(e.roomId!==r||!e.userId||!power.canHandle(e)||(rooms&&!rooms.has(r)))return;
   const name=raw.authorName||raw.authorNickname||raw.nickName||raw.nickname||raw.name||data.authorNickname||data.authorName||client.getUserProfileSnapshot(r,e.userId)?.name||'';
-  e.msg={room,sender:{id:e.userId,name},message:{type:Number(raw.type??raw.msgType??1),logId:raw.logId??raw.id??raw.msgId},raw:data};
-  if(/^\s*-퀴즈(?:\s|$)/u.test(String(e.text??''))&&String(e.text).startsWith('-')){earlyQuiz.add(data);void core.handle(e);return;}
+  e.msg={room,sender:{id:e.userId,name},message:{type:1,logId:log},raw:data};
+  quizChecked.add(data);
+  if(isCommand){earlyQuiz.add(data);void core.handle(e);return;}
   if(quiz.answer(e))earlyQuiz.add(data);
  });
- client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(!ready||!power.canHandle(e))return;if(power.enabled(e.roomId)){activity.chat(msg,e);if(deletion.observe(msg,e)===true)return;}if(msg?.raw&&earlyQuiz.has(msg.raw))return;e.msg=msg;if(quiz.answer(e))return;if(ready&&/^l$/i.test(String(e.text??'').trim())){void deletion.handle(msg,e).catch(err=>console.error('[DUKE] delete view failed',err?.name||'Error'));return;}if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|id|정보|채팅순위|채팅순위전체|내채팅|닉변감지|프로필감지|삭제감지|수정감지|게임가입|지갑|송금|코인순위|코인지급|코인회수|인벤|퀴즈|봇켜기|봇끄기|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
+ client.on('message',(...args)=>{const receivedAt=performance.now();const msg=args.length===1?args[0]:args[1];const e=normalize(msg,receivedAt);if(!ready||!power.canHandle(e))return;if(power.enabled(e.roomId)){activity.chat(msg,e);if(deletion.observe(msg,e)===true)return;}if(msg?.raw&&earlyQuiz.has(msg.raw))return;e.msg=msg;if(!(msg?.raw&&quizChecked.has(msg.raw))&&quiz.answer(e))return;if(ready&&/^l$/i.test(String(e.text??'').trim())){void deletion.handle(msg,e).catch(err=>console.error('[DUKE] delete view failed',err?.name||'Error'));return;}if(ready&&/^[ku]$/i.test(String(e.text??'').trim())){void moderation.handle(msg,e).catch(err=>console.error('[DUKE] reply moderation failed',err?.name||'Error'));return;}if(/^-(벤|내풀|관리로그|프사|옾링|id|정보|채팅순위|채팅순위전체|내채팅|닉변감지|프로필감지|삭제감지|수정감지|게임가입|지갑|송금|코인순위|코인지급|코인회수|인벤|퀴즈|봇켜기|봇끄기|경고|경고삭제|경고내역|관리자추가|관리자삭제|입장알림|퇴장알림)(?:\s|$)/u.test(String(e.text??'')))e.msg=msg;void core.handle(e);});
  await client.connect();return {client,core};
 }
 module.exports={startKakao,normalize,id};
