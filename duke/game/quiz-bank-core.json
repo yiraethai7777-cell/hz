@@ -1,0 +1,8706 @@
+{
+ "일반": [
+  {
+   "q": "대한민국의 수도는?",
+   "answers": [
+    "서울",
+    "서울특별시"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "서울를 수도로 하는 국가는?",
+   "answers": [
+    "대한민국"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "일본의 수도는?",
+   "answers": [
+    "도쿄",
+    "동경"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "도쿄를 수도로 하는 국가는?",
+   "answers": [
+    "일본"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "중국의 수도는?",
+   "answers": [
+    "베이징",
+    "북경"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "베이징를 수도로 하는 국가는?",
+   "answers": [
+    "중국"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "프랑스의 수도는?",
+   "answers": [
+    "파리"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "파리를 수도로 하는 국가는?",
+   "answers": [
+    "프랑스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영국의 수도는?",
+   "answers": [
+    "런던"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "런던를 수도로 하는 국가는?",
+   "answers": [
+    "영국"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "미국의 수도는?",
+   "answers": [
+    "워싱턴",
+    "워싱턴DC",
+    "워싱턴D.C."
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "워싱턴를 수도로 하는 국가는?",
+   "answers": [
+    "미국"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "이탈리아의 수도는?",
+   "answers": [
+    "로마"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "로마를 수도로 하는 국가는?",
+   "answers": [
+    "이탈리아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "독일의 수도는?",
+   "answers": [
+    "베를린"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "베를린를 수도로 하는 국가는?",
+   "answers": [
+    "독일"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "캐나다의 수도는?",
+   "answers": [
+    "오타와"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "오타와를 수도로 하는 국가는?",
+   "answers": [
+    "캐나다"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "호주의 수도는?",
+   "answers": [
+    "캔버라"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "캔버라를 수도로 하는 국가는?",
+   "answers": [
+    "호주"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "스페인의 수도는?",
+   "answers": [
+    "마드리드"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "마드리드를 수도로 하는 국가는?",
+   "answers": [
+    "스페인"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "태국의 수도는?",
+   "answers": [
+    "방콕"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "방콕를 수도로 하는 국가는?",
+   "answers": [
+    "태국"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "베트남의 수도는?",
+   "answers": [
+    "하노이"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "하노이를 수도로 하는 국가는?",
+   "answers": [
+    "베트남"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "인도의 수도는?",
+   "answers": [
+    "뉴델리"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "뉴델리를 수도로 하는 국가는?",
+   "answers": [
+    "인도"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "브라질의 수도는?",
+   "answers": [
+    "브라질리아"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "브라질리아를 수도로 하는 국가는?",
+   "answers": [
+    "브라질"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "이집트의 수도는?",
+   "answers": [
+    "카이로"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "카이로를 수도로 하는 국가는?",
+   "answers": [
+    "이집트"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "그리스의 수도는?",
+   "answers": [
+    "아테네"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "아테네를 수도로 하는 국가는?",
+   "answers": [
+    "그리스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "러시아의 수도는?",
+   "answers": [
+    "모스크바"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "모스크바를 수도로 하는 국가는?",
+   "answers": [
+    "러시아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "노르웨이의 수도는?",
+   "answers": [
+    "오슬로"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "오슬로를 수도로 하는 국가는?",
+   "answers": [
+    "노르웨이"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "스웨덴의 수도는?",
+   "answers": [
+    "스톡홀름"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "스톡홀름를 수도로 하는 국가는?",
+   "answers": [
+    "스웨덴"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "핀란드의 수도는?",
+   "answers": [
+    "헬싱키"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "헬싱키를 수도로 하는 국가는?",
+   "answers": [
+    "핀란드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "덴마크의 수도는?",
+   "answers": [
+    "코펜하겐"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "코펜하겐를 수도로 하는 국가는?",
+   "answers": [
+    "덴마크"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아이슬란드의 수도는?",
+   "answers": [
+    "레이캬비크"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "레이캬비크를 수도로 하는 국가는?",
+   "answers": [
+    "아이슬란드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "폴란드의 수도는?",
+   "answers": [
+    "바르샤바"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "바르샤바를 수도로 하는 국가는?",
+   "answers": [
+    "폴란드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "체코의 수도는?",
+   "answers": [
+    "프라하"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "프라하를 수도로 하는 국가는?",
+   "answers": [
+    "체코"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "오스트리아의 수도는?",
+   "answers": [
+    "빈"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "빈를 수도로 하는 국가는?",
+   "answers": [
+    "오스트리아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "헝가리의 수도는?",
+   "answers": [
+    "부다페스트"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "부다페스트를 수도로 하는 국가는?",
+   "answers": [
+    "헝가리"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "스위스의 수도는?",
+   "answers": [
+    "베른"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "베른를 수도로 하는 국가는?",
+   "answers": [
+    "스위스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "네덜란드의 수도는?",
+   "answers": [
+    "암스테르담"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "암스테르담를 수도로 하는 국가는?",
+   "answers": [
+    "네덜란드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "벨기에의 수도는?",
+   "answers": [
+    "브뤼셀"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "브뤼셀를 수도로 하는 국가는?",
+   "answers": [
+    "벨기에"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "포르투갈의 수도는?",
+   "answers": [
+    "리스본"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "리스본를 수도로 하는 국가는?",
+   "answers": [
+    "포르투갈"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아일랜드의 수도는?",
+   "answers": [
+    "더블린"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "더블린를 수도로 하는 국가는?",
+   "answers": [
+    "아일랜드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "루마니아의 수도는?",
+   "answers": [
+    "부쿠레슈티"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "부쿠레슈티를 수도로 하는 국가는?",
+   "answers": [
+    "루마니아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "불가리아의 수도는?",
+   "answers": [
+    "소피아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "소피아를 수도로 하는 국가는?",
+   "answers": [
+    "불가리아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "크로아티아의 수도는?",
+   "answers": [
+    "자그레브"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "자그레브를 수도로 하는 국가는?",
+   "answers": [
+    "크로아티아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "슬로바키아의 수도는?",
+   "answers": [
+    "브라티슬라바"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "브라티슬라바를 수도로 하는 국가는?",
+   "answers": [
+    "슬로바키아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "슬로베니아의 수도는?",
+   "answers": [
+    "류블랴나"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "류블랴나를 수도로 하는 국가는?",
+   "answers": [
+    "슬로베니아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "세르비아의 수도는?",
+   "answers": [
+    "베오그라드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "베오그라드를 수도로 하는 국가는?",
+   "answers": [
+    "세르비아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "알바니아의 수도는?",
+   "answers": [
+    "티라나"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "티라나를 수도로 하는 국가는?",
+   "answers": [
+    "알바니아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "리투아니아의 수도는?",
+   "answers": [
+    "빌뉴스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "빌뉴스를 수도로 하는 국가는?",
+   "answers": [
+    "리투아니아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "라트비아의 수도는?",
+   "answers": [
+    "리가"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "리가를 수도로 하는 국가는?",
+   "answers": [
+    "라트비아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "에스토니아의 수도는?",
+   "answers": [
+    "탈린"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "탈린를 수도로 하는 국가는?",
+   "answers": [
+    "에스토니아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "우크라이나의 수도는?",
+   "answers": [
+    "키이우"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "키이우를 수도로 하는 국가는?",
+   "answers": [
+    "우크라이나"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "몽골의 수도는?",
+   "answers": [
+    "울란바토르"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "울란바토르를 수도로 하는 국가는?",
+   "answers": [
+    "몽골"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "네팔의 수도는?",
+   "answers": [
+    "카트만두"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "카트만두를 수도로 하는 국가는?",
+   "answers": [
+    "네팔"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "파키스탄의 수도는?",
+   "answers": [
+    "이슬라마바드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "이슬라마바드를 수도로 하는 국가는?",
+   "answers": [
+    "파키스탄"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "방글라데시의 수도는?",
+   "answers": [
+    "다카"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "다카를 수도로 하는 국가는?",
+   "answers": [
+    "방글라데시"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "미얀마의 수도는?",
+   "answers": [
+    "네피도"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "네피도를 수도로 하는 국가는?",
+   "answers": [
+    "미얀마"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "캄보디아의 수도는?",
+   "answers": [
+    "프놈펜"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "프놈펜를 수도로 하는 국가는?",
+   "answers": [
+    "캄보디아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "라오스의 수도는?",
+   "answers": [
+    "비엔티안"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "비엔티안를 수도로 하는 국가는?",
+   "answers": [
+    "라오스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "필리핀의 수도는?",
+   "answers": [
+    "마닐라"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "마닐라를 수도로 하는 국가는?",
+   "answers": [
+    "필리핀"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "말레이시아의 수도는?",
+   "answers": [
+    "쿠알라룸푸르"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "쿠알라룸푸르를 수도로 하는 국가는?",
+   "answers": [
+    "말레이시아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "뉴질랜드의 수도는?",
+   "answers": [
+    "웰링턴"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "웰링턴를 수도로 하는 국가는?",
+   "answers": [
+    "뉴질랜드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "멕시코의 수도는?",
+   "answers": [
+    "멕시코시티"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "멕시코시티를 수도로 하는 국가는?",
+   "answers": [
+    "멕시코"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아르헨티나의 수도는?",
+   "answers": [
+    "부에노스아이레스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "부에노스아이레스를 수도로 하는 국가는?",
+   "answers": [
+    "아르헨티나"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "칠레의 수도는?",
+   "answers": [
+    "산티아고"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "산티아고를 수도로 하는 국가는?",
+   "answers": [
+    "칠레"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "페루의 수도는?",
+   "answers": [
+    "리마"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "리마를 수도로 하는 국가는?",
+   "answers": [
+    "페루"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "콜롬비아의 수도는?",
+   "answers": [
+    "보고타"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "보고타를 수도로 하는 국가는?",
+   "answers": [
+    "콜롬비아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "쿠바의 수도는?",
+   "answers": [
+    "아바나"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아바나를 수도로 하는 국가는?",
+   "answers": [
+    "쿠바"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "모로코의 수도는?",
+   "answers": [
+    "라바트"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "라바트를 수도로 하는 국가는?",
+   "answers": [
+    "모로코"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "케냐의 수도는?",
+   "answers": [
+    "나이로비"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "나이로비를 수도로 하는 국가는?",
+   "answers": [
+    "케냐"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "나이지리아의 수도는?",
+   "answers": [
+    "아부자"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아부자를 수도로 하는 국가는?",
+   "answers": [
+    "나이지리아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "에티오피아의 수도는?",
+   "answers": [
+    "아디스아바바"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아디스아바바를 수도로 하는 국가는?",
+   "answers": [
+    "에티오피아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가나의 수도는?",
+   "answers": [
+    "아크라"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아크라를 수도로 하는 국가는?",
+   "answers": [
+    "가나"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "탄자니아의 수도는?",
+   "answers": [
+    "도도마"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "도도마를 수도로 하는 국가는?",
+   "answers": [
+    "탄자니아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "사우디아라비아의 수도는?",
+   "answers": [
+    "리야드"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "리야드를 수도로 하는 국가는?",
+   "answers": [
+    "사우디아라비아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "대한민국의 국기 이름은?",
+   "answers": [
+    "태극기"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국의 화폐 단위는?",
+   "answers": [
+    "원",
+    "원화"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국의 국가 이름은?",
+   "answers": [
+    "애국가"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "1분은 몇 초?",
+   "answers": [
+    "60",
+    "60초"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "1시간은 몇 분?",
+   "answers": [
+    "60",
+    "60분"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "하루는 몇 시간?",
+   "answers": [
+    "24",
+    "24시간"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "일주일은 며칠?",
+   "answers": [
+    "7",
+    "7일",
+    "칠일"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "1년은 몇 개월?",
+   "answers": [
+    "12",
+    "12개월"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "윤년의 2월은 며칠까지?",
+   "answers": [
+    "29",
+    "29일"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "1미터는 몇 센티미터?",
+   "answers": [
+    "100",
+    "100cm",
+    "100센티미터"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "1킬로미터는 몇 미터?",
+   "answers": [
+    "1000",
+    "1000m",
+    "1000미터",
+    "1,000"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "1킬로그램은 몇 그램?",
+   "answers": [
+    "1000",
+    "1000g",
+    "1000그램",
+    "1,000"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㅂㄴㄴ / 길쭉하고 노란 과일",
+   "answers": [
+    "바나나"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㅅㅂ / 속이 빨간 여름 과일",
+   "answers": [
+    "수박"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㄸㄱ / 빨간 과일",
+   "answers": [
+    "딸기"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㅍㄷ / 알이 송이로 달리는 과일",
+   "answers": [
+    "포도"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㅂㅅㅇ / 털이 있는 과일",
+   "answers": [
+    "복숭아"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㄱㅇㅇ / 야옹 하고 우는 동물",
+   "answers": [
+    "고양이"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㄱㅇㅈ / 개의 새끼",
+   "answers": [
+    "강아지"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㅋㄲㄹ / 코가 긴 동물",
+   "answers": [
+    "코끼리"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㄱㄹ / 목이 긴 동물",
+   "answers": [
+    "기린"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "초성 ㅎㄹㅇ / 줄무늬가 있는 큰 고양잇과 동물",
+   "answers": [
+    "호랑이"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국에서 가장 높은 산은?",
+   "answers": [
+    "한라산"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "서울을 가로지르는 대표적인 강은?",
+   "answers": [
+    "한강"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "세계에서 가장 큰 대양은?",
+   "answers": [
+    "태평양"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "세계에서 가장 높은 산은?",
+   "answers": [
+    "에베레스트",
+    "에베레스트산"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "지구에서 가장 큰 대륙은?",
+   "answers": [
+    "아시아"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "피라미드로 유명한 나라는?",
+   "answers": [
+    "이집트"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "에펠탑이 있는 나라는?",
+   "answers": [
+    "프랑스"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "만리장성이 있는 나라는?",
+   "answers": [
+    "중국"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "후지산이 있는 나라는?",
+   "answers": [
+    "일본"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "세계에서 면적이 가장 큰 국가는?",
+   "answers": [
+    "러시아"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "세계에서 면적이 가장 작은 독립국은?",
+   "answers": [
+    "바티칸",
+    "바티칸시국"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "한반도 동쪽에 있는 바다의 한국 명칭은?",
+   "answers": [
+    "동해"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "제주도에 있는 대한민국의 최고봉은 어떤 화산 유형의 산인가? (방패 모양)",
+   "answers": [
+    "순상화산"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "올림픽 오륜기의 고리는 몇 개인가?",
+   "answers": [
+    "5",
+    "5개"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "축구에서 한 팀의 경기장 내 최대 선수 수는?",
+   "answers": [
+    "11",
+    "11명"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "농구에서 한 팀의 코트 위 선수 수는?",
+   "answers": [
+    "5",
+    "5명"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "배구에서 실내 경기 한 팀의 코트 위 선수 수는?",
+   "answers": [
+    "6",
+    "6명"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "야구에서 정규 경기의 기본 이닝 수는?",
+   "answers": [
+    "9",
+    "9회",
+    "9이닝"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "테니스에서 점수 0을 부르는 영어 표현은?",
+   "answers": [
+    "love",
+    "러브"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "체스에서 대각선으로 움직이는 말은?",
+   "answers": [
+    "비숍",
+    "bishop"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "체스에서 L자 형태로 이동하는 말은?",
+   "answers": [
+    "나이트",
+    "knight"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "바둑판의 표준 줄 수는 가로세로 각각 몇 줄인가?",
+   "answers": [
+    "19",
+    "19줄"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "일반적인 트럼프 카드 한 벌은 조커 제외 몇 장인가?",
+   "answers": [
+    "52",
+    "52장"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "포커에서 같은 무늬의 연속된 다섯 장은?",
+   "answers": [
+    "스트레이트 플러시",
+    "straight flush"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "마라톤 공식 거리는 몇 km인가?",
+   "answers": [
+    "42.195",
+    "42.195km"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "배드민턴에서 사용하는 공의 명칭은?",
+   "answers": [
+    "셔틀콕",
+    "shuttlecock"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "골프에서 기준 타수보다 한 타 적게 홀을 마치면?",
+   "answers": [
+    "버디",
+    "birdie"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "골프에서 기준 타수보다 두 타 적게 홀을 마치면?",
+   "answers": [
+    "이글",
+    "eagle"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고대 로마의 원형 경기장으로 유명한 로마의 건축물은?",
+   "answers": [
+    "콜로세움"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "자유의 여신상이 있는 미국의 도시는?",
+   "answers": [
+    "뉴욕",
+    "뉴욕시"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "호주의 오페라 하우스로 유명한 도시는?",
+   "answers": [
+    "시드니"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "타지마할이 위치한 인도의 도시는?",
+   "answers": [
+    "아그라"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "잉카 유적 마추픽추가 있는 국가는?",
+   "answers": [
+    "페루"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "앙코르 와트가 위치한 국가는?",
+   "answers": [
+    "캄보디아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "부르즈 할리파가 위치한 도시는?",
+   "answers": [
+    "두바이"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "피사의 사탑이 위치한 국가는?",
+   "answers": [
+    "이탈리아"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "사하라 사막이 위치한 대륙은?",
+   "answers": [
+    "아프리카"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "안데스산맥이 위치한 대륙은?",
+   "answers": [
+    "남아메리카",
+    "남미"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "알프스산맥이 위치한 대륙은?",
+   "answers": [
+    "유럽"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "적도를 위도 0도로 표시할 때 경도 0도의 기준선은?",
+   "answers": [
+    "본초자오선"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "대한민국의 행정구역 중 울릉도가 속한 도는?",
+   "answers": [
+    "경상북도",
+    "경북"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "부산의 대표적인 해수욕장으로 해운대구에 위치한 곳은?",
+   "answers": [
+    "해운대",
+    "해운대해수욕장"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국의 광복절은 몇 월 며칠인가? (예: 1월1일)",
+   "answers": [
+    "8월15일",
+    "8.15",
+    "8",
+    "15"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국의 개천절은 몇 월 며칠인가?",
+   "answers": [
+    "10월3일",
+    "10.3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국의 어린이날은 몇 월 며칠인가?",
+   "answers": [
+    "5월5일",
+    "5.5"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국의 한글날은 몇 월 며칠인가?",
+   "answers": [
+    "10월9일",
+    "10.9"
+   ],
+   "difficulty": "쉬움"
+  }
+ ],
+ "영어": [
+  {
+   "q": "영어 'apple'의 한국어 뜻은?",
+   "answers": [
+    "사과"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'사과'에 해당하는 영어 단어는? (첫 글자: a, 5글자)",
+   "answers": [
+    "apple"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'banana'의 한국어 뜻은?",
+   "answers": [
+    "바나나"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'바나나'에 해당하는 영어 단어는? (첫 글자: b, 6글자)",
+   "answers": [
+    "banana"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'cat'의 한국어 뜻은?",
+   "answers": [
+    "고양이"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'고양이'에 해당하는 영어 단어는? (첫 글자: c, 3글자)",
+   "answers": [
+    "cat"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'dog'의 한국어 뜻은?",
+   "answers": [
+    "개",
+    "강아지"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'개'에 해당하는 영어 단어는? (첫 글자: d, 3글자)",
+   "answers": [
+    "dog"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'water'의 한국어 뜻은?",
+   "answers": [
+    "물"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'물'에 해당하는 영어 단어는? (첫 글자: w, 5글자)",
+   "answers": [
+    "water"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'book'의 한국어 뜻은?",
+   "answers": [
+    "책"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'책'에 해당하는 영어 단어는? (첫 글자: b, 4글자)",
+   "answers": [
+    "book"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'school'의 한국어 뜻은?",
+   "answers": [
+    "학교"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'학교'에 해당하는 영어 단어는? (첫 글자: s, 6글자)",
+   "answers": [
+    "school"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'sun'의 한국어 뜻은?",
+   "answers": [
+    "태양",
+    "해"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'태양'에 해당하는 영어 단어는? (첫 글자: s, 3글자)",
+   "answers": [
+    "sun"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'moon'의 한국어 뜻은?",
+   "answers": [
+    "달"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'달'에 해당하는 영어 단어는? (첫 글자: m, 4글자)",
+   "answers": [
+    "moon"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'star'의 한국어 뜻은?",
+   "answers": [
+    "별"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'별'에 해당하는 영어 단어는? (첫 글자: s, 4글자)",
+   "answers": [
+    "star"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'tree'의 한국어 뜻은?",
+   "answers": [
+    "나무"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'나무'에 해당하는 영어 단어는? (첫 글자: t, 4글자)",
+   "answers": [
+    "tree"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'flower'의 한국어 뜻은?",
+   "answers": [
+    "꽃"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'꽃'에 해당하는 영어 단어는? (첫 글자: f, 6글자)",
+   "answers": [
+    "flower"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'rain'의 한국어 뜻은?",
+   "answers": [
+    "비"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'비'에 해당하는 영어 단어는? (첫 글자: r, 4글자)",
+   "answers": [
+    "rain"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'snow'의 한국어 뜻은?",
+   "answers": [
+    "눈"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'눈'에 해당하는 영어 단어는? (첫 글자: s, 4글자)",
+   "answers": [
+    "snow"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'cloud'의 한국어 뜻은?",
+   "answers": [
+    "구름"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'구름'에 해당하는 영어 단어는? (첫 글자: c, 5글자)",
+   "answers": [
+    "cloud"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'wind'의 한국어 뜻은?",
+   "answers": [
+    "바람"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'바람'에 해당하는 영어 단어는? (첫 글자: w, 4글자)",
+   "answers": [
+    "wind"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'river'의 한국어 뜻은?",
+   "answers": [
+    "강"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'강'에 해당하는 영어 단어는? (첫 글자: r, 5글자)",
+   "answers": [
+    "river"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'mountain'의 한국어 뜻은?",
+   "answers": [
+    "산"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'산'에 해당하는 영어 단어는? (첫 글자: m, 8글자)",
+   "answers": [
+    "mountain"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'ocean'의 한국어 뜻은?",
+   "answers": [
+    "대양",
+    "바다"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'대양'에 해당하는 영어 단어는? (첫 글자: o, 5글자)",
+   "answers": [
+    "ocean"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'forest'의 한국어 뜻은?",
+   "answers": [
+    "숲"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'숲'에 해당하는 영어 단어는? (첫 글자: f, 6글자)",
+   "answers": [
+    "forest"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'bird'의 한국어 뜻은?",
+   "answers": [
+    "새"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'새'에 해당하는 영어 단어는? (첫 글자: b, 4글자)",
+   "answers": [
+    "bird"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'fish'의 한국어 뜻은?",
+   "answers": [
+    "물고기"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'물고기'에 해당하는 영어 단어는? (첫 글자: f, 4글자)",
+   "answers": [
+    "fish"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'horse'의 한국어 뜻은?",
+   "answers": [
+    "말"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'말'에 해당하는 영어 단어는? (첫 글자: h, 5글자)",
+   "answers": [
+    "horse"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'rabbit'의 한국어 뜻은?",
+   "answers": [
+    "토끼"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'토끼'에 해당하는 영어 단어는? (첫 글자: r, 6글자)",
+   "answers": [
+    "rabbit"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'tiger'의 한국어 뜻은?",
+   "answers": [
+    "호랑이"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'호랑이'에 해당하는 영어 단어는? (첫 글자: t, 5글자)",
+   "answers": [
+    "tiger"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'lion'의 한국어 뜻은?",
+   "answers": [
+    "사자"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'사자'에 해당하는 영어 단어는? (첫 글자: l, 4글자)",
+   "answers": [
+    "lion"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'elephant'의 한국어 뜻은?",
+   "answers": [
+    "코끼리"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'코끼리'에 해당하는 영어 단어는? (첫 글자: e, 8글자)",
+   "answers": [
+    "elephant"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'turtle'의 한국어 뜻은?",
+   "answers": [
+    "거북이",
+    "거북"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'거북이'에 해당하는 영어 단어는? (첫 글자: t, 6글자)",
+   "answers": [
+    "turtle"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'butterfly'의 한국어 뜻은?",
+   "answers": [
+    "나비"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'나비'에 해당하는 영어 단어는? (첫 글자: b, 9글자)",
+   "answers": [
+    "butterfly"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'bee'의 한국어 뜻은?",
+   "answers": [
+    "벌"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'벌'에 해당하는 영어 단어는? (첫 글자: b, 3글자)",
+   "answers": [
+    "bee"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'house'의 한국어 뜻은?",
+   "answers": [
+    "집",
+    "주택"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'집'에 해당하는 영어 단어는? (첫 글자: h, 5글자)",
+   "answers": [
+    "house"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'door'의 한국어 뜻은?",
+   "answers": [
+    "문"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'문'에 해당하는 영어 단어는? (첫 글자: d, 4글자)",
+   "answers": [
+    "door"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'window'의 한국어 뜻은?",
+   "answers": [
+    "창문"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'창문'에 해당하는 영어 단어는? (첫 글자: w, 6글자)",
+   "answers": [
+    "window"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'chair'의 한국어 뜻은?",
+   "answers": [
+    "의자"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'의자'에 해당하는 영어 단어는? (첫 글자: c, 5글자)",
+   "answers": [
+    "chair"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'table'의 한국어 뜻은?",
+   "answers": [
+    "탁자",
+    "테이블"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'탁자'에 해당하는 영어 단어는? (첫 글자: t, 5글자)",
+   "answers": [
+    "table"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'pencil'의 한국어 뜻은?",
+   "answers": [
+    "연필"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'연필'에 해당하는 영어 단어는? (첫 글자: p, 6글자)",
+   "answers": [
+    "pencil"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'eraser'의 한국어 뜻은?",
+   "answers": [
+    "지우개"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'지우개'에 해당하는 영어 단어는? (첫 글자: e, 6글자)",
+   "answers": [
+    "eraser"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'notebook'의 한국어 뜻은?",
+   "answers": [
+    "공책",
+    "노트"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'공책'에 해당하는 영어 단어는? (첫 글자: n, 8글자)",
+   "answers": [
+    "notebook"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'teacher'의 한국어 뜻은?",
+   "answers": [
+    "교사",
+    "선생님"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'교사'에 해당하는 영어 단어는? (첫 글자: t, 7글자)",
+   "answers": [
+    "teacher"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'student'의 한국어 뜻은?",
+   "answers": [
+    "학생"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'학생'에 해당하는 영어 단어는? (첫 글자: s, 7글자)",
+   "answers": [
+    "student"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'friend'의 한국어 뜻은?",
+   "answers": [
+    "친구"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'친구'에 해당하는 영어 단어는? (첫 글자: f, 6글자)",
+   "answers": [
+    "friend"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'family'의 한국어 뜻은?",
+   "answers": [
+    "가족"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'가족'에 해당하는 영어 단어는? (첫 글자: f, 6글자)",
+   "answers": [
+    "family"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'mother'의 한국어 뜻은?",
+   "answers": [
+    "어머니",
+    "엄마"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'어머니'에 해당하는 영어 단어는? (첫 글자: m, 6글자)",
+   "answers": [
+    "mother"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'father'의 한국어 뜻은?",
+   "answers": [
+    "아버지",
+    "아빠"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'아버지'에 해당하는 영어 단어는? (첫 글자: f, 6글자)",
+   "answers": [
+    "father"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'brother'의 한국어 뜻은?",
+   "answers": [
+    "형제",
+    "형",
+    "오빠",
+    "남동생"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "'형제'에 해당하는 영어 단어는? (첫 글자: b, 7글자)",
+   "answers": [
+    "brother"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "영어 'sister'의 한국어 뜻은?",
+   "answers": [
+    "자매",
+    "언니",
+    "누나",
+    "여동생"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'자매'에 해당하는 영어 단어는? (첫 글자: s, 6글자)",
+   "answers": [
+    "sister"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'morning'의 한국어 뜻은?",
+   "answers": [
+    "아침"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'아침'에 해당하는 영어 단어는? (첫 글자: m, 7글자)",
+   "answers": [
+    "morning"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'evening'의 한국어 뜻은?",
+   "answers": [
+    "저녁"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'저녁'에 해당하는 영어 단어는? (첫 글자: e, 7글자)",
+   "answers": [
+    "evening"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'today'의 한국어 뜻은?",
+   "answers": [
+    "오늘"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'오늘'에 해당하는 영어 단어는? (첫 글자: t, 5글자)",
+   "answers": [
+    "today"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'tomorrow'의 한국어 뜻은?",
+   "answers": [
+    "내일"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'내일'에 해당하는 영어 단어는? (첫 글자: t, 8글자)",
+   "answers": [
+    "tomorrow"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'yesterday'의 한국어 뜻은?",
+   "answers": [
+    "어제"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'어제'에 해당하는 영어 단어는? (첫 글자: y, 9글자)",
+   "answers": [
+    "yesterday"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'library'의 한국어 뜻은?",
+   "answers": [
+    "도서관"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'도서관'에 해당하는 영어 단어는? (첫 글자: l, 7글자)",
+   "answers": [
+    "library"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'hospital'의 한국어 뜻은?",
+   "answers": [
+    "병원"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'병원'에 해당하는 영어 단어는? (첫 글자: h, 8글자)",
+   "answers": [
+    "hospital"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'airport'의 한국어 뜻은?",
+   "answers": [
+    "공항"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'공항'에 해당하는 영어 단어는? (첫 글자: a, 7글자)",
+   "answers": [
+    "airport"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'bridge'의 한국어 뜻은?",
+   "answers": [
+    "다리",
+    "교량"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'다리'에 해당하는 영어 단어는? (첫 글자: b, 6글자)",
+   "answers": [
+    "bridge"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'island'의 한국어 뜻은?",
+   "answers": [
+    "섬"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'섬'에 해당하는 영어 단어는? (첫 글자: i, 6글자)",
+   "answers": [
+    "island"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'desert'의 한국어 뜻은?",
+   "answers": [
+    "사막"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'사막'에 해당하는 영어 단어는? (첫 글자: d, 6글자)",
+   "answers": [
+    "desert"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'valley'의 한국어 뜻은?",
+   "answers": [
+    "계곡"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'계곡'에 해당하는 영어 단어는? (첫 글자: v, 6글자)",
+   "answers": [
+    "valley"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'glacier'의 한국어 뜻은?",
+   "answers": [
+    "빙하"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'빙하'에 해당하는 영어 단어는? (첫 글자: g, 7글자)",
+   "answers": [
+    "glacier"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'volcano'의 한국어 뜻은?",
+   "answers": [
+    "화산"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'화산'에 해당하는 영어 단어는? (첫 글자: v, 7글자)",
+   "answers": [
+    "volcano"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'earthquake'의 한국어 뜻은?",
+   "answers": [
+    "지진"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'지진'에 해당하는 영어 단어는? (첫 글자: e, 10글자)",
+   "answers": [
+    "earthquake"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'oxygen'의 한국어 뜻은?",
+   "answers": [
+    "산소"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'산소'에 해당하는 영어 단어는? (첫 글자: o, 6글자)",
+   "answers": [
+    "oxygen"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'hydrogen'의 한국어 뜻은?",
+   "answers": [
+    "수소"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'수소'에 해당하는 영어 단어는? (첫 글자: h, 8글자)",
+   "answers": [
+    "hydrogen"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'gravity'의 한국어 뜻은?",
+   "answers": [
+    "중력"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'중력'에 해당하는 영어 단어는? (첫 글자: g, 7글자)",
+   "answers": [
+    "gravity"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'energy'의 한국어 뜻은?",
+   "answers": [
+    "에너지"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'에너지'에 해당하는 영어 단어는? (첫 글자: e, 6글자)",
+   "answers": [
+    "energy"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'temperature'의 한국어 뜻은?",
+   "answers": [
+    "온도"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'온도'에 해당하는 영어 단어는? (첫 글자: t, 11글자)",
+   "answers": [
+    "temperature"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'pressure'의 한국어 뜻은?",
+   "answers": [
+    "압력"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'압력'에 해당하는 영어 단어는? (첫 글자: p, 8글자)",
+   "answers": [
+    "pressure"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'density'의 한국어 뜻은?",
+   "answers": [
+    "밀도"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'밀도'에 해당하는 영어 단어는? (첫 글자: d, 7글자)",
+   "answers": [
+    "density"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'velocity'의 한국어 뜻은?",
+   "answers": [
+    "속도"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'속도'에 해당하는 영어 단어는? (첫 글자: v, 8글자)",
+   "answers": [
+    "velocity"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'friction'의 한국어 뜻은?",
+   "answers": [
+    "마찰",
+    "마찰력"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'마찰'에 해당하는 영어 단어는? (첫 글자: f, 8글자)",
+   "answers": [
+    "friction"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'evidence'의 한국어 뜻은?",
+   "answers": [
+    "증거"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'증거'에 해당하는 영어 단어는? (첫 글자: e, 8글자)",
+   "answers": [
+    "evidence"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'solution'의 한국어 뜻은?",
+   "answers": [
+    "해결책",
+    "용액",
+    "해답"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'해결책'에 해당하는 영어 단어는? (첫 글자: s, 8글자)",
+   "answers": [
+    "solution"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'decision'의 한국어 뜻은?",
+   "answers": [
+    "결정"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'결정'에 해당하는 영어 단어는? (첫 글자: d, 8글자)",
+   "answers": [
+    "decision"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'opportunity'의 한국어 뜻은?",
+   "answers": [
+    "기회"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'기회'에 해당하는 영어 단어는? (첫 글자: o, 11글자)",
+   "answers": [
+    "opportunity"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'responsibility'의 한국어 뜻은?",
+   "answers": [
+    "책임"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'책임'에 해당하는 영어 단어는? (첫 글자: r, 14글자)",
+   "answers": [
+    "responsibility"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'achievement'의 한국어 뜻은?",
+   "answers": [
+    "성취",
+    "업적"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'성취'에 해당하는 영어 단어는? (첫 글자: a, 11글자)",
+   "answers": [
+    "achievement"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'knowledge'의 한국어 뜻은?",
+   "answers": [
+    "지식"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'지식'에 해당하는 영어 단어는? (첫 글자: k, 9글자)",
+   "answers": [
+    "knowledge"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'experience'의 한국어 뜻은?",
+   "answers": [
+    "경험"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'경험'에 해당하는 영어 단어는? (첫 글자: e, 10글자)",
+   "answers": [
+    "experience"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'imagination'의 한국어 뜻은?",
+   "answers": [
+    "상상력",
+    "상상"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'상상력'에 해당하는 영어 단어는? (첫 글자: i, 11글자)",
+   "answers": [
+    "imagination"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'curiosity'의 한국어 뜻은?",
+   "answers": [
+    "호기심"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "'호기심'에 해당하는 영어 단어는? (첫 글자: c, 9글자)",
+   "answers": [
+    "curiosity"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영어 'perspective'의 한국어 뜻은?",
+   "answers": [
+    "관점",
+    "시각"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'관점'에 해당하는 영어 단어는? (첫 글자: p, 11글자)",
+   "answers": [
+    "perspective"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'consequence'의 한국어 뜻은?",
+   "answers": [
+    "결과"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'결과'에 해당하는 영어 단어는? (첫 글자: c, 11글자)",
+   "answers": [
+    "consequence"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'hypothesis'의 한국어 뜻은?",
+   "answers": [
+    "가설"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'가설'에 해당하는 영어 단어는? (첫 글자: h, 10글자)",
+   "answers": [
+    "hypothesis"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'phenomenon'의 한국어 뜻은?",
+   "answers": [
+    "현상"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'현상'에 해당하는 영어 단어는? (첫 글자: p, 10글자)",
+   "answers": [
+    "phenomenon"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'equilibrium'의 한국어 뜻은?",
+   "answers": [
+    "평형",
+    "균형"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'평형'에 해당하는 영어 단어는? (첫 글자: e, 11글자)",
+   "answers": [
+    "equilibrium"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'resilience'의 한국어 뜻은?",
+   "answers": [
+    "회복력",
+    "탄력성"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'회복력'에 해당하는 영어 단어는? (첫 글자: r, 10글자)",
+   "answers": [
+    "resilience"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'ambiguous'의 한국어 뜻은?",
+   "answers": [
+    "모호한",
+    "애매한"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'모호한'에 해당하는 영어 단어는? (첫 글자: a, 9글자)",
+   "answers": [
+    "ambiguous"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'inevitable'의 한국어 뜻은?",
+   "answers": [
+    "불가피한",
+    "피할수없는"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'불가피한'에 해당하는 영어 단어는? (첫 글자: i, 10글자)",
+   "answers": [
+    "inevitable"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'meticulous'의 한국어 뜻은?",
+   "answers": [
+    "꼼꼼한",
+    "세심한"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'꼼꼼한'에 해당하는 영어 단어는? (첫 글자: m, 10글자)",
+   "answers": [
+    "meticulous"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'ubiquitous'의 한국어 뜻은?",
+   "answers": [
+    "어디에나있는",
+    "편재하는"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'어디에나있는'에 해당하는 영어 단어는? (첫 글자: u, 10글자)",
+   "answers": [
+    "ubiquitous"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'conspicuous'의 한국어 뜻은?",
+   "answers": [
+    "눈에띄는",
+    "두드러진"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'눈에띄는'에 해당하는 영어 단어는? (첫 글자: c, 11글자)",
+   "answers": [
+    "conspicuous"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'benevolent'의 한국어 뜻은?",
+   "answers": [
+    "자비로운",
+    "친절한"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'자비로운'에 해당하는 영어 단어는? (첫 글자: b, 10글자)",
+   "answers": [
+    "benevolent"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'deteriorate'의 한국어 뜻은?",
+   "answers": [
+    "악화되다",
+    "악화하다"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'악화되다'에 해당하는 영어 단어는? (첫 글자: d, 11글자)",
+   "answers": [
+    "deteriorate"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'mitigate'의 한국어 뜻은?",
+   "answers": [
+    "완화하다",
+    "경감하다"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'완화하다'에 해당하는 영어 단어는? (첫 글자: m, 8글자)",
+   "answers": [
+    "mitigate"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'exacerbate'의 한국어 뜻은?",
+   "answers": [
+    "악화시키다"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'악화시키다'에 해당하는 영어 단어는? (첫 글자: e, 10글자)",
+   "answers": [
+    "exacerbate"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'perseverance'의 한국어 뜻은?",
+   "answers": [
+    "인내",
+    "끈기"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'인내'에 해당하는 영어 단어는? (첫 글자: p, 12글자)",
+   "answers": [
+    "perseverance"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'discrepancy'의 한국어 뜻은?",
+   "answers": [
+    "불일치",
+    "차이"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'불일치'에 해당하는 영어 단어는? (첫 글자: d, 11글자)",
+   "answers": [
+    "discrepancy"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'pragmatic'의 한국어 뜻은?",
+   "answers": [
+    "실용적인",
+    "실용적"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'실용적인'에 해당하는 영어 단어는? (첫 글자: p, 9글자)",
+   "answers": [
+    "pragmatic"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'ephemeral'의 한국어 뜻은?",
+   "answers": [
+    "덧없는",
+    "일시적인"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'덧없는'에 해당하는 영어 단어는? (첫 글자: e, 9글자)",
+   "answers": [
+    "ephemeral"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "영어 'coherent'의 한국어 뜻은?",
+   "answers": [
+    "일관된",
+    "논리적인"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "'일관된'에 해당하는 영어 단어는? (첫 글자: c, 8글자)",
+   "answers": [
+    "coherent"
+   ],
+   "difficulty": "어려움"
+  }
+ ],
+ "과학": [
+  {
+   "q": "지구의 자연 위성은?",
+   "answers": [
+    "달"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "태양계에서 가장 큰 행성은?",
+   "answers": [
+    "목성"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "태양과 가장 가까운 행성은?",
+   "answers": [
+    "수성"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "우리가 사는 행성은?",
+   "answers": [
+    "지구"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "붉은 행성이라고 불리는 행성은?",
+   "answers": [
+    "화성"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "뚜렷한 고리로 유명한 행성은?",
+   "answers": [
+    "토성"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "태양계의 중심에 있는 별은?",
+   "answers": [
+    "태양"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "지구가 스스로 도는 운동은?",
+   "answers": [
+    "자전"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "지구가 태양 주위를 도는 운동은?",
+   "answers": [
+    "공전"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "물의 화학식은?",
+   "answers": [
+    "H2O",
+    "H₂O"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "식물이 빛을 이용해 양분을 만드는 작용은?",
+   "answers": [
+    "광합성"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "물이 표면에서 수증기로 변하는 현상은?",
+   "answers": [
+    "증발"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "수증기가 물방울로 변하는 현상은?",
+   "answers": [
+    "응결",
+    "액화"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "거미의 다리는 몇 개?",
+   "answers": [
+    "8",
+    "8개",
+    "여덟",
+    "여덟개"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "곤충의 다리는 몇 개?",
+   "answers": [
+    "6",
+    "6개",
+    "여섯",
+    "여섯개"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "문어의 팔은 몇 개?",
+   "answers": [
+    "8",
+    "8개",
+    "여덟",
+    "여덟개"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "개구리의 새끼는?",
+   "answers": [
+    "올챙이"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "혈액에서 산소를 운반하는 주요 세포는?",
+   "answers": [
+    "적혈구"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "우리 몸에서 호흡할 때 공기가 드나드는 주요 기관은?",
+   "answers": [
+    "폐"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "사람의 뇌와 척수를 합쳐 부르는 신경계는?",
+   "answers": [
+    "중추신경계"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "DNA의 우리말 명칭은?",
+   "answers": [
+    "디옥시리보핵산"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "지구의 대기에서 가장 많은 기체는?",
+   "answers": [
+    "질소"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "지구 대기에서 두 번째로 많은 기체는?",
+   "answers": [
+    "산소"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "자석에서 같은 극끼리는 서로 어떻게 되는가?",
+   "answers": [
+    "밀어낸다"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "자석에서 다른 극끼리는 서로 어떻게 되는가?",
+   "answers": [
+    "끌어당긴다"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "물질이 고체에서 액체로 변하는 현상은?",
+   "answers": [
+    "융해"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "물질이 액체에서 고체로 변하는 현상은?",
+   "answers": [
+    "응고"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고체가 액체를 거치지 않고 기체로 변하는 현상은?",
+   "answers": [
+    "승화"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "물의 어는점은 표준 대기압에서 몇 도(℃)?",
+   "answers": [
+    "0"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "물의 끓는점은 표준 대기압에서 몇 도(℃)?",
+   "answers": [
+    "100"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "꽃에서 꽃가루를 만드는 기관은?",
+   "answers": [
+    "수술"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "꽃에서 씨방을 포함하는 암생식 기관은?",
+   "answers": [
+    "암술"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "곤충의 몸은 머리·가슴·무엇으로 나뉘는가?",
+   "answers": [
+    "배"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "척추가 있는 동물을 무엇이라고 하는가?",
+   "answers": [
+    "척추동물"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고래가 속하는 동물의 분류는?",
+   "answers": [
+    "포유류"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "개구리가 성체가 되기 전 겪는 변화는?",
+   "answers": [
+    "변태"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "이산화탄소의 화학식은?",
+   "answers": [
+    "CO2"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "소금의 주요 성분인 염화나트륨의 화학식은?",
+   "answers": [
+    "NaCl"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "지구의 가장 바깥쪽 고체 층은?",
+   "answers": [
+    "지각"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "지구 내부에서 지각과 핵 사이에 있는 층은?",
+   "answers": [
+    "맨틀"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "태양의 에너지가 만들어지는 주된 반응은?",
+   "answers": [
+    "핵융합"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "수소의 원소 기호는?",
+   "answers": [
+    "H"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "헬륨의 원소 기호는?",
+   "answers": [
+    "He"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "리튬의 원소 기호는?",
+   "answers": [
+    "Li"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "베릴륨의 원소 기호는?",
+   "answers": [
+    "Be"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "붕소의 원소 기호는?",
+   "answers": [
+    "B"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "탄소의 원소 기호는?",
+   "answers": [
+    "C"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "질소의 원소 기호는?",
+   "answers": [
+    "N"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "산소의 원소 기호는?",
+   "answers": [
+    "O"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "플루오린의 원소 기호는?",
+   "answers": [
+    "F"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "네온의 원소 기호는?",
+   "answers": [
+    "Ne"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "나트륨의 원소 기호는?",
+   "answers": [
+    "Na"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "마그네슘의 원소 기호는?",
+   "answers": [
+    "Mg"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "알루미늄의 원소 기호는?",
+   "answers": [
+    "Al"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "규소의 원소 기호는?",
+   "answers": [
+    "Si"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "인의 원소 기호는?",
+   "answers": [
+    "P"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "황의 원소 기호는?",
+   "answers": [
+    "S"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "염소의 원소 기호는?",
+   "answers": [
+    "Cl"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "아르곤의 원소 기호는?",
+   "answers": [
+    "Ar"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "칼륨의 원소 기호는?",
+   "answers": [
+    "K"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "칼슘의 원소 기호는?",
+   "answers": [
+    "Ca"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "스칸듐의 원소 기호는?",
+   "answers": [
+    "Sc"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "타이타늄의 원소 기호는?",
+   "answers": [
+    "Ti"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "바나듐의 원소 기호는?",
+   "answers": [
+    "V"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "크로뮴의 원소 기호는?",
+   "answers": [
+    "Cr"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "망가니즈의 원소 기호는?",
+   "answers": [
+    "Mn"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "철의 원소 기호는?",
+   "answers": [
+    "Fe"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "코발트의 원소 기호는?",
+   "answers": [
+    "Co"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "니켈의 원소 기호는?",
+   "answers": [
+    "Ni"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "구리의 원소 기호는?",
+   "answers": [
+    "Cu"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아연의 원소 기호는?",
+   "answers": [
+    "Zn"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "갈륨의 원소 기호는?",
+   "answers": [
+    "Ga"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "저마늄의 원소 기호는?",
+   "answers": [
+    "Ge"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "비소의 원소 기호는?",
+   "answers": [
+    "As"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "셀레늄의 원소 기호는?",
+   "answers": [
+    "Se"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "브로민의 원소 기호는?",
+   "answers": [
+    "Br"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "크립톤의 원소 기호는?",
+   "answers": [
+    "Kr"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "루비듐의 원소 기호는?",
+   "answers": [
+    "Rb"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "스트론튬의 원소 기호는?",
+   "answers": [
+    "Sr"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "이트륨의 원소 기호는?",
+   "answers": [
+    "Y"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "지르코늄의 원소 기호는?",
+   "answers": [
+    "Zr"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "나이오븀의 원소 기호는?",
+   "answers": [
+    "Nb"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "몰리브데넘의 원소 기호는?",
+   "answers": [
+    "Mo"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "테크네튬의 원소 기호는?",
+   "answers": [
+    "Tc"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "루테늄의 원소 기호는?",
+   "answers": [
+    "Ru"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "로듐의 원소 기호는?",
+   "answers": [
+    "Rh"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "팔라듐의 원소 기호는?",
+   "answers": [
+    "Pd"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "은의 원소 기호는?",
+   "answers": [
+    "Ag"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "카드뮴의 원소 기호는?",
+   "answers": [
+    "Cd"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "인듐의 원소 기호는?",
+   "answers": [
+    "In"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "주석의 원소 기호는?",
+   "answers": [
+    "Sn"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "안티모니의 원소 기호는?",
+   "answers": [
+    "Sb"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "텔루륨의 원소 기호는?",
+   "answers": [
+    "Te"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "아이오딘의 원소 기호는?",
+   "answers": [
+    "I"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "제논의 원소 기호는?",
+   "answers": [
+    "Xe"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "세슘의 원소 기호는?",
+   "answers": [
+    "Cs"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "바륨의 원소 기호는?",
+   "answers": [
+    "Ba"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "란타넘의 원소 기호는?",
+   "answers": [
+    "La"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "세륨의 원소 기호는?",
+   "answers": [
+    "Ce"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "프라세오디뮴의 원소 기호는?",
+   "answers": [
+    "Pr"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "네오디뮴의 원소 기호는?",
+   "answers": [
+    "Nd"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "프로메튬의 원소 기호는?",
+   "answers": [
+    "Pm"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "사마륨의 원소 기호는?",
+   "answers": [
+    "Sm"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "유로퓸의 원소 기호는?",
+   "answers": [
+    "Eu"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "가돌리늄의 원소 기호는?",
+   "answers": [
+    "Gd"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "터븀의 원소 기호는?",
+   "answers": [
+    "Tb"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "디스프로슘의 원소 기호는?",
+   "answers": [
+    "Dy"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "홀뮴의 원소 기호는?",
+   "answers": [
+    "Ho"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "어븀의 원소 기호는?",
+   "answers": [
+    "Er"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "툴륨의 원소 기호는?",
+   "answers": [
+    "Tm"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "이터븀의 원소 기호는?",
+   "answers": [
+    "Yb"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "루테튬의 원소 기호는?",
+   "answers": [
+    "Lu"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "하프늄의 원소 기호는?",
+   "answers": [
+    "Hf"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "탄탈럼의 원소 기호는?",
+   "answers": [
+    "Ta"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "텅스텐의 원소 기호는?",
+   "answers": [
+    "W"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "레늄의 원소 기호는?",
+   "answers": [
+    "Re"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "오스뮴의 원소 기호는?",
+   "answers": [
+    "Os"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "이리듐의 원소 기호는?",
+   "answers": [
+    "Ir"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "백금의 원소 기호는?",
+   "answers": [
+    "Pt"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "금의 원소 기호는?",
+   "answers": [
+    "Au"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "수은의 원소 기호는?",
+   "answers": [
+    "Hg"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "탈륨의 원소 기호는?",
+   "answers": [
+    "Tl"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "납의 원소 기호는?",
+   "answers": [
+    "Pb"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "비스무트의 원소 기호는?",
+   "answers": [
+    "Bi"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "폴로늄의 원소 기호는?",
+   "answers": [
+    "Po"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "아스타틴의 원소 기호는?",
+   "answers": [
+    "At"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "라돈의 원소 기호는?",
+   "answers": [
+    "Rn"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "프랑슘의 원소 기호는?",
+   "answers": [
+    "Fr"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "라듐의 원소 기호는?",
+   "answers": [
+    "Ra"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "악티늄의 원소 기호는?",
+   "answers": [
+    "Ac"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "토륨의 원소 기호는?",
+   "answers": [
+    "Th"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "프로트악티늄의 원소 기호는?",
+   "answers": [
+    "Pa"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "우라늄의 원소 기호는?",
+   "answers": [
+    "U"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "넵투늄의 원소 기호는?",
+   "answers": [
+    "Np"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "플루토늄의 원소 기호는?",
+   "answers": [
+    "Pu"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "아메리슘의 원소 기호는?",
+   "answers": [
+    "Am"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "퀴륨의 원소 기호는?",
+   "answers": [
+    "Cm"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "버클륨의 원소 기호는?",
+   "answers": [
+    "Bk"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "캘리포늄의 원소 기호는?",
+   "answers": [
+    "Cf"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "아인슈타이늄의 원소 기호는?",
+   "answers": [
+    "Es"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "페르뮴의 원소 기호는?",
+   "answers": [
+    "Fm"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "멘델레븀의 원소 기호는?",
+   "answers": [
+    "Md"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "노벨륨의 원소 기호는?",
+   "answers": [
+    "No"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "로렌슘의 원소 기호는?",
+   "answers": [
+    "Lr"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "러더포듐의 원소 기호는?",
+   "answers": [
+    "Rf"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "더브늄의 원소 기호는?",
+   "answers": [
+    "Db"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "시보귬의 원소 기호는?",
+   "answers": [
+    "Sg"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "보륨의 원소 기호는?",
+   "answers": [
+    "Bh"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "하슘의 원소 기호는?",
+   "answers": [
+    "Hs"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "마이트너륨의 원소 기호는?",
+   "answers": [
+    "Mt"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "다름슈타튬의 원소 기호는?",
+   "answers": [
+    "Ds"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "뢴트게늄의 원소 기호는?",
+   "answers": [
+    "Rg"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "코페르니슘의 원소 기호는?",
+   "answers": [
+    "Cn"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "니호늄의 원소 기호는?",
+   "answers": [
+    "Nh"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "플레로븀의 원소 기호는?",
+   "answers": [
+    "Fl"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "모스코븀의 원소 기호는?",
+   "answers": [
+    "Mc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "리버모륨의 원소 기호는?",
+   "answers": [
+    "Lv"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "테네신의 원소 기호는?",
+   "answers": [
+    "Ts"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "오가네손의 원소 기호는?",
+   "answers": [
+    "Og"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'H'의 원자 번호는?",
+   "answers": [
+    "1",
+    "1번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'He'의 원자 번호는?",
+   "answers": [
+    "2",
+    "2번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'Li'의 원자 번호는?",
+   "answers": [
+    "3",
+    "3번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'Be'의 원자 번호는?",
+   "answers": [
+    "4",
+    "4번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'B'의 원자 번호는?",
+   "answers": [
+    "5",
+    "5번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'C'의 원자 번호는?",
+   "answers": [
+    "6",
+    "6번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'N'의 원자 번호는?",
+   "answers": [
+    "7",
+    "7번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'O'의 원자 번호는?",
+   "answers": [
+    "8",
+    "8번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'F'의 원자 번호는?",
+   "answers": [
+    "9",
+    "9번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'Ne'의 원자 번호는?",
+   "answers": [
+    "10",
+    "10번"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원소 기호 'Na'의 원자 번호는?",
+   "answers": [
+    "11",
+    "11번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Mg'의 원자 번호는?",
+   "answers": [
+    "12",
+    "12번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Al'의 원자 번호는?",
+   "answers": [
+    "13",
+    "13번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Si'의 원자 번호는?",
+   "answers": [
+    "14",
+    "14번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'P'의 원자 번호는?",
+   "answers": [
+    "15",
+    "15번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'S'의 원자 번호는?",
+   "answers": [
+    "16",
+    "16번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Cl'의 원자 번호는?",
+   "answers": [
+    "17",
+    "17번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Ar'의 원자 번호는?",
+   "answers": [
+    "18",
+    "18번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'K'의 원자 번호는?",
+   "answers": [
+    "19",
+    "19번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Ca'의 원자 번호는?",
+   "answers": [
+    "20",
+    "20번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Sc'의 원자 번호는?",
+   "answers": [
+    "21",
+    "21번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Ti'의 원자 번호는?",
+   "answers": [
+    "22",
+    "22번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'V'의 원자 번호는?",
+   "answers": [
+    "23",
+    "23번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Cr'의 원자 번호는?",
+   "answers": [
+    "24",
+    "24번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Mn'의 원자 번호는?",
+   "answers": [
+    "25",
+    "25번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Fe'의 원자 번호는?",
+   "answers": [
+    "26",
+    "26번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Co'의 원자 번호는?",
+   "answers": [
+    "27",
+    "27번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Ni'의 원자 번호는?",
+   "answers": [
+    "28",
+    "28번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Cu'의 원자 번호는?",
+   "answers": [
+    "29",
+    "29번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Zn'의 원자 번호는?",
+   "answers": [
+    "30",
+    "30번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Ga'의 원자 번호는?",
+   "answers": [
+    "31",
+    "31번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Ge'의 원자 번호는?",
+   "answers": [
+    "32",
+    "32번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'As'의 원자 번호는?",
+   "answers": [
+    "33",
+    "33번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Se'의 원자 번호는?",
+   "answers": [
+    "34",
+    "34번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "원소 기호 'Br'의 원자 번호는?",
+   "answers": [
+    "35",
+    "35번"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "전압의 SI 단위는?",
+   "answers": [
+    "볼트",
+    "V",
+    "volt"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "전류의 SI 단위는?",
+   "answers": [
+    "암페어",
+    "A",
+    "ampere"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "전기 저항의 SI 단위는?",
+   "answers": [
+    "옴",
+    "Ω",
+    "ohm"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "힘의 SI 단위는?",
+   "answers": [
+    "뉴턴",
+    "N",
+    "newton"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "에너지의 SI 단위는?",
+   "answers": [
+    "줄",
+    "J",
+    "joule"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "압력의 SI 단위는?",
+   "answers": [
+    "파스칼",
+    "Pa",
+    "pascal"
+   ],
+   "difficulty": "보통"
+  }
+ ],
+ "역사": [
+  {
+   "q": "고조선의 건국 신화에서 건국자로 전해지는 인물은?",
+   "answers": [
+    "단군왕검",
+    "단군"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "삼국 통일을 완수한 신라 왕은?",
+   "answers": [
+    "문무왕"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "고구려를 건국한 인물은?",
+   "answers": [
+    "주몽",
+    "동명성왕"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "백제를 건국한 인물은?",
+   "answers": [
+    "온조",
+    "온조왕"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "신라를 건국한 인물로 전해지는 사람은?",
+   "answers": [
+    "박혁거세",
+    "혁거세"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "발해를 건국한 인물은?",
+   "answers": [
+    "대조영"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "고려를 건국한 인물은?",
+   "answers": [
+    "왕건",
+    "태조왕건"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선을 건국한 인물은?",
+   "answers": [
+    "이성계",
+    "태조"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "훈민정음을 창제한 왕은?",
+   "answers": [
+    "세종",
+    "세종대왕"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선의 경국대전을 완성하고 반포한 왕은?",
+   "answers": [
+    "성종"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선 시대 측우기 제작이 이루어진 왕의 재위 시기는?",
+   "answers": [
+    "세종",
+    "세종대왕"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선의 수도 한양에 건설된 대표적인 정궁은?",
+   "answers": [
+    "경복궁"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "고려에서 노비안검법을 실시한 왕은?",
+   "answers": [
+    "광종"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "고려에서 과거제를 처음 실시한 왕은?",
+   "answers": [
+    "광종"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "고려의 거란 침입 때 외교 담판으로 강동 6주를 얻은 인물은?",
+   "answers": [
+    "서희"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "귀주대첩을 승리로 이끈 고려 장군은?",
+   "answers": [
+    "강감찬"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "고려의 몽골 침입 때 임시 수도가 되었던 섬은?",
+   "answers": [
+    "강화도"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "삼별초가 최후까지 저항했던 섬은?",
+   "answers": [
+    "제주도"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선에서 대동법의 시행을 건의한 대표 인물 중 광해군 때의 인물은?",
+   "answers": [
+    "이원익"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "광해군 때 동의보감을 편찬한 의학자는?",
+   "answers": [
+    "허준"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선 시대 실학자 정약용의 목민서 제목은?",
+   "answers": [
+    "목민심서"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선 후기 북학파 실학자 박지원의 청나라 기행문은?",
+   "answers": [
+    "열하일기"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선 후기 정조가 만든 왕실 도서관 겸 학술 기관은?",
+   "answers": [
+    "규장각"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "정조가 아버지 사도세자의 묘를 옮긴 뒤 축성한 성은?",
+   "answers": [
+    "수원화성",
+    "화성"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선 후기 신윤복과 함께 풍속화로 유명한 호 단원의 화가는?",
+   "answers": [
+    "김홍도"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "조선 시대 거중기 제작에 기여한 실학자는?",
+   "answers": [
+    "정약용"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "동학을 창시한 인물은?",
+   "answers": [
+    "최제우"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "동학 농민 운동의 대표 지도자는?",
+   "answers": [
+    "전봉준"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "을사늑약에 반대하며 헤이그 특사를 파견한 황제는?",
+   "answers": [
+    "고종"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "3·1 운동 이후 중국 상하이에 수립된 정부는?",
+   "answers": [
+    "대한민국임시정부",
+    "임시정부"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "윤봉길 의사가 의거를 일으킨 중국의 도시는?",
+   "answers": [
+    "상하이",
+    "상해"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "안중근 의사의 의거가 일어난 도시는?",
+   "answers": [
+    "하얼빈"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "일제강점기 청산리 전투의 대표 지휘관은?",
+   "answers": [
+    "김좌진"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "봉오동 전투의 대표 지휘관은?",
+   "answers": [
+    "홍범도"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "대한민국 임시정부의 주석으로 활동한 호 백범의 인물은?",
+   "answers": [
+    "김구"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "유관순이 참여한 만세 운동이 일어난 충남 천안의 장터는?",
+   "answers": [
+    "아우내장터",
+    "아우내"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고대 이집트의 문자를 해독하는 단서가 된 비석은?",
+   "answers": [
+    "로제타석",
+    "로제타스톤"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고대 메소포타미아에서 유명한 법전을 편찬한 바빌로니아 왕은?",
+   "answers": [
+    "함무라비"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고대 그리스의 아테네 민주정 발전에 기여한 대표 정치가로 황금시대의 인물은?",
+   "answers": [
+    "페리클레스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "알렉산드로스 대왕이 통치한 고대 왕국은?",
+   "answers": [
+    "마케도니아"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "로마 제국 최초의 황제는?",
+   "answers": [
+    "아우구스투스",
+    "옥타비아누스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "로마 제국에서 기독교를 공인한 밀라노 칙령의 대표 황제는?",
+   "answers": [
+    "콘스탄티누스",
+    "콘스탄티누스1세"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "동로마 제국의 수도는?",
+   "answers": [
+    "콘스탄티노폴리스",
+    "콘스탄티노플"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "카롤루스 대제가 왕으로 통치한 왕국은?",
+   "answers": [
+    "프랑크왕국"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "몽골 제국을 세운 인물은?",
+   "answers": [
+    "칭기즈칸",
+    "징기스칸",
+    "테무진"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "중국 진나라를 통일한 첫 황제는?",
+   "answers": [
+    "진시황",
+    "시황제"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "중국 한나라를 건국한 인물은?",
+   "answers": [
+    "유방",
+    "한고조"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "중국 수나라를 건국한 황제는?",
+   "answers": [
+    "양견",
+    "수문제"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "중국 당나라를 건국한 황제는?",
+   "answers": [
+    "이연",
+    "당고조"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "중국 송나라를 건국한 황제는?",
+   "answers": [
+    "조광윤",
+    "송태조"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "원나라를 세운 황제는?",
+   "answers": [
+    "쿠빌라이칸",
+    "쿠빌라이"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "명나라를 건국한 황제는?",
+   "answers": [
+    "주원장",
+    "홍무제",
+    "명태조"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "청나라의 전신인 후금을 건국한 인물은?",
+   "answers": [
+    "누르하치"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "일본의 에도 막부를 연 인물은?",
+   "answers": [
+    "도쿠가와이에야스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "일본의 가마쿠라 막부를 연 인물은?",
+   "answers": [
+    "미나모토노요리토모"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "마그나 카르타에 서명한 영국 왕은?",
+   "answers": [
+    "존왕",
+    "존"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "인쇄술 발전에서 유럽 금속 활자 인쇄기로 유명한 인물은?",
+   "answers": [
+    "구텐베르크"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "신항로 개척 시대 희망봉을 돌아 인도에 도착한 포르투갈 탐험가는?",
+   "answers": [
+    "바스쿠다가마",
+    "바스코다가마"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "세계 일주 항해를 시작한 포르투갈 출신 탐험가는?",
+   "answers": [
+    "마젤란",
+    "페르디난드마젤란"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "종교개혁의 95개조 반박문으로 유명한 인물은?",
+   "answers": [
+    "마르틴루터",
+    "루터"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "영국의 산업혁명에서 증기기관을 크게 개량한 인물은?",
+   "answers": [
+    "제임스와트",
+    "와트"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "미국 독립전쟁 후 초대 대통령은?",
+   "answers": [
+    "조지워싱턴",
+    "워싱턴"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "미국 독립선언문의 주요 작성자는?",
+   "answers": [
+    "토머스제퍼슨",
+    "토마스제퍼슨",
+    "제퍼슨"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "프랑스 혁명 전후 황제에 오른 군인은?",
+   "answers": [
+    "나폴레옹",
+    "나폴레옹보나파르트"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "독일 통일을 주도한 프로이센의 재상은?",
+   "answers": [
+    "비스마르크",
+    "오토폰비스마르크"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "이탈리아 통일 과정에서 천인대를 이끈 인물은?",
+   "answers": [
+    "가리발디",
+    "주세페가리발디"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "인도 독립 운동에서 비폭력 저항으로 유명한 인물은?",
+   "answers": [
+    "마하트마간디",
+    "간디"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "러시아의 볼셰비키 혁명을 이끈 인물은?",
+   "answers": [
+    "레닌",
+    "블라디미르레닌"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "중국 신해혁명 이후 임시 대총통을 지낸 인물은?",
+   "answers": [
+    "쑨원",
+    "손문"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "남아프리카공화국의 아파르트헤이트 종식 후 최초 흑인 대통령은?",
+   "answers": [
+    "넬슨만델라",
+    "만델라"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "인류 최초로 우주에 간 사람은?",
+   "answers": [
+    "유리가가린",
+    "가가린"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "인류 최초로 달 표면을 밟은 사람은?",
+   "answers": [
+    "닐암스트롱",
+    "암스트롱"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "최초의 여성 노벨상 수상자는?",
+   "answers": [
+    "마리퀴리",
+    "퀴리부인"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고대 이집트의 파라오 중 어린 나이에 왕위에 올라 무덤으로 유명한 왕은?",
+   "answers": [
+    "투탕카멘"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고대 그리스의 철학자 중 플라톤의 스승은?",
+   "answers": [
+    "소크라테스"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "고대 그리스 철학자 중 알렉산드로스의 스승은?",
+   "answers": [
+    "아리스토텔레스"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고대 로마의 공화정 말기에 독재관이 된 인물은?",
+   "answers": [
+    "율리우스카이사르",
+    "카이사르",
+    "시저"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "프랑스 백년전쟁에서 오를레앙 구원으로 유명한 인물은?",
+   "answers": [
+    "잔 다르크",
+    "잔다르크"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국의 유교 사상 형성에 큰 영향을 준 사상가는?",
+   "answers": [
+    "공자",
+    "공구"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 도가의 대표 고전 도덕경과 전통적으로 연결되는 사상가는?",
+   "answers": [
+    "노자"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "인도의 마우리아 왕조에서 불교 전파로 유명한 왕은?",
+   "answers": [
+    "아쇼카왕",
+    "아쇼카"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "페르시아 아케메네스 제국을 창건한 왕은?",
+   "answers": [
+    "키루스2세",
+    "키루스대왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "아프리카 말리 제국에서 메카 순례로 유명한 통치자는?",
+   "answers": [
+    "만사무사"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "아즈텍 제국의 수도는?",
+   "answers": [
+    "테노치티틀란"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "잉카 제국의 수도는?",
+   "answers": [
+    "쿠스코"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고대 인더스 문명의 주요 유적지 중 이름이 죽은 자의 언덕이라는 뜻인 곳은?",
+   "answers": [
+    "모헨조다로"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국의 진시황릉에서 발견된 흙으로 만든 병사상 집단은?",
+   "answers": [
+    "병마용"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고려 시대 금속활자로 인쇄된 직지의 정식 제목에 들어가는 두 글자 핵심 명칭은?",
+   "answers": [
+    "직지"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고려에서 외침 극복을 기원하며 새긴 대장경으로 해인사에 보관된 것은?",
+   "answers": [
+    "팔만대장경",
+    "고려대장경"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "조선 왕들의 재위 기간을 기록한 역사서는?",
+   "answers": [
+    "조선왕조실록"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "조선 시대 왕명의 출납과 일상 업무를 기록한 일기는?",
+   "answers": [
+    "승정원일기"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "조선 후기 지리학자 김정호가 제작한 지도는?",
+   "answers": [
+    "대동여지도"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "삼국사기를 편찬한 고려의 문신은?",
+   "answers": [
+    "김부식"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "삼국유사를 편찬한 고려의 승려는?",
+   "answers": [
+    "일연"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고려 후기 역사서 제왕운기를 쓴 사람은?",
+   "answers": [
+    "이승휴"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "조선 초기 역사서 동국통감을 완성한 왕은?",
+   "answers": [
+    "성종"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "대한제국의 광무개혁을 추진한 황제는?",
+   "answers": [
+    "고종"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "신라의 화랑 출신으로 삼국 통일에 기여한 장군은?",
+   "answers": [
+    "김유신"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고구려의 살수대첩을 승리로 이끈 장군은?",
+   "answers": [
+    "을지문덕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고구려에서 영토를 크게 넓히고 영락 연호를 사용한 왕은?",
+   "answers": [
+    "광개토대왕",
+    "광개토왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고구려의 평양 천도를 실시한 왕은?",
+   "answers": [
+    "장수왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "백제의 웅진 천도를 실시한 왕은?",
+   "answers": [
+    "문주왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "백제의 사비 천도를 실시한 왕은?",
+   "answers": [
+    "성왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "신라에서 불교를 공인한 왕은?",
+   "answers": [
+    "법흥왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "신라의 한강 유역 진출을 이룬 대표적인 왕은?",
+   "answers": [
+    "진흥왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "신라의 골품제에서 왕족의 가장 높은 신분은?",
+   "answers": [
+    "성골"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "발해를 해동성국이라 부를 정도로 발전시킨 왕은?",
+   "answers": [
+    "선왕"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고려 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "918",
+    "918년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "조선 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1392",
+    "1392년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "훈민정음 반포이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1446",
+    "1446년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "임진왜란 시작이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1592",
+    "1592년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "병자호란 시작이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1636",
+    "1636년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "강화도 조약 체결이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1876",
+    "1876년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "갑신정변이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1884",
+    "1884년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "동학 농민 운동이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1894",
+    "1894년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "갑오개혁 시작이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1894",
+    "1894년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "대한제국 선포이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1897",
+    "1897년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "을사늑약 체결이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1905",
+    "1905년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "한일 병합 조약 체결이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1910",
+    "1910년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "3·1 운동이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1919",
+    "1919년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "대한민국 임시정부 수립이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1919",
+    "1919년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "광주학생항일운동이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1929",
+    "1929년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "대한민국 광복이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1945",
+    "1945년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "대한민국 정부 수립이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1948",
+    "1948년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "6·25 전쟁 발발이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1950",
+    "1950년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "4·19 혁명이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1960",
+    "1960년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "5·18 민주화운동이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1980",
+    "1980년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "6월 민주항쟁이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1987",
+    "1987년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "서울 하계 올림픽 개최이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1988",
+    "1988년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "평창 동계 올림픽 개최이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "2018",
+    "2018년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "발해 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "698",
+    "698년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "신라의 삼국 통일 완성이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "676",
+    "676년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고구려 멸망이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "668",
+    "668년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "백제 멸망이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "660",
+    "660년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고려의 후삼국 통일이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "936",
+    "936년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "귀주대첩이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1019",
+    "1019년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "묘청의 서경 천도 운동과 반란이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1135",
+    "1135년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "무신정변이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1170",
+    "1170년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고려의 위화도 회군이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1388",
+    "1388년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "훈민정음 창제이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1443",
+    "1443년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "조선 정조 즉위이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1776",
+    "1776년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "서양 로마 제국 멸망이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "476",
+    "476년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "동로마 제국 멸망이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1453",
+    "1453년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "마그나 카르타 승인이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1215",
+    "1215년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "콜럼버스의 첫 카리브해 도착이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1492",
+    "1492년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "마르틴 루터의 95개조 반박문 발표이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1517",
+    "1517년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "미국 독립선언이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1776",
+    "1776년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "프랑스 혁명 시작이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1789",
+    "1789년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "워털루 전투이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1815",
+    "1815년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "미국 남북전쟁 시작이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1861",
+    "1861년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "미국 남북전쟁 종전이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1865",
+    "1865년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "독일 제국 성립이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1871",
+    "1871년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "일본 메이지 유신이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1868",
+    "1868년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 신해혁명이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1911",
+    "1911년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "제1차 세계대전 발발이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1914",
+    "1914년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "제1차 세계대전 종전이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1918",
+    "1918년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "러시아 10월 혁명이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1917",
+    "1917년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "베르사유 조약 체결이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1919",
+    "1919년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "국제연맹 출범이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1920",
+    "1920년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "대공황의 시작으로 흔히 꼽는 미국 증시 대폭락이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1929",
+    "1929년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "제2차 세계대전 발발이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1939",
+    "1939년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "제2차 세계대전 종전이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1945",
+    "1945년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "국제연합(UN) 창설이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1945",
+    "1945년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "인도 독립이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1947",
+    "1947년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중화인민공화국 수립이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1949",
+    "1949년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "유럽 석탄철강공동체 발족이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1952",
+    "1952년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "스푸트니크 1호 발사이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1957",
+    "1957년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "유리 가가린의 최초 유인 우주 비행이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1961",
+    "1961년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "베를린 장벽 건설이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1961",
+    "1961년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "아폴로 11호 달 착륙이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1969",
+    "1969년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "베를린 장벽 붕괴이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1989",
+    "1989년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "독일 재통일이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1990",
+    "1990년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "소련 해체이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1991",
+    "1991년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "유럽연합(EU) 출범이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1993",
+    "1993년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "유로 지폐와 동전 도입이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "2002",
+    "2002년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "일본 에도 막부 성립이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1603",
+    "1603년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 원나라 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1271",
+    "1271년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 명나라 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1368",
+    "1368년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 청나라 국호 제정이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1636",
+    "1636년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 송나라 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "960",
+    "960년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 당나라 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "618",
+    "618년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 수나라 건국이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "581",
+    "581년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "중국 진나라의 최초 통일이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "기원전221",
+    "기원전221년",
+    "BC221"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "로마 제국 성립(아우구스투스 칭호 수여)이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "기원전27",
+    "기원전27년",
+    "BC27"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "고대 로마의 밀라노 칙령이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "313",
+    "313년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "카롤루스 대제 황제 대관이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "800",
+    "800년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "몽골 제국 성립이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1206",
+    "1206년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "유럽의 30년 전쟁 시작이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1618",
+    "1618년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "베스트팔렌 조약이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1648",
+    "1648년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "미국 루이지애나 매입이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1803",
+    "1803년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "그리스 독립의 국제적 승인(런던 의정서)이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1830",
+    "1830년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "수에즈 운하 개통이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1869",
+    "1869년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "파나마 운하 개통이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1914",
+    "1914년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "최초의 현대 올림픽 아테네 개최이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1896",
+    "1896년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "최초의 동계 올림픽 샤모니 개최이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1924",
+    "1924년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "세계보건기구(WHO) 출범이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1948",
+    "1948년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "남아공의 최초 모든 인종 참여 총선이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1994",
+    "1994년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "대한민국 OECD 가입이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1996",
+    "1996년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "한일 월드컵 개최이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "2002",
+    "2002년"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "훈련도감 설치이(가) 일어난 연도는? (기원전은 '기원전' 표기)",
+   "answers": [
+    "1593",
+    "1593년"
+   ],
+   "difficulty": "어려움"
+  }
+ ],
+ "수학": [
+  {
+   "q": "7 + 3 = ?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "22 − 3 = ?",
+   "answers": [
+    "19"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "7 × 3 = ?",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "21 ÷ 7 = ?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "2² = ?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "2³ = ?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "7 + 3 × 2 = ?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(7 + 3) × 2 = ?",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "70의 10%는?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 7 = 11, x는?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "2x + 3 = 11, x는?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "2x − 3 = 5, x는?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 7cm, 세로 3cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 7cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "28"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 14cm, 높이 3cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√169 = ? (양의 제곱근)",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 7, 공차 2인 등차수열의 제5항은?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 3, 공비 2인 등비수열의 제3항은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "2x² = 32, 양의 해 x는?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 7, 9, 11, 13, 15의 평균은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "8 + 6 = ?",
+   "answers": [
+    "14"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "23 − 6 = ?",
+   "answers": [
+    "17"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "8 × 6 = ?",
+   "answers": [
+    "48"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "48 ÷ 8 = ?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "3² = ?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "3³ = ?",
+   "answers": [
+    "27"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "8 + 6 × 3 = ?",
+   "answers": [
+    "26"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(8 + 6) × 3 = ?",
+   "answers": [
+    "42"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "80의 20%는?",
+   "answers": [
+    "16"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 8 = 13, x는?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "3x + 6 = 21, x는?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "3x − 6 = 9, x는?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 8cm, 세로 6cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "48"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 8cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "32"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 16cm, 높이 6cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "48"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√196 = ? (양의 제곱근)",
+   "answers": [
+    "14"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 8, 공차 3인 등차수열의 제6항은?",
+   "answers": [
+    "23"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 6, 공비 2인 등비수열의 제4항은?",
+   "answers": [
+    "48"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "3x² = 75, 양의 해 x는?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 8, 10, 12, 14, 16의 평균은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "9 + 9 = ?",
+   "answers": [
+    "18"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "24 − 9 = ?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "9 × 9 = ?",
+   "answers": [
+    "81"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "81 ÷ 9 = ?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "4² = ?",
+   "answers": [
+    "16"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "4³ = ?",
+   "answers": [
+    "64"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "9 + 9 × 4 = ?",
+   "answers": [
+    "45"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(9 + 9) × 4 = ?",
+   "answers": [
+    "72"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "90의 30%는?",
+   "answers": [
+    "27"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 9 = 15, x는?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "4x + 9 = 33, x는?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "4x − 9 = 15, x는?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 9cm, 세로 9cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "81"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 9cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "36"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 18cm, 높이 9cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "81"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√225 = ? (양의 제곱근)",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 9, 공차 4인 등차수열의 제7항은?",
+   "answers": [
+    "33"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 9, 공비 2인 등비수열의 제5항은?",
+   "answers": [
+    "144"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "4x² = 144, 양의 해 x는?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 9, 11, 13, 15, 17의 평균은?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "10 + 12 = ?",
+   "answers": [
+    "22"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "25 − 12 = ?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "10 × 12 = ?",
+   "answers": [
+    "120"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "120 ÷ 10 = ?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "5² = ?",
+   "answers": [
+    "25"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "5³ = ?",
+   "answers": [
+    "125"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "10 + 12 × 5 = ?",
+   "answers": [
+    "70"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(10 + 12) × 5 = ?",
+   "answers": [
+    "110"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "100의 40%는?",
+   "answers": [
+    "40"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 10 = 17, x는?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "5x + 12 = 47, x는?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "5x − 12 = 23, x는?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 10cm, 세로 12cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "120"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 10cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "40"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 20cm, 높이 12cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "120"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√256 = ? (양의 제곱근)",
+   "answers": [
+    "16"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 10, 공차 5인 등차수열의 제8항은?",
+   "answers": [
+    "45"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 12, 공비 2인 등비수열의 제6항은?",
+   "answers": [
+    "384"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "5x² = 245, 양의 해 x는?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 10, 12, 14, 16, 18의 평균은?",
+   "answers": [
+    "14"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "11 + 15 = ?",
+   "answers": [
+    "26"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "26 − 15 = ?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "11 × 15 = ?",
+   "answers": [
+    "165"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "165 ÷ 11 = ?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "6² = ?",
+   "answers": [
+    "36"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "6³ = ?",
+   "answers": [
+    "216"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "11 + 15 × 6 = ?",
+   "answers": [
+    "101"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(11 + 15) × 6 = ?",
+   "answers": [
+    "156"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "110의 50%는?",
+   "answers": [
+    "55"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 11 = 19, x는?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "6x + 15 = 63, x는?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "6x − 15 = 33, x는?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 11cm, 세로 15cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "165"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 11cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "44"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 22cm, 높이 15cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "165"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√289 = ? (양의 제곱근)",
+   "answers": [
+    "17"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 11, 공차 6인 등차수열의 제9항은?",
+   "answers": [
+    "59"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 15, 공비 2인 등비수열의 제7항은?",
+   "answers": [
+    "960"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "6x² = 384, 양의 해 x는?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 11, 13, 15, 17, 19의 평균은?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "12 + 5 = ?",
+   "answers": [
+    "17"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "27 − 5 = ?",
+   "answers": [
+    "22"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "12 × 5 = ?",
+   "answers": [
+    "60"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "60 ÷ 12 = ?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "7² = ?",
+   "answers": [
+    "49"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "7³ = ?",
+   "answers": [
+    "343"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "12 + 5 × 7 = ?",
+   "answers": [
+    "47"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(12 + 5) × 7 = ?",
+   "answers": [
+    "119"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "120의 60%는?",
+   "answers": [
+    "72"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 12 = 21, x는?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "7x + 5 = 68, x는?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "7x − 5 = 58, x는?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 12cm, 세로 5cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "60"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 12cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "48"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 24cm, 높이 5cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "60"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√324 = ? (양의 제곱근)",
+   "answers": [
+    "18"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 12, 공차 7인 등차수열의 제10항은?",
+   "answers": [
+    "75"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 5, 공비 2인 등비수열의 제8항은?",
+   "answers": [
+    "640"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "7x² = 567, 양의 해 x는?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 12, 14, 16, 18, 20의 평균은?",
+   "answers": [
+    "16"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "13 + 8 = ?",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "28 − 8 = ?",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "13 × 8 = ?",
+   "answers": [
+    "104"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "104 ÷ 13 = ?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "8² = ?",
+   "answers": [
+    "64"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "8³ = ?",
+   "answers": [
+    "512"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "13 + 8 × 8 = ?",
+   "answers": [
+    "77"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(13 + 8) × 8 = ?",
+   "answers": [
+    "168"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "130의 70%는?",
+   "answers": [
+    "91"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 13 = 23, x는?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "8x + 8 = 88, x는?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "8x − 8 = 72, x는?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 13cm, 세로 8cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "104"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 13cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "52"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 26cm, 높이 8cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "104"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√361 = ? (양의 제곱근)",
+   "answers": [
+    "19"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 13, 공차 8인 등차수열의 제11항은?",
+   "answers": [
+    "93"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 8, 공비 2인 등비수열의 제9항은?",
+   "answers": [
+    "2048"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "8x² = 800, 양의 해 x는?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 13, 15, 17, 19, 21의 평균은?",
+   "answers": [
+    "17"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "14 + 11 = ?",
+   "answers": [
+    "25"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "29 − 11 = ?",
+   "answers": [
+    "18"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "14 × 11 = ?",
+   "answers": [
+    "154"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "154 ÷ 14 = ?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "9² = ?",
+   "answers": [
+    "81"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "9³ = ?",
+   "answers": [
+    "729"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "14 + 11 × 9 = ?",
+   "answers": [
+    "113"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(14 + 11) × 9 = ?",
+   "answers": [
+    "225"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "140의 80%는?",
+   "answers": [
+    "112"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 14 = 25, x는?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "9x + 11 = 110, x는?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "9x − 11 = 88, x는?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 14cm, 세로 11cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "154"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 14cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "56"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 28cm, 높이 11cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "154"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√400 = ? (양의 제곱근)",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 14, 공차 9인 등차수열의 제12항은?",
+   "answers": [
+    "113"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 11, 공비 2인 등비수열의 제10항은?",
+   "answers": [
+    "5632"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "9x² = 1089, 양의 해 x는?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 14, 16, 18, 20, 22의 평균은?",
+   "answers": [
+    "18"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "15 + 14 = ?",
+   "answers": [
+    "29"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "30 − 14 = ?",
+   "answers": [
+    "16"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "15 × 14 = ?",
+   "answers": [
+    "210"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "210 ÷ 15 = ?",
+   "answers": [
+    "14"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "10² = ?",
+   "answers": [
+    "100"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "10³ = ?",
+   "answers": [
+    "1000"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "15 + 14 × 10 = ?",
+   "answers": [
+    "155"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(15 + 14) × 10 = ?",
+   "answers": [
+    "290"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "150의 90%는?",
+   "answers": [
+    "135"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 15 = 27, x는?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "10x + 14 = 134, x는?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "10x − 14 = 106, x는?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 15cm, 세로 14cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "210"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 15cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "60"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 30cm, 높이 14cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "210"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√441 = ? (양의 제곱근)",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 15, 공차 10인 등차수열의 제13항은?",
+   "answers": [
+    "135"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 14, 공비 2인 등비수열의 제11항은?",
+   "answers": [
+    "14336"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "10x² = 1440, 양의 해 x는?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 15, 17, 19, 21, 23의 평균은?",
+   "answers": [
+    "19"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "16 + 4 = ?",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "31 − 4 = ?",
+   "answers": [
+    "27"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "16 × 4 = ?",
+   "answers": [
+    "64"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "64 ÷ 16 = ?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "11² = ?",
+   "answers": [
+    "121"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "11³ = ?",
+   "answers": [
+    "1331"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "16 + 4 × 11 = ?",
+   "answers": [
+    "60"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "(16 + 4) × 11 = ?",
+   "answers": [
+    "220"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "160의 100%는?",
+   "answers": [
+    "160"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "x + 16 = 29, x는?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "11x + 4 = 147, x는?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "11x − 4 = 139, x는?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "가로 16cm, 세로 4cm인 직사각형의 넓이(cm²)는?",
+   "answers": [
+    "64"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "한 변 16cm인 정사각형의 둘레(cm)는?",
+   "answers": [
+    "64"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "밑변 32cm, 높이 4cm인 삼각형의 넓이(cm²)는?",
+   "answers": [
+    "64"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "√484 = ? (양의 제곱근)",
+   "answers": [
+    "22"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "첫 항 16, 공차 11인 등차수열의 제14항은?",
+   "answers": [
+    "159"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "첫 항 4, 공비 2인 등비수열의 제12항은?",
+   "answers": [
+    "8192"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "11x² = 1859, 양의 해 x는?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "정수 16, 18, 20, 22, 24의 평균은?",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "보통"
+  }
+ ],
+ "코딩": [
+  {
+   "q": "Python 3: print(2 + 3)의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(2 * 3)의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(7 // 2)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(7 % 2)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcd\"))의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcd\"[0])의 출력은?",
+   "answers": [
+    "a"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(4)))의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 8, 2)))의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([2, 3, 4]))의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(2 ** 2)의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(2 + 3)의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"2\" + \"3\")의 출력은?",
+   "answers": [
+    "23"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([2, 3, 4].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(2.9))의 출력은?",
+   "answers": [
+    "2"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(2.1))의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(2 << 1)의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(2 & 3)의 출력은?",
+   "answers": [
+    "2"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(2 ^ 3)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"2\") * 3)의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcd\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(3 + 4)의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(3 * 4)의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(13 // 3)의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(13 % 3)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcde\"))의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcde\"[1])의 출력은?",
+   "answers": [
+    "b"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(5)))의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 10, 2)))의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([3, 4, 5]))의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(3 ** 2)의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(3 + 4)의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"3\" + \"4\")의 출력은?",
+   "answers": [
+    "34"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([3, 4, 5].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(3.9))의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(3.1))의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(3 << 1)의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(3 & 4)의 출력은?",
+   "answers": [
+    "0"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(3 ^ 4)의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"3\") * 4)의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcde\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(4 + 5)의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(4 * 5)의 출력은?",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(21 // 4)의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(21 % 4)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdef\"))의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdef\"[2])의 출력은?",
+   "answers": [
+    "c"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(6)))의 출력은?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 12, 2)))의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([4, 5, 6]))의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(4 ** 2)의 출력은?",
+   "answers": [
+    "16"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(4 + 5)의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"4\" + \"5\")의 출력은?",
+   "answers": [
+    "45"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([4, 5, 6].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(4.9))의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(4.1))의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(4 << 1)의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(4 & 5)의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(4 ^ 5)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"4\") * 5)의 출력은?",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdef\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(5 + 6)의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(5 * 6)의 출력은?",
+   "answers": [
+    "30"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(31 // 5)의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(31 % 5)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdefg\"))의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdefg\"[0])의 출력은?",
+   "answers": [
+    "a"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(7)))의 출력은?",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 14, 2)))의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([5, 6, 7]))의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(5 ** 2)의 출력은?",
+   "answers": [
+    "25"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(5 + 6)의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"5\" + \"6\")의 출력은?",
+   "answers": [
+    "56"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([5, 6, 7].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(5.9))의 출력은?",
+   "answers": [
+    "5"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(5.1))의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(5 << 1)의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(5 & 6)의 출력은?",
+   "answers": [
+    "4"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(5 ^ 6)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"5\") * 6)의 출력은?",
+   "answers": [
+    "30"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdefg\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(6 + 7)의 출력은?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(6 * 7)의 출력은?",
+   "answers": [
+    "42"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(43 // 6)의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(43 % 6)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdefgh\"))의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdefgh\"[1])의 출력은?",
+   "answers": [
+    "b"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(8)))의 출력은?",
+   "answers": [
+    "28"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 16, 2)))의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([6, 7, 8]))의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(6 ** 2)의 출력은?",
+   "answers": [
+    "36"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(6 + 7)의 출력은?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"6\" + \"7\")의 출력은?",
+   "answers": [
+    "67"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([6, 7, 8].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(6.9))의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(6.1))의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(6 << 1)의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(6 & 7)의 출력은?",
+   "answers": [
+    "6"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(6 ^ 7)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"6\") * 7)의 출력은?",
+   "answers": [
+    "42"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdefgh\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(7 + 8)의 출력은?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(7 * 8)의 출력은?",
+   "answers": [
+    "56"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(57 // 7)의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(57 % 7)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdefghi\"))의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdefghi\"[2])의 출력은?",
+   "answers": [
+    "c"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(9)))의 출력은?",
+   "answers": [
+    "36"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 18, 2)))의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([7, 8, 9]))의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(7 ** 2)의 출력은?",
+   "answers": [
+    "49"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(7 + 8)의 출력은?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"7\" + \"8\")의 출력은?",
+   "answers": [
+    "78"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([7, 8, 9].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(7.9))의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(7.1))의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(7 << 1)의 출력은?",
+   "answers": [
+    "14"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(7 & 8)의 출력은?",
+   "answers": [
+    "0"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(7 ^ 8)의 출력은?",
+   "answers": [
+    "15"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"7\") * 8)의 출력은?",
+   "answers": [
+    "56"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdefghi\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(8 + 9)의 출력은?",
+   "answers": [
+    "17"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(8 * 9)의 출력은?",
+   "answers": [
+    "72"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(73 // 8)의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(73 % 8)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdefghij\"))의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdefghij\"[0])의 출력은?",
+   "answers": [
+    "a"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(10)))의 출력은?",
+   "answers": [
+    "45"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 20, 2)))의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([8, 9, 10]))의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(8 ** 2)의 출력은?",
+   "answers": [
+    "64"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(8 + 9)의 출력은?",
+   "answers": [
+    "17"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"8\" + \"9\")의 출력은?",
+   "answers": [
+    "89"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([8, 9, 10].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(8.9))의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(8.1))의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(8 << 1)의 출력은?",
+   "answers": [
+    "16"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(8 & 9)의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(8 ^ 9)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"8\") * 9)의 출력은?",
+   "answers": [
+    "72"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdefghij\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(9 + 10)의 출력은?",
+   "answers": [
+    "19"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(9 * 10)의 출력은?",
+   "answers": [
+    "90"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(91 // 9)의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(91 % 9)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdefghijk\"))의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdefghijk\"[1])의 출력은?",
+   "answers": [
+    "b"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(11)))의 출력은?",
+   "answers": [
+    "55"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 22, 2)))의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([9, 10, 11]))의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(9 ** 2)의 출력은?",
+   "answers": [
+    "81"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(9 + 10)의 출력은?",
+   "answers": [
+    "19"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"9\" + \"10\")의 출력은?",
+   "answers": [
+    "910"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([9, 10, 11].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(9.9))의 출력은?",
+   "answers": [
+    "9"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(9.1))의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(9 << 1)의 출력은?",
+   "answers": [
+    "18"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(9 & 10)의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(9 ^ 10)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"9\") * 10)의 출력은?",
+   "answers": [
+    "90"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdefghijk\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(10 + 11)의 출력은?",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(10 * 11)의 출력은?",
+   "answers": [
+    "110"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(111 // 10)의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(111 % 10)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdefghijkl\"))의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdefghijkl\"[2])의 출력은?",
+   "answers": [
+    "c"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(12)))의 출력은?",
+   "answers": [
+    "66"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 24, 2)))의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([10, 11, 12]))의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(10 ** 2)의 출력은?",
+   "answers": [
+    "100"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(10 + 11)의 출력은?",
+   "answers": [
+    "21"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"10\" + \"11\")의 출력은?",
+   "answers": [
+    "1011"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([10, 11, 12].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(10.9))의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(10.1))의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(10 << 1)의 출력은?",
+   "answers": [
+    "20"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(10 & 11)의 출력은?",
+   "answers": [
+    "10"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(10 ^ 11)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"10\") * 11)의 출력은?",
+   "answers": [
+    "110"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdefghijkl\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(11 + 12)의 출력은?",
+   "answers": [
+    "23"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(11 * 12)의 출력은?",
+   "answers": [
+    "132"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(133 // 11)의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(133 % 11)의 출력은?",
+   "answers": [
+    "1"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(len(\"abcdefghijklm\"))의 출력은?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(\"abcdefghijklm\"[0])의 출력은?",
+   "answers": [
+    "a"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(sum(range(13)))의 출력은?",
+   "answers": [
+    "78"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "Python 3: print(len(range(0, 26, 2)))의 출력은?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "Python 3: print(max([11, 12, 13]))의 출력은?",
+   "answers": [
+    "13"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "Python 3: print(11 ** 2)의 출력은?",
+   "answers": [
+    "121"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(11 + 12)의 출력은?",
+   "answers": [
+    "23"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(\"11\" + \"12\")의 출력은?",
+   "answers": [
+    "1112"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log([11, 12, 13].length)의 출력은?",
+   "answers": [
+    "3"
+   ],
+   "difficulty": "쉬움"
+  },
+  {
+   "q": "JavaScript: console.log(Math.floor(11.9))의 출력은?",
+   "answers": [
+    "11"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(Math.ceil(11.1))의 출력은?",
+   "answers": [
+    "12"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(11 << 1)의 출력은?",
+   "answers": [
+    "22"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(11 & 12)의 출력은?",
+   "answers": [
+    "8"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(11 ^ 12)의 출력은?",
+   "answers": [
+    "7"
+   ],
+   "difficulty": "어려움"
+  },
+  {
+   "q": "JavaScript: console.log(Number(\"11\") * 12)의 출력은?",
+   "answers": [
+    "132"
+   ],
+   "difficulty": "보통"
+  },
+  {
+   "q": "JavaScript: console.log(\"abcdefghijklm\".slice(1, 3))의 출력은?",
+   "answers": [
+    "bc"
+   ],
+   "difficulty": "어려움"
+  }
+ ]
+}

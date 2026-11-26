@@ -1041,6 +1041,13 @@ export class KakaoForgeClient extends EventEmitter {
     if (roomIdValue) {
       this._recordChatAlias(roomIdValue);
     }
+    // DUKE's opt-in quiz listener uses raw text only, avoiding metadata waits.
+    // The ordinary event still runs for activity, monitoring and other commands.
+    if (roomIdValue && safeNumber(chatLog.type || chatLog.msgType || 1, 1) === 1) {
+      try { this.emit('dukeQuizRaw', { data, roomId: roomIdValue, receivedAt }); } catch (err) {
+        if (this.debug) console.error('[DBG] quiz raw listener failed', err);
+      }
+    }
     const key = roomIdValue ? String(roomIdValue) : '_global';
     const prev = this._messageChains.get(key) || Promise.resolve();
     const next = prev
