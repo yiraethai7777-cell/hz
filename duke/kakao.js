@@ -22,6 +22,10 @@ const {createAttendance}=require('./utility/attendance');
 const {createGameCooldowns}=require('./game/cooldowns');
 const {createBotPower}=require('./manage/bot-power');
 const {createRoomModes}=require('./manage/room-modes');
+const {registerVoiceRoom}=require('./manage/voice-room');
+const {createDukeVoiceAdapter}=require('../shared/vox30-runtime');
+const voiceEvents=require('../shared/voice-room-auto-detect');
+const voiceInvites=require('../shared/voice-room-join-info');
 function id(value){if(typeof value==='number'&&!Number.isSafeInteger(value))return null;const s=String(value??'');return /^[1-9]\d*$/.test(s)?s:null;}
 function normalize(msg,receivedAt=performance.now()){const raw=msg?.raw?.chatLog??msg?.raw??{};return {roomId:id(raw.chatRoomId??raw.chatId??msg?.raw?.chatId)??id(msg?.room?.id??msg?.chatId),userId:id(raw.userId??raw.authorId??raw.senderId??msg?.sender?.id??msg?.senderId),text:raw.message??raw.msg??raw.text??msg?.message?.text??msg?.text,receivedAt:Number.isFinite(msg?.receivedAt)?msg.receivedAt:receivedAt};}
 async function startKakao({authPath,dataDir,website,roomList,database}){
@@ -30,6 +34,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  const {createClient}=require('../dist');
  const client=createClient({authPath,autoConnect:false,autoReconnect:true,debug:false});
  let ready=false;
+ let voiceAdapter;
  const send=async(roomId,body,opts)=>{const r=await client.chat.sendText(roomId,body,opts);if(r?.status!=null&&r.status!==0)throw Error('send failed');if(power.enabled(roomId))recordBotSend(roomId,r);return r;};
  const onPersist=key=>database?.mark(key);
  const audit=createManagementLog({dir:dataDir,onPersist});
@@ -70,6 +75,16 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  watcher.register(core);
  membership.register(core);
  moderation.register(core);
+ voiceEvents.install(client,{isManaged:()=>false,isBotEnabled:()=>false,send:()=>{}});
+ voiceInvites.install(client);
+ registerVoiceRoom(core,{
+  canManage:moderation.canManage,
+  getAdapter:()=>voiceAdapter,
+  watchOpen:r=>voiceEvents.watchOpen(client,r),
+  watchEnd:(r,callId)=>voiceEvents.watchEnd(client,r,callId),
+  fetchMessage:(r,l)=>client.fetchMessage(r,l),
+  inspectInvitation:async r=>voiceInvites.resolve(r) ? undefined : (await voiceInvites.inspectServerVoiceMeta(client,r)).invitation,
+ });
  warnings.register(core);
  createProfilePhoto({botId:()=>id(client.userId),noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),sendPhoto:async(r,f,opts)=>{const res=await client.sendPhoto(r,f,opts);if(res?.complete&&power.enabled(r))recordBotSend(r,res);return res;},lookup:async(r,u)=>{const res=await client._carriage?.member(r,[u]);if(!res||res.status!==0)return null;const members=res.body?.members??res.body?.memberList??res.body?.memList;if(!Array.isArray(members))return null;const m=members.find(v=>id(v.userId??v.id??v.memberId??v.user_id)===u);if(!m)return null;client._cacheMembers(r,[m]);return {name:client.getUserProfileSnapshot(r,u)?.name,imageUrl:m.opi||m.originalProfileImageUrl||m.fpi||m.fullProfileImageUrl||m.pi||m.profileImageUrl||''};}}).register(core);
  async function lookupMembershipProfile(r,u,kind,event,partial){
@@ -126,7 +141,11 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  client.onLeave(event=>{if(ready&&power.enabled(id(event?.room?.id??event?.chatId))){activity.member('leave',event);void membership.handle('leave',event);}});
  client.on('error',()=>{ready=false;watcher.reset();quiz.reset();typing.reset();console.error('[DUKE] connection error');});
  client.on('disconnect',()=>{ready=false;watcher.reset();quiz.reset();typing.reset();});
- client.onReady(()=>{ready=true;watcher.start();console.log('[DUKE] ready');});
+ client.onReady(()=>{
+  try{voiceAdapter??=createDukeVoiceAdapter(client);}
+  catch{console.warn('[DUKE] VOX adapter unavailable');}
+  ready=true;watcher.start();console.log('[DUKE] ready');
+ });
  const earlyQuiz=new WeakSet(),quizChecked=new WeakSet(),quizSeen=new Map();
  client.on('dukeQuizRaw',({data,roomId,receivedAt,livePush})=>{
   if(!ready||!data||typeof data!=='object')return;
