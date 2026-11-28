@@ -7,6 +7,19 @@ const hasLink=text=>typeof text==='string'&&/(?:https?:\/\/[^\s<>]+|\bwww\.[a-z0
 function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',otherBotIds=[],listAdmins=()=>[],getRole,hide,loadHistory,fetchMessage,audit,logger=console,now=Date.now}={}){
  const file=dir?path.join(dir,'link-filter-settings.json'):null,enabled=new Set(),recent=new Map(),pending=new Set();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));if(!Array.isArray(data))throw Error('invalid link filter settings');for(const r of data)if(id(r))enabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
+ // Bound concurrent moderation operations across rooms and commands.
+ const HIDE_CONCURRENCY=2,MAX_WAITING=50,waiting=[];
+ let running=0,generation=0;
+ function pump(){
+  while(running<HIDE_CONCURRENCY&&waiting.length){
+   const job=waiting.shift();running++;
+   Promise.resolve().then(job.run).then(job.resolve,()=>job.resolve(false)).finally(()=>{running--;pump();});
+  }
+ }
+ function schedule(run){
+  if(waiting.length>=MAX_WAITING)return Promise.resolve(false);
+  return new Promise(resolve=>{waiting.push({run,resolve});pump();});
+ }
  const journal=dir?path.join(dir,'hide-index'):null;
  if(journal)fs.mkdirSync(journal,{recursive:true,mode:0o700});
  function persist(r,list){
@@ -30,10 +43,11 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
   persist(r,list);
   return {item,fresh:true};
  }
- async function apply(r,item){
+ async function apply(r,item,authorized=()=>permitted(r)){
   const key=r+':'+item.log;if(item.hidden||pending.has(key))return false;
-  pending.add(key);
-  try{let msg=item.msg;if(item.restored){if(typeof fetchMessage!=='function')return false;msg=await fetchMessage(r,item.log);if(id(msg?.room?.id)!==r||id(msg?.message?.logId??msg?.logId)!==item.log||id(msg?.sender?.id)!==item.user||msg?.room?.isOpenChat!==true)return false;}const res=await hide(r,msg);if(res?.status!==0||res?.verified===false||res?.body?.status!=null&&Number(res.body.status)!==0||res?.success===false||res?.ok===false)return false;item.hidden=true;item.verifiedHidden=res.verified===true;const stored=rows(r).find(x=>x.log===item.log);if(stored){stored.hidden=true;stored.verifiedHidden=item.verifiedHidden;persist(r,rows(r));}return true;}
+  pending.add(key);const started=generation;
+  const allowed=()=>started===generation&&permitted(r)&&authorized();
+  try{return await schedule(async()=>{if(!allowed())return false;let msg=item.msg;if(item.restored){if(typeof fetchMessage!=='function')return false;msg=await fetchMessage(r,item.log);if(id(msg?.room?.id)!==r||id(msg?.message?.logId??msg?.logId)!==item.log||id(msg?.sender?.id)!==item.user||msg?.room?.isOpenChat!==true)return false;}if(!allowed())return false;const res=await hide(r,msg);if(res?.status!==0||res?.verified===false||res?.body?.status!=null&&Number(res.body.status)!==0||res?.success===false||res?.ok===false)return false;item.hidden=true;item.verifiedHidden=res.verified===true;const stored=rows(r).find(x=>x.log===item.log);if(stored){stored.hidden=true;stored.verifiedHidden=item.verifiedHidden;persist(r,rows(r));}return true;});}
   catch(err){logger.warn?.('[DUKE HIDE]',err?.name||'Error');return false;}finally{pending.delete(key);}
  }
  function record(r,e,command,result,target){audit?.record({roomId:r,actorId:id(e.userId),actorName:e.msg?.sender?.name,targetId:target?.user,targetName:target?.msg?.sender?.name||'현재 채팅방',command,result});}
@@ -48,7 +62,7 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
   // A current membership lookup is required. Unknown roles are never hidden.
   let role;try{role=await getRole(r,item.user);}catch{return false;}
   if(role!==2||!permitted(r)||!enabled.has(r)||item.user===id(botId())||listAdmins(r).includes(item.user))return false;
-  if(await apply(r,item)){record(r,{userId:bot,msg:{sender:{name:'듀크봇'}}},'-홍금','링크 가리기',item);return true;}
+  if(await apply(r,item,()=>enabled.has(r)&&!excluded().has(item.user)&&!listAdmins(r).includes(item.user))){record(r,{userId:bot,msg:{sender:{name:'듀크봇'}}},'-홍금','링크 가리기',item);return true;}
   return false;
  }
  async function hideReply(r,e,anchor){
@@ -66,7 +80,7 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
   }
   if(!permitted(r)||!canManage(e))return format('ADMIN','관리 권한이 없습니다.');
   if(item.hidden)return format('ADMIN','이미 가려진 메시지입니다.');
-  const ok=await apply(r,item);
+  const ok=await apply(r,item,()=>canManage(e));
   const result=ok?'원본 메시지를 가렸습니다.':'원본 메시지 가리기를 확인하지 못했습니다.';
   record(r,e,'-가리기 (답장)',result,item);
   return format('ADMIN',result);
@@ -92,7 +106,17 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
    selected=selected.map(x=>known.get(x.log)||x);
    if(selected.length<n)return format('ADMIN','확인된 이전 채팅이 '+selected.length+'개뿐입니다. 개수를 줄여 주세요.');
    let ok=0,already=0;
-   for(const item of selected){if(!permitted(r)||!canManage(e))break;if(item.hidden){already++;continue;}if(await apply(r,item))ok++;}
+   // Dispatch only the existing selected targets, two at a time. Each job
+   // rechecks authorization at dispatch, including after a history fetch.
+   for(let i=0;i<selected.length;i+=HIDE_CONCURRENCY){
+    if(!permitted(r)||!canManage(e))break;
+    const results=await Promise.all(selected.slice(i,i+HIDE_CONCURRENCY).map(async item=>{
+     if(item.hidden)return 'already';
+     return await apply(r,item,()=>canManage(e))?'ok':'unconfirmed';
+    }));
+    ok+=results.filter(x=>x==='ok').length;
+    already+=results.filter(x=>x==='already').length;
+   }
    const result='가리기 : '+ok+'개 / 이미 가림 : '+already+'개 / 미확인 : '+(n-ok-already)+'개';
    record(r,e,'-가리기 '+n,result);return format('ADMIN',result);
   }});
@@ -103,6 +127,6 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
    const on=v?v==='on':!enabled.has(r);set(r,on);record(r,e,'-홍금','홍보 금지 '+(on?'ON':'OFF'));return format('ADMIN','홍보 금지 : '+(on?'ON':'OFF'));
   }});
  }
- return {register,observe,resetRoom:r=>recent.delete(r),reset:()=>recent.clear()};
+ return {register,observe,resetRoom:r=>recent.delete(r),reset:()=>{generation++;recent.clear();}};
 }
 module.exports={createChatHide,hasLink};
