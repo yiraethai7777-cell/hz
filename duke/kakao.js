@@ -51,7 +51,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  process.once('exit',()=>activity.close());
  const moderation=createReplyModeration({dir:dataDir,audit,onPersist,isEnabled:r=>modes.manage(r),onAction:activity.moderation,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
  const {inspectHideReadback}=require('./manage/hide-readback');
- const hideConfirmation=createHideConfirmation({request:(r,msg)=>client.openChatBlind(r,msg,{report:false}),readback:async(r,l,u)=>{
+ const hideConfirmation=createHideConfirmation({request:(r,msg)=>client.openChatHide(r,msg),readback:async(r,l,u)=>{
   if(!ready||!manageEnabled(r)||(rooms&&!rooms.has(r))||!client._carriage)return {state:'unavailable'};
   const response=await client._carriage.getMsgs([r],[l]);
   return inspectHideReadback(response,r,l,u);
