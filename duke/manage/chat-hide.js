@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{format}=require('../core');
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
-const MAX=50,ROOM_CAP=100,TTL=600000;
+const MAX=50,ROOM_CAP=100;
 const hasLink=text=>typeof text==='string'&&/(?:https?:\/\/[^\s<>]+|\bwww\.[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/[^\s<>]*)?|(?:^|[\s(])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|kr|io|gg|co|me|app|dev|xyz|info|biz|tv|th|site|link)(?=$|[\s/:?#),.!]))/iu.test(text);
 function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',otherBotIds=[],listAdmins=()=>[],getRole,hide,loadHistory,audit,logger=console,now=Date.now}={}){
  const file=dir?path.join(dir,'link-filter-settings.json'):null,enabled=new Set(),recent=new Map(),pending=new Set();
@@ -9,7 +9,7 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
  const excluded=()=>new Set([botId(),...otherBotIds].map(id).filter(Boolean));
  const permitted=r=>!!r&&isEnabled(r)&&(!allowedRooms||allowedRooms.has(r));
  function set(r,on){const next=new Set(enabled);if(on)next.add(r);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify([...next]),{mode:0o600});fs.renameSync(tmp,file);onPersist('link-filter-settings.json');}enabled.clear();for(const room of next)enabled.add(room);}
- function rows(r){const list=(recent.get(r)||[]).filter(x=>now()-x.at<TTL);recent.delete(r);recent.set(r,list);while(recent.size>ROOM_CAP)recent.delete(recent.keys().next().value);return list;}
+ function rows(r){const list=recent.get(r)||[];recent.delete(r);recent.set(r,list);while(recent.size>ROOM_CAP)recent.delete(recent.keys().next().value);return list;}
  function remember(r,msg,e){
   const log=id(msg?.message?.logId??msg?.logId),user=id(e.userId),type=Number(msg?.message?.type??msg?.type);
   if(!log||!user||id(msg?.sender?.id)!==user||type===0||!Number.isInteger(type))return null;
@@ -30,6 +30,7 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
  async function observe(msg,e){
   const r=id(e.roomId);
   if(!permitted(r)||msg?.room?.isOpenChat!==true)return false;
+  if(excluded().has(id(e.userId)))return false;
   const entry=remember(r,msg,e);
   if(!entry||!enabled.has(r)||!hasLink(e.text))return false;
   const {item}=entry,bot=id(botId());
@@ -47,13 +48,17 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
    if(e.args.length!==1||!/^[1-9]\d*$/.test(e.args[0])||Number(e.args[0])>MAX)return format('ADMIN','사용법 : -가리기 (1~'+MAX+'개)');
    if(!anchor)return format('ADMIN','명령어 위치를 확인할 수 없습니다.');
    const n=Number(e.args[0]),bots=excluded();
-   let selected;
-   try{
-    selected=loadHistory?await loadHistory(r,anchor,n,{excludedUsers:[...bots]}):rows(r).filter(x=>!bots.has(x.user)&&BigInt(x.log)<BigInt(anchor)).slice(-n).reverse();
-   }catch(err){logger.warn?.('[DUKE HIDE HISTORY]',err?.name||'Error');return format('ADMIN','이전 채팅 기록을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');}
+   const live=rows(r).filter(x=>!bots.has(x.user)&&BigInt(x.log)<BigInt(anchor)).slice(-n).reverse();
+   let selected=live;
+   // Prefer actual live observations when sufficient. History is a fallback
+   // only when the bot has not seen enough messages (e.g. after reconnect).
+   if(live.length<n&&loadHistory){
+    try{selected=await loadHistory(r,anchor,n,{excludedUsers:[...bots]});}
+    catch(err){logger.warn?.('[DUKE HIDE HISTORY]',err?.name||'Error');return format('ADMIN','확인된 이전 채팅이 '+live.length+'개뿐입니다. 채팅 기록을 불러오지 못했습니다.');}
+   }
    if(!Array.isArray(selected)||selected.length>n||selected.some(x=>!id(x.user)||bots.has(id(x.user))||!id(x.log)||BigInt(x.log)>=BigInt(anchor)||id(x.msg?.room?.id)!==r)||new Set(selected.map(x=>x.log)).size!==selected.length)return format('ADMIN','이전 채팅 기록을 확인하지 못했습니다.');
    const known=new Map(rows(r).map(x=>[x.log,x]));
-   selected=selected.map(x=>known.get(x.log)?.hidden?{...x,hidden:true}:x);
+   selected=selected.map(x=>known.get(x.log)||x);
    if(selected.length<n)return format('ADMIN','확인된 이전 채팅이 '+selected.length+'개뿐입니다. 개수를 줄여 주세요.');
    let ok=0,already=0;
    for(const item of selected){if(!permitted(r)||!canManage(e))break;if(item.hidden){already++;continue;}if(await apply(r,item))ok++;}
@@ -67,6 +72,6 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
    const on=v?v==='on':!enabled.has(r);set(r,on);record(r,e,'-홍금','홍보 금지 '+(on?'ON':'OFF'));return format('ADMIN','홍보 금지 : '+(on?'ON':'OFF'));
   }});
  }
- return {register,observe,resetRoom:r=>recent.delete(r)};
+ return {register,observe,resetRoom:r=>recent.delete(r),reset:()=>recent.clear()};
 }
 module.exports={createChatHide,hasLink};
