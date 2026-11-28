@@ -31,3 +31,16 @@ test('unconfirmed hide is reported as unverified, not success',async()=>{
  await core.handle({roomId:'1',userId:'10',text:'-가리기 1',msg:{room:{id:'1',isOpenChat:true},sender:{id:'10'},message:{logId:'101',type:1}}});
  assert.match(sent[0],/가리기 : 0개.*미확인 : 1개/);
 });
+
+test('raw hide completion can be verified before enriched event, including exact long IDs',async()=>{
+ const exact='9007199254740993010';
+ const target={...msg,message:{logId:exact,type:1}};
+ const c=createHideConfirmation({timeoutMs:100,request:async()=>{
+  assert.equal(c.observePush({method:'SYNCREWR',body:{chatId:'2',chatLog:{message:'{"hidden":true,"logId":9007199254740993010}'}}}),false);
+  assert.equal(c.observePush({method:'SYNCREWR',body:{chatId:'1',chatLog:{message:'{"logId":9007199254740993010}'}}}),false);
+  assert.equal(c.observePush({method:'SYNCREWR',body:{chatId:'1',chatLog:{message:'{"hidden":false,"logId":9007199254740993010}'}}}),false);
+  assert.equal(c.observePush({method:'SYNCREWR',body:{chatId:'1',chatLog:{message:'{"hidden":true,"logId":9007199254740993010}'}}}),true);
+  return {status:0};
+ }});
+ assert.deepEqual(await c.hide('1',target),{status:0,verified:true});
+});
