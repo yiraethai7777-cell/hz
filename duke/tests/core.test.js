@@ -34,6 +34,7 @@ test('help lists developing commands separately without changing their original 
  }
  assert(detail[0].includes('-일반관리'));
  assert(!sent[0].includes('비공개'));
+ assert.doesNotMatch(detail[1],/VOX|WebRTC|Keepalive|규격|패킷/i);
  await core.handle(ev('-보룸시작'));
  assert.equal(seen.at(-1),'MANAGEMENT');
  assert.match(sent.at(-1),/관리 권한이 없습니다/);
