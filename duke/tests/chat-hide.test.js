@@ -106,3 +106,37 @@ test('queued batch stops dispatching if management is disabled',async()=>{
  assert.deepEqual(started,['103']);
  assert.match(sent.at(-1),/가리기 : 1개.*미확인 : 3개/);
 });
+
+test('promotion exemptions are room scoped, persisted, revocable, and only bypass automatic hiding',async()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-promotion-'));
+ const setup=()=>{
+  const sent=[],hidden=[],lookups=[],core=createCore({send:async(r,t)=>sent.push(t)});
+  const mod=createChatHide({dir,canManage:e=>e.userId==='1000',botId:()=> '1000',getRole:async(r,u)=>{lookups.push(u);return 2;},hide:async(r,m)=>{hidden.push([r,m.message.logId]);return {status:0,verified:true};}});
+  mod.register(core);
+  const event=(r,u,l,t,extra={})=>({roomId:r,userId:u,text:t,msg:{room:{id:r,isOpenChat:true},sender:{id:u},message:{logId:l,type:1},...extra}});
+  const cmd=async(r,u,l,t,extra)=>{await core.handle(event(r,u,l,t,extra));return sent.at(-1);};
+  const observe=async(r,u,l,t)=>{const e=event(r,u,l,t);return mod.observe(e.msg,e);};
+  return {cmd,observe,hidden,lookups};
+ };
+ try{
+  const a=setup();
+  await a.cmd('1','1000','100','-홍금 on');
+  await a.cmd('2','1000','101','-홍금 on');
+  assert.match(await a.cmd('1','4000','102','-홍보가능 4000'),/권한이 없습니다/);
+  assert.match(await a.cmd('1','1000','103','-홍보가능 @user',{mentions:[{userId:'4000'}]}),/홍보 허용 완료/);
+  assert.equal(await a.observe('1','4000','104','https://example.com'),false);
+  assert.deepEqual(a.lookups,[]);
+  assert.equal(await a.observe('2','4000','105','https://example.com'),true);
+  assert.match(await a.cmd('1','1000','106','-가리기 1'),/가리기 : 1개/);
+  const b=setup();
+  assert.equal(await b.observe('1','4000','107','https://example.com'),false);
+  assert.match(await b.cmd('1','1000','108','-홍보불가 4000'),/홍보 허용 해제/);
+  assert.equal(await b.observe('1','4000','109','https://example.com'),true);
+  await b.observe('1','5000','110','hello');
+  assert.match(await b.cmd('1','1000','111','-홍보가능',{message:{logId:'111',type:26},attachmentsRaw:[{src_logId:'1100',src_userId:'5000'}]}),/사용법/);
+  await b.observe('1','5000','1100','hello');
+  assert.match(await b.cmd('1','1000','1101','-홍보가능',{message:{logId:'1101',type:26},attachmentsRaw:[{src_logId:'1100',src_userId:'5000'}]}),/홍보 허용 완료/);
+  assert.equal(await b.observe('1','5000','1102','https://example.com'),false);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
