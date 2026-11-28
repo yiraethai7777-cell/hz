@@ -30,9 +30,13 @@ function createHideConfirmation({request,readback,timeoutMs=8000,logger=console}
   let info=raw.message??raw.msg??raw.text;
   if(typeof info==='string'){try{info=lossless.parse(info);}catch{info=null;}}
   const records=Array.isArray(info?.chatLogInfos)?info.chatLogInfos:[];
-  const explicit=info?.hidden??body.hidden??raw.hidden;
+  // node-kakao identifies the server's OpenLink rewrite feed as feedType 13.
+  // Require a system feed and exact target; ordinary user JSON cannot confirm hiding.
+  const rewriteFeed=method==='SYNCREWR'&&raw.type!=null&&Number(raw.type)===0&&Number(info?.feedType)===13&&!!id(info?.logId);
+  if((method==='SYNCREWR'||method==='SYNCMODMSG')&&raw.type!=null&&Number(raw.type)!==0)return false;
+  const explicit=rewriteFeed?true:(info?.hidden??body.hidden??raw.hidden);
   if(explicit===false)return false;
-  const ids=[info?.logId,...records.map(x=>x?.logId??x?.l),body.targetLogId,body.logId,raw.targetLogId].map(id).filter(Boolean);
+  const ids=[info?.logId,...records.map(x=>x?.logId??x?.l),body.targetLogId,raw.targetLogId,...(!['SYNCREWR','SYNCMODMSG'].includes(method)?[body.logId]:[])].map(id).filter(Boolean);
   const matched=[...new Set(ids)].filter(log=>pending.has(room+':'+log));
   if(explicit!==true&&!['BLINDMSG','HIDEMSG','HIDE'].includes(method))return false;
   if(packet.status!=null&&Number(packet.status)!==0||body.status!=null&&Number(body.status)!==0)return false;
