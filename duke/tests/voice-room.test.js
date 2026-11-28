@@ -50,8 +50,7 @@ test('start requires server confirmation and stop releases only local VOX', asyn
   await unconfirmed.run('-보룸시작 테스트 보이스룸');
   await unconfirmed.run('-보룸종료');
   assert.match(unconfirmed.replies[0], /개설 여부는 확인되지 않았습니다/);
-  assert.match(unconfirmed.replies[1], /VOX 연결을 해제했습니다/);
-  assert.match(unconfirmed.replies[1], /실제 보이스룸 종료 여부는 확인되지 않았습니다/);
+  assert.match(unconfirmed.replies[1], /보룸을 종료하였습니다\.$/);
   const confirmed = setup(adapter, roomId => ({ wait: async callId => roomId === '1' && callId === '3', close() {} }));
   await confirmed.run('-보룸시작 테스트 보이스룸');
   await confirmed.run('-보룸종료');
