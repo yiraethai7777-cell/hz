@@ -188,8 +188,17 @@ async function openChatBlind(
     try {
       const fetched = await this.fetchMessage(resolvedChatId, logIdValue);
       const fetchedInfo = normalizeOpenChatBlindTarget(fetched);
-      if (fetchedInfo) {
-        targetInfo = { ...fetchedInfo, ...(targetInfo || {}) };
+      if (fetchedInfo &&
+          String(normalizeLogTarget(fetched)) === String(logIdValue) &&
+          String(normalizeIdValue(fetched?.room?.id)) === String(resolvedChatId) &&
+          (!targetInfo?.memberId || String(normalizeIdValue(targetInfo.memberId)) === String(normalizeIdValue(fetchedInfo.memberId)))) {
+        // Do not let an undefined field from the original target overwrite fetched data.
+        targetInfo = {
+          memberId: targetInfo?.memberId ?? fetchedInfo.memberId,
+          linkId: targetInfo?.linkId || fetchedInfo.linkId,
+          isOpenChat: targetInfo?.isOpenChat ?? fetchedInfo.isOpenChat,
+          chatLogInfo: targetInfo?.chatLogInfo || fetchedInfo.chatLogInfo,
+        };
       }
     } catch (err: any) {
       if (this.debug) {
