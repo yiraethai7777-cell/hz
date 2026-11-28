@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),{format}=require('../core'
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 const MAX=50,ROOM_CAP=100,TTL=600000;
 const hasLink=text=>typeof text==='string'&&/(?:https?:\/\/[^\s<>]+|\bwww\.[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/[^\s<>]*)?|(?:^|[\s(])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|kr|io|gg|co|me|app|dev|xyz|info|biz|tv|th|site|link)(?=$|[\s/:?#),.!]))/iu.test(text);
-function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',listAdmins=()=>[],getRole,hide,audit,logger=console,now=Date.now}={}){
+function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',listAdmins=()=>[],getRole,hide,loadHistory,audit,logger=console,now=Date.now}={}){
  const file=dir?path.join(dir,'link-filter-settings.json'):null,enabled=new Set(),recent=new Map(),pending=new Set();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));if(!Array.isArray(data))throw Error('invalid link filter settings');for(const r of data)if(id(r))enabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
  const permitted=r=>!!r&&isEnabled(r)&&(!allowedRooms||allowedRooms.has(r));
@@ -45,7 +45,14 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
    if(!permitted(r)||!canManage(e))return format('ADMIN','관리 권한이 없습니다.');
    if(e.args.length!==1||!/^[1-9]\d*$/.test(e.args[0])||Number(e.args[0])>MAX)return format('ADMIN','사용법 : -가리기 (1~'+MAX+'개)');
    if(!anchor)return format('ADMIN','명령어 위치를 확인할 수 없습니다.');
-   const n=Number(e.args[0]),selected=rows(r).filter(x=>BigInt(x.log)<BigInt(anchor)).slice(-n).reverse();
+   const n=Number(e.args[0]);
+   let selected;
+   try{
+    selected=loadHistory?await loadHistory(r,anchor,n):rows(r).filter(x=>BigInt(x.log)<BigInt(anchor)).slice(-n).reverse();
+   }catch(err){logger.warn?.('[DUKE HIDE HISTORY]',err?.name||'Error');return format('ADMIN','이전 채팅 기록을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');}
+   if(!Array.isArray(selected)||selected.length>n||selected.some(x=>!id(x.log)||BigInt(x.log)>=BigInt(anchor)||id(x.msg?.room?.id)!==r)||new Set(selected.map(x=>x.log)).size!==selected.length)return format('ADMIN','이전 채팅 기록을 확인하지 못했습니다.');
+   const known=new Map(rows(r).map(x=>[x.log,x]));
+   selected=selected.map(x=>known.get(x.log)?.hidden?{...x,hidden:true}:x);
    if(selected.length<n)return format('ADMIN','확인된 이전 채팅이 '+selected.length+'개뿐입니다. 개수를 줄여 주세요.');
    let ok=0,already=0;
    for(const item of selected){if(!permitted(r)||!canManage(e))break;if(item.hidden){already++;continue;}if(await apply(r,item))ok++;}
