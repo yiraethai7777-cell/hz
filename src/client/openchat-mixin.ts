@@ -33,6 +33,7 @@ export interface OpenChatMixin {
     target: any,
     opts?: OpenChatKickOptions
   ): Promise<any>;
+  openChatHide(chatId: number | string, target: any): Promise<any>;
   openChatBlind(
     chatId: number | string,
     target: any,
@@ -175,6 +176,38 @@ async function openChatUnkick(this: KakaoForgeClient, chatId: number | string, u
   throw new Error('해제 후에도 내보내기 목록에 남아 있습니다.');
 }
 
+// Message moderation is REWRITE, distinct from user blocking (BLIND).
+// See storycraft/node-kakao TalkOpenChannelSession.hideChat.
+async function openChatHide(this: KakaoForgeClient, chatId: number | string, target: any) {
+  if (!this._carriage) throw new Error('LOCO not connected');
+  const room = this._resolveChatId(chatId);
+  const targetRoom = normalizeIdValue(target?.room?.id);
+  const logId = normalizeLogTarget(target);
+  const type = Number(target?.message?.type ?? target?.type);
+  const valid = (value: any) => /^[1-9]\d*$/.test(String(value ?? ''));
+  if (!valid(room) || String(targetRoom) !== String(room) ||
+      target?.room?.isOpenChat !== true || !valid(logId) ||
+      !Number.isSafeInteger(type) || type <= 0) {
+    throw new Error('open chat hide requires exact open-chat message');
+  }
+  let roomInfo = this._chatRooms.get(String(room));
+  if (!roomInfo?.openLinkId) {
+    await this._ensureOpenChatInfo(room);
+    roomInfo = this._chatRooms.get(String(room));
+  }
+  const link = normalizeIdValue(roomInfo?.openLinkId ?? target.room.openLinkId);
+  const targetLink = normalizeIdValue(target.room.openLinkId);
+  if (!valid(link) || (targetLink && String(targetLink) !== String(link))) {
+    throw new Error('open chat hide requires matching openLinkId');
+  }
+  const result = await this._carriage.hideChat({ linkId: link, chatId: room, logId, type });
+  console.info('[KAKAO REWRITE RESULT]', JSON.stringify({
+    status: result?.status == null ? null : Number(result.status),
+    bodyStatus: result?.body?.status == null ? null : Number(result.body.status),
+  }));
+  return result;
+}
+
 async function openChatBlind(
   this: KakaoForgeClient,
   chatId: number | string,
@@ -296,5 +329,6 @@ export function applyOpenChatMixin(ClientClass: typeof KakaoForgeClient) {
   ClientClass.prototype.sendReaction = sendReaction;
   ClientClass.prototype.openChatKick = openChatKick;
   ClientClass.prototype.openChatUnkick = openChatUnkick;
+  ClientClass.prototype.openChatHide = openChatHide;
   ClientClass.prototype.openChatBlind = openChatBlind;
 }
