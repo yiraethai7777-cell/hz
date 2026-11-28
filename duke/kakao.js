@@ -21,6 +21,7 @@ const {createQuiz}=require('./game/quiz');
 const {createTyping}=require('./game/typing');
 const {createAttendance}=require('./utility/attendance');
 const {createGameCooldowns}=require('./game/cooldowns');
+const {registerValorant}=require('./valorant/register');
 const {createBotPower}=require('./manage/bot-power');
 const {createRoomModes}=require('./manage/room-modes');
 const {registerVoiceRoom}=require('./manage/voice-room');
@@ -72,6 +73,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  power.register(core);
  modes.register(core);
  gameCooldowns.register(core);
+ registerValorant(core);
  deletion.register(core);
  watcher.register(core);
  membership.register(core);
