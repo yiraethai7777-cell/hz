@@ -3,27 +3,36 @@ const fs=require('node:fs'),path=require('node:path'),{format}=require('../core'
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 const MAX=50,ROOM_CAP=100;
 const hasLink=text=>typeof text==='string'&&/(?:https?:\/\/[^\s<>]+|\bwww\.[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/[^\s<>]*)?|(?:^|[\s(])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|kr|io|gg|co|me|app|dev|xyz|info|biz|tv|th|site|link)(?=$|[\s/:?#),.!]))/iu.test(text);
-function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',otherBotIds=[],listAdmins=()=>[],getRole,hide,loadHistory,audit,logger=console,now=Date.now}={}){
+function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',otherBotIds=[],listAdmins=()=>[],getRole,hide,loadHistory,fetchMessage,audit,logger=console,now=Date.now}={}){
  const file=dir?path.join(dir,'link-filter-settings.json'):null,enabled=new Set(),recent=new Map(),pending=new Set();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));if(!Array.isArray(data))throw Error('invalid link filter settings');for(const r of data)if(id(r))enabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
+ const journal=dir?path.join(dir,'hide-index'):null;
+ if(journal)fs.mkdirSync(journal,{recursive:true,mode:0o700});
+ function persist(r,list){
+  if(!journal)return;
+  try{const file=path.join(journal,r+'.json'),tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(list.map(({log,user,at,hidden})=>({log,user,at,hidden}))),{mode:0o600});fs.renameSync(tmp,file);onPersist('hide-index/'+r+'.json');}
+  catch(err){logger.warn?.('[DUKE HIDE INDEX]',err?.code||err?.name||'Error');}
+ }
  const excluded=()=>new Set([botId(),...otherBotIds].map(id).filter(Boolean));
  const permitted=r=>!!r&&isEnabled(r)&&(!allowedRooms||allowedRooms.has(r));
  function set(r,on){const next=new Set(enabled);if(on)next.add(r);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify([...next]),{mode:0o600});fs.renameSync(tmp,file);onPersist('link-filter-settings.json');}enabled.clear();for(const room of next)enabled.add(room);}
- function rows(r){const list=recent.get(r)||[];recent.delete(r);recent.set(r,list);while(recent.size>ROOM_CAP)recent.delete(recent.keys().next().value);return list;}
+ function rows(r){let list=recent.get(r);if(!list){list=[];if(journal)try{const data=JSON.parse(fs.readFileSync(path.join(journal,r+'.json'),'utf8'));if(Array.isArray(data))list=data.filter(x=>id(x?.log)&&id(x?.user)).slice(-MAX-5).map(x=>({log:id(x.log),user:id(x.user),at:Number(x.at)||0,hidden:x.hidden===true,msg:{room:{id:r,isOpenChat:true}},restored:true}));}catch(err){if(err.code!=='ENOENT')logger.warn?.('[DUKE HIDE INDEX]',err?.code||err?.name||'Error');}}
+  recent.delete(r);recent.set(r,list);while(recent.size>ROOM_CAP)recent.delete(recent.keys().next().value);return list;}
  function remember(r,msg,e){
   const log=id(msg?.message?.logId??msg?.logId),user=id(e.userId),type=Number(msg?.message?.type??msg?.type);
   if(!log||!user||id(msg?.sender?.id)!==user||type===0||!Number.isInteger(type))return null;
   const list=rows(r),found=list.find(x=>x.log===log);
-  if(found){found.msg=msg;return {item:found,fresh:false};}
+  if(found){found.msg=msg;found.restored=false;return {item:found,fresh:false};}
   const item={log,user,msg,at:now(),hidden:false};list.push(item);
   list.sort((a,b)=>BigInt(a.log)<BigInt(b.log)?-1:BigInt(a.log)>BigInt(b.log)?1:0);
   if(list.length>MAX+5)list.splice(0,list.length-MAX-5);
+  persist(r,list);
   return {item,fresh:true};
  }
  async function apply(r,item){
   const key=r+':'+item.log;if(item.hidden||pending.has(key))return false;
   pending.add(key);
-  try{const res=await hide(r,item.msg);if(res?.status!==0||res?.success===false||res?.ok===false)return false;item.hidden=true;return true;}
+  try{let msg=item.msg;if(item.restored){if(typeof fetchMessage!=='function')return false;msg=await fetchMessage(r,item.log);if(id(msg?.room?.id)!==r||id(msg?.message?.logId??msg?.logId)!==item.log||id(msg?.sender?.id)!==item.user||msg?.room?.isOpenChat!==true)return false;}const res=await hide(r,msg);if(res?.status!==0||res?.success===false||res?.ok===false)return false;item.hidden=true;const stored=rows(r).find(x=>x.log===item.log);if(stored){stored.hidden=true;persist(r,rows(r));}return true;}
   catch(err){logger.warn?.('[DUKE HIDE]',err?.name||'Error');return false;}finally{pending.delete(key);}
  }
  function record(r,e,command,result,target){audit?.record({roomId:r,actorId:id(e.userId),actorName:e.msg?.sender?.name,targetId:target?.user,targetName:target?.msg?.sender?.name||'현재 채팅방',command,result});}
@@ -54,7 +63,7 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
    // only when the bot has not seen enough messages (e.g. after reconnect).
    if(live.length<n&&loadHistory){
     try{selected=await loadHistory(r,anchor,n,{excludedUsers:[...bots]});}
-    catch(err){logger.warn?.('[DUKE HIDE HISTORY]',err?.name||'Error');return format('ADMIN','확인된 이전 채팅이 '+live.length+'개뿐입니다. 채팅 기록을 불러오지 못했습니다.');}
+    catch(err){logger.warn?.('[DUKE HIDE HISTORY]',err?.code||err?.name||'Error');return format('ADMIN','확인된 이전 채팅이 '+live.length+'개뿐입니다. 채팅 기록을 불러오지 못했습니다.');}
    }
    if(!Array.isArray(selected)||selected.length>n||selected.some(x=>!id(x.user)||bots.has(id(x.user))||!id(x.log)||BigInt(x.log)>=BigInt(anchor)||id(x.msg?.room?.id)!==r)||new Set(selected.map(x=>x.log)).size!==selected.length)return format('ADMIN','이전 채팅 기록을 확인하지 못했습니다.');
    const known=new Map(rows(r).map(x=>[x.log,x]));
