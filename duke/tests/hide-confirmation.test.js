@@ -44,3 +44,21 @@ test('raw hide completion can be verified before enriched event, including exact
  }});
  assert.deepEqual(await c.hide('1',target),{status:0,verified:true});
 });
+
+test('slow request does not consume the post-ack confirmation window',async()=>{
+ const c=createHideConfirmation({timeoutMs:20,request:async()=>{
+  await new Promise(resolve=>setTimeout(resolve,40));
+  setImmediate(()=>c.observe(event()));
+  return {status:0};
+ }});
+ assert.deepEqual(await c.hide('1',msg),{status:0,verified:true});
+});
+test('manual hide push logs shape only, not message or identifiers',()=>{
+ const entries=[];
+ const c=createHideConfirmation({request:async()=>({status:0}),logger:{info:(...args)=>entries.push(args)}});
+ assert.equal(c.observePush({method:'SYNCREWR',body:{chatId:'123456789',chatLog:{message:'{"hidden":true,"logId":987654321,"text":"private text"}'}}}),false);
+ assert.equal(entries.length,1);
+ assert.equal(entries[0][0],'[DUKE HIDE PUSH]');
+ assert.deepEqual(JSON.parse(entries[0][1]),{method:'SYNCREWR',explicit:true,hasTarget:true,hasRecords:false,matched:false});
+ assert.doesNotMatch(JSON.stringify(entries),/123456789|987654321|private text/);
+});
