@@ -10,13 +10,13 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
  if(journal)fs.mkdirSync(journal,{recursive:true,mode:0o700});
  function persist(r,list){
   if(!journal)return;
-  try{const file=path.join(journal,r+'.json'),tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(list.map(({log,user,at,hidden})=>({log,user,at,hidden}))),{mode:0o600});fs.renameSync(tmp,file);onPersist('hide-index/'+r+'.json');}
+  try{const file=path.join(journal,r+'.json'),tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify(list.map(({log,user,at,hidden,verifiedHidden})=>({log,user,at,hidden,verifiedHidden}))),{mode:0o600});fs.renameSync(tmp,file);onPersist('hide-index/'+r+'.json');}
   catch(err){logger.warn?.('[DUKE HIDE INDEX]',err?.code||err?.name||'Error');}
  }
  const excluded=()=>new Set([botId(),...otherBotIds].map(id).filter(Boolean));
  const permitted=r=>!!r&&isEnabled(r)&&(!allowedRooms||allowedRooms.has(r));
  function set(r,on){const next=new Set(enabled);if(on)next.add(r);else next.delete(r);if(file){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify([...next]),{mode:0o600});fs.renameSync(tmp,file);onPersist('link-filter-settings.json');}enabled.clear();for(const room of next)enabled.add(room);}
- function rows(r){let list=recent.get(r);if(!list){list=[];if(journal)try{const data=JSON.parse(fs.readFileSync(path.join(journal,r+'.json'),'utf8'));if(Array.isArray(data))list=data.filter(x=>id(x?.log)&&id(x?.user)).slice(-MAX-5).map(x=>({log:id(x.log),user:id(x.user),at:Number(x.at)||0,hidden:x.hidden===true,msg:{room:{id:r,isOpenChat:true}},restored:true}));}catch(err){if(err.code!=='ENOENT')logger.warn?.('[DUKE HIDE INDEX]',err?.code||err?.name||'Error');}}
+ function rows(r){let list=recent.get(r);if(!list){list=[];if(journal)try{const data=JSON.parse(fs.readFileSync(path.join(journal,r+'.json'),'utf8'));if(Array.isArray(data))list=data.filter(x=>id(x?.log)&&id(x?.user)).slice(-MAX-5).map(x=>({log:id(x.log),user:id(x.user),at:Number(x.at)||0,hidden:x.hidden===true&&x.verifiedHidden===true,verifiedHidden:x.verifiedHidden===true,msg:{room:{id:r,isOpenChat:true}},restored:true}));}catch(err){if(err.code!=='ENOENT')logger.warn?.('[DUKE HIDE INDEX]',err?.code||err?.name||'Error');}}
   recent.delete(r);recent.set(r,list);while(recent.size>ROOM_CAP)recent.delete(recent.keys().next().value);return list;}
  function remember(r,msg,e){
   const log=id(msg?.message?.logId??msg?.logId),user=id(e.userId),type=Number(msg?.message?.type??msg?.type);
@@ -32,7 +32,7 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
  async function apply(r,item){
   const key=r+':'+item.log;if(item.hidden||pending.has(key))return false;
   pending.add(key);
-  try{let msg=item.msg;if(item.restored){if(typeof fetchMessage!=='function')return false;msg=await fetchMessage(r,item.log);if(id(msg?.room?.id)!==r||id(msg?.message?.logId??msg?.logId)!==item.log||id(msg?.sender?.id)!==item.user||msg?.room?.isOpenChat!==true)return false;}const res=await hide(r,msg);if(res?.status!==0||res?.success===false||res?.ok===false)return false;item.hidden=true;const stored=rows(r).find(x=>x.log===item.log);if(stored){stored.hidden=true;persist(r,rows(r));}return true;}
+  try{let msg=item.msg;if(item.restored){if(typeof fetchMessage!=='function')return false;msg=await fetchMessage(r,item.log);if(id(msg?.room?.id)!==r||id(msg?.message?.logId??msg?.logId)!==item.log||id(msg?.sender?.id)!==item.user||msg?.room?.isOpenChat!==true)return false;}const res=await hide(r,msg);if(res?.status!==0||res?.verified===false||res?.body?.status!=null&&Number(res.body.status)!==0||res?.success===false||res?.ok===false)return false;item.hidden=true;item.verifiedHidden=res.verified===true;const stored=rows(r).find(x=>x.log===item.log);if(stored){stored.hidden=true;stored.verifiedHidden=item.verifiedHidden;persist(r,rows(r));}return true;}
   catch(err){logger.warn?.('[DUKE HIDE]',err?.name||'Error');return false;}finally{pending.delete(key);}
  }
  function record(r,e,command,result,target){audit?.record({roomId:r,actorId:id(e.userId),actorName:e.msg?.sender?.name,targetId:target?.user,targetName:target?.msg?.sender?.name||'현재 채팅방',command,result});}
