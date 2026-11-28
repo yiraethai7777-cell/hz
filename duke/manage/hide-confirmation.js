@@ -4,9 +4,9 @@ const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(S
 function createHideConfirmation({request,readback,timeoutMs=8000,logger=console}){
  const pending=new Map();
  let manualAt=0,manualBusy=false,generation=0;
- async function checkReadback(room,log,author,source){
+ async function checkReadback(room,log,author,source,originalType){
   if(typeof readback!=='function')return {state:'unavailable'};
-  try{const result=await readback(room,log,author);logger.info?.('[DUKE HIDE READBACK]',JSON.stringify({source,...result}));return result;}
+  try{const result=await readback(room,log,author,originalType);logger.info?.('[DUKE HIDE READBACK]',JSON.stringify({source,...result}));return result;}
   catch(error){logger.warn?.('[DUKE HIDE READBACK]',JSON.stringify({source,state:'unavailable',error:String(error?.name||'Error')}));return {state:'unavailable'};}
  }
  function observe(event){
@@ -65,10 +65,16 @@ function createHideConfirmation({request,readback,timeoutMs=8000,logger=console}
    const result=await request(r,msg);
    if(result?.status!==0||result?.body?.status!=null&&Number(result.body.status)!==0||result?.success===false||result?.ok===false){finish(false);logger.warn?.('[DUKE HIDE RESULT]',JSON.stringify({ack:false,status:Number.isFinite(Number(result?.status))?Number(result.status):null,bodyStatus:result?.body?.status!=null&&Number.isFinite(Number(result.body.status))?Number(result.body.status):null}));return {status:-1,verified:false};}
    // Keep the listener active during the request; allow a full confirmation window after ACK.
+   // Try the confirmed server state immediately instead of waiting eight seconds for every message.
+   const originalType=Number(msg?.message?.type??msg?.type);
+   if(!finished&&generation===startedGeneration&&typeof readback==='function'){
+    const state=await checkReadback(r,l,id(msg?.sender?.id??msg?.senderId),'automatic',originalType);
+    if(generation===startedGeneration&&state?.state==='hidden')finish(true);
+   }
    if(!finished)timer=setTimeout(()=>finish(false),timeoutMs);
    let verified=await confirmation;
    if(!verified&&generation===startedGeneration&&typeof readback==='function'){
-    const state=await checkReadback(r,l,id(msg?.sender?.id??msg?.senderId),'automatic');
+    const state=await checkReadback(r,l,id(msg?.sender?.id??msg?.senderId),'automatic',originalType);
     verified=generation===startedGeneration&&state?.state==='hidden';
    }
    logger.info?.('[DUKE HIDE RESULT]',JSON.stringify({ack:true,verified}));
