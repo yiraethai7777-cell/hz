@@ -41,20 +41,12 @@ function registerVoiceRoom(core, {
     }
   });
 
-  register('보룸종료', '현재 방의 보이스룸 종료', async ({ roomId }, adapter) => {
-    const state = await adapter.status({ roomId });
-    if (!state.stopAvailable) return '보이스룸 종료 요청 규격이 검증되지 않았습니다. 카카오톡 앱에서 종료해 주세요.';
-    if (!state.localCallId) return '이 방에서 종료할 듀크 봇의 보이스룸을 확인할 수 없습니다.';
-    const watch = watchEnd(roomId, state.localCallId);
-    try {
-      const result = await adapter.stop({ roomId, voiceRoomId: state.localCallId });
-      if (!result?.requestAccepted) return '서버의 보이스룸 종료 요청 승인을 확인하지 못했습니다.';
-      return await watch?.wait()
-        ? '보이스룸이 종료되었습니다.'
-        : '서버가 종료 요청을 승인했습니다. 보이스룸 종료 여부는 확인되지 않았습니다.';
-    } finally {
-      watch?.close();
-    }
+  register('보룸종료', '현재 방의 듀크 봇 VOX 연결 해제', async ({ roomId }, adapter) => {
+    if (typeof adapter.disconnect !== 'function') return 'VOX 연결 해제 기능을 사용할 수 없습니다.';
+    const result = await adapter.disconnect({ roomId });
+    if (result?.localReleased === true) return '듀크 봇의 VOX 연결을 해제했습니다.\n※ 실제 보이스룸 종료 여부는 확인되지 않았습니다.';
+    if (result?.noLocalSession === true) return '현재 방에 해제할 듀크 봇의 VOX 연결이 없습니다.';
+    return 'VOX 연결 해제를 확인하지 못했습니다.';
   });
 
   register('보룸참가', '현재 방의 보이스룸에 봇 참가', async ({ roomId }, adapter) => {
