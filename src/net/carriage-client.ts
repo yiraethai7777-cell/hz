@@ -536,6 +536,16 @@ socket.on('close', (hadError) => {
   /**
    * Blind a member from an open chat (BLIND).
    */
+  async hideChat({ linkId, chatId, logId, type }: {
+    linkId: number | string; chatId: number | string; logId: number | string; type: number;
+  }) {
+    // REWRITE hides a message; BLIND blocks/reports a member.
+    return await this.request('REWRITE', {
+      li: toLongValue(linkId), c: toLongValue(chatId),
+      logId: toLongValue(logId), t: type,
+    });
+  }
+
   async blind({
     linkId,
     chatId,
