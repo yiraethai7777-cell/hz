@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{format}=require('../core');
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
+const {directMessageReference}=require('./targets');
 const MAX=50,ROOM_CAP=100;
 const hasLink=text=>typeof text==='string'&&/(?:https?:\/\/[^\s<>]+|\bwww\.[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/[^\s<>]*)?|(?:^|[\s(])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|kr|io|gg|co|me|app|dev|xyz|info|biz|tv|th|site|link)(?=$|[\s/:?#),.!]))/iu.test(text);
 function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',otherBotIds=[],listAdmins=()=>[],getRole,hide,loadHistory,fetchMessage,audit,logger=console,now=Date.now}={}){
@@ -50,11 +51,32 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
   if(await apply(r,item)){record(r,{userId:bot,msg:{sender:{name:'듀크봇'}}},'-홍금','링크 가리기',item);return true;}
   return false;
  }
+ async function hideReply(r,e,anchor){
+  const ref=directMessageReference(e.msg),log=id(ref?.logId),author=id(ref?.userId);
+  if(!log||!anchor||BigInt(log)>=BigInt(anchor))return format('ADMIN','원본 메시지를 확인할 수 없습니다. 가릴 메시지에 답장해 주세요.');
+  const known=rows(r).find(x=>x.log===log);
+  if(known&&author&&known.user!==author)return format('ADMIN','원본 메시지를 확인할 수 없습니다.');
+  let item=known;
+  if(!item||item.restored){
+   if(typeof fetchMessage!=='function')return format('ADMIN','원본 메시지를 불러오지 못했습니다.');
+   let msg;try{msg=await fetchMessage(r,log);}catch{return format('ADMIN','원본 메시지를 불러오지 못했습니다.');}
+   const user=id(msg?.sender?.id??msg?.senderId),type=Number(msg?.message?.type??msg?.type);
+   if(id(msg?.room?.id)!==r||msg?.room?.isOpenChat!==true||id(msg?.message?.logId??msg?.logId)!==log||!user||(author&&user!==author)||(known&&user!==known.user)||!Number.isInteger(type)||type<=0)return format('ADMIN','원본 메시지를 확인할 수 없습니다.');
+   item={log,user,msg,hidden:known?.hidden===true};
+  }
+  if(!permitted(r)||!canManage(e))return format('ADMIN','관리 권한이 없습니다.');
+  if(item.hidden)return format('ADMIN','이미 가려진 메시지입니다.');
+  const ok=await apply(r,item);
+  const result=ok?'원본 메시지를 가렸습니다.':'원본 메시지 가리기를 확인하지 못했습니다.';
+  record(r,e,'-가리기 (답장)',result,item);
+  return format('ADMIN',result);
+ }
  function register(core){
-  core.register({name:'가리기',section:'MANAGEMENT',description:'봇 메시지 제외 · 이전 채팅 가리기 (개수)',execute:async e=>{
+  core.register({name:'가리기',section:'MANAGEMENT',description:'이전 채팅 가리기 (개수, 봇 제외) / 원본 메시지 가리기 (답장)',execute:async e=>{
    const r=id(e.roomId),anchor=id(e.msg?.message?.logId??e.msg?.logId);
    if(!permitted(r)||!canManage(e))return format('ADMIN','관리 권한이 없습니다.');
-   if(e.args.length!==1||!/^[1-9]\d*$/.test(e.args[0])||Number(e.args[0])>MAX)return format('ADMIN','사용법 : -가리기 (1~'+MAX+'개)');
+   if(!e.args.length&&directMessageReference(e.msg))return hideReply(r,e,anchor);
+   if(e.args.length!==1||!/^[1-9]\d*$/.test(e.args[0])||Number(e.args[0])>MAX)return format('ADMIN','사용법 : -가리기 (1~'+MAX+'개) / 원본 메시지에 답장으로 -가리기');
    if(!anchor)return format('ADMIN','명령어 위치를 확인할 수 없습니다.');
    const n=Number(e.args[0]),bots=excluded();
    const live=rows(r).filter(x=>!bots.has(x.user)&&BigInt(x.log)<BigInt(anchor)).slice(-n).reverse();
