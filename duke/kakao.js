@@ -50,7 +50,12 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  function recordBotSend(roomId,result){try{const room=client._buildRoomPayload(roomId);activity.sent(room,result,client.getUserProfileSnapshot(roomId,client.userId)?.name||'듀크봇');}catch(err){console.error('[DUKE] bot chat count failed',err?.name||'Error');}}
  process.once('exit',()=>activity.close());
  const moderation=createReplyModeration({dir:dataDir,audit,onPersist,isEnabled:r=>modes.manage(r),onAction:activity.moderation,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
- const hideConfirmation=createHideConfirmation({request:(r,msg)=>client.openChatBlind(r,msg,{report:false})});
+ const {inspectHideReadback}=require('./manage/hide-readback');
+ const hideConfirmation=createHideConfirmation({request:(r,msg)=>client.openChatBlind(r,msg,{report:false}),readback:async(r,l,u)=>{
+  if(!ready||!manageEnabled(r)||(rooms&&!rooms.has(r))||!client._carriage)return {state:'unavailable'};
+  const response=await client._carriage.getMsgs([r],[l]);
+  return inspectHideReadback(response,r,l,u);
+ }});
  client.onHide(event=>hideConfirmation.observe(event));
  const chatHide=createChatHide({dir:dataDir,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,canManage:moderation.canManage,botId:()=>id(client.userId),listAdmins:moderation.listAdmins,otherBotIds:String(process.env.DUKE_HIDE_BOT_IDS||'').split(/[,;\s]+/u),audit,hide:hideConfirmation.hide,loadHistory:(r,anchor,n,options)=>previousChats(client,r,anchor,n,options),fetchMessage:(r,l)=>client.fetchMessage(r,l),getRole:async(r,u)=>{
   const res=await client._carriage?.member(r,[u]);if(res?.status!==0||res.body?.status!=null&&Number(res.body.status)!==0)return null;
