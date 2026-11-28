@@ -73,7 +73,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  power.register(core);
  modes.register(core);
  gameCooldowns.register(core);
- registerValorant(core);
+ registerValorant(core,{dir:dataDir,onPersist});
  deletion.register(core);
  watcher.register(core);
  membership.register(core);
