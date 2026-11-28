@@ -7,7 +7,7 @@ function registerVoiceRoom(core, {
 }) {
   const pending = new Set();
   const register = (name, description, execute) => core.register({
-    name, description, section: 'MANAGEMENT',
+    name, description, section: 'MANAGEMENT', developing: true,
     async execute(event) {
       const reply = body => event.format('VOICE', body);
       if (!canManage(event)) return reply('관리 권한이 없습니다.');
