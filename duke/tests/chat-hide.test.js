@@ -49,3 +49,26 @@ test('link setting survives recreation and stays room scoped',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-hide-'));
  try{const a=fixture(dir);await a.cmd('1','20','101','-홍금 on');assert(a.persist.includes('link-filter-settings.json'));assert(a.persist.includes('hide-index/1.json'));const b=fixture(dir);await b.observe('1','40','102','https://example.com');await b.observe('2','40','103','https://example.com');assert.deepEqual(b.hidden,[['1','102']]);}finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('reply hide uses exact original quoted message, not newer messages or thread root',async()=>{
+ const sent=[],hidden=[],lookups=[],core=createCore({send:async(r,t)=>sent.push(t)});
+ const original={room:{id:'1',isOpenChat:true},sender:{id:'4000',type:2},message:{logId:'9007199254740993010',type:26},attachmentsRaw:[{src_logId:'9007199254740993000',src_userId:'5000'}]};
+ const mod=createChatHide({canManage:e=>e.userId==='1000',botId:()=> '1000',fetchMessage:async(r,l)=>{lookups.push([r,l]);return original;},hide:async(r,m)=>{hidden.push([r,m.message.logId]);return {status:0,verified:true};}});
+ mod.register(core);
+ const event={roomId:'1',userId:'1000',text:'-가리기',msg:{room:{id:'1',isOpenChat:true},sender:{id:'1000',type:1},message:{logId:'9007199254740993020',type:26},raw:{chatLog:{threadId:'9007199254740993000',attachment:'{"src_logId":9007199254740993010,"src_userId":4000}'}}}};
+ await core.handle({...event,userId:'4000'});
+ assert.match(sent.at(-1),/권한이 없습니다/);
+ await core.handle(event);
+ assert.match(sent.at(-1),/원본 메시지를 가렸습니다/);
+ assert.deepEqual(lookups,[['1','9007199254740993010']]);
+ assert.deepEqual(hidden,[['1','9007199254740993010']]);
+});
+test('reply hide rejects mismatched room or log and never hides command itself',async()=>{
+ const sent=[],hidden=[],core=createCore({send:async(r,t)=>sent.push(t)});
+ const mod=createChatHide({canManage:()=>true,fetchMessage:async()=>({room:{id:'2',isOpenChat:true},sender:{id:'4000'},message:{logId:'2000',type:1}}),hide:async(r,m)=>{hidden.push(m);return {status:0,verified:true};}});
+ mod.register(core);
+ const run=async log=>core.handle({roomId:'1',userId:'1000',text:'-가리기',msg:{room:{id:'1',isOpenChat:true},sender:{id:'1000'},message:{logId:'3000',type:26},attachmentsRaw:[{src_logId:log,src_userId:'4000'}]}});
+ await run('2000');assert.match(sent.at(-1),/원본 메시지를 확인할 수 없습니다/);
+ await run('3000');assert.match(sent.at(-1),/원본 메시지를 확인할 수 없습니다/);
+ assert.equal(hidden.length,0);
+});
