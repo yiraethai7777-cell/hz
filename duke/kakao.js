@@ -4,6 +4,7 @@ const {performance}=require('node:perf_hooks');
 const {createCounter}=require('./metrics');
 const {createMembership}=require('./manage/membership');
 const {createReplyModeration}=require('./manage/reply-moderation');
+const {registerBulkKick}=require('./manage/bulk-kick');
 const {createManagementLog}=require('./manage/audit-log');
 const {createWarnings}=require('./manage/warnings');
 const {createProfilePhoto}=require('./utility/profile-photo');
@@ -75,6 +76,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  watcher.register(core);
  membership.register(core);
  moderation.register(core);
+ registerBulkKick(core,{client,listAdmins:moderation.listAdmins,audit,kick:(r,u)=>client.openChatKick(r,u)});
  voiceEvents.install(client,{isManaged:()=>false,isBotEnabled:()=>false,send:()=>{}});
  voiceInvites.install(client);
  registerVoiceRoom(core,{
