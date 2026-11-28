@@ -47,5 +47,5 @@ test('room link filter is opt-in, ignores owners cohosts bot and designated admi
 test('link setting survives recreation and stays room scoped',async()=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-hide-'));
- try{const a=fixture(dir);await a.cmd('1','20','101','-홍금 on');assert.deepEqual(a.persist,['link-filter-settings.json']);const b=fixture(dir);await b.observe('1','40','102','https://example.com');await b.observe('2','40','103','https://example.com');assert.deepEqual(b.hidden,[['1','102']]);}finally{fs.rmSync(dir,{recursive:true,force:true});}
+ try{const a=fixture(dir);await a.cmd('1','20','101','-홍금 on');assert(a.persist.includes('link-filter-settings.json'));assert(a.persist.includes('hide-index/1.json'));const b=fixture(dir);await b.observe('1','40','102','https://example.com');await b.observe('2','40','103','https://example.com');assert.deepEqual(b.hidden,[['1','102']]);}finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
