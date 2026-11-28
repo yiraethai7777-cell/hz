@@ -3,12 +3,13 @@
 // An exact command anchor is required before any messages are eligible for moderation.
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
 const compare=(a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0;
-async function previousChats(client,roomId,anchorId,count){
+async function previousChats(client,roomId,anchorId,count,{excludedUsers=[]}={}){
  const room=id(roomId),anchor=id(anchorId);
  if(!room||!anchor||!Number.isInteger(count)||count<1||count>50)throw Error('invalid history request');
  if(!client?._carriage?.syncMsg)throw Error('history unavailable');
  let cur='0';
  const max=BigInt(anchor)<9223372036854775807n?(BigInt(anchor)+1n).toString():anchor;
+ const excluded=new Set([client.userId,...excludedUsers].map(id).filter(Boolean));
  const selected=new Map();
  for(let page=0;page<30;page++){
   const res=await client._carriage.syncMsg({chatId:room,cur,max,cnt:100});
@@ -24,7 +25,7 @@ async function previousChats(client,roomId,anchorId,count){
    if(compare(logId,last)>0)last=logId;
    if(logId===anchor){found=true;continue;}
    const type=Number(log?.type??log?.msgType);
-   if(compare(logId,anchor)>=0||!user||!Number.isInteger(type)||type<=0)continue;
+   if(compare(logId,anchor)>=0||!user||excluded.has(user)||!Number.isInteger(type)||type<=0)continue;
    selected.set(logId,{log:logId,user,msg:{room:{id:room,isOpenChat:true},sender:{id:user,name:String(log.authorName??log.authorNickname??log.nickname??'')},message:{logId,type},raw:{chatId:room,chatLog:log}},hidden:false});
   }
   const rows=[...selected.values()].sort((a,b)=>compare(a.log,b.log)).slice(-count);
