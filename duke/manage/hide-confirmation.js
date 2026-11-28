@@ -28,9 +28,11 @@ function createHideConfirmation({request,timeoutMs=8000,logger=console}){
   if(explicit===false)return false;
   const ids=[info?.logId,...records.map(x=>x?.logId??x?.l),body.targetLogId,body.logId,raw.targetLogId].map(id).filter(Boolean);
   const matched=[...new Set(ids)].filter(log=>pending.has(room+':'+log));
-  if(!matched.length)return false;
   if(explicit!==true&&!['BLINDMSG','HIDEMSG','HIDE'].includes(method))return false;
   if(packet.status!=null&&Number(packet.status)!==0||body.status!=null&&Number(body.status)!==0)return false;
+  // Observe genuine manual-hide notifications too, without logging IDs or text.
+  logger.info?.('[DUKE HIDE PUSH]',JSON.stringify({method,explicit:explicit===true,hasTarget:ids.length>0,hasRecords:records.length>0,matched:matched.length>0}));
+  if(!matched.length)return false;
   for(const log of matched)pending.get(room+':'+log)?.finish(true);
   return true;
  }
@@ -39,10 +41,12 @@ function createHideConfirmation({request,timeoutMs=8000,logger=console}){
   if(!r||!l||id(msg?.room?.id)!==r||pending.has(r+':'+l))return {status:-1,verified:false};
   const key=r+':'+l;
   let timer,finish,finished=false;
-  const confirmation=new Promise(resolve=>{finish=value=>{if(finished)return;finished=true;clearTimeout(timer);pending.delete(key);resolve(value);};pending.set(key,{finish});timer=setTimeout(()=>finish(false),timeoutMs);});
+  const confirmation=new Promise(resolve=>{finish=value=>{if(finished)return;finished=true;clearTimeout(timer);pending.delete(key);resolve(value);};pending.set(key,{finish});});
   try{
    const result=await request(r,msg);
    if(result?.status!==0||result?.body?.status!=null&&Number(result.body.status)!==0||result?.success===false||result?.ok===false){finish(false);logger.warn?.('[DUKE HIDE RESULT]',JSON.stringify({ack:false,status:Number.isFinite(Number(result?.status))?Number(result.status):null,bodyStatus:result?.body?.status!=null&&Number.isFinite(Number(result.body.status))?Number(result.body.status):null}));return {status:-1,verified:false};}
+   // Keep the listener active during the request; allow a full confirmation window after ACK.
+   if(!finished)timer=setTimeout(()=>finish(false),timeoutMs);
    const verified=await confirmation;
    logger.info?.('[DUKE HIDE RESULT]',JSON.stringify({ack:true,verified}));
    return {status:0,verified};
