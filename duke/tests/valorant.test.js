@@ -30,3 +30,22 @@ test('Valorant cooldown is per user across rooms, and allows another user',async
  assert.match(messages.at(-1),/𝗗𝗨𝗞𝗘/);
  assert.equal(requests.length,4);
 });
+
+test('saved Riot IDs are durable, numbered, duplicate-safe, and private to the requesting user',async()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-valorant-')),keys=[],messages=[];
+ const setup=()=>{const core=createCore({send:async(r,t)=>messages.push(t)});registerValorant(core,{dir,onPersist:k=>keys.push(k),env:{}});return core;};
+ try{
+  let core=setup();const call=(userId,text,roomId='1')=>core.handle({userId,text,roomId});
+  await call('301','-발로저장 Player#KR1');assert.match(messages.at(-1),/계정을 저장하였습니다/);
+  await call('301','-발로저장 player#kr1');assert.match(messages.at(-1),/이미 저장된/);
+  await call('301','-발로저장 Second#AP1 ap');assert.match(messages.at(-1),/2\/20개/);
+  await call('302','-발로저장');assert.match(messages.at(-1),/저장된 계정이 없습니다/);
+  assert.equal(keys.length,2);assert.equal(keys[0],'valorant-accounts/301.json');
+  core=setup();
+  await call('301','-발로저장','2');assert.match(messages.at(-1),/1\. Player#KR1[\s\S]*2\. Second#AP1/);
+  await call('302','-발로전적 1');assert.match(messages.at(-1),/저장된 계정 번호/);
+  await call('301','-발로전적 2');assert.match(messages.at(-1),/전적 조회 서비스를 사용할 수 없습니다/);
+  await call('301','-도움말');assert.match(messages.at(-1),/-발로저장 :/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
