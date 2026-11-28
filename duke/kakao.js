@@ -151,7 +151,8 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  createOpenProfileLink({onProfileObserved:profileHistory.observe,botId:()=>id(client.userId),noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile}).register(core);
  createUserId({botId:()=>id(client.userId),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||'',noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l)}).register(core);
  createUserInfo({canManage:moderation.canManage,noticeTarget:moderation.noticeTarget,fetchMessage:(r,l)=>client.fetchMessage(r,l),lookup:lookupCurrentProfile,role:moderation.role,getHistory:warnings.getHistory,getActivity:activity.get}).register(core);
- for(const method of ['SYNCREWR','SYNCMODMSG'])client.onPush(method,packet=>{if(ready)void deletion.onRewrite(packet).catch(err=>console.error('[DUKE] rewrite event failed',err?.name||'Error'));});
+ for(const method of ['BLIND','BLINDMSG','HIDEMSG','HIDE'])client.onPush(method,packet=>{if(ready)hideConfirmation.observePush(packet);});
+ for(const method of ['SYNCREWR','SYNCMODMSG'])client.onPush(method,packet=>{if(ready){hideConfirmation.observePush(packet);void deletion.onRewrite(packet).catch(err=>console.error('[DUKE] rewrite event failed',err?.name||'Error'));}});
  client.onDelete(event=>{if(ready)void deletion.onDelete(event).catch(err=>console.error('[DUKE] delete event failed',err?.name||'Error'));});
  client.onJoin(event=>{if(ready&&power.enabled(id(event?.room?.id??event?.chatId))){activity.member('join',event);void membership.handle('join',event);}});
  client.onLeave(event=>{if(ready&&power.enabled(id(event?.room?.id??event?.chatId))){activity.member('leave',event);void membership.handle('leave',event);}});
