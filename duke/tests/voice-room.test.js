@@ -50,19 +50,19 @@ test('start requires server confirmation and stop releases only local VOX', asyn
   await unconfirmed.run('-보룸시작 테스트 보이스룸');
   await unconfirmed.run('-보룸종료');
   assert.match(unconfirmed.replies[0], /개설 여부는 확인되지 않았습니다/);
-  assert.match(unconfirmed.replies[1], /보룸을 종료하였습니다\.$/);
+  assert.match(unconfirmed.replies[1], /보룸을 종료 중 입니다\.\.$/);
   const confirmed = setup(adapter, roomId => ({ wait: async callId => roomId === '1' && callId === '3', close() {} }));
   await confirmed.run('-보룸시작 테스트 보이스룸');
   await confirmed.run('-보룸종료');
-  assert.match(confirmed.replies[0], /개설되었습니다/);
-  assert.match(confirmed.replies[1], /해제할 듀크 봇의 VOX 연결이 없습니다/);
+  assert.match(confirmed.replies[0], /보룸을 시작하였습니다/);
+  assert.match(confirmed.replies[1], /현재 종료할 보룸이 없습니다/);
 });
 
 test('local disconnect reports unavailable or unverified without claiming room termination',async()=>{
   for(const adapter of [{},{disconnect:async()=>({localReleased:false})}]){
     const {replies,run}=setup(adapter);
     await run('-보룸종료');
-    assert.match(replies[0],/사용할 수 없습니다|확인하지 못했습니다/);
+    assert.match(replies[0],/종료할 수 없습니다|처리하지 못했습니다/);
   }
 });
 
@@ -73,5 +73,6 @@ test('unavailable operations return their status without sending requests', asyn
     assert.equal(await run('-' + command), true);
   }
   assert.equal(replies.length, 5);
-  for (const reply of replies) assert.match(reply, /검증/);
+  for (const reply of replies) assert.doesNotMatch(reply, /VOX|WebRTC|Keepalive|규격|검증|패킷/i);
+  for (const reply of replies) assert.match(reply, /개발 중/);
 });
