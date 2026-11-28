@@ -152,8 +152,8 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  client.onDelete(event=>{if(ready)void deletion.onDelete(event).catch(err=>console.error('[DUKE] delete event failed',err?.name||'Error'));});
  client.onJoin(event=>{if(ready&&power.enabled(id(event?.room?.id??event?.chatId))){activity.member('join',event);void membership.handle('join',event);}});
  client.onLeave(event=>{if(ready&&power.enabled(id(event?.room?.id??event?.chatId))){activity.member('leave',event);void membership.handle('leave',event);}});
- client.on('error',()=>{ready=false;watcher.reset();quiz.reset();typing.reset();console.error('[DUKE] connection error');});
- client.on('disconnect',()=>{ready=false;watcher.reset();quiz.reset();typing.reset();});
+ client.on('error',()=>{ready=false;chatHide.reset();watcher.reset();quiz.reset();typing.reset();console.error('[DUKE] connection error');});
+ client.on('disconnect',()=>{ready=false;chatHide.reset();watcher.reset();quiz.reset();typing.reset();});
  client.onReady(()=>{
   try{voiceAdapter??=createDukeVoiceAdapter(client);}
   catch{console.warn('[DUKE] VOX adapter unavailable');}
