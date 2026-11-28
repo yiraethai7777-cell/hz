@@ -60,3 +60,20 @@ test('live user chats take priority over failing history and skip bot messages',
  assert.equal(attempts,1);
  assert.match(sent.at(-1),/채팅 기록을 불러오지 못했습니다/);
 });
+
+test('manual hide restores bounded identifier-only index after restart and fetches exact target',async()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-hide-index-'));
+ const sent=[],hidden=[],persist=[];
+ const event=(n,user,text)=>({roomId:'1',userId:user,text,msg:{room:{id:'1',isOpenChat:true},sender:{id:user,type:2},message:{logId:log(n).logId,type:1,text}}});
+ const make=()=>{const core=createCore({send:async(r,t)=>sent.push(t)});const mod=createChatHide({dir,onPersist:k=>persist.push(k),canManage:()=>true,botId:()=> '10',fetchMessage:async(r,l)=>{assert.equal(r,'1');assert.equal(l,log(2).logId);return event(2,'40','private text').msg;},loadHistory:async()=>{throw Error('unavailable')},hide:async(r,m)=>{hidden.push(m.message.logId);return {status:0}}});mod.register(core);return {core,mod};};
+ try{
+  const a=make();
+  for(const [n,u] of [[1,'40'],[2,'40'],[3,'10']]){const e=event(n,u,'private text');await a.mod.observe(e.msg,e);}
+  const data=JSON.parse(fs.readFileSync(path.join(dir,'hide-index','1.json'),'utf8'));
+  assert.deepEqual(data.map(x=>x.log),[log(1).logId,log(2).logId]);
+  assert(!JSON.stringify(data).includes('private text'));assert(persist.includes('hide-index/1.json'));
+  const b=make();await b.core.handle(event(4,'10','-가리기 1'));
+  assert.deepEqual(hidden,[log(2).logId]);assert.match(sent.at(-1),/가리기 : 1개/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
