@@ -428,6 +428,19 @@ function createVox30Adapter({
           localReleased:false,serverStopUnavailable:false};
       }finally {running=false;}
     },
+    // Local-only, room-scoped release. Never sends an unverified hangup.
+    async disconnect({roomId}={}) {
+      const id=checkedId(roomId);
+      const current=active;
+      if(!current||current.chatId!==id)
+        return {roomId:id,localReleased:false,noLocalSession:true,serverEnded:false};
+      if(running)throw Error('다른 VOX 요청을 처리 중입니다.');
+      running=true;
+      try{
+        await release(current);
+        return {roomId:id,localReleased:true,serverEnded:false};
+      }finally{running=false;}
+    },
     // Experiment ONLY: the server's 11009 notification is not a documented
     // client request; a guessed minimal BSON envelope may be ignored/rejected.
     // Force-disconnect releases only THIS ROOM's VOX TLS/WebRTC, not KakaoForge.
