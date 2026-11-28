@@ -40,3 +40,23 @@ test('manual hide skips own bot and configured bot messages before counting five
  assert.match(sent[0],/가리기 : 5개/);
  assert.deepEqual(hidden,[9,8,6,4,2].map(n=>log(n).logId));
 });
+
+test('live user chats take priority over failing history and skip bot messages',async()=>{
+ const sent=[],hidden=[],core=createCore({send:async(r,t)=>sent.push(t)});
+ let attempts=0,now=1000;
+ const mod=createChatHide({canManage:()=>true,botId:()=> '10',otherBotIds:['20'],now:()=>now,loadHistory:async()=>{attempts++;throw Error('history unavailable')},hide:async(r,m)=>{hidden.push(m.message.logId);return {status:0};}});
+ mod.register(core);
+ const event=(n,user,text)=>({roomId:'1',userId:user,text,msg:{room:{id:'1',isOpenChat:true},sender:{id:user,type:2},message:{logId:log(n).logId,type:1,text}}});
+ for(const [n,user] of [[1,'40'],[2,'40'],[3,'10'],[4,'20']]){
+  const e=event(n,user,'message');await mod.observe(e.msg,e);
+ }
+ now+=700000;
+ const e=event(5,'10','-가리기 1');await mod.observe(e.msg,e);await core.handle(e);
+ assert.equal(attempts,0);
+ assert.deepEqual(hidden,[log(2).logId]);
+ assert.match(sent[0],/가리기 : 1개/);
+ mod.reset();
+ await core.handle(event(6,'10','-가리기 1'));
+ assert.equal(attempts,1);
+ assert.match(sent.at(-1),/채팅 기록을 불러오지 못했습니다/);
+});
