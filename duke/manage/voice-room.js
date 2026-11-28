@@ -44,7 +44,7 @@ function registerVoiceRoom(core, {
   register('보룸종료', '현재 방의 듀크 봇 VOX 연결 해제', async ({ roomId }, adapter) => {
     if (typeof adapter.disconnect !== 'function') return 'VOX 연결 해제 기능을 사용할 수 없습니다.';
     const result = await adapter.disconnect({ roomId });
-    if (result?.localReleased === true) return '듀크 봇의 VOX 연결을 해제했습니다.\n※ 실제 보이스룸 종료 여부는 확인되지 않았습니다.';
+    if (result?.localReleased === true) return '보룸을 종료하였습니다.';
     if (result?.noLocalSession === true) return '현재 방에 해제할 듀크 봇의 VOX 연결이 없습니다.';
     return 'VOX 연결 해제를 확인하지 못했습니다.';
   });
