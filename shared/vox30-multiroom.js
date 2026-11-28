@@ -85,6 +85,25 @@ function createMultiRoomAdapter({createAdapter,maxRooms=1,joinTrialEnabled=false
         }
       }finally{negotiating=false;}
     },
+    async disconnect(request={}){
+      ensureOpen();
+      const id=checkedId(request.roomId),item=sessions.get(id);
+      if(!item||item.phase!=='live')
+        return {roomId:id,localReleased:false,noLocalSession:true,serverEnded:false};
+      if(typeof item.adapter.disconnect!=='function')
+        return {roomId:id,localReleased:false,serverEnded:false};
+      item.phase='releasing';
+      try{
+        const result=await item.adapter.disconnect({...request,roomId:id});
+        if(result?.localReleased===true||result?.noLocalSession===true){
+          if(sessions.get(id)===item)sessions.delete(id);
+          await item.adapter.dispose?.();
+        }
+        return result;
+      }finally{
+        if(sessions.get(id)===item)item.phase='live';
+      }
+    },
     async experimentalStop(request={}){
       ensureOpen();
       const id=checkedId(request.roomId);
