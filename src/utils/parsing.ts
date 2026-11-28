@@ -1,4 +1,5 @@
 import { toLong, safeNumber, isBlankText, truncateChatLogMessage, stringifyLossless, normalizeIdValue } from './helpers';
+import * as LosslessJSON from 'lossless-json';
 import type { CarriageClient } from '../net/carriage-client';
 
 export function parseAttachments(raw: any): any[] {
@@ -49,7 +50,14 @@ export function buildSpamChatLogInfo(raw: any): string | null {
   if (!chatLog || typeof chatLog !== 'object') return null;
 
   const attachmentRaw = chatLog.attachment ?? chatLog.attachments ?? chatLog.extra ?? null;
-  const attachmentJson = parseAttachmentJson(attachmentRaw);
+  // BLIND embeds attachment data as JSON; ordinary JSON.parse rounds 64-bit IDs.
+  let attachmentJson: any;
+  if (typeof attachmentRaw === 'string') {
+    try { attachmentJson = LosslessJSON.parse(attachmentRaw); }
+    catch { attachmentJson = null; }
+  } else {
+    attachmentJson = parseAttachmentJson(attachmentRaw);
+  }
   let message = chatLog.message ?? chatLog.msg ?? chatLog.text ?? '';
   if (isBlankText(message) && typeof attachmentRaw === 'string' && attachmentJson === null) {
     message = attachmentRaw;
@@ -83,14 +91,20 @@ export function buildSpamChatLogInfo(raw: any): string | null {
 
   if (Object.keys(messageBody).length === 0) return null;
 
+  const authorId = normalizeIdValue(chatLog.authorId ?? chatLog.userId ?? chatLog.senderId ?? 0);
+  const logId = normalizeIdValue(chatLog.logId ?? chatLog.msgId ?? chatLog.id ?? 0);
+  const validId = (value: any) => /^[1-9]\d*$/.test(String(value)) &&
+    (typeof value !== 'number' || Number.isSafeInteger(value));
+  if (!validId(authorId) || !validId(logId)) return null;
+
   const info = {
-    u: toLong(chatLog.authorId ?? chatLog.userId ?? chatLog.senderId ?? 0),
+    u: toLong(authorId),
     m: messageBody,
     s: toLong(chatLog.sendAt ?? chatLog.createdAt ?? chatLog.s ?? 0),
     t: safeNumber(chatLog.type ?? chatLog.msgType ?? 1, 1),
-    l: toLong(chatLog.logId ?? chatLog.msgId ?? chatLog.id ?? 0),
+    l: toLong(logId),
     scope: typeof chatLog.scope === 'number' ? chatLog.scope : safeNumber(chatLog.scope ?? 1, 1),
-    threadId: toLong(chatLog.threadId ?? chatLog.tid ?? chatLog.thread ?? 0),
+    threadId: toLong(normalizeIdValue(chatLog.threadId ?? chatLog.tid ?? chatLog.thread ?? 0)),
   };
 
   return stringifyLossless([info].reverse());
