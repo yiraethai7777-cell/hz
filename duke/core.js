@@ -16,12 +16,12 @@ function formatRecognition(receivedAt,recognizedAt){
 }
 function createCore({send,logger=console,allowedRooms=null,canHandle=()=>true,canExecute=()=>true,now=Date.now,clock=()=>performance.now(),metrics=createMetrics(),counter=createCounter({now}),getStatus=()=>({}),website='제작 예정'}={}){
  if(typeof send!=='function')throw new TypeError('send required');const commands=new Map(),started=now();let lastAck=null,helpCache=null,lastHelpTiming=-Infinity;
- function register({name,section='SYSTEM',description='',hidden=false,execute}){if(!/^[\p{L}\p{N}]+$/u.test(name)||typeof execute!=='function'||commands.has(name))throw Error('Invalid or duplicate command');commands.set(name,{name,section,description,hidden,execute});helpCache=null;}
+ function register({name,section='SYSTEM',description='',hidden=false,developing=false,execute}){if(!/^[\p{L}\p{N}]+$/u.test(name)||typeof execute!=='function'||commands.has(name))throw Error('Invalid or duplicate command');commands.set(name,{name,section,description,hidden,developing,execute});helpCache=null;}
  register({name:'도움말',description:'전체 명령어 안내',execute:()=>{
   if(helpCache!==null)return helpCache;
-  const all=[...commands.values()].filter(command=>!command.hidden),groups=[['SYSTEM','기본 명령어'],['GAME','게임명령어'],['MANAGEMENT','관리명령어'],['OWNER','관리자명령어'],['BOT','봇계정명령어']];
+  const all=[...commands.values()].filter(command=>!command.hidden),groups=[['SYSTEM','기본 명령어'],['GAME','게임명령어'],['MANAGEMENT','관리명령어'],['OWNER','관리자명령어'],['BOT','봇계정명령어'],['DEVELOPMENT','개발중 명령어']];
   const detail=groups.map(([section,label])=>{
-   const lines=all.filter(v=>section==='SYSTEM'?!['BOT','GAME','MANAGEMENT','OWNER'].includes(v.section):v.section===section).map(v=>PREFIX+v.name+' : '+v.description);
+   const lines=all.filter(v=>section==='DEVELOPMENT'?v.developing:!v.developing&&(section==='SYSTEM'?!['BOT','GAME','MANAGEMENT','OWNER'].includes(v.section):v.section===section)).map(v=>PREFIX+v.name+' : '+v.description);
    if(section==='MANAGEMENT'){
     if(commands.has('벤'))lines.push('u : 벤 알림에 답장하여 벤 해제');
     if(commands.has('내풀'))lines.push('k : 퇴장 알림에 답장하여 강퇴');
