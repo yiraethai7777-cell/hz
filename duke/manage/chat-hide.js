@@ -1,12 +1,26 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{format}=require('../core');
 const id=v=>typeof v==='number'&&!Number.isSafeInteger(v)?'':/^[1-9]\d*$/.test(String(v??''))?String(v):'';
-const {directMessageReference}=require('./targets');
+const {directMessageReference,mentions}=require('./targets');
 const MAX=50,ROOM_CAP=100;
 const hasLink=text=>typeof text==='string'&&/(?:https?:\/\/[^\s<>]+|\bwww\.[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/[^\s<>]*)?|(?:^|[\s(])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|kr|io|gg|co|me|app|dev|xyz|info|biz|tv|th|site|link)(?=$|[\s/:?#),.!]))/iu.test(text);
 function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>true,canManage=()=>false,botId=()=>'',otherBotIds=[],listAdmins=()=>[],getRole,hide,loadHistory,fetchMessage,audit,logger=console,now=Date.now}={}){
  const file=dir?path.join(dir,'link-filter-settings.json'):null,enabled=new Set(),recent=new Map(),pending=new Set();
  if(file){fs.mkdirSync(dir,{recursive:true,mode:0o700});try{const data=JSON.parse(fs.readFileSync(file,'utf8'));if(!Array.isArray(data))throw Error('invalid link filter settings');for(const r of data)if(id(r))enabled.add(r);}catch(e){if(e.code!=='ENOENT')throw e;}}
+ const permitFile=dir?path.join(dir,'link-filter-exemptions.json'):null,exemptions=new Map();
+ if(permitFile)try{
+  const data=JSON.parse(fs.readFileSync(permitFile,'utf8'));
+  if(!data||typeof data!=='object'||Array.isArray(data))throw Error('invalid link exemptions');
+  for(const [r,users] of Object.entries(data)){if(!id(r)||!Array.isArray(users)||users.some(u=>!id(u)))throw Error('invalid link exemptions');exemptions.set(r,new Set(users.map(id)));}
+ }catch(e){if(e.code!=='ENOENT')throw e;}
+ const exempt=(r,u)=>exemptions.get(r)?.has(u)===true;
+ function setExempt(r,u,on){
+  const next=new Map(exemptions),users=new Set(next.get(r)||[]);
+  if(on)users.add(u);else users.delete(u);
+  if(users.size)next.set(r,users);else next.delete(r);
+  if(permitFile){const tmp=permitFile+'.tmp';fs.writeFileSync(tmp,JSON.stringify(Object.fromEntries([...next].map(([room,ids])=>[room,[...ids]]))),{mode:0o600});fs.renameSync(tmp,permitFile);onPersist('link-filter-exemptions.json');}
+  exemptions.clear();for(const [room,ids] of next)exemptions.set(room,ids);
+ }
  // Bound concurrent moderation operations across rooms and commands.
  const HIDE_CONCURRENCY=2,MAX_WAITING=50,waiting=[];
  let running=0,generation=0;
@@ -58,11 +72,11 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
   const entry=remember(r,msg,e);
   if(!entry||!enabled.has(r)||!hasLink(e.text))return false;
   const {item}=entry,bot=id(botId());
-  if(!bot||item.user===bot||listAdmins(r).includes(item.user)||[1,4].includes(Number(msg.sender?.type)))return false;
+  if(!bot||item.user===bot||exempt(r,item.user)||listAdmins(r).includes(item.user)||[1,4].includes(Number(msg.sender?.type)))return false;
   // A current membership lookup is required. Unknown roles are never hidden.
   let role;try{role=await getRole(r,item.user);}catch{return false;}
-  if(role!==2||!permitted(r)||!enabled.has(r)||item.user===id(botId())||listAdmins(r).includes(item.user))return false;
-  if(await apply(r,item,()=>enabled.has(r)&&!excluded().has(item.user)&&!listAdmins(r).includes(item.user))){record(r,{userId:bot,msg:{sender:{name:'듀크봇'}}},'-홍금','링크 가리기',item);return true;}
+  if(role!==2||!permitted(r)||!enabled.has(r)||item.user===id(botId())||exempt(r,item.user)||listAdmins(r).includes(item.user))return false;
+  if(await apply(r,item,()=>enabled.has(r)&&!excluded().has(item.user)&&!exempt(r,item.user)&&!listAdmins(r).includes(item.user))){record(r,{userId:bot,msg:{sender:{name:'듀크봇'}}},'-홍금','링크 가리기',item);return true;}
   return false;
  }
  async function hideReply(r,e,anchor){
@@ -85,7 +99,32 @@ function createChatHide({dir,onPersist=()=>{},allowedRooms=null,isEnabled=()=>tr
   record(r,e,'-가리기 (답장)',result,item);
   return format('ADMIN',result);
  }
+ async function exemptionTarget(r,e){
+  const tags=mentions(e.msg),ref=directMessageReference(e.msg);
+  if(tags.length===1&&!ref)return tags[0].id;
+  if(tags.length||e.args.length>1)return '';
+  if(e.args.length===1)return ref?'':id(e.args[0]);
+  const l=id(ref?.logId),author=id(ref?.userId),anchor=id(e.msg?.message?.logId??e.msg?.logId);
+  if(!l||!anchor||BigInt(l)>=BigInt(anchor))return '';
+  const known=rows(r).find(x=>x.log===l);
+  if(known)return author&&known.user!==author?'':known.user;
+  if(typeof fetchMessage!=='function')return '';
+  let m;try{m=await fetchMessage(r,l);}catch{return '';}
+  const u=id(m?.sender?.id??m?.senderId);
+  return id(m?.room?.id)===r&&m?.room?.isOpenChat===true&&id(m?.message?.logId??m?.logId)===l&&u&&(!author||author===u)?u:'';
+ }
  function register(core){
+  for(const [name,on] of [['홍보가능',true],['홍보불가',false]])core.register({name,section:'MANAGEMENT',description:'링크 자동 가리기 예외 '+(on?'등록':'해제')+' (멘션 / 아이디 / 답장)',execute:async e=>{
+   const r=id(e.roomId);
+   if(!permitted(r)||!canManage(e))return format('ADMIN','관리 권한이 없습니다.');
+   const u=await exemptionTarget(r,e);
+   if(!u)return format('ADMIN','사용법 : -'+name+' (멘션 / 아이디 / 답장)');
+   if(!permitted(r)||!canManage(e))return format('ADMIN','관리 권한이 없습니다.');
+   setExempt(r,u,on);
+   const result=on?'홍보 허용 완료':'홍보 허용 해제';
+   record(r,e,'-'+name,result,{user:u});
+   return format('ADMIN',result+'\\n아이디 : '+u);
+  }});
   core.register({name:'가리기',section:'MANAGEMENT',description:'이전 채팅 가리기 (개수, 봇 제외) / 원본 메시지 가리기 (답장)',execute:async e=>{
    const r=id(e.roomId),anchor=id(e.msg?.message?.logId??e.msg?.logId);
    if(!permitted(r)||!canManage(e))return format('ADMIN','관리 권한이 없습니다.');
