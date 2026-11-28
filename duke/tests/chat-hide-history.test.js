@@ -28,3 +28,15 @@ test('manual hide uses old server history after restart with no local cache',asy
  assert.match(sent[0],/가리기 : 3개/);
  assert.deepEqual(hidden,[log(3).logId,log(2).logId,log(1).logId]);
 });
+
+test('manual hide skips own bot and configured bot messages before counting five user messages',async()=>{
+ const bot=(n,authorId)=>({...log(n),authorId});
+ const {client}=mock([[log(1),log(2),bot(3,'10'),log(4),bot(5,'20'),log(6),bot(7,'10'),log(8),log(9),bot(10,'10')]]);
+ client.userId='10';
+ const sent=[],hidden=[],core=createCore({send:async(r,t)=>sent.push(t)});
+ const mod=createChatHide({canManage:()=>true,botId:()=>client.userId,otherBotIds:['20'],loadHistory:(r,a,n,options)=>previousChats(client,r,a,n,options),hide:async(r,m)=>{hidden.push(m.message.logId);return {status:0};}});
+ mod.register(core);
+ await core.handle({roomId:'1',userId:'10',text:'-가리기 5',msg:{room:{id:'1',isOpenChat:true},sender:{id:'10',type:1},message:{logId:log(10).logId,type:1}}});
+ assert.match(sent[0],/가리기 : 5개/);
+ assert.deepEqual(hidden,[9,8,6,4,2].map(n=>log(n).logId));
+});
