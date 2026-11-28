@@ -1,4 +1,5 @@
 import { Long } from 'bson';
+import * as LosslessJSON from 'lossless-json';
 import {
   type ReactionTypeValue,
   type ReactionOptions,
@@ -246,7 +247,31 @@ async function openChatBlind(
     throw new Error('open chat blind requires chatLogInfo');
   }
 
-  return await this._carriage.blind({
+  // Log only protocol shape, never message contents, IDs, credentials or attachments.
+  let entry: any;
+  try {
+    const parsed: any = LosslessJSON.parse(chatLogInfo);
+    entry = Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : undefined;
+  } catch { /* allow SDK caller-supplied data; report its shape only */ }
+  const positive = (v: any) => /^[1-9]\d*$/.test(String(v ?? ''));
+  const shape = {
+    roomLinkMatchesCache: roomInfo?.openLinkId ? String(normalizeIdValue(roomInfo.openLinkId)) === String(linkIdValue) : null,
+    authorMatches: entry ? String(entry.u) === String(memberIdValue) : null,
+    logMatches: entry && logIdValue ? String(entry.l) === String(logIdValue) : null,
+    sendAtPresent: positive(entry?.s),
+    messageType: Number.isSafeInteger(Number(entry?.t)) ? Number(entry.t) : null,
+    hasMessage: typeof entry?.m?.message === 'string',
+    hasAttachment: entry?.m?.attachment != null,
+    scope: Number.isSafeInteger(Number(entry?.scope)) ? Number(entry.scope) : null,
+    hasThread: positive(entry?.threadId),
+    report: !!opts.report,
+  };
+  if (shape.authorMatches === false || shape.logMatches === false) {
+    throw new Error('open chat blind target identifiers disagree');
+  }
+  console.info('[KAKAO BLIND REQUEST]', JSON.stringify(shape));
+  const startedAt = Date.now();
+  const result = await this._carriage.blind({
     linkId: linkIdValue,
     chatId: resolvedChatId,
     memberId: memberIdValue,
@@ -254,6 +279,14 @@ async function openChatBlind(
     chatLogInfo,
     category: opts.category,
   });
+  const body = result?.body;
+  console.info('[KAKAO BLIND RESPONSE]', JSON.stringify({
+    status: result?.status == null ? null : Number(result.status),
+    bodyStatus: body?.status == null ? null : Number(body.status),
+    bodyKeys: ['status','success','ok','hidden','logId','targetLogId','chatLog','chatLogInfos','message','error','code'].filter(k => body && Object.prototype.hasOwnProperty.call(body,k)),
+    elapsedMs: Date.now() - startedAt,
+  }));
+  return result;
 }
 
 /**
