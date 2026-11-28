@@ -20,7 +20,7 @@ test('missing metadata or user JSON cannot prove hiding',()=>{
 });
 test('successful ACK without push uses readback but unknown is not success',async()=>{
  for(const state of ['hidden','visible','unknown','missing']){
-  const c=createHideConfirmation({request:async()=>({status:0}),timeoutMs:5,readback:async(r,l,u)=>{assert.deepEqual([r,l,u],[room,log,author]);return {state};}});
+  const c=createHideConfirmation({request:async()=>({status:0}),timeoutMs:5,readback:async(r,l,u,t)=>{assert.deepEqual([r,l,u,t],[room,log,author,1]);return {state};}});
   assert.deepEqual(await c.hide(room,msg),{status:0,verified:state==='hidden'});
  }
 });
@@ -34,5 +34,21 @@ test('manual hide metadata sampled once and no unrelated target queried',async()
  c.observePush({method:'SYNCMODMSG',body:{chatId:room,chatLog:{message:'{"hidden":true,"logId":'+log+'}'}}});
  c.observePush({method:'SYNCMODMSG',body:{chatId:room,chatLog:{message:'{"hidden":true,"logId":999}'}}});
  await new Promise(resolve=>setImmediate(resolve));
- assert.deepEqual(calls,[[room,log,undefined]]);
+ assert.deepEqual(calls,[[room,log,undefined,undefined]]);
+});
+
+test('live REWRITE hidden type offset requires matching original type, author and room',()=>{
+ assert.equal(inspectHideReadback(response({type:16385}),room,log,author,1).state,'hidden');
+ assert.equal(inspectHideReadback(response({type:16386}),room,log,author,2).state,'hidden');
+ assert.equal(inspectHideReadback(response({type:16385}),room,log,author,2).state,'unknown');
+ assert.equal(inspectHideReadback(response({type:16385}),room,log,author).state,'unknown');
+ assert.equal(inspectHideReadback(response({type:16385,authorId:undefined}),room,log,author,1).state,'unknown');
+ assert.equal(inspectHideReadback(response({type:16385,chatId:'999'}),room,log,author,1).state,'mismatch');
+ assert.equal(inspectHideReadback(response({type:16385,hidden:false}),room,log,author,1).state,'ambiguous');
+});
+test('REWRITE readback confirms immediately without waiting for a push',async()=>{
+ let reads=0;
+ const c=createHideConfirmation({request:async()=>({status:0,body:{status:0}}),timeoutMs:8000,readback:async(r,l,u,t)=>{reads++;return inspectHideReadback(response({type:16385}),r,l,u,t);}});
+ assert.deepEqual(await c.hide(room,msg),{status:0,verified:true});
+ assert.equal(reads,1);
 });
