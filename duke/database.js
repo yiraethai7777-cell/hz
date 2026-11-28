@@ -12,8 +12,8 @@ const FIXED={
  'game-cooldowns.json':'duke_game_cooldowns',
  'link-filter-settings.json':'duke_link_filter_settings'
 };
-const TABLES=[...Object.values(FIXED),'duke_management_logs','duke_warnings','duke_activity','duke_game_accounts','duke_valorant_accounts','duke_quiz_history','duke_attendance','duke_profile_history'];
-function tableFor(key){return Object.hasOwn(FIXED,key)?FIXED[key]:/^management-logs\/[1-9]\d*\.json$/.test(key)?'duke_management_logs':/^warnings\/[1-9]\d*\.json$/.test(key)?'duke_warnings':/^activity\/[1-9]\d*\.json$/.test(key)?'duke_activity':/^game-accounts\/[1-9]\d*\.json$/.test(key)?'duke_game_accounts':/^valorant-accounts\/[1-9]\d*\.json$/.test(key)?'duke_valorant_accounts':/^quiz-history\/[1-9]\d*\.json$/.test(key)?'duke_quiz_history':/^attendance\/[1-9]\d*-\d{4}-(?:0[1-9]|1[0-2])\.json$/.test(key)?'duke_attendance':/^profile-history\/[1-9]\d*-[1-9]\d*\.json$/.test(key)?'duke_profile_history':null;}
+const TABLES=[...Object.values(FIXED),'duke_management_logs','duke_warnings','duke_activity','duke_game_accounts','duke_valorant_accounts','duke_quiz_history','duke_attendance','duke_profile_history','duke_hide_index'];
+function tableFor(key){return Object.hasOwn(FIXED,key)?FIXED[key]:/^hide-index\/[1-9]\d*\.json$/.test(key)?'duke_hide_index':/^management-logs\/[1-9]\d*\.json$/.test(key)?'duke_management_logs':/^warnings\/[1-9]\d*\.json$/.test(key)?'duke_warnings':/^activity\/[1-9]\d*\.json$/.test(key)?'duke_activity':/^game-accounts\/[1-9]\d*\.json$/.test(key)?'duke_game_accounts':/^valorant-accounts\/[1-9]\d*\.json$/.test(key)?'duke_valorant_accounts':/^quiz-history\/[1-9]\d*\.json$/.test(key)?'duke_quiz_history':/^attendance\/[1-9]\d*-\d{4}-(?:0[1-9]|1[0-2])\.json$/.test(key)?'duke_attendance':/^profile-history\/[1-9]\d*-[1-9]\d*\.json$/.test(key)?'duke_profile_history':null;}
 function createDatabase({dir,pool,logger=console,expectedDatabase='duke',intervalMs=1000}={}){
  if(!dir||!pool)throw Error('database configuration required');
  const dirty=new Map();let seq=0,connected=false,dbMs=null,lastHealth=0,timer=null,inFlight=null;
@@ -21,7 +21,7 @@ function createDatabase({dir,pool,logger=console,expectedDatabase='duke',interva
  function status(){return {database:connected?(dirty.size?'연결됨 (저장 대기 '+dirty.size+'건)':'정상'):'연결 끊김 (로컬 저장 유지)',dbMs:connected?dbMs:null};}
  function localKeys(){
   const keys=Object.keys(FIXED).filter(k=>fs.existsSync(path.join(dir,k)));
-  for(const folder of ['management-logs','warnings','activity','game-accounts','valorant-accounts','quiz-history','attendance','profile-history'])try{for(const name of fs.readdirSync(path.join(dir,folder)))if(tableFor(folder+'/'+name))keys.push(folder+'/'+name);}catch(e){if(e.code!=='ENOENT')throw e;}
+  for(const folder of ['hide-index','management-logs','warnings','activity','game-accounts','valorant-accounts','quiz-history','attendance','profile-history'])try{for(const name of fs.readdirSync(path.join(dir,folder)))if(tableFor(folder+'/'+name))keys.push(folder+'/'+name);}catch(e){if(e.code!=='ENOENT')throw e;}
   return keys;
  }
  function restore(key,payload){if(!tableFor(key))return;const file=path.join(dir,key);if(fs.existsSync(file))return;fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});const tmp=file+'.restore';fs.writeFileSync(tmp,JSON.stringify(payload),{mode:0o600});fs.renameSync(tmp,file);}
