@@ -14,10 +14,12 @@ function roots(msg){
   return Array.isArray(v)?v:v&&typeof v==='object'?[v]:[];
  });
 }
-function reference(msg){
+function threadReference(msg){
  const raw=msg?.raw?.chatLog??msg?.raw?.chatlog??msg?.raw?.chat??msg?.raw;
  const thread=exact(raw?.threadId??raw?.tid??raw?.thread??msg?.raw?.threadId??msg?.message?.threadId??msg?.threadId);
- if(thread)return {logId:thread};
+ return thread?{logId:thread}:null;
+}
+function quotedReference(msg){
  if(Number(msg?.message?.type??msg?.type)!==26)return null;
  for(const v of roots(msg)){
   const source=v.reply??v.quote??v.replyTo??v;
@@ -27,6 +29,8 @@ function reference(msg){
  }
  return null;
 }
+function reference(msg){return threadReference(msg)||quotedReference(msg);}
+function directMessageReference(msg){return quotedReference(msg)||threadReference(msg);}
 function mentions(msg){
  const lists=[msg?.mentions,msg?.message?.mentions,msg?.message?.mentionList,...roots(msg).map(v=>v.mentions)];
  const found=new Map();
@@ -63,4 +67,4 @@ async function resolveTarget({msg,args,roomId,noticeTarget,fetchMessage,maxDepth
  }
  return null;
 }
-module.exports={resolveTarget,mentions,reference};
+module.exports={resolveTarget,mentions,reference,directMessageReference};
