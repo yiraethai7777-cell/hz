@@ -11,7 +11,7 @@ test('persistent counters',()=>{const fs=require('node:fs'),os=require('node:os'
 
 test('recognition uses monotonic receipt time, not server timestamp or network RTT',async()=>{let output;const core=createCore({clock:()=>142,send:async(r,body)=>{output=body}});for(const [receivedAt,expected] of [[100,'응답 : 42ms'],[141.875,'응답 : 0.125ms']]){assert.equal(await core.handle({...ev('-핑'),receivedAt}),true);assert.ok(output.includes(expected),output);assert.ok(!output.includes('~'));}assert.equal(normalize({receivedAt:55},100).receivedAt,55);});
 
-test('help, info and status use one legacy fold separator before all details; ping stays short',async()=>{const {core,messages}=setup();for(const c of ['-도움말','-봇정보','-봇상태','-핑'])await core.handle(ev(c));const separator='\u200b'.repeat(1200);const checks=[['등록 명령어 : 4개','-핑 : 봇 응답 확인'],['봇 이름 : 듀크봇','제작자 오픈프로필'],['서버 상태 : ONLINE','[ 서버 성능 ]']];for(let i=0;i<3;i++){const pieces=messages[i][1].split(separator);assert.equal(pieces.length,2);assert.ok(pieces[0].includes(checks[i][0]));assert.ok(!pieces[0].includes(checks[i][1]));assert.ok(pieces[1].includes(checks[i][1]));}assert.ok(!messages[3][1].includes(separator));});
+test('help, info and status use one legacy fold separator before all details; ping stays short',async()=>{const {core,messages}=setup();for(const c of ['-도움말','-봇정보','-봇상태','-핑'])await core.handle(ev(c));const separator='\u200b'.repeat(1200);const checks=[['등록 명령어 : 5개','-핑 : 봇 응답 확인'],['봇 이름 : 듀크봇','제작자 오픈프로필'],['서버 상태 : ONLINE','[ 서버 성능 ]']];for(let i=0;i<3;i++){const pieces=messages[i][1].split(separator);assert.equal(pieces.length,2);assert.ok(pieces[0].includes(checks[i][0]));assert.ok(!pieces[0].includes(checks[i][1]));assert.ok(pieces[1].includes(checks[i][1]));}assert.ok(!messages[3][1].includes(separator));});
 
 test('help separates bot-only, game and management commands',async()=>{const {core,messages}=setup();for(const [name,section] of [['봇끄기','BOT'],['코인지급','BOT'],['인벤','GAME'],['벤','MANAGEMENT'],['삭제감지','OWNER']])core.register({name,section,execute:()=>''});await core.handle(ev('-도움말'));const detail=messages[0][1].split('\u200b'.repeat(1200))[1];assert.match(detail,/\[ 기본 명령어 \][\s\S]*\[ 게임명령어 \][\s\S]*-인벤[\s\S]*\[ 관리명령어 \][\s\S]*-벤[\s\S]*\[ 관리자명령어 \][\s\S]*-삭제감지[\s\S]*\[ 봇계정명령어 \][\s\S]*-봇끄기[\s\S]*-코인지급/);});
 
@@ -39,3 +39,5 @@ test('help lists developing commands separately without changing their original 
  assert.equal(seen.at(-1),'MANAGEMENT');
  assert.match(sent.at(-1),/관리 권한이 없습니다/);
 });
+
+test('support room command returns exact link and appears in help',async()=>{const {core,messages}=setup();assert.equal(await core.handle(ev('-문의방')),true);assert.deepEqual(messages[0],['1','https://open.kakao.com/o/gfaV8HYi']);await core.handle(ev('-도움말'));assert.match(messages[1][1],/-문의방 : 공식 문의방 링크 확인/);});
