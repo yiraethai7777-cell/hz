@@ -23,6 +23,7 @@ const {createAttendance}=require('./utility/attendance');
 const {createGameCooldowns}=require('./game/cooldowns');
 const {registerValorant}=require('./valorant/register');
 const {createChatHide}=require('./manage/chat-hide');
+const {previousChats}=require('./manage/chat-hide-history');
 const {createBotPower}=require('./manage/bot-power');
 const {createRoomModes}=require('./manage/room-modes');
 const {registerVoiceRoom}=require('./manage/voice-room');
@@ -48,7 +49,7 @@ async function startKakao({authPath,dataDir,website,roomList,database}){
  function recordBotSend(roomId,result){try{const room=client._buildRoomPayload(roomId);activity.sent(room,result,client.getUserProfileSnapshot(roomId,client.userId)?.name||'듀크봇');}catch(err){console.error('[DUKE] bot chat count failed',err?.name||'Error');}}
  process.once('exit',()=>activity.close());
  const moderation=createReplyModeration({dir:dataDir,audit,onPersist,isEnabled:r=>modes.manage(r),onAction:activity.moderation,allowedRooms:rooms,botId:()=>id(client.userId),send,kick:(r,u)=>client.openChatKick(r,u),unban:(r,u)=>client.openChatUnkick(r,u),fetchMessage:(r,l)=>client.fetchMessage(r,l),getName:(r,u)=>client.getUserProfileSnapshot(r,u)?.name||''});
- const chatHide=createChatHide({dir:dataDir,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,canManage:moderation.canManage,botId:()=>id(client.userId),listAdmins:moderation.listAdmins,audit,hide:(r,msg)=>client.openChatBlind(r,msg,{report:false}),getRole:async(r,u)=>{
+ const chatHide=createChatHide({dir:dataDir,onPersist,allowedRooms:rooms,isEnabled:manageEnabled,canManage:moderation.canManage,botId:()=>id(client.userId),listAdmins:moderation.listAdmins,audit,hide:(r,msg)=>client.openChatBlind(r,msg,{report:false}),loadHistory:(r,anchor,n)=>previousChats(client,r,anchor,n),getRole:async(r,u)=>{
   const res=await client._carriage?.member(r,[u]);if(res?.status!==0||res.body?.status!=null&&Number(res.body.status)!==0)return null;
   const list=res.body?.members??res.body?.memberList??res.body?.memList;if(!Array.isArray(list))return null;
   const member=list.find(m=>id(m.userId??m.id??m.memberId??m.user_id)===u);if(!member)return null;
