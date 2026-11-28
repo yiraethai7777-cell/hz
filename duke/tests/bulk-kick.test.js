@@ -33,5 +33,5 @@ test('hidden bot command is excluded from the help text and public count',async(
  core.register({name:'일괄강퇴',section:'BOT',hidden:true,description:'비공개',execute:()=> '실행됨'});
  await core.handle({roomId:'2000',userId:'1001',text:'-도움말'});
  assert.doesNotMatch(sent[0],/일괄강퇴|비공개/);
- assert.match(sent[0],/등록 명령어 : 4개/);
+ assert.match(sent[0],/등록 명령어 : 5개/);
 });
