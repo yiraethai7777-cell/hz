@@ -8,9 +8,10 @@ async function previousChats(client,roomId,anchorId,count){
  if(!room||!anchor||!Number.isInteger(count)||count<1||count>50)throw Error('invalid history request');
  if(!client?._carriage?.syncMsg)throw Error('history unavailable');
  let cur='0';
+ const max=BigInt(anchor)<9223372036854775807n?(BigInt(anchor)+1n).toString():anchor;
  const selected=new Map();
  for(let page=0;page<30;page++){
-  const res=await client._carriage.syncMsg({chatId:room,cur,max:anchor,cnt:100});
+  const res=await client._carriage.syncMsg({chatId:room,cur,max,cnt:100});
   if(!res||Number(res.status)!==0||res.body?.status!=null&&Number(res.body.status)!==0)throw Error('history request failed');
   const logs=res.body?.chatLogs;
   if(!Array.isArray(logs)||!logs.length)break;
