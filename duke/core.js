@@ -16,10 +16,10 @@ function formatRecognition(receivedAt,recognizedAt){
 }
 function createCore({send,logger=console,allowedRooms=null,canHandle=()=>true,canExecute=()=>true,now=Date.now,clock=()=>performance.now(),metrics=createMetrics(),counter=createCounter({now}),getStatus=()=>({}),website='제작 예정'}={}){
  if(typeof send!=='function')throw new TypeError('send required');const commands=new Map(),started=now();let lastAck=null,helpCache=null,lastHelpTiming=-Infinity;
- function register({name,section='SYSTEM',description='',execute}){if(!/^[\p{L}\p{N}]+$/u.test(name)||typeof execute!=='function'||commands.has(name))throw Error('Invalid or duplicate command');commands.set(name,{name,section,description,execute});helpCache=null;}
+ function register({name,section='SYSTEM',description='',hidden=false,execute}){if(!/^[\p{L}\p{N}]+$/u.test(name)||typeof execute!=='function'||commands.has(name))throw Error('Invalid or duplicate command');commands.set(name,{name,section,description,hidden,execute});helpCache=null;}
  register({name:'도움말',description:'전체 명령어 안내',execute:()=>{
   if(helpCache!==null)return helpCache;
-  const all=[...commands.values()],groups=[['SYSTEM','기본 명령어'],['GAME','게임명령어'],['MANAGEMENT','관리명령어'],['OWNER','관리자명령어'],['BOT','봇계정명령어']];
+  const all=[...commands.values()].filter(command=>!command.hidden),groups=[['SYSTEM','기본 명령어'],['GAME','게임명령어'],['MANAGEMENT','관리명령어'],['OWNER','관리자명령어'],['BOT','봇계정명령어']];
   const detail=groups.map(([section,label])=>{
    const lines=all.filter(v=>section==='SYSTEM'?!['BOT','GAME','MANAGEMENT','OWNER'].includes(v.section):v.section===section).map(v=>PREFIX+v.name+' : '+v.description);
    if(section==='MANAGEMENT'){
@@ -29,7 +29,7 @@ function createCore({send,logger=console,allowedRooms=null,canHandle=()=>true,ca
    }
    return lines.length?LINE+'\n[ '+label+' ]\n\n'+lines.join('\n'):'';
   }).filter(Boolean).join('\n\n');
-  return helpCache=fold(format('COMMAND','명령어 안내\n등록 명령어 : '+commands.size+'개'),detail+'\n\n'+LINE+'\nDUKE SYSTEM v'+VERSION);
+  return helpCache=fold(format('COMMAND','명령어 안내\n등록 명령어 : '+all.length+'개'),detail+'\n\n'+LINE+'\nDUKE SYSTEM v'+VERSION);
  }});
  register({name:'핑',description:'봇 응답 확인',execute:({recognitionDelay})=>format('SYSTEM','상태 : ONLINE\n응답 : '+recognitionDelay+'\n'+LINE)});
  register({name:'봇정보',description:'봇 정보 확인',execute:()=>fold(format('INFORMATION','봇 이름 : 듀크봇 (DUKE)\n버전 : v'+VERSION),LINE+'\n접두사 : -\n개발 언어 : Node.js\n개발 상태 : 개발 중\n\n'+LINE+'\n[ 공식 링크 ]\n\n제작자 : 듀크\n제작자 오픈프로필 :\nhttps://open.kakao.com/o/sUBJvGYi\n\n공식 웹사이트 : '+website+'\n\n'+LINE+'\nDUKE © SYSTEM')});
