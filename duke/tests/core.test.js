@@ -17,3 +17,24 @@ test('help separates bot-only, game and management commands',async()=>{const {co
 
 test('help output cached and invalidated on registration, with timing excluding content',async()=>{const out=[],logs=[];const core=createCore({send:async(r,t)=>out.push(t),logger:{log:(...a)=>logs.push(a)},now:()=>1700000000000});await core.handle(ev('-도움말'));await core.handle(ev('-도움말'));assert.equal(out[0],out[1]);assert.equal(logs.length,1);assert.match(logs[0][1],/receiveToCoreMs/);assert.match(logs[0][1],/sendAckMs/);core.register({name:'추가',description:'새 명령어',execute:()=>''});await core.handle(ev('-도움말'));assert.match(out.at(-1),/-추가 : 새 명령어/);assert.notEqual(out[0],out.at(-1));});
 test('deferred counter batches writes, retains immediate in-memory counts, supports explicit flush',()=>{const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{createCounter}=require('../metrics');const dir=fs.mkdtempSync(path.join(os.tmpdir(),'duke-counter-'));try{const keys=[],c=createCounter({dir,deferMs:1000,onPersist:k=>keys.push(k)});c.record();c.record();assert.equal(c.get().total,2);assert.equal(fs.existsSync(path.join(dir,'command-counts.json')),false);c.flush();assert.deepEqual(keys,['command-counts.json']);assert.equal(createCounter({dir}).get().total,2);c.flush();assert.equal(keys.length,1);}finally{fs.rmSync(dir,{recursive:true,force:true});}});
+
+test('help lists developing commands separately without changing their original permissions',async()=>{
+ const sent=[],seen=[];
+ const core=createCore({send:async(r,t)=>sent.push(t),canExecute:(event,cmd)=>{seen.push(cmd.section);return true;}});
+ const {registerVoiceRoom}=require('../manage/voice-room');
+ registerVoiceRoom(core,{canManage:()=>false,getAdapter:()=>null});
+ core.register({name:'비공개',section:'BOT',hidden:true,developing:true,execute:()=>''});
+ core.register({name:'일반관리',section:'MANAGEMENT',execute:()=>''});
+ await core.handle(ev('-도움말'));
+ const detail=sent[0].split('[ 개발중 명령어 ]');
+ assert.equal(detail.length,2);
+ for(const name of ['보룸시작','보룸종료','보룸참가','진행자주기','진행자받기','스피커주기','스피커받기']){
+  assert(!detail[0].includes('-'+name));
+  assert(detail[1].includes('-'+name));
+ }
+ assert(detail[0].includes('-일반관리'));
+ assert(!sent[0].includes('비공개'));
+ await core.handle(ev('-보룸시작'));
+ assert.equal(seen.at(-1),'MANAGEMENT');
+ assert.match(sent.at(-1),/관리 권한이 없습니다/);
+});
