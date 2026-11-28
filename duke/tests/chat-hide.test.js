@@ -72,3 +72,37 @@ test('reply hide rejects mismatched room or log and never hides command itself',
  await run('3000');assert.match(sent.at(-1),/원본 메시지를 확인할 수 없습니다/);
  assert.equal(hidden.length,0);
 });
+
+test('batch hide uses at most two concurrent verified operations',async()=>{
+ const sent=[],started=[],core=createCore({send:async(r,t)=>sent.push(t)});
+ let running=0,peak=0;
+ const mod=createChatHide({canManage:()=>true,botId:()=> '10',hide:async(r,m)=>{
+  started.push(m.message.logId);running++;peak=Math.max(peak,running);
+  await new Promise(resolve=>setImmediate(resolve));running--;
+  return {status:0,verified:m.message.logId!=='102'};
+ }});
+ mod.register(core);
+ for(let i=100;i<105;i++){
+  const msg={room:{id:'1',isOpenChat:true},sender:{id:'40'},message:{logId:String(i),type:1}};
+  await mod.observe(msg,{roomId:'1',userId:'40',text:'chat'});
+ }
+ await core.handle({roomId:'1',userId:'10',text:'-가리기 5',msg:{room:{id:'1',isOpenChat:true},sender:{id:'10'},message:{logId:'105',type:1}}});
+ assert.equal(peak,2);
+ assert.deepEqual(started,['104','103','102','101','100']);
+ assert.match(sent.at(-1),/가리기 : 4개.*미확인 : 1개/);
+});
+test('queued batch stops dispatching if management is disabled',async()=>{
+ const sent=[],started=[],core=createCore({send:async(r,t)=>sent.push(t)});
+ let enabled=true;
+ const mod=createChatHide({isEnabled:()=>enabled,canManage:()=>true,botId:()=> '10',hide:async(r,m)=>{
+  started.push(m.message.logId);enabled=false;return {status:0,verified:true};
+ }});
+ mod.register(core);
+ for(let i=100;i<104;i++){
+  const msg={room:{id:'1',isOpenChat:true},sender:{id:'40'},message:{logId:String(i),type:1}};
+  await mod.observe(msg,{roomId:'1',userId:'40',text:'chat'});
+ }
+ await core.handle({roomId:'1',userId:'10',text:'-가리기 4',msg:{room:{id:'1',isOpenChat:true},sender:{id:'10'},message:{logId:'105',type:1}}});
+ assert.deepEqual(started,['103']);
+ assert.match(sent.at(-1),/가리기 : 1개.*미확인 : 3개/);
+});
